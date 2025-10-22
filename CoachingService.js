@@ -71,11 +71,12 @@ function getQAItems() {
     if (typeof pct !== 'number') {
       pct = parseFloat(pct) || 0;
     }
+    const normalizedPct = pct > 1 ? pct / 100 : pct;
 
     return {
       id: row[idIdx],
       date: dateStr,
-      percentage: pct,
+      percentage: normalizedPct,
       agentName: row[agIdx],
       agentEmail: emailIdx >= 0 ? row[emailIdx] : ''  // ← new
     };
@@ -117,9 +118,14 @@ function getDashboardCoaching(granularity, period, agentFilter) {
   // 3) Topics distribution
   const topicCounts = {};
   filtered.forEach(r => {
-    (r.TopicsCovered||'').split(',').forEach(t => {
-      t = t.trim(); if (!t) return;
-      topicCounts[t] = (topicCounts[t]||0)+1;
+    let coveredTopics = parseTopicsList_(r && r.CoveredTopics);
+    if (!coveredTopics.length && typeof r.TopicsCovered === 'string') {
+      coveredTopics = r.TopicsCovered.split(',')
+        .map(function (t) { return sanitizeAiText_(t); })
+        .filter(Boolean);
+    }
+    coveredTopics.forEach(function (topic) {
+      topicCounts[topic] = (topicCounts[topic] || 0) + 1;
     });
   });
   const topicsDist = Object.entries(topicCounts)
@@ -135,7 +141,17 @@ function getDashboardCoaching(granularity, period, agentFilter) {
     .sort((a,b) => new Date(a.FollowUpDate) - new Date(b.FollowUpDate))
     .slice(0,20);
 
-  return { sessionsTrend, topicsDist, upcoming };
+  const aiIntel = buildCoachingDashboardIntel_(filtered, topicsDist, upcoming, {
+    granularity: granularity,
+    periodIdentifier: period,
+    startDate: startDate,
+    endDate: endDate,
+    agentName: agentFilter,
+    tz: tz,
+    today: today
+  });
+
+  return { sessionsTrend, topicsDist, upcoming, aiIntel };
 }
 
 /**
@@ -158,20 +174,29 @@ function saveCoachingSession(sess) {
 
   const now = new Date().toISOString();
   const id  = Utilities.getUuid();
+  const safeTopics = sanitizeTopicsPayload_(sess.topicsPlanned);
+  const safeSummary = sanitizeRichHtml_(sess.summary);
+  const safePlan = sanitizeRichHtml_(sess.plan);
+  const safeNotes = sanitizeRichHtml_(sess.followUpNotes);
+  const safeCoachName = sanitizeAiText_(sess.coachName);
+  const safeEmployeeName = sanitizeAiText_(sess.employeeName);
+  const safeCoacheeEmail = sanitizeAiText_(sess.coacheeEmail);
+  const safeQaId = sanitizeAiText_(sess.qaId);
 
   // build a map that matches COACHING_HEADERS
   const rowMap = {
     ID: id,
-    QAId: sess.qaId,
+    QAId: safeQaId,
     SessionDate: sess.coachingDate,
-    AgentName: sess.coachName,
-    CoacheeName: sess.employeeName,
-    CoacheeEmail: sess.coacheeEmail,      // ← new
-    TopicsPlanned: sess.topicsPlanned,
+    AgentName: safeCoachName,
+    CoacheeName: safeEmployeeName,
+    CoacheeEmail: safeCoacheeEmail,      // ← new
+    TopicsPlanned: safeTopics,
     CoveredTopics: JSON.stringify([]),
-    ActionPlan: sess.plan,
+    Summary: safeSummary,
+    ActionPlan: safePlan,
     FollowUpDate: sess.followUpDate,
-    Notes: sess.followUpNotes,
+    Notes: safeNotes,
     CreatedAt: now,
     UpdatedAt: now
   };
@@ -194,6 +219,9 @@ function updateCoveredTopics(id, coveredArray) {
   const idCol = headers.indexOf('ID');
   let covCol = headers.indexOf('CoveredTopics');
   const updCol = headers.indexOf('UpdatedAt');
+  const safeCovered = Array.isArray(coveredArray)
+    ? coveredArray.map(function (topic) { return sanitizeAiText_(topic); })
+    : [];
 
   // If header missing, add it
   if (covCol < 0) {
@@ -204,7 +232,7 @@ function updateCoveredTopics(id, coveredArray) {
   for (let i = 0; i < data.length; i++) {
     if (String(data[i][idCol]) === id) {
       const rowIdx  = i + 2;
-      const jsonStr = JSON.stringify(coveredArray);
+      const jsonStr = JSON.stringify(safeCovered);
       sh.getRange(rowIdx, covCol+1).setValue(jsonStr);
       sh.getRange(rowIdx, updCol+1).setValue(new Date().toISOString());
       return jsonStr;
@@ -440,11 +468,834 @@ function updateQACoachingStatus(qaId, coachingProvided) {
     for (let i = 0; i < data.length; i++) {
       if (String(data[i][idCol]) === String(qaId)) {
         const rowIdx = i + 2;
-        sh.getRange(rowIdx, coachingCol + 1).setValue(coachingProvided ? 'Yes' : 'No');
-        break;
+        const value = coachingProvided ? 'Yes' : 'No';
+        sh.getRange(rowIdx, coachingCol + 1).setValue(value);
+        return value;
       }
     }
+    return null;
   } catch (error) {
     console.warn('Could not update coaching status:', error);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// COACHING HUB INTELLIGENCE
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const COACHING_AI_MOTIVATORS = [
+  'Celebrate the wins, then turn them into repeatable habits for the next call.',
+  'Confidence comes from clarity—highlight what went right before refining the next play.',
+  'Every QA insight is a map. Coaching turns that map into a guided tour for the agent.',
+  'Lumina Coaching Hub is ready—pair recognition with a focused drill to keep momentum.',
+  'Quality signals spotted. Now transform them into customer-obsessed moments.',
+  'Keep the conversation human. Blend empathy, precision, and policy fluency every time.'
+];
+
+const COACHING_AI_ETIQUETTE_TIPS = [
+  'Use the customer’s name naturally at least twice to reinforce personal connection.',
+  'Mirror the customer’s pace while staying calm—tempo control keeps conversations confident.',
+  'Summarize the resolution path before closing to confirm alignment and next steps.',
+  'Invite questions before ending the call to ensure no hidden concerns remain.',
+  'Document commitments in real time so wrap-up notes reflect the live conversation.',
+  'Reinforce policy moments with “because” statements—clarity reduces escalations.',
+  'Thank the customer for their patience when hold time or research was required.',
+  'Transition between topics using “first…next” language to keep structure crisp.'
+];
+
+const COACHING_AI_CELEBRATIONS = [
+  'Spotlight this win in the next huddle—agents repeat what gets recognized.',
+  'Quality Command Center flags this as a best practice worth sharing team-wide.',
+  'Capture this moment in your playbook; it reinforces what outstanding sounds like.',
+  '👏 Lumina AI tagged this interaction as a customer delight moment—keep the momentum!',
+  'Performance Command Center logged this as a consistency milestone. Reinforce it today.'
+];
+
+const COACHING_AI_FOCUS_OPENERS = [
+  'Coach with intent—focus here to close the experience gap quickly.',
+  'Drill this scenario to turn risk into readiness before the next QA sample.',
+  'Lean on role play and job aids to reinforce the muscle memory needed here.',
+  'Pair the note below with a micro-learning clip to accelerate improvement.'
+];
+
+const COACHING_AI_KEYWORD_TOPICS = [
+  {
+    keywords: ['empathy', 'tone', 'courteous', 'courtesy', 'rapport'],
+    name: 'Empathy Calibration',
+    detail: 'Practice reflective language, empathetic acknowledgements, and confidence statements.'
+  },
+  {
+    keywords: ['hold', 'follow-up', 'callback', 'delay'],
+    name: 'Expectation Setting',
+    detail: 'Coach on setting timelines, providing status updates, and confirming next steps before closing.'
+  },
+  {
+    keywords: ['compliance', 'policy', 'verification', 'authentication'],
+    name: 'Policy & Compliance Precision',
+    detail: 'Refresh verification scripts and ensure regulatory disclosures happen without friction.'
+  },
+  {
+    keywords: ['documentation', 'notes', 'wrap', 'after call'],
+    name: 'Documentation Excellence',
+    detail: 'Review live note-taking structure and reinforce the must-have disposition elements.'
+  },
+  {
+    keywords: ['process', 'procedure', 'steps', 'workflow'],
+    name: 'Process Adherence',
+    detail: 'Map the journey step-by-step and rehearse decision points where agents hesitate.'
+  }
+];
+
+const QA_COACHING_BLUEPRINT = {
+  q1: {
+    label: 'Warm Greeting & Identity Confirmation',
+    category: 'Customer Courtesy',
+    weight: 3,
+    celebrate: 'Opened with a confident greeting that set a positive tone.',
+    coach: 'Rehearse the opening script so brand, name, and assistance offer flow naturally.',
+    etiquette: 'Smile through your voice and reference the customer name quickly.',
+    topicName: 'Greeting Refresh',
+    topicDetail: 'Role-play a 30-second opening that includes a warm greeting and verification prompt.'
+  },
+  q2: {
+    label: 'Empathy & Ownership',
+    category: 'Customer Courtesy',
+    weight: 5,
+    celebrate: 'Demonstrated empathy and took ownership for the customer experience.',
+    coach: 'Use acknowledgement statements when customers share frustration to reinforce trust.',
+    etiquette: 'Pair empathy with action—state what you will do right after you acknowledge feelings.',
+    topicName: 'Empathy Ladder',
+    topicDetail: 'Practice acknowledgement phrases that lead into confident problem statements.'
+  },
+  q3: {
+    label: 'Active Listening & Probing',
+    category: 'Customer Courtesy',
+    weight: 7,
+    celebrate: 'Kept the conversation customer-led with smart clarifying questions.',
+    coach: 'Coach on layered probing so the agent captures root cause before solving.',
+    etiquette: 'Use “just to make sure I’ve got this right” as a transition into the customer summary.',
+    topicName: 'Discovery Skills',
+    topicDetail: 'Drill layered probing and summarizing to confirm needs before solutioning.'
+  },
+  q4: {
+    label: 'Call Control & Confidence',
+    category: 'Customer Courtesy',
+    weight: 10,
+    celebrate: 'Maintained confident call control while keeping rapport intact.',
+    coach: 'Reinforce signposting so tough conversations stay structured and efficient.',
+    etiquette: 'Preview next steps before placing a customer on hold or changing topics.',
+    topicName: 'Call Flow Mastery',
+    topicDetail: 'Walk through the ideal call structure and practice confident transitions.'
+  },
+  q5: {
+    label: 'Professional Tone & Language',
+    category: 'Customer Courtesy',
+    weight: 5,
+    celebrate: 'Tone and language reflected polished, brand-aligned professionalism.',
+    coach: 'Review filler words and ensure tone stays confident even under pressure.',
+    etiquette: 'Swap casual filler for purposeful reassurance (“Absolutely, I can help with that…”).',
+    topicName: 'Tone Calibration',
+    topicDetail: 'Listen to call snippets and coach on tone shifts that reinforce credibility.'
+  },
+  q6: {
+    label: 'Issue Diagnosis',
+    category: 'Resolution',
+    weight: 8,
+    celebrate: 'Quickly pinpointed the core issue without the customer repeating themselves.',
+    coach: 'Coach on diagnostic checklists to avoid missing prerequisite questions.',
+    etiquette: 'Verbalize what you are checking so the customer knows progress is happening.',
+    topicName: 'Root Cause Playbook',
+    topicDetail: 'Review troubleshooting flows and practice pacing so discovery stays efficient.'
+  },
+  q7: {
+    label: 'Solution Accuracy',
+    category: 'Resolution',
+    weight: 8,
+    celebrate: 'Delivered the right solution path on the first attempt.',
+    coach: 'Rebuild confidence with scenario-based practice on complex resolutions.',
+    etiquette: 'Confirm the plan and recap why it solves the customer’s stated issue.',
+    topicName: 'Solution Mapping',
+    topicDetail: 'Map common scenarios and verify the agent can articulate the “why” behind each fix.'
+  },
+  q8: {
+    label: 'Authentication & Security',
+    category: 'Resolution',
+    weight: 15,
+    celebrate: 'Validated security perfectly before advancing the conversation.',
+    coach: 'Reinforce authentication scripts and escalate paths for failed verification.',
+    etiquette: 'Explain the “why” behind security steps to preserve trust during verification.',
+    topicName: 'Security Protocol Drill',
+    topicDetail: 'Rehearse verification workflows and contingency paths when data mismatches occur.'
+  },
+  q9: {
+    label: 'Effective Follow-through',
+    category: 'Resolution',
+    weight: 9,
+    celebrate: 'Outlined next steps clearly and confirmed customer agreement.',
+    coach: 'Coach on setting expectations and capturing timelines to avoid repeat contacts.',
+    etiquette: 'Confirm understanding by asking the customer to restate the agreed next step.',
+    topicName: 'Expectation Setting',
+    topicDetail: 'Practice closing scripts that cover recap, timeline, and ownership statements.'
+  },
+  q10: {
+    label: 'Documentation Accuracy',
+    category: 'Documentation',
+    weight: 8,
+    celebrate: 'Documented key actions with accuracy that supports downstream teams.',
+    coach: 'Review note templates to ensure critical data points appear every time.',
+    etiquette: 'Capture commitments as bullet-style notes while they are fresh.',
+    topicName: 'Note-Taking Framework',
+    topicDetail: 'Walk through disposition templates and audit for missing compliance cues.'
+  },
+  q11: {
+    label: 'System Navigation',
+    category: 'Documentation',
+    weight: 6,
+    celebrate: 'Navigated systems confidently without dead air or uncertainty.',
+    coach: 'Run guided simulations to speed up navigation through tricky workflows.',
+    etiquette: 'Narrate quietly what is happening during longer system loads.',
+    topicName: 'System Drill-Down',
+    topicDetail: 'Shadow navigation clicks and capture shortcuts that keep calls moving.'
+  },
+  q12: {
+    label: 'Knowledge Base Utilization',
+    category: 'Documentation',
+    weight: 6,
+    celebrate: 'Leveraged the knowledge base to validate policies on the fly.',
+    coach: 'Coach on searching smarter and bookmarking the best articles for quick recall.',
+    etiquette: 'Tell the customer when you are double-checking policy so they trust the answer.',
+    topicName: 'Knowledge Search Mastery',
+    topicDetail: 'Practice search queries and highlight go-to resources for complex questions.'
+  },
+  q13: {
+    label: 'Compliance Notations',
+    category: 'Documentation',
+    weight: 7,
+    celebrate: 'Captured compliance statements accurately in the case record.',
+    coach: 'Revisit regulatory checklist items and ensure nothing is left implied.',
+    etiquette: 'State required disclosures confidently and note them verbatim when needed.',
+    topicName: 'Compliance Deep Dive',
+    topicDetail: 'Review compliance scripts and document how to capture mandatory language.'
+  },
+  q14: {
+    label: 'Knowledge Transfer',
+    category: 'Documentation',
+    weight: 3,
+    celebrate: 'Provided context so the next teammate can pick up without friction.',
+    coach: 'Coach on summarizing the conversation in two crisp sentences for hand-offs.',
+    etiquette: 'Use consistent tags or categories that downstream teams expect.',
+    topicName: 'Handoff Clarity',
+    topicDetail: 'Practice writing closing summaries focused on hand-off readiness.'
+  },
+  q15: {
+    label: 'Critical Process Adherence',
+    category: 'Process',
+    weight: 10,
+    celebrate: 'Followed critical process steps flawlessly—zero risk flags.',
+    coach: 'Run through the process map and highlight must-not-miss checkpoints.',
+    etiquette: 'Announce when you are following a required step so customers understand the pause.',
+    topicName: 'Process Calibration',
+    topicDetail: 'Simulate the full process and identify where to slow down for accuracy.'
+  },
+  q16: {
+    label: 'Tool & Resource Usage',
+    category: 'Process',
+    weight: 5,
+    celebrate: 'Used the right tools without assistance, keeping the call efficient.',
+    coach: 'Refresh where to find each resource so the agent is never searching live.',
+    etiquette: 'Narrate briefly when jumping between systems so customers feel guided.',
+    topicName: 'Tool Navigation Refresh',
+    topicDetail: 'Create a quick-reference map of tools and when to use each.'
+  },
+  q17: {
+    label: 'Escalation Judgment',
+    category: 'Process',
+    weight: 4,
+    celebrate: 'Made a smart judgment on when to escalate versus own the solution.',
+    coach: 'Clarify escalation triggers and self-service thresholds.',
+    etiquette: 'Explain escalation paths to the customer to avoid surprises.',
+    topicName: 'Escalation Playbook',
+    topicDetail: 'Review decision trees for escalations and what to communicate at each stage.'
+  },
+  q18: {
+    label: 'Policy Risk Avoidance',
+    category: 'Process',
+    weight: 5,
+    celebrate: 'Protected the brand by respecting high-risk policy steps.',
+    coach: 'Reinforce red-line policies and the wording required when exceptions appear.',
+    etiquette: 'Anchor policy statements in customer value to keep trust intact.',
+    topicName: 'Risk Guardrails',
+    topicDetail: 'Revisit policy guardrails and practice messaging when denying requests.'
+  },
+  q19: {
+    label: 'Customer Commitment Check',
+    category: 'Customer Courtesy',
+    weight: 5,
+    celebrate: 'Confirmed satisfaction before ending, reinforcing trust.',
+    coach: 'Coach on final check questions that invite lingering concerns.',
+    etiquette: 'Ask “What else can I take off your plate today?” before closing.',
+    topicName: 'Closing Confidence',
+    topicDetail: 'Practice closing scripts that blend gratitude, recap, and next-step confirmation.'
+  }
+};
+
+const QA_QUESTION_ORDER = Object.keys(QA_COACHING_BLUEPRINT);
+
+function buildEmptyCoachingIntel_(qaId) {
+  return {
+    qaId: qaId || '',
+    summary: 'Select a QA record to generate Lumina Coaching Hub intelligence.',
+    agentName: '',
+    percentage: null,
+    scoreText: '—',
+    motivation: COACHING_AI_MOTIVATORS[Math.floor(Math.random() * COACHING_AI_MOTIVATORS.length)],
+    celebrations: [],
+    focusAreas: [],
+    etiquetteTips: COACHING_AI_ETIQUETTE_TIPS.slice(0, 3),
+    acknowledgementPrompts: [],
+    feedbackSignals: [],
+    recommendedTopics: [],
+    metadata: {}
+  };
+}
+
+function getQARecordById_(qaId) {
+  if (!qaId) return null;
+  setupSheets();
+  const ss = getIBTRSpreadsheet();
+  const sh = ss.getSheetByName(QA_RECORDS);
+  if (!sh) return null;
+  const data = sh.getDataRange().getValues();
+  if (!data.length) return null;
+  const headers = data.shift();
+  const idIdx = headers.indexOf('ID');
+  if (idIdx === -1) return null;
+  for (let i = 0; i < data.length; i++) {
+    if (String(data[i][idIdx]) === String(qaId)) {
+      const row = {};
+      headers.forEach((header, index) => {
+        row[header] = data[i][index];
+      });
+      return row;
+    }
+  }
+  return null;
+}
+
+function sanitizeAiText_(value) {
+  if (!value) return '';
+  return String(value)
+    .replace(/\s+/g, ' ')
+    .replace(/<[^>]+>/g, '')
+    .trim();
+}
+
+function sanitizeRichHtml_(html) {
+  if (!html) return '';
+  return String(html)
+    .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, '')
+    .replace(/<style[\s\S]*?>[\s\S]*?<\/style>/gi, '')
+    .replace(/on[a-z]+\s*=\s*"[^"]*"/gi, '')
+    .replace(/on[a-z]+\s*=\s*'[^']*'/gi, '')
+    .replace(/on[a-z]+\s*=\s*[^\s>]+/gi, '')
+    .replace(/javascript:/gi, '');
+}
+
+function sanitizeTopicsPayload_(topicsJson) {
+  if (!topicsJson) return '[]';
+  try {
+    const parsed = JSON.parse(topicsJson);
+    if (!Array.isArray(parsed)) {
+      return '[]';
+    }
+    const cleaned = parsed.map(function (topic) {
+      const name = topic && topic.name ? sanitizeAiText_(topic.name) : '';
+      const detail = topic && topic.detail ? sanitizeRichHtml_(topic.detail) : '';
+      return { name: name, detail: detail };
+    });
+    return JSON.stringify(cleaned);
+  } catch (err) {
+    console.warn('Unable to sanitize topics payload:', err);
+    return '[]';
+  }
+}
+
+function extractCoachingSignalsFromText_(text) {
+  const clean = sanitizeAiText_(text);
+  if (!clean) return [];
+  const sentences = clean.split(/[.!?]+/).map(function (s) { return s.trim(); }).filter(Boolean);
+  const keywords = ['coach', 'coaching', 'improve', 'improvement', 'focus', 'train', 'training', 'recommend', 'recommendation', 'follow up', 'follow-up'];
+  return sentences.filter(function (sentence) {
+    const lower = sentence.toLowerCase();
+    return keywords.some(function (kw) { return lower.indexOf(kw) !== -1; });
+  });
+}
+
+function findKeywordTopics_(text) {
+  const clean = sanitizeAiText_(text).toLowerCase();
+  if (!clean) return [];
+  const matches = [];
+  COACHING_AI_KEYWORD_TOPICS.forEach(function (topic) {
+    if (topic.keywords.some(function (kw) { return clean.indexOf(kw) !== -1; })) {
+      matches.push({ name: topic.name, detail: topic.detail });
+    }
+  });
+  return matches;
+}
+
+function generateCoachingHubInsights(qaId) {
+  const base = buildEmptyCoachingIntel_(qaId);
+  const qaRecord = getQARecordById_(qaId);
+  if (!qaRecord) {
+    base.summary = 'No QA record found. Capture a QA evaluation to unlock AI coaching guidance.';
+    return base;
+  }
+
+  const agentName = sanitizeAiText_(qaRecord.AgentName || qaRecord.Agent || '');
+  const percentageRaw = qaRecord.Percentage || qaRecord.FinalScore || qaRecord['QA Score'];
+  const percentage = typeof percentageRaw === 'number'
+    ? percentageRaw
+    : parseFloat(percentageRaw) || 0;
+  const normalizedPct = percentage > 1 ? percentage / 100 : percentage;
+  const scoreText = Math.round(normalizedPct * 100) + '%';
+
+  base.agentName = agentName;
+  base.percentage = normalizedPct;
+  base.scoreText = scoreText;
+  base.metadata = {
+    client: sanitizeAiText_(qaRecord.ClientName || qaRecord.Client || ''),
+    callDate: qaRecord.CallDate instanceof Date
+      ? Utilities.formatDate(qaRecord.CallDate, Session.getScriptTimeZone(), 'yyyy-MM-dd')
+      : sanitizeAiText_(qaRecord.CallDate),
+    qaId: qaId
+  };
+
+  const performanceTone = normalizedPct >= 0.9
+    ? 'is exceeding expectations.'
+    : normalizedPct >= 0.8
+      ? 'is meeting key expectations with a few targeted refinements needed.'
+      : 'needs a focused coaching huddle to lift critical skills quickly.';
+
+  base.summary = [
+    'Lumina Coaching Hub analyzed QA Performance Command Center data for ',
+    agentName || 'the selected agent',
+    ' and found the latest evaluation scored at ',
+    scoreText,
+    ' which ',
+    performanceTone
+  ].join('');
+
+  base.motivation = COACHING_AI_MOTIVATORS[Math.floor(Math.random() * COACHING_AI_MOTIVATORS.length)];
+
+  const strengths = [];
+  const focusAreas = [];
+  const recommendedTopics = [];
+
+  QA_QUESTION_ORDER.forEach(function (key) {
+    const meta = QA_COACHING_BLUEPRINT[key];
+    const col = key.replace('q', 'Q');
+    const answerRaw = qaRecord[col];
+    const answer = sanitizeAiText_(answerRaw).toLowerCase();
+    const note = sanitizeAiText_(qaRecord[col + ' Note'] || qaRecord['C' + key.replace('q', '')]);
+
+    if (!answer || answer === 'n/a' || answer === 'na') {
+      return;
+    }
+
+    if (answer === 'yes' || (key === 'q17' && answer === 'no')) {
+      strengths.push({
+        title: meta.label,
+        detail: note || meta.celebrate,
+        category: meta.category,
+        weight: meta.weight
+      });
+    } else {
+      focusAreas.push({
+        title: meta.label,
+        detail: note || meta.coach,
+        category: meta.category,
+        weight: meta.weight
+      });
+      recommendedTopics.push({ name: meta.topicName, detail: meta.topicDetail });
+    }
+  });
+
+  strengths.sort(function (a, b) { return b.weight - a.weight; });
+  focusAreas.sort(function (a, b) { return b.weight - a.weight; });
+
+  base.celebrations = strengths.slice(0, 4).map(function (item) {
+    const meta = QA_QUESTION_ORDER
+      .map(function (key) { return QA_COACHING_BLUEPRINT[key]; })
+      .find(function (entry) { return entry && entry.label === item.title; });
+    return {
+      title: item.title,
+      detail: item.detail || (meta ? meta.celebrate : ''),
+      category: item.category,
+      callout: COACHING_AI_CELEBRATIONS[Math.floor(Math.random() * COACHING_AI_CELEBRATIONS.length)]
+    };
+  });
+
+  base.focusAreas = focusAreas.slice(0, 6).map(function (item) {
+    const meta = QA_QUESTION_ORDER
+      .map(function (key) { return QA_COACHING_BLUEPRINT[key]; })
+      .find(function (entry) { return entry && entry.label === item.title; });
+    return {
+      title: item.title,
+      detail: item.detail || (meta ? meta.coach : ''),
+      category: item.category,
+      callout: COACHING_AI_FOCUS_OPENERS[Math.floor(Math.random() * COACHING_AI_FOCUS_OPENERS.length)]
+    };
+  });
+
+  const dedupedTopics = [];
+  const seenTopicNames = {};
+  recommendedTopics.forEach(function (topic) {
+    if (!topic.name) return;
+    const key = topic.name.toLowerCase();
+    if (!seenTopicNames[key]) {
+      seenTopicNames[key] = true;
+      dedupedTopics.push(topic);
+    }
+  });
+  base.recommendedTopics = dedupedTopics.slice(0, 6);
+
+  const etiquetteSet = new Set();
+  base.focusAreas.forEach(function (area) {
+    const meta = QA_COACHING_BLUEPRINT[QA_QUESTION_ORDER.find(function (q) {
+      return QA_COACHING_BLUEPRINT[q].label === area.title;
+    })];
+    if (meta && meta.etiquette) {
+      etiquetteSet.add(meta.etiquette);
+    }
+  });
+  while (etiquetteSet.size < 3) {
+    etiquetteSet.add(COACHING_AI_ETIQUETTE_TIPS[Math.floor(Math.random() * COACHING_AI_ETIQUETTE_TIPS.length)]);
+  }
+  base.etiquetteTips = Array.from(etiquetteSet).slice(0, 5);
+
+  const feedbackSignals = [];
+  const overallFeedback = qaRecord.OverallFeedback || qaRecord.Recommendations;
+  const qaNotes = qaRecord.Notes || qaRecord.AgentFeedback;
+  [overallFeedback, qaNotes].forEach(function (text) {
+    extractCoachingSignalsFromText_(text).forEach(function (sentence) {
+      feedbackSignals.push(sentence);
+    });
+  });
+  base.feedbackSignals = feedbackSignals.slice(0, 5);
+
+  const keywordTopics = [];
+  [overallFeedback, qaNotes].forEach(function (text) {
+    findKeywordTopics_(text).forEach(function (topic) {
+      keywordTopics.push(topic);
+    });
+  });
+  keywordTopics.forEach(function (topic) {
+    const key = topic.name.toLowerCase();
+    if (!seenTopicNames[key]) {
+      seenTopicNames[key] = true;
+      dedupedTopics.push(topic);
+    }
+  });
+  base.recommendedTopics = dedupedTopics.slice(0, 8);
+
+  const ackPrompts = [];
+  if (base.focusAreas.length) {
+    ackPrompts.push('Highlight one celebration, then coach through the first focus area using the plan below.');
+    ackPrompts.push('Ask the agent to summarize their next action in their own words before ending the session.');
+  } else {
+    ackPrompts.push('Celebrate the consistency and capture the playbook steps in a quick Loom or knowledge base update.');
+  }
+  ackPrompts.push('Schedule the follow-up in the Coaching Hub now so cadence stays predictable.');
+  base.acknowledgementPrompts = ackPrompts;
+
+  return base;
+}
+
+function clientGetCoachingHubInsights(qaId) {
+  return generateCoachingHubInsights(qaId);
+}
+
+function buildCoachingDashboardIntel_(sessions, topicsDist, upcoming, context) {
+  const tz = context && context.tz ? context.tz : Session.getScriptTimeZone();
+  const agentName = sanitizeAiText_(context && context.agentName ? context.agentName : '');
+  const { startDate, endDate } = context || {};
+  const periodLabel = formatDashboardPeriodLabel_(context && context.granularity, startDate, endDate, tz);
+
+  const totalSessions = Array.isArray(sessions) ? sessions.length : 0;
+  const today = context && context.today ? new Date(context.today) : new Date();
+  const summarySubject = agentName ? ('for ' + agentName) : 'across your teams';
+  const sessionSummary = totalSessions
+    ? 'Lumina AI reviewed ' + totalSessions + ' coaching session' + (totalSessions === 1 ? '' : 's') + ' ' + summarySubject + ' covering ' + periodLabel + '.'
+    : 'No coaching sessions logged ' + summarySubject + ' during ' + periodLabel + '. Log a session to activate hub intelligence.';
+
+  const motivator = COACHING_AI_MOTIVATORS[Math.floor(Math.random() * COACHING_AI_MOTIVATORS.length)];
+
+  let sessionsWithPlans = 0;
+  let sessionsWithCoverage = 0;
+  const topicAccumulator = {};
+  const uniqueCoachees = new Set();
+  const aggregatedSignals = [];
+  const signalSet = new Set();
+  const keywordTopicCandidates = [];
+
+  if (Array.isArray(sessions)) {
+    sessions.forEach(session => {
+      const planned = parseTopicsList_(session && session.TopicsPlanned);
+      const covered = parseTopicsList_(session && session.CoveredTopics);
+
+      if (planned.length) sessionsWithPlans++;
+      if (covered.length) sessionsWithCoverage++;
+
+      planned.concat(covered).forEach(topicName => {
+        if (!topicName) return;
+        const key = topicName.toLowerCase();
+        if (!topicAccumulator[key]) {
+          topicAccumulator[key] = { name: topicName, count: 0 };
+        }
+        topicAccumulator[key].count += 1;
+      });
+
+      const summaryText = session && session.Summary ? session.Summary : '';
+      const notesText = session && session.Notes ? session.Notes : '';
+      const planText = session && session.ActionPlan ? session.ActionPlan : '';
+
+      [summaryText, notesText, planText].forEach(text => {
+        extractCoachingSignalsFromText_(text).forEach(signal => {
+          const cleanSignal = sanitizeAiText_(signal);
+          if (cleanSignal && !signalSet.has(cleanSignal)) {
+            signalSet.add(cleanSignal);
+            aggregatedSignals.push(cleanSignal);
+          }
+        });
+        findKeywordTopics_(text).forEach(topic => {
+          if (topic && topic.name) {
+            keywordTopicCandidates.push(topic);
+          }
+        });
+      });
+
+      const coachee = sanitizeAiText_(session && session.CoacheeName ? session.CoacheeName : '');
+      if (coachee) {
+        uniqueCoachees.add(coachee);
+      }
+    });
+  }
+
+  if (Array.isArray(topicsDist)) {
+    topicsDist.forEach(item => {
+      const name = sanitizeAiText_(item && item.topic ? item.topic : '');
+      if (!name) return;
+      const key = name.toLowerCase();
+      if (!topicAccumulator[key]) {
+        topicAccumulator[key] = { name: name, count: 0 };
+      }
+      const count = Number(item && item.count ? item.count : 0);
+      if (!isNaN(count)) {
+        topicAccumulator[key].count += count;
+      }
+    });
+  }
+
+  const combinedTopics = Object.values(topicAccumulator)
+    .sort((a, b) => (b.count || 0) - (a.count || 0));
+  const topTopics = combinedTopics.slice(0, 5);
+
+  const coverageRate = totalSessions ? Math.round((sessionsWithCoverage / totalSessions) * 100) : 0;
+  const planRate = totalSessions ? Math.round((sessionsWithPlans / totalSessions) * 100) : 0;
+
+  const upcomingSoon = Array.isArray(upcoming)
+    ? upcoming.filter(record => {
+        if (!record || !record.FollowUpDate) return false;
+        const followDate = new Date(record.FollowUpDate + 'T00:00:00');
+        const diffMs = followDate.getTime() - today.getTime();
+        return diffMs >= 0 && diffMs <= 7 * 24 * 60 * 60 * 1000;
+      }).length
+    : 0;
+
+  const stats = [
+    {
+      label: 'Sessions logged',
+      value: totalSessions ? String(totalSessions) : '0',
+      helper: totalSessions
+        ? sessionsWithPlans + ' captured action plans.'
+        : 'Log a coaching session to activate insights.'
+    },
+    {
+      label: 'Plan capture rate',
+      value: totalSessions ? planRate + '%' : '—',
+      helper: totalSessions
+        ? 'Action plans documented in ' + sessionsWithPlans + ' session' + (sessionsWithPlans === 1 ? '' : 's') + '.'
+        : 'No plans recorded yet.'
+    },
+    {
+      label: 'Covered topics rate',
+      value: totalSessions ? coverageRate + '%' : '—',
+      helper: totalSessions
+        ? 'Covered topics tracked in ' + sessionsWithCoverage + ' session' + (sessionsWithCoverage === 1 ? '' : 's') + '.'
+        : 'Mark topics as covered to capture progress.'
+    },
+    {
+      label: 'Upcoming follow-ups',
+      value: Array.isArray(upcoming) ? String(upcoming.length) : '0',
+      helper: upcomingSoon
+        ? upcomingSoon + ' due within 7 days.'
+        : 'No follow-ups due within 7 days.'
+    }
+  ];
+
+  const highlights = [];
+  if (topTopics.length) {
+    highlights.push({
+      title: 'Trending coaching theme',
+      detail: topTopics[0].name + ' surfaced in ' + topTopics[0].count + ' session' + (topTopics[0].count === 1 ? '' : 's') + '. '
+        + 'Amplify what is working and scale the playbook.'
+    });
+  }
+  if (uniqueCoachees.size) {
+    highlights.push({
+      title: 'Coaching reach',
+      detail: 'Engaged ' + uniqueCoachees.size + ' unique coachee' + (uniqueCoachees.size === 1 ? '' : 's') + ' this period.'
+    });
+  }
+  if (planRate >= 80 && totalSessions) {
+    highlights.push({
+      title: 'Plan discipline',
+      detail: 'Action plans captured in ' + planRate + '% of sessions—keep the cadence strong.'
+    });
+  }
+
+  const celebrations = [];
+  if (totalSessions) {
+    celebrations.push({
+      title: 'Momentum',
+      detail: totalSessions + ' coaching touchpoint' + (totalSessions === 1 ? '' : 's') + ' recorded for ' + periodLabel + '.',
+      callout: COACHING_AI_CELEBRATIONS[Math.floor(Math.random() * COACHING_AI_CELEBRATIONS.length)]
+    });
+  }
+  if (coverageRate >= 70 && totalSessions) {
+    celebrations.push({
+      title: 'Follow-through',
+      detail: 'Covered topics logged in ' + coverageRate + '% of sessions keeps progress measurable.',
+      callout: COACHING_AI_CELEBRATIONS[Math.floor(Math.random() * COACHING_AI_CELEBRATIONS.length)]
+    });
+  }
+
+  const focusSignals = [];
+  if (totalSessions && planRate < 80) {
+    focusSignals.push({
+      title: 'Reinforce plan capture',
+      detail: 'Only ' + planRate + '% of sessions document action plans. Reinforce the template during huddles.',
+      callout: COACHING_AI_FOCUS_OPENERS[Math.floor(Math.random() * COACHING_AI_FOCUS_OPENERS.length)]
+    });
+  }
+  if (totalSessions && coverageRate < 75) {
+    focusSignals.push({
+      title: 'Track completion signals',
+      detail: 'Covered topics are marked in ' + coverageRate + '% of sessions. Coach leaders to close the loop in the hub.',
+      callout: COACHING_AI_FOCUS_OPENERS[Math.floor(Math.random() * COACHING_AI_FOCUS_OPENERS.length)]
+    });
+  }
+  if (upcomingSoon > 0) {
+    focusSignals.push({
+      title: 'Follow-up urgency',
+      detail: upcomingSoon + ' follow-up' + (upcomingSoon === 1 ? '' : 's') + ' due within 7 days. Confirm preparation with each coach.',
+      callout: COACHING_AI_FOCUS_OPENERS[Math.floor(Math.random() * COACHING_AI_FOCUS_OPENERS.length)]
+    });
+  }
+
+  const etiquetteSet = new Set();
+  while (etiquetteSet.size < 4) {
+    etiquetteSet.add(COACHING_AI_ETIQUETTE_TIPS[Math.floor(Math.random() * COACHING_AI_ETIQUETTE_TIPS.length)]);
+  }
+  const etiquetteTips = Array.from(etiquetteSet);
+
+  const acknowledgementPrompts = [];
+  acknowledgementPrompts.push('Open your next huddle with one celebration before diving into focus areas.');
+  acknowledgementPrompts.push('Ask coachees to restate their next step in writing inside the Coaching Hub.');
+  if (upcomingSoon > 0) {
+    acknowledgementPrompts.push('Send acknowledgement reminders for follow-ups due this week to keep commitments visible.');
+  }
+  acknowledgementPrompts.push('Update the QA Performance Command Center once acknowledgement forms return to close the loop.');
+
+  const recommendedTopicsMap = {};
+  topTopics.forEach(topic => {
+    if (!topic || !topic.name) return;
+    const detail = lookupTopicDetail_(topic.name) || 'Keep this theme visible in coaching plans to reinforce mastery.';
+    const key = topic.name.toLowerCase();
+    if (!recommendedTopicsMap[key]) {
+      recommendedTopicsMap[key] = { name: topic.name, detail: detail };
+    }
+  });
+  keywordTopicCandidates.forEach(topic => {
+    if (!topic || !topic.name) return;
+    const key = topic.name.toLowerCase();
+    if (!recommendedTopicsMap[key]) {
+      recommendedTopicsMap[key] = { name: topic.name, detail: topic.detail || 'Bring this topic into the next session agenda.' };
+    }
+  });
+  const recommendedTopics = Object.values(recommendedTopicsMap).slice(0, 8);
+
+  const feedbackSignals = aggregatedSignals.slice(0, 6);
+
+  return {
+    summary: sessionSummary,
+    motivator: motivator,
+    periodLabel: periodLabel,
+    stats: stats,
+    highlights: highlights,
+    celebrations: celebrations,
+    focusSignals: focusSignals,
+    etiquetteTips: etiquetteTips,
+    acknowledgementPrompts: acknowledgementPrompts,
+    feedbackSignals: feedbackSignals,
+    recommendedTopics: recommendedTopics
+  };
+}
+
+function parseTopicsList_(topicsJson) {
+  if (!topicsJson) return [];
+  try {
+    const parsed = typeof topicsJson === 'string' ? JSON.parse(topicsJson) : topicsJson;
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .map(item => {
+        if (!item) return '';
+        if (typeof item === 'string') return sanitizeAiText_(item);
+        const name = item.name || item.topic || item.Title || '';
+        return sanitizeAiText_(name);
+      })
+      .filter(Boolean);
+  } catch (_) {
+    return [];
+  }
+}
+
+function lookupTopicDetail_(topicName) {
+  if (!topicName) return '';
+  const cleanName = sanitizeAiText_(topicName).toLowerCase();
+  if (!cleanName) return '';
+  const match = COACHING_AI_KEYWORD_TOPICS.find(topic => topic && topic.name && topic.name.toLowerCase() === cleanName);
+  return match ? match.detail : '';
+}
+
+function formatDashboardPeriodLabel_(granularity, startDate, endDate, tz) {
+  try {
+    if (!(startDate instanceof Date) || isNaN(startDate)) return 'the selected period';
+    if (!(endDate instanceof Date) || isNaN(endDate)) return 'the selected period';
+    const start = Utilities.formatDate(startDate, tz, 'MMM d');
+    const end = Utilities.formatDate(endDate, tz, 'MMM d, yyyy');
+    if (granularity === 'Year') {
+      return Utilities.formatDate(startDate, tz, 'yyyy');
+    }
+    if (granularity === 'Month') {
+      return Utilities.formatDate(startDate, tz, 'MMMM yyyy');
+    }
+    if (granularity === 'Quarter') {
+      const q = Math.floor(startDate.getMonth() / 3) + 1;
+      return 'Q' + q + ' ' + Utilities.formatDate(startDate, tz, 'yyyy');
+    }
+    return start + ' – ' + end;
+  } catch (_) {
+    return 'the selected period';
   }
 }

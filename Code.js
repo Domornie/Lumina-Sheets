@@ -3623,11 +3623,13 @@ function handleCoachingData(tpl, e, user, templateName) {
         tpl.sessionsTrend = JSON.stringify(coachingMetrics.sessionsTrend || []);
         tpl.topicsDist = JSON.stringify(coachingMetrics.topicsDist || []);
         tpl.upcomingFollow = JSON.stringify(coachingMetrics.upcoming || []);
+        tpl.aiIntel = JSON.stringify(coachingMetrics.aiIntel || {}).replace(/<\/script>/g, '<\\/script>');
       } else {
         tpl.userList = [];
         tpl.sessionsTrend = JSON.stringify([]);
         tpl.topicsDist = JSON.stringify([]);
         tpl.upcomingFollow = JSON.stringify([]);
+        tpl.aiIntel = '{}';
       }
     }
 
@@ -3637,6 +3639,7 @@ function handleCoachingData(tpl, e, user, templateName) {
     tpl.sessionsTrend = JSON.stringify([]);
     tpl.topicsDist = JSON.stringify([]);
     tpl.upcomingFollow = JSON.stringify([]);
+    tpl.aiIntel = '{}';
   }
 }
 

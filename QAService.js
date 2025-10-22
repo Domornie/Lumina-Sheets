@@ -510,6 +510,7 @@ function saveQARecord_(data, audioResult, scoreResult) {
         case 'OverallFeedback': return data.overallFeedback || '';
         case 'Notes': return data.notes || '';
         case 'AgentFeedback': return data.agentFeedback || '';
+        case 'CoachingProvided': return 'No';
         default:
           // Handle Q1-Q19 answers and their note columns
           const questionMatch = col.match(/^Q(\d+)$/i);
