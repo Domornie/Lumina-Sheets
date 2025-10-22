@@ -1068,6 +1068,14 @@ function clientGetAllShiftSlots() {
       return (a.SlotName || '').localeCompare(b.SlotName || '');
     });
 
+    normalizedSlots.sort((a, b) => {
+      const campaignCompare = (a.Campaign || '').localeCompare(b.Campaign || '');
+      if (campaignCompare !== 0) {
+        return campaignCompare;
+      }
+      return (a.SlotName || '').localeCompare(b.SlotName || '');
+    });
+
     console.log(`✅ Returning ${normalizedSlots.length} normalized shift slots`);
     return normalizedSlots;
 
