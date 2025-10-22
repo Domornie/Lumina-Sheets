@@ -311,8 +311,7 @@ function clientGetScheduleContext(managerIdCandidate, campaignIdCandidate) {
     context.permissions = {
       canManageSchedules: identity.isAdmin || managedUserIds.length > 0,
       canApproveSchedules: identity.isAdmin || managedUserIds.length > 0,
-      canImport: identity.isAdmin,
-      canEditShiftSlots: identity.isAdmin || normalizedRoles.some(role => role.toLowerCase() === 'workforce' || role.toLowerCase() === 'scheduler')
+      canImport: identity.isAdmin
     };
 
     context.success = true;
@@ -1002,19 +1001,6 @@ function clientGetAgentScheduleSnapshot(agentIdCandidate, startDateCandidate, en
     const nextShift = upcomingShifts.length ? upcomingShifts[0] : null;
     const alerts = [];
 
-    let pendingSwaps = 0;
-    if (typeof listShiftSwapRequests === 'function') {
-      try {
-        const swapRows = listShiftSwapRequests({ userId: agentId });
-        pendingSwaps = (swapRows || []).filter(row => {
-          const status = String(row.Status || row.status || (typeof SHIFT_SWAP_STATUS !== 'undefined' ? SHIFT_SWAP_STATUS.PENDING : 'PENDING')).toUpperCase();
-          return status === (typeof SHIFT_SWAP_STATUS !== 'undefined' ? SHIFT_SWAP_STATUS.PENDING : 'PENDING');
-        }).length;
-      } catch (swapError) {
-        console.warn('clientGetAgentScheduleSnapshot: unable to load swap requests', swapError);
-      }
-    }
-
     if (nightShifts >= 3) {
       alerts.push('Multiple night shifts scheduled this period. Ensure adequate rest between shifts.');
     }
@@ -1024,10 +1010,6 @@ function clientGetAgentScheduleSnapshot(agentIdCandidate, startDateCandidate, en
     if (complianceScore !== null && complianceScore < 85) {
       alerts.push('Compliance score below target. Review breaks, lunches, and rest periods.');
     }
-    if (pendingSwaps > 0) {
-      alerts.push(`You have ${pendingSwaps} pending swap request${pendingSwaps === 1 ? '' : 's'}.`);
-    }
-
     const formatShiftOutput = (item) => ({
       id: item.row.ID || item.row.Id || item.row.id || '',
       date: item.date ? formatDateForOutput(item.date) : '',
@@ -1054,7 +1036,6 @@ function clientGetAgentScheduleSnapshot(agentIdCandidate, startDateCandidate, en
       averageStartTime: averageStartMinutes !== null ? minutesToTimeString(averageStartMinutes) : '',
       preferenceScore,
       complianceScore,
-      pendingSwaps,
       upcomingHolidays: 0,
       nextShift: nextShift ? formatShiftOutput(nextShift) : null
     };
