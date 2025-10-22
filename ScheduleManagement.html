@@ -3067,7 +3067,7 @@
                     console.log('🔐 Resolved manager context:', { managerId: currentUserId, campaignId: campaignId || '(all)' });
 
                     const scheduleUsers = await this.callServerFunction('clientGetScheduleUsers', currentUserId, campaignId || null);
-                    const rosterResponse = await this.callServerFunction('clientGetManagedUsers', currentUserId);
+                    const rosterResponse = await this.callServerFunction('clientGetManagedUsersList', currentUserId);
 
                     const rosterUsers = (() => {
                         if (!rosterResponse) {
