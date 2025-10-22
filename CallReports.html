@@ -2523,11 +2523,9 @@
           const required = Number(summary?.requiredDays ?? 0);
           return Number.isFinite(required) && required > 0;
         });
-        const hasFullCoverage = coverageExpectationsDefined
-          ? Boolean(item.fullWeekCoverage)
-            && coverageRequiredDays > 0
-            && coverageActualDays >= coverageRequiredDays
-          : calls > 0;
+        const metCoverageGoals = coverageExpectationsDefined
+          && coverageRequiredDays > 0
+          && coverageActualDays >= coverageRequiredDays;
         return {
           agent: item.agent || '—',
           calls,
@@ -2535,15 +2533,14 @@
           avgTalk,
           coverageRequiredDays,
           coverageActualDays,
-          hasFullCoverage,
-          coverageExpectationsDefined
+          coverageExpectationsDefined,
+          metCoverageGoals
         };
       })
       .filter(entry => (
         entry.avgTalk !== null
         && Number.isFinite(entry.avgTalk)
         && entry.calls > 0
-        && entry.hasFullCoverage
       ));
 
     const attLeaders = attEligible
@@ -2560,15 +2557,15 @@
       attCard.classList.add('is-empty');
       attNameEl.textContent = 'Awaiting data';
       attValueEl.textContent = '—';
-      attDetailEl.textContent = 'Track handle time for agents with consistent coverage or qualifying call volume to spotlight leaders here.';
-      attFooterEl.textContent = 'No qualifying average handle time records yet';
+      attDetailEl.textContent = 'Track handle time data for your agents to spotlight leaders here.';
+      attFooterEl.textContent = 'No average handle time records yet';
       updateRankingList(attListEl, []);
     } else {
       const champion = attLeaders[0];
       const championAvg = Math.round(champion.avgTalk);
       const championCalls = champion.calls === 1 ? '1 qualifying call' : `${champion.calls} qualifying calls`;
       const championMinutes = `${champion.totalMinutes.toLocaleString()} total minutes`;
-      const coverageLabel = champion.coverageExpectationsDefined
+      const coverageLabel = champion.metCoverageGoals
         ? (champion.coverageRequiredDays === 1
           ? '1 weekday'
           : `${champion.coverageRequiredDays} weekdays`)
@@ -2584,7 +2581,7 @@
       if (teamAverageLabel) detailParts.push(teamAverageLabel);
       attDetailEl.textContent = detailParts.join(' ').replace(/\s+/g, ' ').trim();
       const footerParts = ['Ranked by highest qualifying call volume with the lowest average handle time'];
-      if (champion.coverageExpectationsDefined) {
+      if (champion.metCoverageGoals) {
         footerParts.push('(coverage goals met)');
       }
       attFooterEl.textContent = footerParts.join(' ');
@@ -2592,7 +2589,7 @@
         const avgLabel = `${Math.round(entry.avgTalk)} min avg`;
         const callLabel = entry.calls === 1 ? '1 call' : `${entry.calls} calls`;
         const totalLabel = `${entry.totalMinutes.toLocaleString()} total minutes`;
-        const coverageDisplay = entry.coverageExpectationsDefined
+        const coverageDisplay = entry.metCoverageGoals
           ? (entry.coverageRequiredDays === 1
             ? 'Covered 1 weekday'
             : `Covered ${entry.coverageRequiredDays} weekdays`)
