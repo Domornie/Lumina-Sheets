@@ -2260,7 +2260,8 @@ function generateEnhancedDailyPivotExport(pivotMatrix, params, context) {
     });
   }
 
-  const spreadsheet = SpreadsheetApp.create('Daily Pivot Matrix Export');
+  const spreadsheetName = fileBaseName || 'Daily Pivot Matrix Export';
+  const spreadsheet = SpreadsheetApp.create(spreadsheetName);
   let fileId = spreadsheet.getId();
 
   try {
@@ -2673,23 +2674,28 @@ function generateEnhancedDailyPivotExport(pivotMatrix, params, context) {
     SpreadsheetApp.flush();
 
     const file = DriveApp.getFileById(fileId);
-    const blob = file.getAs('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    const fileData = Utilities.base64Encode(blob.getBytes());
+    if (file.getName() !== spreadsheetName) {
+      file.setName(spreadsheetName);
+    }
+
+    const spreadsheetUrl = spreadsheet.getUrl();
 
     return {
-      fileData,
-      encoding: 'base64',
-      mimeType: blob.getContentType(),
-      filename: `${fileBaseName}.xlsx`
+      fileId,
+      spreadsheetUrl,
+      mimeType: 'application/vnd.google-apps.spreadsheet',
+      filename: `${spreadsheetName}.gsheet`,
+      fileType: 'google_sheet'
     };
-  } finally {
+  } catch (error) {
     try {
       if (fileId) {
         DriveApp.getFileById(fileId).setTrashed(true);
       }
     } catch (cleanupError) {
-      console.warn('Failed to clean up temporary export spreadsheet:', cleanupError);
+      console.warn('Failed to clean up temporary export spreadsheet after error:', cleanupError);
     }
+    throw error;
   }
 }
 
