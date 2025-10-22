@@ -1386,8 +1386,8 @@
             </li>
             <li class="nav-item" role="presentation">
                 <button class="nav-link" id="import-tab" data-bs-toggle="pill" data-bs-target="#import" type="button" role="tab">
-                    <i class="fas fa-file-import"></i>
-                    <span class="d-none d-sm-inline ms-2">Import</span>
+                    <i class="fas fa-user-clock"></i>
+                    <span class="d-none d-sm-inline ms-2">Manual Shift</span>
                 </button>
             </li>
             <li class="nav-item" role="presentation">
@@ -1750,8 +1750,148 @@
                                     </div>
                                 </div>
 
+                                <div class="modern-divider my-3"></div>
 
-            
+                                <div class="row g-3">
+                                    <div class="col-md-4">
+                                        <label class="form-label-modern" for="generationMaxCapacity">Max capacity per slot</label>
+                                        <input type="number" class="form-control form-control-modern" id="generationMaxCapacity" min="1" max="100" value="10">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label-modern" for="generationMinCoverage">Minimum coverage</label>
+                                        <input type="number" class="form-control form-control-modern" id="generationMinCoverage" min="1" value="3">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label-modern" for="generationMinCoveragePct">Minimum coverage %</label>
+                                        <input type="number" class="form-control form-control-modern" id="generationMinCoveragePct" min="0" max="100" value="70">
+                                    </div>
+                                </div>
+
+                                <div class="modern-divider my-3"></div>
+
+                                <div class="row g-3 align-items-end">
+                                    <div class="col-md-3">
+                                        <label class="form-label-modern" for="generationBreak1Duration">Break 1 (minutes)</label>
+                                        <input type="number" class="form-control form-control-modern" id="generationBreak1Duration" min="5" max="30" value="15">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label-modern" for="generationBreak2Duration">Break 2 (minutes)</label>
+                                        <input type="number" class="form-control form-control-modern" id="generationBreak2Duration" min="0" max="30" value="15">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label-modern" for="generationLunchDuration">Lunch (minutes)</label>
+                                        <input type="number" class="form-control form-control-modern" id="generationLunchDuration" min="15" max="60" value="30">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label-modern" for="generationBreakDuration">Unproductive total (minutes)</label>
+                                        <input type="number" class="form-control form-control-modern" id="generationBreakDuration" value="60" readonly>
+                                        <small class="text-muted">Calculated from break and lunch durations</small>
+                                    </div>
+                                </div>
+
+                                <div class="form-check form-switch mt-3">
+                                    <input class="form-check-input" type="checkbox" id="generationEnableStaggeredBreaks" checked>
+                                    <label class="form-check-label form-label-modern" for="generationEnableStaggeredBreaks">Enable staggered breaks</label>
+                                </div>
+
+                                <div id="generationStaggeredConfig" class="mt-2">
+                                    <div class="row g-3">
+                                        <div class="col-md-6">
+                                            <label class="form-label-modern" for="generationBreakGroups">Break groups</label>
+                                            <input type="number" class="form-control form-control-modern" id="generationBreakGroups" min="2" max="10" value="3">
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label-modern" for="generationStaggerInterval">Stagger interval (minutes)</label>
+                                            <input type="number" class="form-control form-control-modern" id="generationStaggerInterval" min="5" max="60" value="15">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="modern-divider my-3"></div>
+
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <h6 class="text-primary mb-0">Overtime configuration</h6>
+                                    <div class="form-check form-switch mb-0">
+                                        <input class="form-check-input" type="checkbox" id="generationEnableOvertime">
+                                        <label class="form-check-label form-label-modern" for="generationEnableOvertime">Enable overtime</label>
+                                    </div>
+                                </div>
+
+                                <div id="generationOvertimeConfig" class="row g-3 mt-1">
+                                    <div class="col-md-3">
+                                        <label class="form-label-modern" for="generationMaxDailyOT">Max daily OT (hours)</label>
+                                        <input type="number" step="0.5" class="form-control form-control-modern" id="generationMaxDailyOT" min="0" value="2">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label-modern" for="generationMaxWeeklyOT">Max weekly OT (hours)</label>
+                                        <input type="number" step="0.5" class="form-control form-control-modern" id="generationMaxWeeklyOT" min="0" value="10">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label-modern" for="generationOTApproval">OT approval</label>
+                                        <select class="form-select form-control-modern" id="generationOTApproval">
+                                            <option value="supervisor">Supervisor</option>
+                                            <option value="manager">Manager</option>
+                                            <option value="wfm">WFM</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label-modern" for="generationOTRate">OT rate multiplier</label>
+                                        <input type="number" step="0.1" class="form-control form-control-modern" id="generationOTRate" min="1" value="1.5">
+                                    </div>
+                                    <div class="col-12">
+                                        <label class="form-label-modern" for="generationOTPolicy">Overtime policy</label>
+                                        <input type="text" class="form-control form-control-modern" id="generationOTPolicy" placeholder="e.g., Approved overtime only">
+                                    </div>
+                                </div>
+
+                                <div class="modern-divider my-3"></div>
+
+                                <div class="row g-3">
+                                    <div class="col-md-3">
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" id="generationAllowSwaps" checked>
+                                            <label class="form-check-label form-label-modern" for="generationAllowSwaps">Allow shift swaps</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" id="generationWeekendPremium">
+                                            <label class="form-check-label form-label-modern" for="generationWeekendPremium">Apply weekend premium</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" id="generationHolidayPremium" checked>
+                                            <label class="form-check-label form-label-modern" for="generationHolidayPremium">Apply holiday premium</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" id="generationAutoAssignment">
+                                            <label class="form-check-label form-label-modern" for="generationAutoAssignment">Enable auto assignment</label>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="row g-3 mt-1">
+                                    <div class="col-md-4">
+                                        <label class="form-label-modern" for="generationRestPeriod">Rest period (hours)</label>
+                                        <input type="number" class="form-control form-control-modern" id="generationRestPeriod" min="0" value="8">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label-modern" for="generationNotificationLead">Notification lead (hours)</label>
+                                        <input type="number" class="form-control form-control-modern" id="generationNotificationLead" min="0" value="24">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label-modern" for="generationHandoverTime">Handover time (minutes)</label>
+                                        <input type="number" class="form-control form-control-modern" id="generationHandoverTime" min="0" value="15">
+                                    </div>
+                                </div>
+
+                                <div class="form-check form-switch mt-3">
+                                    <input class="form-check-input" type="checkbox" id="generationIsActive" checked>
+                                    <label class="form-check-label form-label-modern" for="generationIsActive">Mark assignments as active</label>
+                                </div>
 
                                 <div class="mt-4 d-flex gap-3">
                                     <button type="submit" class="btn btn-primary-modern btn-modern flex-fill">
@@ -1897,9 +2037,8 @@
                 <div class="manual-shift-header text-center">
                     <h2 class="manual-shift-title">Manual Shift Slot Assignment</h2>
                     <p class="manual-shift-subtitle">
-                        Create and assign shift slots without relying on spreadsheet imports. Select a date, define the shift timing,
-                        and choose the agents who should receive the assignment. Add optional context about the source month or year to
-                        track where the schedule originated.
+                        Choose a shift slot, define the coverage window, and assign one or more agents to that slot. Optional notes help
+                        document the reason or context for the assignment.
                     </p>
                 </div>
 
@@ -1916,50 +2055,24 @@
                                     </h5>
                                 </div>
                                 <div class="modern-card-body">
+                                    <div class="mb-3">
+                                        <label class="form-label-modern" for="manualShiftSlot">Shift Slot</label>
+                                        <select class="form-select form-select-modern" id="manualShiftSlot" required>
+                                            <option value="" disabled selected>Select a shift slot</option>
+                                        </select>
+                                        <small class="text-muted">Shift slots are sourced from the Shifts tab.</small>
+                                    </div>
                                     <div class="row g-3">
                                         <div class="col-md-6">
-                                            <label class="form-label-modern" for="assignmentDate">Assignment Date</label>
-                                            <input type="date" class="form-control-modern w-100" id="assignmentDate" min="2023-01-01" required>
-                                            <small class="text-muted">Schedule back to January 2023.</small>
-                                        </div>
-                                        <div class="col-md-3">
-                                            <label class="form-label-modern" for="startTime">Start Time</label>
-                                            <input type="time" class="form-control-modern w-100" id="startTime" required>
-                                        </div>
-                                        <div class="col-md-3">
-                                            <label class="form-label-modern" for="endTime">End Time</label>
-                                            <input type="time" class="form-control-modern w-100" id="endTime" required>
-                                        </div>
-                                    </div>
-                                    <div class="row g-3 mt-1">
-                                        <div class="col-md-6">
-                                            <label class="form-label-modern" for="sourceMonth">Source Month (optional)</label>
-                                            <select class="form-select form-select-modern" id="sourceMonth">
-                                                <option value="">Select month</option>
-                                                <option value="1">January</option>
-                                                <option value="2">February</option>
-                                                <option value="3">March</option>
-                                                <option value="4">April</option>
-                                                <option value="5">May</option>
-                                                <option value="6">June</option>
-                                                <option value="7">July</option>
-                                                <option value="8">August</option>
-                                                <option value="9">September</option>
-                                                <option value="10">October</option>
-                                                <option value="11">November</option>
-                                                <option value="12">December</option>
-                                            </select>
+                                            <label class="form-label-modern" for="startDate">Start Date</label>
+                                            <input type="date" class="form-control-modern w-100" id="startDate" min="2023-01-01" required>
+                                            <small class="text-muted">Assignments can begin as early as January 2023.</small>
                                         </div>
                                         <div class="col-md-6">
-                                            <label class="form-label-modern" for="sourceYear">Source Year (optional)</label>
-                                            <select class="form-select form-select-modern" id="sourceYear">
-                                                <option value="">Select year</option>
-                                            </select>
+                                            <label class="form-label-modern" for="endDate">End Date</label>
+                                            <input type="date" class="form-control-modern w-100" id="endDate" min="2023-01-01" required>
+                                            <small class="text-muted">End date must be on or after the start date.</small>
                                         </div>
-                                    </div>
-                                    <div class="mt-3">
-                                        <label class="form-label-modern" for="slotLabel">Slot Label (optional)</label>
-                                        <input type="text" class="form-control-modern w-100" id="slotLabel" placeholder="e.g., Manual Morning Shift">
                                     </div>
                                     <div class="mt-3">
                                         <label class="form-label-modern" for="additionalNotes">Additional Notes</label>
@@ -1968,7 +2081,7 @@
                                     <div class="form-check mt-3">
                                         <input class="form-check-input" type="checkbox" id="replaceExisting">
                                         <label class="form-check-label" for="replaceExisting">
-                                            Replace existing shift assignment on the selected date for chosen users
+                                            Replace existing shift assignments within the selected range for chosen users
                                         </label>
                                     </div>
                                 </div>
@@ -2012,9 +2125,9 @@
                             <div class="d-flex flex-column gap-2">
                                 <div class="fw-semibold text-dark">Assignment Summary</div>
                                 <ul class="manual-help-list text-muted small">
-                                    <li>Date and time are required to create the shift slot.</li>
-                                    <li>Select one or more agents to assign the shift.</li>
-                                    <li>Enable replace to overwrite existing shifts for selected agents on this date.</li>
+                                    <li>Select a shift slot and date range to define the assignment window.</li>
+                                    <li>Choose one or more agents to assign to the selected shift slot.</li>
+                                    <li>Enable replace to archive overlapping assignments for the chosen users during the range.</li>
                                 </ul>
                             </div>
                             <div class="d-flex flex-wrap gap-2">
@@ -2023,8 +2136,8 @@
                                     Clear Selection
                                 </button>
                                 <button type="submit" class="btn btn-success-modern btn-modern" id="submitManualShift">
-                                    <i class="fas fa-plus-circle"></i>
-                                    Add Shift Slots
+                                    <i class="fas fa-user-plus"></i>
+                                    Assign Shift Slot
                                 </button>
                             </div>
                         </div>
@@ -2040,9 +2153,9 @@
                     </div>
                     <div class="modern-card-body">
                         <ul class="manual-help-list text-muted">
-                            <li>Use Source Month and Year to document where the manual assignment originated.</li>
-                            <li>Replace existing will overwrite conflicting shifts for the selected users on that date.</li>
-                            <li>All assignments are logged below so you can confirm recent manual updates.</li>
+                            <li>Shift slot availability is shared with the Generate tab. Create slots there first if none appear.</li>
+                            <li>Replace existing archives conflicting assignments for the selected users in the chosen range.</li>
+                            <li>Recent manual activity is tracked below for quick confirmation and auditing.</li>
                         </ul>
                     </div>
                 </div>
@@ -2453,9 +2566,11 @@
                 this.identityResolved = false;
                 this.identitySummary = null;
                 this.contextLoadingPromise = null;
-                this.manualShiftManager = null;
-                this.visibleManagedCount = 0;
-                this.attendanceCharts = {};
+                  this.manualShiftManager = null;
+                  this.visibleManagedCount = 0;
+                  this.latestPreviewState = null;
+                  this.previewContextHash = '';
+                  this.attendanceCharts = {};
                 this.attendanceDashboardInitialized = false;
                 this.attendanceDashboardResizeHandler = null;
                 this.attendanceDashboardData = null;
@@ -2718,9 +2833,16 @@
                 document.getElementById('attendanceMonth').value = today.getMonth() + 1;
                 document.getElementById('attendanceYear').value = today.getFullYear();
 
-                const manualDateInput = document.getElementById('assignmentDate');
-                if (manualDateInput) {
-                    manualDateInput.valueAsDate = today;
+                const manualStartDateInput = document.getElementById('startDate');
+                const manualEndDateInput = document.getElementById('endDate');
+                if (manualStartDateInput && !manualStartDateInput.value) {
+                    manualStartDateInput.valueAsDate = today;
+                }
+                if (manualEndDateInput && !manualEndDateInput.value) {
+                    manualEndDateInput.valueAsDate = today;
+                }
+                if (manualStartDateInput && manualEndDateInput) {
+                    manualEndDateInput.min = manualStartDateInput.value || manualEndDateInput.min;
                 }
             }
 
@@ -2767,6 +2889,7 @@
 
                 // Enhanced shift slot form handlers
                 this.initShiftSlotFormHandlers();
+                this.initializeBreakDurationCalculator();
 
                 window.addEventListener('resize', () => this.hideAttendanceContextMenu());
                 document.addEventListener('scroll', () => this.hideAttendanceContextMenu(), true);
@@ -2817,6 +2940,30 @@
                 [startTime, endTime].forEach(input => {
                     input?.addEventListener('change', this.calculateOptimalBreakTimes.bind(this));
                 });
+            }
+
+            initializeBreakDurationCalculator() {
+                const updateBreakDuration = () => {
+                    const break1 = parseInt(document.getElementById('generationBreak1Duration')?.value, 10) || 0;
+                    const break2 = parseInt(document.getElementById('generationBreak2Duration')?.value, 10) || 0;
+                    const lunch = parseInt(document.getElementById('generationLunchDuration')?.value, 10) || 0;
+                    const total = break1 + break2 + lunch;
+                    const totalField = document.getElementById('generationBreakDuration');
+                    if (totalField) {
+                        totalField.value = total;
+                    }
+                };
+
+                ['generationBreak1Duration', 'generationBreak2Duration', 'generationLunchDuration'].forEach(id => {
+                    const element = document.getElementById(id);
+                    if (!element) {
+                        return;
+                    }
+                    element.addEventListener('change', updateBreakDuration);
+                    element.addEventListener('input', updateBreakDuration);
+                });
+
+                updateBreakDuration();
             }
 
             async loadInitialData() {
@@ -3238,6 +3385,10 @@
                     this.updateShiftSlotSelectors(slots);
                     this.displayShiftSlots(slots);
 
+                    if (this.manualShiftManager && typeof this.manualShiftManager.setShiftSlots === 'function') {
+                        this.manualShiftManager.setShiftSlots(slots);
+                    }
+
                     const totalSlotsElement = document.getElementById('totalSlots');
                     if (totalSlotsElement) {
                         totalSlotsElement.textContent = metadata.totalCount;
@@ -3249,6 +3400,9 @@
                     this.cachedShiftSlots = [];
                     this.updateShiftSlotSelectors([]);
                     this.displayShiftSlots([]);
+                    if (this.manualShiftManager && typeof this.manualShiftManager.setShiftSlots === 'function') {
+                        this.manualShiftManager.setShiftSlots([]);
+                    }
                     this.showToast(error.message || 'Failed to load shift slots. You may need to create some first.', 'warning');
                 }
             }
@@ -3277,11 +3431,10 @@
                                         <strong>Time:</strong> ${this.formatTimeValue(slot.StartTime)} - ${this.formatTimeValue(slot.EndTime)}<br>
                                         <strong>Days:</strong> ${this.formatDaysOfWeek(slot.DaysOfWeekArray || [])}<br>
                                         <strong>Department:</strong> ${slot.Department || 'General'}<br>
-                                        <strong>Capacity:</strong> ${slot.MaxCapacity || 'Unlimited'}
+                                        <strong>Location:</strong> ${slot.Location || 'Office'}
                                     </p>
-                                    <small class="text-muted">
-                                        Created: ${this.formatDateTime(slot.CreatedAt)}
-                                    </small>
+                                    ${slot.Description ? `<div class="small text-muted mb-1">${this.escapeHtml(slot.Description)}</div>` : ''}
+                                    <small class="text-muted">Created by ${this.escapeHtml(slot.CreatedBy || 'System')} on ${this.formatDateTime(slot.CreatedAt)}</small>
                                 </div>
                                 <div class="btn-group-vertical btn-group-sm">
                                     <button class="btn btn-outline-primary btn-sm" onclick="editShiftSlot('${slot.ID}')" title="Edit">
@@ -3822,45 +3975,45 @@
                 }).join('');
             }
 
-            async generateSchedules() {
+            async generateSchedules(options = {}) {
                 try {
-                    this.showLoading(true);
-                    this.updateGenerationStatus('Assigning shift slots...', 'info');
-
                     const formData = this.getScheduleGenerationData();
-                    console.log('Generating schedules with data:', formData);
+                    const contextHash = this.buildGenerationContextHash(formData);
 
                     if (!formData.shiftSlots || formData.shiftSlots.length === 0) {
-                        this.showToast('Please select a shift slot before generating assignments.', 'warning');
+                        this.showToast('Please select at least one shift slot before generating assignments.', 'warning');
                         this.updateGenerationStatus('Select a shift slot to assign before generating.', 'warning');
-                        this.showLoading(false);
                         return;
                     }
 
-                    const result = await this.callServerFunction('clientGenerateSchedulesEnhanced',
-                        formData.startDate,
-                        formData.endDate,
-                        formData.users,
-                        formData.shiftSlots,
-                        formData.templateId,
-                        formData.generatedBy,
-                        formData.options
-                    );
+                    const hasPreview = this.latestPreviewState
+                        && this.latestPreviewState.token
+                        && this.latestPreviewState.contextHash === contextHash;
 
-                    if (result && result.success) {
-                        this.displayGenerationResults(result);
-                        this.showToast(`Successfully assigned ${result.generated} schedule slot${result.generated === 1 ? '' : 's'}!`, 'success');
-                        await this.loadSchedules();
-                    } else {
-                        throw new Error(result?.error || 'Failed to generate schedules');
+                    if (!hasPreview) {
+                        await this.previewSchedules({
+                            formData,
+                            contextHash,
+                            silent: !!options.autoCommit
+                        });
+
+                        if (!options.autoCommit) {
+                            this.showToast('Preview ready. Review the details and confirm to publish.', 'info');
+                            return;
+                        }
                     }
 
+                    await this.confirmScheduleGeneration({
+                        formData,
+                        skipHashCheck: false
+                    });
+
                 } catch (error) {
-                    console.error('❌ Schedule generation failed:', error);
-                    this.showToast('Schedule generation failed: ' + error.message, 'danger');
-                    this.updateGenerationStatus('Generation failed: ' + error.message, 'danger');
-                } finally {
-                    this.showLoading(false);
+                    console.error('❌ Schedule generation workflow failed:', error);
+                    if (!error || !error.__previewHandled) {
+                        this.showToast('Schedule generation failed: ' + error.message, 'danger');
+                        this.updateGenerationStatus('Generation failed: ' + error.message, 'danger');
+                    }
                 }
             }
 
@@ -3931,6 +4084,7 @@
                     interval: getOptionNumber('generationStaggerInterval', 15, { min: 10, max: 30 }),
                     minCoveragePct: getOptionNumber('generationMinCoveragePct', 70, { min: 50, max: 95 })
                 };
+                breaks.total = (breaks.first || 0) + (breaks.second || 0) + (breaks.lunch || 0);
 
                 const overtime = {
                     enabled: getOptionCheckbox('generationEnableOvertime', false),
@@ -3951,6 +4105,8 @@
                     handoverTime: getOptionNumber('generationHandoverTime', 15, { min: 0 })
                 };
 
+                const isActive = getOptionCheckbox('generationIsActive', true);
+
                 return {
                     startDate,
                     endDate,
@@ -3960,6 +4116,7 @@
                     generatedBy: this.getCurrentUserId() || 'System',
                     options: {
                         priority,
+                        Priority: priority,
                         detectConflicts,
                         includeHolidays,
                         overrideExisting: false,
@@ -3969,76 +4126,522 @@
                         overtime,
                         advanced,
                         maxCapacity: capacity.max,
+                        MaxCapacity: capacity.max,
                         minCoverage: capacity.min,
+                        MinCoverage: capacity.min,
+                        breakDuration: breaks.total,
+                        BreakDuration: breaks.total,
+                        break1Duration: breaks.first,
+                        Break1Duration: breaks.first,
+                        break2Duration: breaks.second,
+                        Break2Duration: breaks.second,
+                        lunchDuration: breaks.lunch,
+                        LunchDuration: breaks.lunch,
                         enableStaggeredBreaks: breaks.enableStaggered,
+                        EnableStaggeredBreaks: breaks.enableStaggered,
+                        breakGroups: breaks.groups,
+                        BreakGroups: breaks.groups,
                         staggerInterval: breaks.interval,
+                        StaggerInterval: breaks.interval,
                         minCoveragePct: breaks.minCoveragePct,
-                        overtimeEnabled: overtime.enabled
+                        MinCoveragePct: breaks.minCoveragePct,
+                        enableOvertime: overtime.enabled,
+                        EnableOvertime: overtime.enabled,
+                        maxDailyOT: overtime.maxDaily,
+                        MaxDailyOT: overtime.maxDaily,
+                        maxWeeklyOT: overtime.maxWeekly,
+                        MaxWeeklyOT: overtime.maxWeekly,
+                        OTApproval: overtime.approval,
+                        OTRate: overtime.rate,
+                        OTPolicy: overtime.policy,
+                        overtimePolicy: overtime.policy,
+                        OvertimePolicy: overtime.policy,
+                        allowSwaps: advanced.allowSwaps,
+                        AllowSwaps: advanced.allowSwaps,
+                        weekendPremium: advanced.weekendPremium,
+                        WeekendPremium: advanced.weekendPremium,
+                        holidayPremium: advanced.holidayPremium,
+                        HolidayPremium: advanced.holidayPremium,
+                        autoAssignment: advanced.autoAssignment,
+                        AutoAssignment: advanced.autoAssignment,
+                        restPeriod: advanced.restPeriod,
+                        RestPeriodHours: advanced.restPeriod,
+                        notificationLead: advanced.notificationLead,
+                        NotificationLead: advanced.notificationLead,
+                        handoverTime: advanced.handoverTime,
+                        HandoverTimeMinutes: advanced.handoverTime,
+                        notificationLeadHours: advanced.notificationLead,
+                        isActive,
+                        IsActive: isActive
                     }
                 };
             }
 
-            displayGenerationResults(result) {
-                const container = document.getElementById('generationResults');
-                if (!container) return;
+            buildGenerationContextHash(formData) {
+                if (!formData || typeof formData !== 'object') {
+                    return '';
+                }
 
+                const normalize = (value) => {
+                    if (Array.isArray(value)) {
+                        return value.map(normalize).sort();
+                    }
+                    if (value && typeof value === 'object') {
+                        const sortedKeys = Object.keys(value).sort();
+                        const normalizedObject = {};
+                        sortedKeys.forEach(key => {
+                            normalizedObject[key] = normalize(value[key]);
+                        });
+                        return normalizedObject;
+                    }
+                    if (value === undefined || value === null) {
+                        return '';
+                    }
+                    return value;
+                };
+
+                const payload = {
+                    startDate: formData.startDate || '',
+                    endDate: formData.endDate || '',
+                    users: Array.isArray(formData.users) ? formData.users.slice().sort() : [],
+                    shiftSlots: Array.isArray(formData.shiftSlots) ? formData.shiftSlots.slice().sort() : [],
+                    options: normalize(formData.options || {})
+                };
+
+                return JSON.stringify(payload);
+            }
+
+            async previewSchedules(options = {}) {
+                const { formData = null, contextHash = null, silent = false } = options;
+
+                try {
+                    const payload = formData || this.getScheduleGenerationData();
+                    const hash = contextHash || this.buildGenerationContextHash(payload);
+
+                    this.showLoading(true);
+                    this.updateGenerationStatus('Building preview...', 'info');
+
+                    const optionsPayload = JSON.parse(JSON.stringify(payload.options || {}));
+                    delete optionsPayload.commitToken;
+
+                    const result = await this.callServerFunction('clientGenerateSchedulesEnhanced',
+                        payload.startDate,
+                        payload.endDate,
+                        payload.users,
+                        payload.shiftSlots,
+                        payload.templateId,
+                        payload.generatedBy,
+                        optionsPayload
+                    );
+
+                    if (!result || !result.success) {
+                        throw new Error(result?.error || 'Failed to generate schedule preview.');
+                    }
+
+                    if (!result.previewToken) {
+                        throw new Error('Preview token missing from response. Please regenerate.');
+                    }
+
+                    const previewState = {
+                        token: result.previewToken,
+                        contextHash: hash,
+                        parameters: JSON.parse(JSON.stringify({
+                            startDate: payload.startDate,
+                            endDate: payload.endDate,
+                            users: payload.users,
+                            shiftSlots: payload.shiftSlots,
+                            templateId: payload.templateId,
+                            generatedBy: payload.generatedBy,
+                            options: optionsPayload
+                        })),
+                        preview: result.preview || {},
+                        assignments: Array.isArray(result.assignments) ? result.assignments : [],
+                        conflicts: Array.isArray(result.conflicts) ? result.conflicts : [],
+                        skippedUsers: Array.isArray(result.skippedUsers) ? result.skippedUsers : [],
+                        unresolvedUsers: Array.isArray(result.unresolvedUsers) ? result.unresolvedUsers : []
+                    };
+
+                    this.latestPreviewState = previewState;
+                    this.previewContextHash = hash;
+
+                    this.renderSchedulePreview(previewState);
+
+                    if (!silent) {
+                        this.showToast('Preview ready. Review the details and confirm to publish.', 'info');
+                    }
+                    this.updateGenerationStatus('Preview ready. Review details and confirm to publish.', 'info');
+
+                    return result;
+                } catch (error) {
+                    console.error('❌ Schedule preview failed:', error);
+                    this.showToast('Schedule preview failed: ' + error.message, 'danger');
+                    this.updateGenerationStatus('Preview failed: ' + error.message, 'danger');
+                    if (error && typeof error === 'object') {
+                        error.__previewHandled = true;
+                    }
+                    throw error;
+                } finally {
+                    this.showLoading(false);
+                }
+            }
+
+            resetPreviewState() {
+                this.latestPreviewState = null;
+                this.previewContextHash = '';
+            }
+
+            clearSchedulePreview(updateStatus = true) {
+                this.resetPreviewState();
+
+                const container = document.getElementById('generationResults');
+                if (container) {
+                    container.innerHTML = '';
+                    container.classList.add('d-none');
+                    container.style.display = 'none';
+                }
+
+                if (updateStatus) {
+                    this.updateGenerationStatus('Preview cleared. Adjust parameters and generate again when ready.', 'info');
+                }
+            }
+
+            renderSchedulePreview(previewState) {
+                const container = document.getElementById('generationResults');
+                if (!container) {
+                    return;
+                }
+
+                const preview = previewState.preview || {};
+                const assignmentsCount = Number(preview.totalAssignments || (previewState.assignments ? previewState.assignments.length : 0) || 0);
+                const coveragePercentRaw = Number(preview.coveragePercent || 0);
+                const coveragePercent = Number.isFinite(coveragePercentRaw) ? Math.round(coveragePercentRaw) : 0;
+                const shortfallDaysRaw = Number(preview.shortfallDays || 0);
+                const shortfallDays = Number.isFinite(shortfallDaysRaw) ? shortfallDaysRaw : 0;
+                const periodLabel = this.formatPeriodLabel(preview.periodStart, preview.periodEnd) || '—';
+                const coverageDetails = Array.isArray(preview.coverageDetails) ? preview.coverageDetails : [];
+
+                const slotTotals = {};
+                (previewState.assignments || []).forEach(assignment => {
+                    const slotKey = assignment.SlotName || assignment.SlotId || 'Shift';
+                    slotTotals[slotKey] = (slotTotals[slotKey] || 0) + 1;
+                });
+                const slotSummaryChips = Object.keys(slotTotals).sort().map(slotName => {
+                    const count = slotTotals[slotName];
+                    return `<span class="badge bg-light text-dark border me-1 mb-1">${this.escapeHtml(slotName)} • ${count}</span>`;
+                }).join('');
+                const slotSummaryHtml = slotSummaryChips
+                    ? `<div class="mt-3 small text-muted"><strong>Slot distribution:</strong> ${slotSummaryChips}</div>`
+                    : '';
+
+                const conflicts = Array.isArray(previewState.conflicts) ? previewState.conflicts : [];
+                const conflictItems = conflicts.map(conflict => {
+                    const name = this.escapeHtml(conflict.userName || conflict.user || conflict.userId || 'Agent');
+                    const period = this.formatPeriodLabel(conflict.periodStart, conflict.periodEnd) || '';
+                    const reason = this.escapeHtml(conflict.error || conflict.reason || conflict.type || 'Conflict detected');
+                    const periodLabelHtml = period ? ` • ${this.escapeHtml(period)}` : '';
+                    return `<li>${name}${periodLabelHtml} — ${reason}</li>`;
+                }).join('');
+                const conflictsHtml = conflicts.length
+                    ? `<div class="alert alert-warning-modern mt-3"><strong>Conflicts detected:</strong><ul class="mb-0 mt-2">${conflictItems}</ul></div>`
+                    : `<div class="alert alert-success-modern mt-3 mb-0"><i class="fas fa-check-circle me-2"></i>No conflicts detected.</div>`;
+
+                const skippedUsers = Array.isArray(previewState.skippedUsers) ? previewState.skippedUsers : [];
+                const skippedItems = skippedUsers.map(entry => {
+                    const name = this.escapeHtml(entry.userName || entry.user || entry.userId || 'Agent');
+                    const reason = this.escapeHtml(entry.reason || 'Skipped due to rule constraints');
+                    return `<li>${name} — ${reason}</li>`;
+                }).join('');
+                const skippedHtml = skippedUsers.length
+                    ? `<div class="alert alert-info-modern mt-3"><strong>Skipped users:</strong><ul class="mb-0 mt-2">${skippedItems}</ul></div>`
+                    : '';
+
+                const unresolvedUsers = Array.isArray(previewState.unresolvedUsers) ? previewState.unresolvedUsers : [];
+                const unresolvedItems = unresolvedUsers.map(entry => `<li>${this.escapeHtml(entry)}</li>`).join('');
+                const unresolvedHtml = unresolvedUsers.length
+                    ? `<div class="alert alert-secondary-modern mt-3"><strong>Unresolved users:</strong><ul class="mb-0 mt-2">${unresolvedItems}</ul></div>`
+                    : '';
+
+                container.classList.remove('d-none');
                 container.style.display = 'block';
                 container.innerHTML = `
-                        <div class="modern-card">
-                            <div class="modern-card-header">
-                                <h5 class="modern-card-title">
-                                    <i class="fas fa-check-circle text-success"></i>
-                                    Slot Assignment Complete
-                                </h5>
+                    <div class="modern-card">
+                        <div class="modern-card-header">
+                            <h5 class="modern-card-title">
+                                <i class="fas fa-eye text-info"></i>
+                                Schedule Preview
+                            </h5>
+                        </div>
+                        <div class="modern-card-body">
+                            <div class="row g-3">
+                                <div class="col-md-3">
+                                    <div class="metric-card">
+                                        <div class="metric-number text-primary">${assignmentsCount}</div>
+                                        <div class="metric-label">Assignments</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="metric-card">
+                                        <div class="metric-number text-success">${coveragePercent}%</div>
+                                        <div class="metric-label">% Days Meeting Coverage</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="metric-card">
+                                        <div class="metric-number text-warning">${shortfallDays}</div>
+                                        <div class="metric-label">Days Below Target</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="metric-card">
+                                        <div class="metric-number text-info">${this.escapeHtml(periodLabel)}</div>
+                                        <div class="metric-label">Assignment Period</div>
+                                    </div>
+                                </div>
                             </div>
-                            <div class="modern-card-body">
-                                <div class="row g-3">
-                                    <div class="col-md-3">
-                                        <div class="metric-card">
-                                            <div class="metric-number text-success">${result.generated}</div>
-                                            <div class="metric-label">Generated</div>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-3">
-                                        <div class="metric-card">
-                                            <div class="metric-number text-primary">${result.userCount || 0}</div>
-                                            <div class="metric-label">Users</div>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-3">
-                                        <div class="metric-card">
-                                            <div class="metric-number text-warning">${result.conflicts?.length || 0}</div>
-                                            <div class="metric-label">Conflicts</div>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-3">
-                                        <div class="metric-card">
-                                            <div class="metric-number text-info">${this.formatPeriodLabel(result.periodStart, result.periodEnd) || '—'}</div>
-                                            <div class="metric-label">Assignment Period</div>
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                ${result.conflicts && result.conflicts.length > 0 ? `
-                                    <div class="alert alert-warning-modern mt-3">
-                                        <strong>Conflicts Found:</strong>
-                                        <ul class="mb-0 mt-2">
-                                            ${result.conflicts.map(c => `<li>${c.user}: ${this.formatPeriodLabel(c.periodStart, c.periodEnd)} — ${c.error}</li>`).join('')}
-                                        </ul>
-                                    </div>
-                                ` : ''}
-                                
-                                <div class="mt-3">
-                                    <p class="text-muted mb-0">
-                                        <i class="fas fa-info-circle me-1"></i>
-                                        All assignments are pending approval. Review them in the Schedule Management tab.
-                                    </p>
-                                </div>
+                            ${slotSummaryHtml}
+                            ${this.renderCoveragePreviewTable(coverageDetails)}
+                            ${conflictsHtml}
+                            ${skippedHtml}
+                            ${unresolvedHtml}
+                            <div class="d-flex justify-content-end gap-2 mt-4">
+                                <button type="button" class="btn btn-outline-modern btn-modern" onclick="scheduleManager.clearSchedulePreview()">
+                                    <i class="fas fa-times"></i>
+                                    Cancel Preview
+                                </button>
+                                <button type="button" class="btn btn-primary-modern btn-modern" onclick="scheduleManager.confirmScheduleGeneration()">
+                                    <i class="fas fa-cloud-upload-alt"></i>
+                                    Confirm &amp; Save
+                                </button>
                             </div>
                         </div>
-                    `;
+                    </div>
+                `;
+            }
 
-                this.updateGenerationStatus('Slot assignments completed successfully!', 'success');
+            renderCoveragePreviewTable(coverageDetails = []) {
+                if (!Array.isArray(coverageDetails) || coverageDetails.length === 0) {
+                    return `<div class="alert alert-info-modern mt-3 mb-0"><i class="fas fa-info-circle me-2"></i>No coverage details available for this preview.</div>`;
+                }
+
+                const rows = coverageDetails.map(day => {
+                    const total = Number(day.total || 0);
+                    const minRequired = Number(day.minRequired || 0);
+                    const shortfall = Number(day.shortfall || 0);
+                    const excess = Number(day.excess || 0);
+                    const dateLabel = this.escapeHtml(this.formatDate(day.date));
+
+                    const status = shortfall > 0
+                        ? { icon: 'exclamation-triangle', label: `Shortfall (${shortfall})`, className: 'text-danger fw-semibold' }
+                        : excess > 0
+                            ? { icon: 'exclamation-triangle', label: `Excess (+${excess})`, className: 'text-warning fw-semibold' }
+                            : { icon: 'check-circle', label: 'Met', className: 'text-success fw-semibold' };
+
+                    const varianceLabel = shortfall > 0
+                        ? `<span class="text-danger">-${shortfall}</span>`
+                        : excess > 0
+                            ? `<span class="text-warning">+${excess}</span>`
+                            : '<span class="text-success">0</span>';
+
+                    const coverageLabel = minRequired > 0 ? `${total}/${minRequired}` : `${total}`;
+
+                    return `
+                        <tr>
+                            <td>${dateLabel}</td>
+                            <td>${coverageLabel}</td>
+                            <td>${varianceLabel}</td>
+                            <td><span class="${status.className}"><i class="fas fa-${status.icon} me-1"></i>${status.label}</span></td>
+                            <td>${this.renderPremiumBadges(day)}</td>
+                        </tr>
+                    `;
+                }).join('');
+
+                return `
+                    <div class="table-responsive mt-3">
+                        <table class="table table-modern table-sm align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Coverage (Actual / Target)</th>
+                                    <th>Variance</th>
+                                    <th>Status</th>
+                                    <th>Premiums &amp; Flags</th>
+                                </tr>
+                            </thead>
+                            <tbody>${rows}</tbody>
+                        </table>
+                    </div>
+                `;
+            }
+
+            renderPremiumBadges(day) {
+                if (!day || typeof day !== 'object') {
+                    return '<span class="text-muted small">—</span>';
+                }
+
+                const badges = [];
+                if (day.weekend) {
+                    badges.push('<span class="badge bg-light text-dark border me-1 mb-1"><i class="fas fa-calendar-week me-1"></i>Weekend</span>');
+                }
+
+                const regions = Array.isArray(day.holidayRegions) ? day.holidayRegions : [];
+                regions.forEach(region => {
+                    const label = this.escapeHtml(region || 'Holiday');
+                    const isJamaica = (region || '').toLowerCase() === 'jamaica';
+                    const badgeClass = isJamaica ? 'badge bg-success text-white' : 'badge bg-secondary text-white';
+                    badges.push(`<span class="${badgeClass} me-1 mb-1"><i class="fas fa-flag me-1"></i>${label}</span>`);
+                });
+
+                const premium = day.premium || {};
+                if (premium.weekend) {
+                    badges.push('<span class="badge bg-warning text-dark me-1 mb-1"><i class="fas fa-star me-1"></i>Weekend Premium</span>');
+                }
+                if (premium.holiday) {
+                    badges.push('<span class="badge bg-success text-white me-1 mb-1"><i class="fas fa-gift me-1"></i>Holiday Premium</span>');
+                }
+
+                return badges.length ? badges.join('') : '<span class="text-muted small">—</span>';
+            }
+
+            async confirmScheduleGeneration(options = {}) {
+                const previewState = this.latestPreviewState;
+                if (!previewState || !previewState.token) {
+                    this.showToast('Generate a preview before confirming assignments.', 'warning');
+                    return;
+                }
+
+                const formData = options.formData || this.getScheduleGenerationData();
+                const contextHash = this.buildGenerationContextHash(formData);
+
+                if (!options.skipHashCheck && previewState.contextHash !== contextHash) {
+                    this.showToast('The preview no longer matches the current selections. Please regenerate the preview.', 'warning');
+                    this.updateGenerationStatus('Preview mismatch detected. Regenerate before confirming.', 'warning');
+                    return;
+                }
+
+                try {
+                    this.showLoading(true);
+                    this.updateGenerationStatus('Saving assignments...', 'info');
+
+                    const commitOptions = Object.assign({}, previewState.parameters.options || {});
+                    commitOptions.commitToken = previewState.token;
+
+                    const result = await this.callServerFunction('clientGenerateSchedulesEnhanced',
+                        previewState.parameters.startDate,
+                        previewState.parameters.endDate,
+                        previewState.parameters.users,
+                        previewState.parameters.shiftSlots,
+                        previewState.parameters.templateId,
+                        previewState.parameters.generatedBy,
+                        commitOptions
+                    );
+
+                    if (!result || !result.success) {
+                        throw new Error(result?.error || 'Failed to save assignments.');
+                    }
+
+                    if (!result.coverage && previewState.preview) {
+                        result.coverage = previewState.preview;
+                    }
+
+                    this.resetPreviewState();
+                    this.displayGenerationResults(result, { mode: 'commit' });
+                    this.showToast(`Successfully scheduled ${result.generated} assignment${result.generated === 1 ? '' : 's'}.`, 'success');
+                    this.updateGenerationStatus('Assignments saved. Review them in Manage Schedule.', 'success');
+                    await this.loadSchedules();
+                } catch (error) {
+                    console.error('❌ Failed to confirm schedule generation:', error);
+                    this.showToast('Failed to confirm schedule generation: ' + error.message, 'danger');
+                    this.updateGenerationStatus('Failed to confirm: ' + error.message, 'danger');
+                } finally {
+                    this.showLoading(false);
+                }
+            }
+
+            displayGenerationResults(result, options = {}) {
+                const container = document.getElementById('generationResults');
+                if (!container) {
+                    return;
+                }
+
+                const coverageSummary = (result && (result.coverage || result.preview)) || {};
+                const coverageDetails = Array.isArray(coverageSummary.coverageDetails) ? coverageSummary.coverageDetails : [];
+                const periodLabel = this.formatPeriodLabel(coverageSummary.periodStart || result?.periodStart, coverageSummary.periodEnd || result?.periodEnd) || '—';
+                const coveragePercentRaw = Number(coverageSummary.coveragePercent || 0);
+                const coveragePercent = Number.isFinite(coveragePercentRaw) ? Math.round(coveragePercentRaw) : 0;
+                const shortfallDaysRaw = Number(coverageSummary.shortfallDays || 0);
+                const shortfallDays = Number.isFinite(shortfallDaysRaw) ? shortfallDaysRaw : 0;
+                const conflicts = Array.isArray(result?.conflicts) ? result.conflicts : [];
+                const skipped = Array.isArray(result?.skipped) ? result.skipped : [];
+
+                const conflictItems = conflicts.map(conflict => {
+                    const name = this.escapeHtml(conflict.userName || conflict.user || conflict.userId || 'Agent');
+                    const period = this.formatPeriodLabel(conflict.periodStart, conflict.periodEnd) || '';
+                    const reason = this.escapeHtml(conflict.error || conflict.reason || conflict.type || 'Conflict detected');
+                    const periodLabelHtml = period ? ` • ${this.escapeHtml(period)}` : '';
+                    return `<li>${name}${periodLabelHtml} — ${reason}</li>`;
+                }).join('');
+                const conflictsHtml = conflicts.length
+                    ? `<div class="alert alert-warning-modern mt-3"><strong>Conflicts detected:</strong><ul class="mb-0 mt-2">${conflictItems}</ul></div>`
+                    : `<div class="alert alert-success-modern mt-3"><i class="fas fa-check-circle me-2"></i>No conflicts detected.</div>`;
+
+                const skippedItems = skipped.map(entry => {
+                    const name = this.escapeHtml(entry.userName || entry.user || entry.userId || 'Agent');
+                    const reason = this.escapeHtml(entry.reason || 'Skipped due to rule constraints');
+                    return `<li>${name} — ${reason}</li>`;
+                }).join('');
+                const skippedHtml = skipped.length
+                    ? `<div class="alert alert-info-modern mt-3"><strong>Skipped users:</strong><ul class="mb-0 mt-2">${skippedItems}</ul></div>`
+                    : '';
+
+                container.classList.remove('d-none');
+                container.style.display = 'block';
+                container.innerHTML = `
+                    <div class="modern-card">
+                        <div class="modern-card-header">
+                            <h5 class="modern-card-title">
+                                <i class="fas fa-check-circle text-success"></i>
+                                Shift Assignments Saved
+                            </h5>
+                        </div>
+                        <div class="modern-card-body">
+                            <div class="row g-3">
+                                <div class="col-md-3">
+                                    <div class="metric-card">
+                                        <div class="metric-number text-success">${result.generated || 0}</div>
+                                        <div class="metric-label">Assignments</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="metric-card">
+                                        <div class="metric-number text-primary">${coveragePercent}%</div>
+                                        <div class="metric-label">% Days Meeting Coverage</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="metric-card">
+                                        <div class="metric-number text-warning">${shortfallDays}</div>
+                                        <div class="metric-label">Days Below Target</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="metric-card">
+                                        <div class="metric-number text-info">${this.escapeHtml(periodLabel)}</div>
+                                        <div class="metric-label">Assignment Period</div>
+                                    </div>
+                                </div>
+                            </div>
+                            ${this.renderCoveragePreviewTable(coverageDetails)}
+                            ${conflictsHtml}
+                            ${skippedHtml}
+                            <div class="mt-3">
+                                <p class="text-muted mb-0">
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    All assignments are pending approval. Review them in the Schedule Management tab.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                `;
             }
 
             updateGenerationStatus(message, type = 'info') {
@@ -4078,49 +4681,6 @@
                         return value;
                     };
 
-                    const getCheckboxValue = (id, fallback = false) => {
-                        const element = document.getElementById(id);
-                        return element ? element.checked : fallback;
-                    };
-
-                    const getNumericValue = (id, fallback, { allowFloat = false, min = null, max = null } = {}) => {
-                        const element = document.getElementById(id);
-                        const rawValue = element ? element.value : '';
-                        const resolvedFallback = (() => {
-                            if (fallback !== undefined) {
-                                return fallback;
-                            }
-                            if (element && element.defaultValue !== undefined && element.defaultValue !== '') {
-                                const parsedDefault = allowFloat
-                                    ? parseFloat(element.defaultValue)
-                                    : parseInt(element.defaultValue, 10);
-                                if (Number.isFinite(parsedDefault)) {
-                                    return parsedDefault;
-                                }
-                            }
-                            return null;
-                        })();
-
-                        if (rawValue === '' || rawValue === null || rawValue === undefined) {
-                            return resolvedFallback;
-                        }
-
-                        const parsed = allowFloat ? parseFloat(rawValue) : parseInt(rawValue, 10);
-                        if (!Number.isFinite(parsed)) {
-                            return resolvedFallback;
-                        }
-
-                        let value = parsed;
-                        if (typeof min === 'number' && value < min) {
-                            value = min;
-                        }
-                        if (typeof max === 'number' && value > max) {
-                            value = max;
-                        }
-
-                        return value;
-                    };
-
                     // Get selected days
                     const selectedDays = [];
                     const dayCheckboxes = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
@@ -4134,9 +4694,7 @@
                         }
                     });
 
-                    // Enhanced slot data with all new fields (skills removed)
                     const slotData = {
-                        // Basic Information
                         name: getElementValue('slotName'),
                         startTime: getElementValue('slotStartTime'),
                         endTime: getElementValue('slotEndTime'),
@@ -4144,121 +4702,15 @@
                         department: getElementValue('slotDepartment'),
                         location: getElementValue('slotLocation'),
                         description: getElementValue('slotDescription'),
-
-                        // Capacity & Staffing
-                        maxCapacity: getNumericValue(
-                            'slotCapacity',
-                            getNumericValue('generationMaxCapacity', 10, { min: 1, max: 100 }),
-                            { min: 1, max: 100 }
-                        ),
-                        minCoverage: getNumericValue(
-                            'slotMinCoverage',
-                            getNumericValue('generationMinCoverage', 1, { min: 1 }),
-                            { min: 1 }
-                        ),
-                        priority: getNumericValue('slotPriority', getNumericValue('schedulePriority', 2, { min: 1, max: 4 }), { min: 1, max: 4 }),
-
-                        // Break & Lunch Configuration
-                        break1Duration: getNumericValue(
-                            'slotBreak1Duration',
-                            getNumericValue('generationBreak1Duration', 15, { min: 5, max: 30 }),
-                            { min: 5, max: 30 }
-                        ),
-                        lunchDuration: getNumericValue(
-                            'slotLunchDuration',
-                            getNumericValue('generationLunchDuration', 30, { min: 15, max: 60 }),
-                            { min: 15, max: 60 }
-                        ),
-                        break2Duration: getNumericValue(
-                            'slotBreak2Duration',
-                            getNumericValue('generationBreak2Duration', 0, { min: 0, max: 30 }),
-                            { min: 0, max: 30 }
-                        ),
-
-                        // Staggered Breaks
-                        enableStaggeredBreaks: getCheckboxValue('enableStaggeredBreaks', getCheckboxValue('generationEnableStaggeredBreaks', true)),
-                        breakGroups: getNumericValue(
-                            'slotBreakGroups',
-                            getNumericValue('generationBreakGroups', 3, { min: 2, max: 5 }),
-                            { min: 2, max: 5 }
-                        ),
-                        staggerInterval: getNumericValue(
-                            'slotStaggerInterval',
-                            getNumericValue('generationStaggerInterval', 15, { min: 10, max: 30 }),
-                            { min: 10, max: 30 }
-                        ),
-                        minCoveragePct: getNumericValue(
-                            'slotMinCoveragePct',
-                            getNumericValue('generationMinCoveragePct', 70, { min: 50, max: 95 }),
-                            { min: 50, max: 95 }
-                        ),
-
-                        // Overtime Configuration
-                        enableOvertime: getCheckboxValue('enableOvertime', getCheckboxValue('generationEnableOvertime', false)),
-                        maxDailyOT: getNumericValue(
-                            'slotMaxDailyOT',
-                            getNumericValue('generationMaxDailyOT', 0, { allowFloat: true, min: 0 }),
-                            { allowFloat: true, min: 0 }
-                        ),
-                        maxWeeklyOT: getNumericValue(
-                            'slotMaxWeeklyOT',
-                            getNumericValue('generationMaxWeeklyOT', 0, { allowFloat: true, min: 0 }),
-                            { allowFloat: true, min: 0 }
-                        ),
-                        otApproval: getElementValue('slotOTApproval', getElementValue('generationOTApproval', '')),
-                        otRate: getNumericValue(
-                            'slotOTRate',
-                            getNumericValue('generationOTRate', 1.5, { allowFloat: true, min: 1 }),
-                            { allowFloat: true, min: 1 }
-                        ),
-                        otPolicy: getElementValue('slotOTPolicy', getElementValue('generationOTPolicy', '')),
-
-                        // Advanced Settings (skills removed)
-                        allowSwaps: getCheckboxValue('allowSwaps', getCheckboxValue('generationAllowSwaps', true)),
-                        weekendPremium: getCheckboxValue('weekendPremium', getCheckboxValue('generationWeekendPremium', false)),
-                        holidayPremium: getCheckboxValue('holidayPremium', getCheckboxValue('generationHolidayPremium', true)),
-                        autoAssignment: getCheckboxValue('autoAssignment', getCheckboxValue('generationAutoAssignment', false)),
-                        restPeriod: getNumericValue(
-                            'slotRestPeriod',
-                            getNumericValue('generationRestPeriod', 8, { min: 0 }),
-                            { min: 0 }
-                        ),
-                        notificationLead: getNumericValue(
-                            'slotNotificationLead',
-                            getNumericValue('generationNotificationLead', 24, { min: 0 }),
-                            { min: 0 }
-                        ),
-                        handoverTime: getNumericValue(
-                            'slotHandoverTime',
-                            getNumericValue('generationHandoverTime', 15, { min: 0 }),
-                            { min: 0 }
-                        ),
-
-                        // System fields
                         createdBy: this.getCurrentUserId() || 'System'
                     };
 
-                    if (Number.isFinite(slotData.maxCapacity) && Number.isFinite(slotData.minCoverage)) {
-                        if (slotData.minCoverage > slotData.maxCapacity) {
-                            slotData.minCoverage = slotData.maxCapacity;
-                        }
-                        if (slotData.minCoverage < 1) {
-                            slotData.minCoverage = 1;
-                        }
-                    }
-
-                    if (!slotData.enableOvertime) {
-                        slotData.maxDailyOT = 0;
-                        slotData.maxWeeklyOT = 0;
-                    }
-
-                    // Enhanced validation
                     const validation = this.validateEnhancedShiftSlot(slotData);
                     if (!validation.isValid) {
                         throw new Error('Validation failed: ' + validation.errors.join(', '));
                     }
 
-                    console.log('Creating enhanced shift slot with data:', slotData);
+                    console.log('Creating shift slot with data:', slotData);
 
                     let result;
                     let usedLegacyEndpoint = false;
@@ -4698,83 +5150,33 @@
             validateEnhancedShiftSlot(slotData) {
                 const errors = [];
 
-                // Basic validation
+                if (!slotData || typeof slotData !== 'object') {
+                    return { isValid: false, errors: ['Missing shift slot details'] };
+                }
+
                 if (!slotData.name || slotData.name.trim().length < 3) {
                     errors.push('Slot name must be at least 3 characters');
                 }
 
                 if (!slotData.startTime || !slotData.endTime) {
                     errors.push('Start time and end time are required');
+                } else if (slotData.startTime === slotData.endTime) {
+                    errors.push('Start and end times cannot be the same');
                 }
 
-                if (slotData.daysOfWeek.length === 0) {
-                    errors.push('At least one day must be selected');
+                if (!Array.isArray(slotData.daysOfWeek) || slotData.daysOfWeek.length === 0) {
+                    errors.push('Select at least one day of the week');
                 }
 
-                // Time validation
+                if (!slotData.department) {
+                    errors.push('Department is required');
+                }
+
                 if (slotData.startTime && slotData.endTime) {
                     const start = new Date(`2000-01-01 ${slotData.startTime}`);
                     const end = new Date(`2000-01-01 ${slotData.endTime}`);
-
-                    if (start >= end) {
-                        errors.push('End time must be after start time');
-                    }
-
-                    const duration = (end - start) / (1000 * 60 * 60); // hours
-                    if (!Number.isFinite(duration)) {
-                        errors.push('Unable to determine shift duration. Please verify the start and end times.');
-                    } else {
-                        if (duration < 2) {
-                            errors.push('Shift must be at least 2 hours long');
-                        }
-                        if (duration > 12) {
-                            errors.push('Shift cannot be longer than 12 hours');
-                        }
-                    }
-                }
-
-                // Capacity validation
-                if (!Number.isFinite(slotData.maxCapacity)) {
-                    errors.push('Max capacity is required');
-                } else if (slotData.maxCapacity < 1 || slotData.maxCapacity > 100) {
-                    errors.push('Max capacity must be between 1 and 100');
-                }
-
-                if (!Number.isFinite(slotData.minCoverage)) {
-                    errors.push('Minimum coverage is required');
-                } else if (slotData.minCoverage < 1) {
-                    errors.push('Min coverage must be at least 1');
-                } else if (Number.isFinite(slotData.maxCapacity) && slotData.minCoverage > slotData.maxCapacity) {
-                    errors.push('Min coverage must be between 1 and max capacity');
-                }
-
-                // Break validation
-                if (Number.isFinite(slotData.break1Duration) && (slotData.break1Duration < 5 || slotData.break1Duration > 30)) {
-                    errors.push('First break duration must be between 5 and 30 minutes');
-                }
-
-                if (Number.isFinite(slotData.lunchDuration) && (slotData.lunchDuration < 15 || slotData.lunchDuration > 60)) {
-                    errors.push('Lunch duration must be between 15 and 60 minutes');
-                }
-
-                if (!Number.isFinite(slotData.minCoveragePct)) {
-                    errors.push('Minimum coverage percentage is required');
-                } else if (slotData.minCoveragePct < 50 || slotData.minCoveragePct > 95) {
-                    errors.push('Minimum coverage percentage must be between 50% and 95%');
-                }
-
-                // Overtime validation
-                if (slotData.enableOvertime) {
-                    if (!Number.isFinite(slotData.maxDailyOT)) {
-                        errors.push('Max daily overtime is required when overtime is enabled');
-                    } else if (slotData.maxDailyOT < 0.5 || slotData.maxDailyOT > 4) {
-                        errors.push('Max daily overtime must be between 0.5 and 4 hours');
-                    }
-
-                    if (!Number.isFinite(slotData.maxWeeklyOT)) {
-                        errors.push('Max weekly overtime is required when overtime is enabled');
-                    } else if (slotData.maxWeeklyOT < 2 || slotData.maxWeeklyOT > 20) {
-                        errors.push('Max weekly overtime must be between 2 and 20 hours');
+                    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+                        errors.push('Enter valid 12-hour start and end times (e.g., 08:00 AM)');
                     }
                 }
 
@@ -9349,19 +9751,19 @@
 
         function previewSchedules() {
             if (window.scheduleManager) {
-                window.scheduleManager.showToast('Schedule preview - coming soon!', 'info');
+                window.scheduleManager.previewSchedules().catch(() => {});
             }
         }
 
         function generateThisWeek() {
             if (window.scheduleManager) {
-                window.scheduleManager.generateSchedules();
+                window.scheduleManager.generateSchedules({ autoCommit: true }).catch(() => {});
             }
         }
 
         function generateNextWeek() {
             if (window.scheduleManager) {
-                window.scheduleManager.generateSchedules();
+                window.scheduleManager.generateSchedules({ autoCommit: true }).catch(() => {});
             }
         }
 
@@ -9468,12 +9870,9 @@
 
                 this.form = document.getElementById('manualShiftForm');
                 this.feedbackArea = document.getElementById('feedbackArea');
-                this.dateInput = document.getElementById('assignmentDate');
-                this.startTimeInput = document.getElementById('startTime');
-                this.endTimeInput = document.getElementById('endTime');
-                this.sourceMonthSelect = document.getElementById('sourceMonth');
-                this.sourceYearSelect = document.getElementById('sourceYear');
-                this.slotLabelInput = document.getElementById('slotLabel');
+                this.startDateInput = document.getElementById('startDate');
+                this.endDateInput = document.getElementById('endDate');
+                this.shiftSlotSelect = document.getElementById('manualShiftSlot');
                 this.notesInput = document.getElementById('additionalNotes');
                 this.replaceExistingToggle = document.getElementById('replaceExisting');
                 this.userSearchInput = document.getElementById('userSearch');
@@ -9490,6 +9889,8 @@
                 this.users = [];
                 this.userMap = new Map();
                 this.selectedUserIds = new Set();
+                this.shiftSlots = [];
+                this.shiftSlotMap = new Map();
 
                 if (this.form) {
                     this.form.addEventListener('submit', (event) => this.handleSubmit(event));
@@ -9497,13 +9898,20 @@
                 this.userSearchInput?.addEventListener('input', () => this.renderUserList());
                 this.selectAllToggle?.addEventListener('change', () => this.toggleSelectAll());
                 this.clearSelectionBtn?.addEventListener('click', () => this.clearSelection());
+                this.startDateInput?.addEventListener('change', () => this.handleStartDateChange());
+                this.endDateInput?.addEventListener('change', () => this.handleEndDateChange());
 
                 if (this.scheduleManager && typeof this.scheduleManager === 'object') {
                     this.scheduleManager.manualShiftManager = this;
                 }
 
-                this.populateSourceYears();
-                this.setDefaultDate();
+                this.initializeDateRange();
+
+                if (this.scheduleManager && Array.isArray(this.scheduleManager.cachedShiftSlots) && this.scheduleManager.cachedShiftSlots.length) {
+                    this.setShiftSlots(this.scheduleManager.cachedShiftSlots);
+                } else if (this.shiftSlotSelect) {
+                    this.setShiftSlots([]);
+                }
 
                 const initialUsers = this.scheduleManager && Array.isArray(this.scheduleManager.availableUsers)
                     ? this.scheduleManager.availableUsers
@@ -9515,44 +9923,301 @@
                 }
             }
 
-            populateSourceYears() {
-                if (!this.sourceYearSelect) {
-                    return;
-                }
-
-                const currentYear = new Date().getFullYear();
-                const earliestYear = 2023;
-                const endYear = currentYear + 2;
-                const existingValues = new Set(Array.from(this.sourceYearSelect.options).map(option => option.value));
-
-                for (let year = currentYear; year >= earliestYear; year--) {
-                    if (!existingValues.has(String(year))) {
-                        this.appendYearOption(year);
-                    }
-                }
-                for (let year = currentYear + 1; year <= endYear; year++) {
-                    if (!existingValues.has(String(year))) {
-                        this.appendYearOption(year);
-                    }
-                }
-            }
-
-            appendYearOption(year) {
-                if (!this.sourceYearSelect) {
-                    return;
-                }
-                const option = document.createElement('option');
-                option.value = String(year);
-                option.textContent = String(year);
-                this.sourceYearSelect.appendChild(option);
-            }
-
-            setDefaultDate() {
-                if (!this.dateInput || this.dateInput.value) {
-                    return;
-                }
+            initializeDateRange() {
                 const today = new Date();
-                this.dateInput.value = today.toISOString().split('T')[0];
+                const isoToday = today.toISOString().split('T')[0];
+
+                if (this.startDateInput && !this.startDateInput.value) {
+                    this.startDateInput.value = isoToday;
+                }
+                if (this.endDateInput && !this.endDateInput.value) {
+                    this.endDateInput.value = this.startDateInput?.value || isoToday;
+                }
+
+                this.syncDateConstraints();
+            }
+
+            syncDateConstraints() {
+                if (this.startDateInput && this.endDateInput) {
+                    const startValue = this.startDateInput.value || '';
+                    this.endDateInput.min = startValue || this.endDateInput.min || '';
+                    const endValue = this.endDateInput.value;
+                    if (startValue && endValue && endValue < startValue) {
+                        this.endDateInput.value = startValue;
+                    }
+                }
+            }
+
+            handleStartDateChange() {
+                this.syncDateConstraints();
+            }
+
+            handleEndDateChange() {
+                this.syncDateConstraints();
+            }
+
+            setShiftSlots(slots = []) {
+                if (!Array.isArray(slots)) {
+                    slots = [];
+                }
+
+                this.shiftSlots = slots.slice();
+                if (!(this.shiftSlotMap instanceof Map)) {
+                    this.shiftSlotMap = new Map();
+                } else {
+                    this.shiftSlotMap.clear();
+                }
+
+                slots.forEach(slot => {
+                    const id = this.normalizeSlotId(slot);
+                    if (id) {
+                        this.shiftSlotMap.set(id, slot);
+                    }
+                });
+
+                if (!this.shiftSlotSelect) {
+                    return;
+                }
+
+                const currentValue = this.shiftSlotSelect.value;
+                this.shiftSlotSelect.innerHTML = '';
+
+                const placeholder = document.createElement('option');
+                placeholder.value = '';
+                placeholder.textContent = slots.length ? 'Select a shift slot' : 'No shift slots available';
+                placeholder.disabled = true;
+                this.shiftSlotSelect.appendChild(placeholder);
+
+                slots.forEach(slot => {
+                    const id = this.normalizeSlotId(slot);
+                    if (!id) {
+                        return;
+                    }
+                    const option = document.createElement('option');
+                    option.value = id;
+                    option.textContent = this.buildSlotLabel(slot);
+                    this.shiftSlotSelect.appendChild(option);
+                });
+
+                if (currentValue && this.shiftSlotMap.has(currentValue)) {
+                    this.shiftSlotSelect.value = currentValue;
+                    placeholder.selected = false;
+                } else if (slots.length) {
+                    const firstOption = this.shiftSlotSelect.querySelector('option[value]');
+                    if (firstOption) {
+                        firstOption.selected = true;
+                    }
+                } else {
+                    placeholder.selected = true;
+                }
+
+                this.shiftSlotSelect.disabled = slots.length === 0;
+            }
+
+            normalizeSlotId(slot) {
+                if (!slot) {
+                    return '';
+                }
+
+                if (typeof slot === 'string' || typeof slot === 'number') {
+                    return String(slot).trim();
+                }
+
+                if (this.scheduleManager && typeof this.scheduleManager.resolveShiftSlotId === 'function') {
+                    const resolved = this.scheduleManager.resolveShiftSlotId(slot);
+                    if (resolved) {
+                        return resolved;
+                    }
+                }
+
+                const candidates = [
+                    slot.ID, slot.Id, slot.id,
+                    slot.SlotID, slot.SlotId, slot.slotId,
+                    slot.Guid, slot.UUID, slot.Uuid
+                ];
+
+                for (let index = 0; index < candidates.length; index++) {
+                    const candidate = candidates[index];
+                    if (candidate === null || candidate === undefined) {
+                        continue;
+                    }
+                    const normalized = String(candidate).trim();
+                    if (normalized) {
+                        return normalized;
+                    }
+                }
+
+                return '';
+            }
+
+            getSlotLabel(slotId) {
+                if (!slotId) {
+                    return '';
+                }
+
+                const normalized = this.normalizeSlotId(slotId);
+                if (!normalized) {
+                    return '';
+                }
+
+                if (this.shiftSlotMap && this.shiftSlotMap.has(normalized)) {
+                    return this.buildSlotLabel(this.shiftSlotMap.get(normalized));
+                }
+
+                if (this.scheduleManager && Array.isArray(this.scheduleManager.cachedShiftSlots)) {
+                    const match = this.scheduleManager.cachedShiftSlots.find(slot => this.normalizeSlotId(slot) === normalized);
+                    if (match) {
+                        if (this.shiftSlotMap) {
+                            this.shiftSlotMap.set(normalized, match);
+                        }
+                        return this.buildSlotLabel(match);
+                    }
+                }
+
+                return '';
+            }
+
+            buildSlotLabel(slot = {}) {
+                if (this.scheduleManager && typeof this.scheduleManager.buildShiftSlotOptionLabel === 'function') {
+                    return this.scheduleManager.buildShiftSlotOptionLabel(slot);
+                }
+
+                const name = (slot.Name || slot.SlotName || 'Manual Shift').toString().trim();
+                const formatTime = this.scheduleManager && typeof this.scheduleManager.formatTimeValue === 'function'
+                    ? (value) => this.scheduleManager.formatTimeValue(value)
+                    : (value) => (value || '').toString();
+                const startTime = formatTime(slot.StartTime);
+                const endTime = formatTime(slot.EndTime);
+                const timeLabel = startTime && endTime ? ` (${startTime} - ${endTime})` : '';
+                return `${name}${timeLabel}`.trim();
+            }
+
+            resolveUserName(userId) {
+                if (!userId) {
+                    return '';
+                }
+
+                const normalized = this.normalizeUserId(userId);
+                if (normalized && this.userMap.has(normalized)) {
+                    const user = this.userMap.get(normalized);
+                    return user?.FullName || user?.UserName || '';
+                }
+
+                return '';
+            }
+
+            parseDateValue(value) {
+                if (!value) {
+                    return null;
+                }
+
+                if (value instanceof Date) {
+                    return isNaN(value.getTime()) ? null : new Date(value);
+                }
+
+                if (typeof value === 'number' && !Number.isNaN(value)) {
+                    const dateFromNumber = new Date(value);
+                    return isNaN(dateFromNumber.getTime()) ? null : dateFromNumber;
+                }
+
+                if (typeof value === 'object' && value.iso) {
+                    return this.parseDateValue(value.iso);
+                }
+
+                if (typeof value === 'string') {
+                    const normalized = value.trim();
+                    if (!normalized) {
+                        return null;
+                    }
+                    const dateFromString = new Date(normalized);
+                    return isNaN(dateFromString.getTime()) ? null : dateFromString;
+                }
+
+                return null;
+            }
+
+            formatDateForDisplay(value) {
+                const date = this.parseDateValue(value);
+                if (!date) {
+                    return value || '';
+                }
+
+                try {
+                    return new Intl.DateTimeFormat('en-US', {
+                        year: 'numeric',
+                        month: 'short',
+                        day: '2-digit',
+                        timeZone: 'America/Jamaica'
+                    }).format(date);
+                } catch (error) {
+                    return date.toISOString().split('T')[0];
+                }
+            }
+
+            formatDateRange(start, end) {
+                const startLabel = this.formatDateForDisplay(start);
+                const endLabel = this.formatDateForDisplay(end);
+
+                if (startLabel && endLabel) {
+                    return startLabel === endLabel ? startLabel : `${startLabel} – ${endLabel}`;
+                }
+
+                return startLabel || endLabel || '';
+            }
+
+            formatTimestamp(value = new Date()) {
+                const date = this.parseDateValue(value) || new Date();
+                try {
+                    return new Intl.DateTimeFormat('en-US', {
+                        dateStyle: 'medium',
+                        timeStyle: 'short',
+                        timeZone: 'America/Jamaica'
+                    }).format(date);
+                } catch (error) {
+                    return date.toLocaleString();
+                }
+            }
+
+            normalizeResultDetails(result) {
+                if (!result) {
+                    return [];
+                }
+
+                if (Array.isArray(result.details) && result.details.length) {
+                    return result.details;
+                }
+
+                if (Array.isArray(result.assignments) && result.assignments.length) {
+                    return result.assignments;
+                }
+
+                return [];
+            }
+
+            buildSuccessMessage(result, slotLabel, startDate, endDate, userCount) {
+                const details = this.normalizeResultDetails(result);
+                const createdCount = typeof result?.created === 'number'
+                    ? result.created
+                    : (details.length || userCount || 0);
+                const countLabel = createdCount === 1 ? 'user' : 'users';
+                const rangeLabel = this.formatDateRange(startDate, endDate);
+                const slotText = slotLabel || 'the selected shift slot';
+
+                if (createdCount > 0 && rangeLabel) {
+                    return `Assigned ${createdCount} ${countLabel} to ${slotText} for ${rangeLabel}.`;
+                }
+
+                if (createdCount > 0) {
+                    return `Assigned ${createdCount} ${countLabel} to ${slotText}.`;
+                }
+
+                return `Assignments saved for ${slotText}.`;
+            }
+
+            focusElement(element) {
+                if (element && typeof element.focus === 'function') {
+                    element.focus();
+                }
             }
 
             setUsers(users) {
@@ -9592,6 +10257,7 @@
 
                 this.setUserLoading(false);
                 this.renderUserList();
+                this.updateSelectionCounters();
             }
 
             normalizeUserId(value) {
@@ -9779,42 +10445,49 @@
                     return;
                 }
 
+                const slotId = (this.shiftSlotSelect?.value || '').trim();
+                if (!slotId) {
+                    this.showFeedback('Select a shift slot before assigning users.', 'danger');
+                    this.focusElement(this.shiftSlotSelect);
+                    return;
+                }
+
+                const startDateValue = this.startDateInput?.value || '';
+                if (!startDateValue) {
+                    this.showFeedback('Choose a start date for this assignment.', 'danger');
+                    this.focusElement(this.startDateInput);
+                    return;
+                }
+
+                const endDateRaw = this.endDateInput?.value || '';
+                const endDateValue = endDateRaw || startDateValue;
+                if (!endDateValue) {
+                    this.showFeedback('Choose an end date for this assignment.', 'danger');
+                    this.focusElement(this.endDateInput);
+                    return;
+                }
+
+                if (endDateValue < startDateValue) {
+                    this.showFeedback('End date must be on or after the start date.', 'warning');
+                    this.focusElement(this.endDateInput);
+                    return;
+                }
+
                 const selectedIds = Array.from(this.selectedUserIds);
                 if (!selectedIds.length) {
-                    this.showFeedback('Select at least one user before adding shift slots.', 'warning');
+                    this.showFeedback('Select at least one user before assigning the shift slot.', 'warning');
                     return;
                 }
 
-                const dateValue = this.dateInput?.value;
-                const startTimeValue = this.startTimeInput?.value;
-                const endTimeValue = this.endTimeInput?.value;
-
-                if (!dateValue || !startTimeValue || !endTimeValue) {
-                    this.showFeedback('Date, start time, and end time are required.', 'danger');
-                    return;
-                }
-
-                if (startTimeValue >= endTimeValue) {
-                    this.showFeedback('End time must be later than start time.', 'warning');
-                    return;
-                }
-
-                const slotLabelValue = this.slotLabelInput?.value.trim() || '';
-                const notesValue = this.notesInput?.value.trim() || '';
-                const sourceMonthValue = this.sourceMonthSelect?.value || '';
-                const sourceYearValue = this.sourceYearSelect?.value || '';
-                const sourceMonthNumber = sourceMonthValue ? Number(sourceMonthValue) : null;
-                const sourceYearNumber = sourceYearValue ? Number(sourceYearValue) : null;
+                const notesValue = (this.notesInput?.value || '').trim();
                 const replaceExisting = !!this.replaceExistingToggle?.checked;
+                const slotLabel = this.getSlotLabel(slotId) || 'Manual Shift';
 
                 const payload = {
-                    date: dateValue,
-                    startTime: startTimeValue,
-                    endTime: endTimeValue,
-                    slotLabel: slotLabelValue,
+                    slotId,
+                    startDate: startDateValue,
+                    endDate: endDateValue,
                     notes: notesValue,
-                    sourceMonth: Number.isFinite(sourceMonthNumber) ? sourceMonthNumber : null,
-                    sourceYear: Number.isFinite(sourceYearNumber) ? sourceYearNumber : null,
                     replaceExisting,
                     users: selectedIds
                 };
@@ -9826,9 +10499,9 @@
                 try {
                     const result = await this.callServerFunction('clientAddManualShiftSlots', payload);
                     if (result && result.success) {
-                        const message = result.message || 'Shift slots added successfully.';
+                        const message = result.message || this.buildSuccessMessage(result, slotLabel, startDateValue, endDateValue, selectedIds.length);
                         this.showFeedback(message, 'success');
-                        this.appendActivity(result);
+                        this.appendActivity(result, { slotId, slotLabel, startDate: startDateValue, endDate: endDateValue, userIds: selectedIds });
 
                         if (!replaceExisting) {
                             this.clearSelection({ silent: true });
@@ -9840,24 +10513,24 @@
                             });
                         }
                     } else {
-                        const errorMessage = (result && result.error) || 'Unable to add shift slots.';
+                        const errorMessage = (result && result.error) || 'Unable to assign the selected shift slot.';
                         this.showFeedback(errorMessage, 'danger');
                     }
 
                     if (result && Array.isArray(result.failed) && result.failed.length) {
-                        const skippedNames = result.failed.map(item => item.userName || item.userId || 'Unknown').join(', ');
-                        this.showFeedback(`Skipped ${result.failed.length} user(s): ${skippedNames}`, 'warning');
+                        const skippedNames = result.failed.map(item => item.userName || this.resolveUserName(item.userId) || item.userId || 'Unknown').join(', ');
+                        this.showFeedback(`Skipped ${result.failed.length} user${result.failed.length === 1 ? '' : 's'}: ${skippedNames}`, 'warning');
                     }
                 } catch (error) {
                     console.error('Manual shift slot assignment failed:', error);
-                    this.showFeedback(error.message || 'An unexpected error occurred while saving shift slots.', 'danger');
+                    this.showFeedback(error.message || 'An unexpected error occurred while saving shift assignments.', 'danger');
                 } finally {
                     this.submitButton.disabled = false;
                     this.submitButton.innerHTML = originalButtonContent;
                 }
             }
 
-            appendActivity(result) {
+            appendActivity(result, context = {}) {
                 if (!this.activityLog) {
                     return;
                 }
@@ -9867,28 +10540,42 @@
                     this.activityEmptyState = null;
                 }
 
-                if (!result || !Array.isArray(result.details) || !result.details.length) {
+                const details = this.normalizeResultDetails(result);
+                const hasDetails = Array.isArray(details) && details.length;
+                const hasContextUsers = Array.isArray(context.userIds) && context.userIds.length;
+
+                if (!hasDetails && !hasContextUsers) {
                     return;
                 }
 
                 const entry = document.createElement('div');
                 entry.className = 'activity-entry';
 
-                const userNames = result.details.map(detail => detail.userName || detail.userId || 'Unknown').join(', ');
-                const slotName = result.details[0]?.slotName || 'Manual Shift';
-                const dateLabel = result.details[0]?.date || this.dateInput?.value || '';
-                const timeLabel = `${result.details[0]?.startTime || this.startTimeInput?.value || ''} - ${result.details[0]?.endTime || this.endTimeInput?.value || ''}`;
-                const timestamp = new Date().toLocaleString();
+                const primaryDetail = hasDetails ? details[0] : null;
+                const slotId = context.slotId || (primaryDetail && (primaryDetail.slotId || primaryDetail.SlotId));
+                const slotLabel = context.slotLabel || (primaryDetail?.slotName || primaryDetail?.SlotName) || this.getSlotLabel(slotId) || 'Manual Shift';
+                const startDate = context.startDate || (primaryDetail?.startDate || primaryDetail?.StartDate);
+                const endDate = context.endDate || (primaryDetail?.endDate || primaryDetail?.EndDate || startDate);
+                const rangeLabel = this.formatDateRange(startDate, endDate);
+                const timestampLabel = this.formatTimestamp(new Date());
+
+                const namesSource = hasDetails ? details : context.userIds;
+                const userNames = namesSource.map(detail => {
+                    if (typeof detail === 'string') {
+                        return this.resolveUserName(detail) || detail;
+                    }
+                    return detail.userName || detail.UserName || this.resolveUserName(detail.userId || detail.UserId) || detail.userId || detail.UserId || 'Unknown';
+                }).filter(Boolean).join(', ');
+
+                const rangeMarkup = rangeLabel
+                    ? `<i class="far fa-calendar-alt me-1"></i>${this.escapeHtml(rangeLabel)}&nbsp;•&nbsp;`
+                    : '';
 
                 entry.innerHTML = `
-                    <strong>${this.escapeHtml(slotName)}</strong>
-                    <div>${this.escapeHtml(userNames)}</div>
+                    <strong>${this.escapeHtml(slotLabel)}</strong>
+                    <div>${this.escapeHtml(userNames || 'Users assigned')}</div>
                     <div class="activity-meta">
-                        <i class="far fa-calendar-alt me-1"></i>${this.escapeHtml(dateLabel)}
-                        &nbsp;•&nbsp;
-                        <i class="far fa-clock me-1"></i>${this.escapeHtml(timeLabel)}
-                        &nbsp;•&nbsp;
-                        Recorded ${this.escapeHtml(timestamp)}
+                        ${rangeMarkup}<i class="far fa-clock me-1"></i>${this.escapeHtml(timestampLabel)}
                     </div>
                 `;
 

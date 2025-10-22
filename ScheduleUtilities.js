@@ -163,6 +163,7 @@ function setScheduleSpreadsheetId(spreadsheetId) {
 // Main schedule management sheets
 const SCHEDULE_GENERATION_SHEET = "GeneratedSchedules";
 const SHIFT_SLOTS_SHEET = "ShiftSlots";
+const SHIFT_ASSIGNMENTS_SHEET = "ShiftAssignments";
 const SHIFT_SWAPS_SHEET = "ShiftSwaps";
 const SCHEDULE_TEMPLATES_SHEET = "ScheduleTemplates";
 const SCHEDULE_NOTIFICATIONS_SHEET = "ScheduleNotifications";
@@ -173,6 +174,7 @@ const DEMAND_SHEET = "Demand";
 const FTE_PLAN_SHEET = "FTEPlan";
 const SCHEDULE_FORECAST_METADATA_SHEET = "ScheduleForecastMetadata";
 const SCHEDULE_HEALTH_SHEET = "ScheduleHealth";
+const AUDIT_LOG_SHEET = "AuditLog";
 
 // Attendance and holiday sheets
 const ATTENDANCE_STATUS_SHEET = "AttendanceStatus";
@@ -184,6 +186,7 @@ const SCHEDULE_SHEET_REGISTRY = Object.freeze({
   SHIFTS: 'Shifts',
   SCHEDULE_GENERATION: SCHEDULE_GENERATION_SHEET,
   SHIFT_SLOTS: SHIFT_SLOTS_SHEET,
+  SHIFT_ASSIGNMENTS: SHIFT_ASSIGNMENTS_SHEET,
   SHIFT_SWAPS: SHIFT_SWAPS_SHEET,
   SCHEDULE_TEMPLATES: SCHEDULE_TEMPLATES_SHEET,
   SCHEDULE_NOTIFICATIONS: SCHEDULE_NOTIFICATIONS_SHEET,
@@ -323,6 +326,125 @@ function getScheduleSheetName(key) {
   return '';
 }
 
+function parseTimeToMinutes(timeValue) {
+  if (timeValue === null || typeof timeValue === 'undefined') {
+    return NaN;
+  }
+
+  if (timeValue instanceof Date) {
+    return timeValue.getHours() * 60 + timeValue.getMinutes();
+  }
+
+  const text = String(timeValue).trim();
+  if (!text) {
+    return NaN;
+  }
+
+  const ampmMatch = text.match(/^(\d{1,2})(?::(\d{2}))?\s*(AM|PM)$/i);
+  if (ampmMatch) {
+    let hours = Number(ampmMatch[1]);
+    const minutes = Number(ampmMatch[2] || '0');
+    const modifier = ampmMatch[3].toUpperCase();
+
+    if (hours === 12) {
+      hours = 0;
+    }
+    if (modifier === 'PM') {
+      hours += 12;
+    }
+
+    return hours * 60 + minutes;
+  }
+
+  const colonMatch = text.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+  if (colonMatch) {
+    let hours = Number(colonMatch[1]);
+    const minutes = Number(colonMatch[2]);
+    if (hours >= 24) {
+      hours = hours % 24;
+    }
+    return hours * 60 + minutes;
+  }
+
+  const parsed = new Date(`1970-01-01T${text}`);
+  if (!isNaN(parsed.getTime())) {
+    return parsed.getHours() * 60 + parsed.getMinutes();
+  }
+
+  return NaN;
+}
+
+function formatMinutesTo12Hour(totalMinutes) {
+  if (!Number.isFinite(totalMinutes)) {
+    return '';
+  }
+
+  const normalized = ((totalMinutes % (24 * 60)) + (24 * 60)) % (24 * 60);
+  let hours = Math.floor(normalized / 60);
+  const minutes = normalized % 60;
+  const suffix = hours >= 12 ? 'PM' : 'AM';
+
+  if (hours === 0) {
+    hours = 12;
+  } else if (hours > 12) {
+    hours -= 12;
+  }
+
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')} ${suffix}`;
+}
+
+function normalizeTimeTo12Hour(timeValue) {
+  const minutes = parseTimeToMinutes(timeValue);
+  if (!Number.isFinite(minutes)) {
+    return '';
+  }
+  return formatMinutesTo12Hour(minutes);
+}
+
+function normalizeDaySelection(days) {
+  if (!days) {
+    return [];
+  }
+
+  if (Array.isArray(days)) {
+    return days
+      .map(value => {
+        if (typeof value === 'number') {
+          return value;
+        }
+        const numeric = Number(value);
+        if (Number.isInteger(numeric)) {
+          return numeric;
+        }
+        const name = String(value).trim().slice(0, 3).toLowerCase();
+        const index = DAY_NAME_ORDER.findIndex(day => day.toLowerCase() === name);
+        return index;
+      })
+      .filter(value => Number.isInteger(value) && value >= 0 && value <= 6)
+      .filter((value, index, arr) => arr.indexOf(value) === index)
+      .sort((a, b) => a - b);
+  }
+
+  if (typeof days === 'string') {
+    const tokens = days.split(/[\s,;|]+/);
+    return normalizeDaySelection(tokens);
+  }
+
+  return [];
+}
+
+function convertDaysToCsv(dayIndexes) {
+  const normalized = normalizeDaySelection(dayIndexes);
+  if (!normalized.length) {
+    return '';
+  }
+  return normalized.map(index => DAY_NAME_ORDER[index]).join(',');
+}
+
+function parseDaysCsv(daysCsv) {
+  return normalizeDaySelection(daysCsv);
+}
+
 // ────────────────────────────────────────────────────────────────────────────
 // SHEET HEADERS DEFINITIONS
 // ────────────────────────────────────────────────────────────────────────────
@@ -330,24 +452,25 @@ function getScheduleSheetName(key) {
 const SCHEDULE_GENERATION_HEADERS = [
   'ID', 'UserID', 'UserName', 'Date', 'PeriodStart', 'PeriodEnd', 'SlotID', 'SlotName', 'StartTime', 'EndTime',
   'OriginalStartTime', 'OriginalEndTime', 'BreakStart', 'BreakEnd', 'LunchStart', 'LunchEnd',
-  'IsDST', 'Status', 'GeneratedBy', 'ApprovedBy', 'NotificationSent', 'CreatedAt', 'UpdatedAt',
+  'IsDST', 'Status', 'IsActive', 'GeneratedBy', 'ApprovedBy', 'NotificationSent', 'CreatedAt', 'UpdatedAt',
   'RecurringScheduleID', 'SwapRequestID', 'Priority', 'Notes', 'Location', 'Department',
   'MaxCapacity', 'MinCoverage', 'BreakDuration', 'Break1Duration', 'Break2Duration', 'LunchDuration',
   'EnableStaggeredBreaks', 'BreakGroups', 'StaggerInterval', 'MinCoveragePct',
-  'EnableOvertime', 'MaxDailyOT', 'MaxWeeklyOT', 'OTApproval', 'OTRate', 'OTPolicy',
-  'AllowSwaps', 'WeekendPremium', 'HolidayPremium', 'AutoAssignment',
-  'RestPeriodHours', 'NotificationLeadHours', 'HandoverTimeMinutes', 'NotificationTarget', 'GenerationConfig'
+  'EnableOvertime', 'MaxDailyOT', 'MaxWeeklyOT', 'OTApproval', 'OTRate', 'OTPolicy', 'OvertimePolicy',
+  'AllowSwaps', 'WeekendPremium', 'HolidayPremium', 'AutoAssignment', 'NotificationLead', 'NotificationLeadHours',
+  'RestPeriodHours', 'HandoverTimeMinutes', 'OvertimeMinutes', 'GenerationConfig'
 ];
 
 const SHIFT_SLOTS_HEADERS = [
-  'ID', 'Name', 'StartTime', 'EndTime', 'DaysOfWeek', 'Department', 'Location',
-  'MaxCapacity', 'MinCoverage', 'Priority', 'Description',
-  'BreakDuration', 'LunchDuration', 'Break1Duration', 'Break2Duration',
-  'EnableStaggeredBreaks', 'BreakGroups', 'StaggerInterval', 'MinCoveragePct',
-  'EnableOvertime', 'MaxDailyOT', 'MaxWeeklyOT', 'OTApproval', 'OTRate', 'OTPolicy',
-  'AllowSwaps', 'WeekendPremium', 'HolidayPremium', 'AutoAssignment',
-  'RestPeriod', 'NotificationLead', 'HandoverTime',
-  'OvertimePolicy', 'IsActive', 'CreatedBy', 'CreatedAt', 'UpdatedAt'
+  'ID', 'Name', 'StartTime', 'EndTime', 'DaysOfWeek', 'Department', 'Location', 'Description', 'CreatedBy',
+  'Notes', 'Status', 'CreatedAt', 'UpdatedAt', 'UpdatedBy'
+];
+
+const SHIFT_ASSIGNMENTS_HEADERS = [
+  'AssignmentId', 'UserId', 'UserName', 'Campaign', 'SlotId', 'SlotName',
+  'StartDate', 'EndDate', 'Status', 'AllowSwap', 'Premiums',
+  'BreaksConfigJSON', 'OvertimeMinutes', 'RestPeriodHours', 'NotificationLeadHours',
+  'HandoverMinutes', 'Notes', 'CreatedAt', 'CreatedBy', 'UpdatedAt', 'UpdatedBy'
 ];
 
 const SHIFT_SWAPS_HEADERS = [
@@ -413,7 +536,12 @@ const USER_HOLIDAY_PAY_STATUS_HEADERS = [
 ];
 
 const HOLIDAYS_HEADERS = [
-  'ID', 'HolidayName', 'Date', 'AllDay', 'Notes', 'CreatedAt', 'UpdatedAt'
+  'HolidayId', 'Date', 'Name', 'Region', 'IsWorkingDayOverride',
+  'Notes', 'CreatedAt', 'CreatedBy'
+];
+
+const AUDIT_LOG_HEADERS = [
+  'When', 'Who', 'Action', 'EntityType', 'EntityId', 'BeforeJSON', 'AfterJSON', 'Notes'
 ];
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -762,6 +890,7 @@ function getHeadersForSheet(sheetName) {
   const map = {};
   map[SCHEDULE_GENERATION_SHEET] = SCHEDULE_GENERATION_HEADERS;
   map[SHIFT_SLOTS_SHEET] = SHIFT_SLOTS_HEADERS;
+  map[SHIFT_ASSIGNMENTS_SHEET] = SHIFT_ASSIGNMENTS_HEADERS;
   map[SHIFT_SWAPS_SHEET] = SHIFT_SWAPS_HEADERS;
   map[SCHEDULE_TEMPLATES_SHEET] = SCHEDULE_TEMPLATES_HEADERS;
   map[SCHEDULE_NOTIFICATIONS_SHEET] = SCHEDULE_NOTIFICATIONS_HEADERS;
@@ -775,6 +904,7 @@ function getHeadersForSheet(sheetName) {
   map[ATTENDANCE_STATUS_SHEET] = ATTENDANCE_STATUS_HEADERS;
   map[USER_HOLIDAY_PAY_STATUS_SHEET] = USER_HOLIDAY_PAY_STATUS_HEADERS;
   map[HOLIDAYS_SHEET] = HOLIDAYS_HEADERS;
+  map[AUDIT_LOG_SHEET] = AUDIT_LOG_HEADERS;
   return map[sheetName] || null;
 }
 
@@ -950,6 +1080,7 @@ function setupScheduleManagementSheets() {
     const coreSheets = [
       { name: SCHEDULE_GENERATION_SHEET, headers: SCHEDULE_GENERATION_HEADERS },
       { name: SHIFT_SLOTS_SHEET, headers: SHIFT_SLOTS_HEADERS },
+      { name: SHIFT_ASSIGNMENTS_SHEET, headers: SHIFT_ASSIGNMENTS_HEADERS },
       { name: SHIFT_SWAPS_SHEET, headers: SHIFT_SWAPS_HEADERS },
       { name: SCHEDULE_TEMPLATES_SHEET, headers: SCHEDULE_TEMPLATES_HEADERS },
       { name: SCHEDULE_NOTIFICATIONS_SHEET, headers: SCHEDULE_NOTIFICATIONS_HEADERS },
@@ -996,6 +1127,12 @@ function setupScheduleManagementSheets() {
     ];
 
     attendanceSheets.forEach(setupSheetDefinition);
+
+    const governanceSheets = [
+      { name: AUDIT_LOG_SHEET, headers: AUDIT_LOG_HEADERS }
+    ];
+
+    governanceSheets.forEach(setupSheetDefinition);
 
     // Create default shift slots if none exist
     console.log('Checking for default shift slots...');
@@ -1177,125 +1314,80 @@ function createDefaultShiftSlots() {
       return;
     }
 
+    const now = new Date();
     const defaultSlots = [
       {
         ID: Utilities.getUuid(),
         Name: 'Morning Shift',
-        StartTime: '08:00',
-        EndTime: '16:00',
-        DaysOfWeek: '1,2,3,4,5',
         Department: 'General',
         Location: 'Office',
-        MaxCapacity: 10,
-        MinCoverage: 5,
-        Priority: 2,
+        StartTime: '08:00 AM',
+        EndTime: '04:00 PM',
+        DaysOfWeek: 'Mon,Tue,Wed,Thu,Fri',
         Description: 'Standard morning shift (8 AM - 4 PM)',
-        BreakDuration: 15,
-        LunchDuration: 60,
-        Break1Duration: 15,
-        Break2Duration: 15,
-        EnableStaggeredBreaks: true,
-        BreakGroups: 3,
-        StaggerInterval: 15,
-        MinCoveragePct: 70,
-        EnableOvertime: false,
-        MaxDailyOT: 0,
-        MaxWeeklyOT: 0,
-        OTApproval: 'supervisor',
-        OTRate: 1.5,
-        OTPolicy: 'MANDATORY',
-        AllowSwaps: true,
-        WeekendPremium: false,
-        HolidayPremium: true,
-        AutoAssignment: true,
-        RestPeriod: 8,
-        NotificationLead: 24,
-        HandoverTime: 15,
-        OvertimePolicy: 'LIMITED_30',
-        IsActive: true,
         CreatedBy: 'System',
-        CreatedAt: new Date(),
-        UpdatedAt: new Date()
+        Notes: '',
+        Status: 'Active',
+        CreatedAt: now,
+        UpdatedAt: now,
+        UpdatedBy: 'System',
+        // Compatibility fields for legacy readers
+        SlotId: '',
+        SlotName: 'Morning Shift',
+        Campaign: 'General',
+        DaysCSV: 'Mon,Tue,Wed,Thu,Fri'
       },
       {
         ID: Utilities.getUuid(),
         Name: 'Evening Shift',
-        StartTime: '16:00',
-        EndTime: '00:00',
-        DaysOfWeek: '1,2,3,4,5',
         Department: 'General',
-        Location: 'Office',
-        MaxCapacity: 8,
-        MinCoverage: 4,
-        Priority: 2,
-        Description: 'Standard evening shift (4 PM - 12 AM)',
-        BreakDuration: 15,
-        LunchDuration: 60,
-        Break1Duration: 15,
-        Break2Duration: 15,
-        EnableStaggeredBreaks: true,
-        BreakGroups: 3,
-        StaggerInterval: 15,
-        MinCoveragePct: 70,
-        EnableOvertime: false,
-        MaxDailyOT: 0,
-        MaxWeeklyOT: 0,
-        OTApproval: 'supervisor',
-        OTRate: 1.5,
-        OTPolicy: 'MANDATORY',
-        AllowSwaps: true,
-        WeekendPremium: false,
-        HolidayPremium: true,
-        AutoAssignment: true,
-        RestPeriod: 8,
-        NotificationLead: 24,
-        HandoverTime: 15,
-        OvertimePolicy: 'LIMITED_30',
-        IsActive: true,
+        Location: 'Hybrid',
+        StartTime: '04:00 PM',
+        EndTime: '12:00 AM',
+        DaysOfWeek: 'Mon,Tue,Wed,Thu,Fri',
+        Description: 'Evening coverage for escalations (4 PM - 12 AM)',
         CreatedBy: 'System',
-        CreatedAt: new Date(),
-        UpdatedAt: new Date()
+        Notes: '',
+        Status: 'Active',
+        CreatedAt: now,
+        UpdatedAt: now,
+        UpdatedBy: 'System',
+        SlotId: '',
+        SlotName: 'Evening Shift',
+        Campaign: 'General',
+        DaysCSV: 'Mon,Tue,Wed,Thu,Fri'
       },
       {
         ID: Utilities.getUuid(),
-        Name: 'Day Shift',
-        StartTime: '09:00',
-        EndTime: '17:00',
-        DaysOfWeek: '1,2,3,4,5',
-        Department: 'Customer Service',
+        Name: 'Weekend Support',
+        Department: 'General',
         Location: 'Remote',
-        MaxCapacity: 15,
-        MinCoverage: 6,
-        Priority: 2,
-        Description: 'Standard day shift (9 AM - 5 PM)',
-        BreakDuration: 15,
-        LunchDuration: 60,
-        Break1Duration: 15,
-        Break2Duration: 15,
-        EnableStaggeredBreaks: true,
-        BreakGroups: 3,
-        StaggerInterval: 15,
-        MinCoveragePct: 70,
-        EnableOvertime: false,
-        MaxDailyOT: 0,
-        MaxWeeklyOT: 0,
-        OTApproval: 'supervisor',
-        OTRate: 1.5,
-        OTPolicy: 'MANDATORY',
-        AllowSwaps: true,
-        WeekendPremium: false,
-        HolidayPremium: true,
-        AutoAssignment: true,
-        RestPeriod: 8,
-        NotificationLead: 24,
-        HandoverTime: 15,
-        OvertimePolicy: 'LIMITED_30',
-        IsActive: true,
+        StartTime: '09:00 AM',
+        EndTime: '05:00 PM',
+        DaysOfWeek: 'Sat,Sun',
+        Description: 'Weekend staffing block (9 AM - 5 PM)',
         CreatedBy: 'System',
-        CreatedAt: new Date(),
-        UpdatedAt: new Date()
+        Notes: '',
+        Status: 'Active',
+        CreatedAt: now,
+        UpdatedAt: now,
+        UpdatedBy: 'System',
+        SlotId: '',
+        SlotName: 'Weekend Support',
+        Campaign: 'General',
+        DaysCSV: 'Sat,Sun'
       }
-    ];
+    ].map(slot => ({
+      SlotId: slot.SlotId || slot.ID,
+      SlotName: slot.SlotName || slot.Name,
+      Campaign: slot.Campaign || slot.Department,
+      DaysCSV: slot.DaysCSV || slot.DaysOfWeek,
+      ...slot,
+      ID: slot.ID || slot.SlotId,
+      Name: slot.Name || slot.SlotName,
+      Department: slot.Department || slot.Campaign,
+      DaysOfWeek: slot.DaysOfWeek || slot.DaysCSV
+    }));
 
     const sheet = ensureScheduleSheetWithHeaders(SHIFT_SLOTS_SHEET, SHIFT_SLOTS_HEADERS);
     defaultSlots.forEach(slot => {
@@ -1728,16 +1820,19 @@ function validateShiftSlot(slotData) {
   if (!slotData.endTime) errors.push('End time is required');
 
   if (slotData.startTime && slotData.endTime) {
-    const start = new Date(`2000-01-01 ${slotData.startTime}`);
-    const end = new Date(`2000-01-01 ${slotData.endTime}`);
+    const startMinutes = parseTimeToMinutes(slotData.startTime);
+    const endMinutes = parseTimeToMinutes(slotData.endTime);
 
-    if (start >= end) {
-      errors.push('End time must be after start time');
+    if (!Number.isFinite(startMinutes) || !Number.isFinite(endMinutes)) {
+      errors.push('Start and end times must be valid 12-hour values (e.g., 08:00 AM)');
+    } else if (startMinutes === endMinutes) {
+      errors.push('Start and end times cannot be the same');
     }
   }
 
-  if (slotData.maxCapacity && slotData.maxCapacity < 1) {
-    errors.push('Max capacity must be at least 1');
+  const normalizedDays = normalizeDaySelection(slotData.daysOfWeek || slotData.DaysOfWeek || slotData.days);
+  if (Array.isArray(slotData.daysOfWeek) && !normalizedDays.length) {
+    errors.push('Select at least one day of the week');
   }
 
   return {
