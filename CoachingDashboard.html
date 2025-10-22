@@ -209,6 +209,198 @@
     font-size: 1rem;
   }
 
+  /* AI Dashboard Intelligence */
+  .ai-dashboard-section {
+    margin-bottom: 2rem;
+  }
+
+  .ai-dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1.5rem;
+  }
+
+  .ai-dashboard-summary-card {
+    grid-column: 1 / -1;
+    background: linear-gradient(135deg, rgba(66, 133, 244, 0.12) 0%, rgba(52, 168, 83, 0.12) 100%);
+    border-radius: var(--border-radius);
+    padding: 2rem;
+    border: 1px solid rgba(66, 133, 244, 0.2);
+    box-shadow: var(--shadow);
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+
+  .ai-dashboard-summary-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+
+  .ai-dashboard-summary-header h3 {
+    margin: 0;
+    font-size: 1.5rem;
+    color: #1e293b;
+  }
+
+  .ai-dashboard-summary-header p {
+    margin: 0.35rem 0 0;
+    color: #334155;
+    font-size: 0.95rem;
+    max-width: 52ch;
+  }
+
+  .ai-dashboard-period-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: rgba(255, 255, 255, 0.65);
+    color: #1e293b;
+    padding: 0.5rem 1rem;
+    border-radius: 999px;
+    font-weight: 600;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12);
+  }
+
+  .ai-dashboard-period-pill i {
+    color: var(--primary-color);
+  }
+
+  .ai-dashboard-motivation {
+    background: rgba(255, 255, 255, 0.8);
+    border-radius: var(--border-radius-sm);
+    padding: 1rem 1.25rem;
+    font-weight: 600;
+    color: #1d4ed8;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    box-shadow: 0 1px 4px rgba(59, 130, 246, 0.18);
+  }
+
+  .ai-dashboard-motivation i {
+    color: #2563eb;
+  }
+
+  .ai-stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1rem;
+  }
+
+  .ai-stat {
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: var(--border-radius-sm);
+    padding: 1rem 1.25rem;
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+  }
+
+  .ai-stat-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #1e293b;
+    margin: 0 0 0.25rem;
+  }
+
+  .ai-stat-label {
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #475569;
+    margin: 0 0 0.35rem;
+  }
+
+  .ai-stat-helper {
+    margin: 0;
+    font-size: 0.8rem;
+    color: #64748b;
+  }
+
+  .ai-dashboard-card {
+    background: var(--surface-elevated);
+    border: 1px solid var(--outline);
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow);
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .ai-dashboard-card h4 {
+    margin: 0;
+    font-size: 1rem;
+    color: #1e293b;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .ai-dashboard-card ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .ai-dashboard-card li {
+    font-size: 0.9rem;
+    color: #475569;
+    line-height: 1.45;
+    background: rgba(248, 250, 252, 0.9);
+    border-radius: var(--border-radius-sm);
+    padding: 0.75rem 0.9rem;
+    border: 1px solid rgba(226, 232, 240, 0.8);
+  }
+
+  .ai-dashboard-card li strong {
+    display: block;
+    color: #1e293b;
+    margin-bottom: 0.25rem;
+  }
+
+  .ai-dashboard-callout {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #2563eb;
+    margin-top: 0.35rem;
+  }
+
+  .ai-dashboard-empty {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 2.5rem 1.5rem;
+    border: 2px dashed var(--outline);
+    border-radius: var(--border-radius);
+    background: var(--surface-variant);
+    color: #64748b;
+  }
+
+  .ai-dashboard-empty i {
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+    color: var(--primary-color);
+  }
+
+  .ai-dashboard-empty h4 {
+    margin: 0 0 0.5rem;
+    font-size: 1.25rem;
+    color: #1e293b;
+  }
+
+  .ai-dashboard-empty p {
+    margin: 0;
+    font-size: 0.9rem;
+  }
+
   /* Enhanced Charts Grid */
   .charts-grid {
     display: grid;
@@ -486,6 +678,10 @@
     .modern-table tbody td {
       padding: 1rem;
     }
+
+    .ai-dashboard-summary-card {
+      padding: 1.5rem;
+    }
   }
 
   @media (max-width: 480px) {
@@ -509,6 +705,10 @@
     .modern-table thead th,
     .modern-table tbody td {
       padding: 0.75rem;
+    }
+
+    .ai-dashboard-grid {
+      gap: 1rem;
     }
   }
 
@@ -606,6 +806,17 @@
     </div>
   </div>
 
+  <!-- AI Coaching Intelligence -->
+  <div class="ai-dashboard-section">
+    <div class="ai-dashboard-grid" id="aiDashboardHub">
+      <div class="ai-dashboard-empty">
+        <i class="fas fa-robot"></i>
+        <h4>AI Coaching Hub is ready when sessions log in this period.</h4>
+        <p>Capture coaching sessions to unlock celebrations, focus signals, and acknowledgement prompts.</p>
+      </div>
+    </div>
+  </div>
+
   <!-- Enhanced Charts Grid -->
   <div class="charts-grid">
     <div class="chart-card">
@@ -671,9 +882,140 @@
 <!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-  const sessionsTrend = JSON.parse('<?= sessionsTrend ?>');
-  const topicsDist = JSON.parse('<?= topicsDist ?>');
-  const upcomingRecords = JSON.parse('<?= upcomingFollow ?>');
+  const sessionsTrend = JSON.parse(`<?= sessionsTrend ?>`);
+  const topicsDist = JSON.parse(`<?= topicsDist ?>`);
+  const upcomingRecords = JSON.parse(`<?= upcomingFollow ?>`);
+  const aiIntelRaw = `<?= aiIntel ?>`;
+  let aiIntel = null;
+  try {
+    aiIntel = aiIntelRaw ? JSON.parse(aiIntelRaw) : null;
+  } catch (error) {
+    console.error('Unable to parse AI dashboard intelligence:', error);
+    aiIntel = null;
+  }
+
+  const aiHubContainer = document.getElementById('aiDashboardHub');
+
+  function escapeHtml(str = '') {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function renderInsightList(items, emptyCopy) {
+    if (!items || !items.length) {
+      return `<li>${escapeHtml(emptyCopy)}</li>`;
+    }
+    return items.map(item => {
+      if (!item) {
+        return '';
+      }
+      if (typeof item === 'string') {
+        return `<li>${escapeHtml(item)}</li>`;
+      }
+      const title = item.title || item.name || '';
+      const detail = item.detail || '';
+      const callout = item.callout || '';
+      return `
+        <li>
+          ${title ? `<strong>${escapeHtml(title)}</strong>` : ''}
+          ${detail ? `<span>${escapeHtml(detail)}</span>` : ''}
+          ${callout ? `<span class="ai-dashboard-callout"><i class="fas fa-sparkles"></i>${escapeHtml(callout)}</span>` : ''}
+        </li>
+      `;
+    }).join('');
+  }
+
+  function renderStats(stats) {
+    if (!stats || !stats.length) {
+      return '';
+    }
+    return `
+      <div class="ai-stat-grid">
+        ${stats.map(stat => `
+          <div class="ai-stat">
+            <div class="ai-stat-value">${escapeHtml(stat.value || '—')}</div>
+            <div class="ai-stat-label">${escapeHtml(stat.label || '')}</div>
+            <p class="ai-stat-helper">${escapeHtml(stat.helper || '')}</p>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  function setAiDashboardEmpty() {
+    if (!aiHubContainer) return;
+    aiHubContainer.innerHTML = `
+      <div class="ai-dashboard-empty">
+        <i class="fas fa-robot"></i>
+        <h4>AI Coaching Hub is ready when sessions log in this period.</h4>
+        <p>Capture coaching sessions to unlock celebrations, focus signals, and acknowledgement prompts.</p>
+      </div>
+    `;
+  }
+
+  function renderAiDashboard(data) {
+    if (!aiHubContainer) return;
+    if (!data || !Object.keys(data).length) {
+      setAiDashboardEmpty();
+      return;
+    }
+
+    aiHubContainer.innerHTML = `
+      <div class="ai-dashboard-summary-card">
+        <div class="ai-dashboard-summary-header">
+          <div>
+            <h3>AI Coaching Command Center</h3>
+            <p>${escapeHtml(data.summary || 'Lumina Coaching Hub is ready to translate your QA insights into coaching action.')}</p>
+          </div>
+          <div class="ai-dashboard-period-pill">
+            <i class="fas fa-calendar-alt"></i>
+            <span>${escapeHtml(data.periodLabel || 'Selected Period')}</span>
+          </div>
+        </div>
+        <div class="ai-dashboard-motivation">
+          <i class="fas fa-sparkles"></i>
+          <span>${escapeHtml(data.motivator || '')}</span>
+        </div>
+        ${renderStats(data.stats)}
+      </div>
+      <div class="ai-dashboard-card">
+        <h4><i class="fas fa-bullhorn"></i>Highlights</h4>
+        <ul>${renderInsightList(data.highlights, 'Log coaching sessions to surface highlights.')}</ul>
+      </div>
+      <div class="ai-dashboard-card">
+        <h4><i class="fas fa-stars"></i>Celebrations</h4>
+        <ul>${renderInsightList(data.celebrations, 'No celebrations detected for this period yet.')}</ul>
+      </div>
+      <div class="ai-dashboard-card">
+        <h4><i class="fas fa-bullseye-arrow"></i>Focus Signals</h4>
+        <ul>${renderInsightList(data.focusSignals, 'No focus signals surfaced for this period.')}</ul>
+      </div>
+      <div class="ai-dashboard-card">
+        <h4><i class="fas fa-comment-lines"></i>Feedback Signals</h4>
+        <ul>${renderInsightList(data.feedbackSignals, 'No feedback keywords detected across sessions.')}</ul>
+      </div>
+      <div class="ai-dashboard-card">
+        <h4><i class="fas fa-hands-praying"></i>Etiquette Guidance</h4>
+        <ul>${renderInsightList(data.etiquetteTips, 'Etiquette prompts appear once sessions reference customer conversations.')}</ul>
+      </div>
+      <div class="ai-dashboard-card">
+        <h4><i class="fas fa-clipboard-check"></i>Acknowledgement Prompts</h4>
+        <ul>${renderInsightList(data.acknowledgementPrompts, 'AI will suggest prompts after sessions are logged.')}</ul>
+      </div>
+      <div class="ai-dashboard-card">
+        <h4><i class="fas fa-lightbulb"></i>AI Topic Recommendations</h4>
+        <ul>${renderInsightList((data.recommendedTopics || []).map(topic => ({ title: topic.name || 'Coaching Topic', detail: topic.detail || '' })), 'AI will recommend topics once focus areas are identified.')}</ul>
+      </div>
+    `;
+  }
+
+  if (aiHubContainer) {
+    renderAiDashboard(aiIntel);
+  }
 
   // Filter handler - RESTORED ORIGINAL LOGIC
   document.getElementById('applyBtn').onclick = () => {

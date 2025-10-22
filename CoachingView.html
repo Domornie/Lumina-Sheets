@@ -197,6 +197,140 @@
     padding: 1.5rem;
   }
 
+  .ai-hub-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1.5rem;
+  }
+
+  .ai-hub-summary-card {
+    grid-column: 1 / -1;
+    background: var(--surface-variant);
+    border-radius: var(--border-radius-lg);
+    padding: 1.75rem;
+    border: 1px solid var(--outline-variant);
+    box-shadow: var(--shadow);
+  }
+
+  .ai-hub-summary-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+
+  .ai-score-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: linear-gradient(135deg, rgba(66,133,244,0.12) 0%, rgba(26,115,232,0.18) 100%);
+    padding: 0.5rem 1rem;
+    border-radius: 999px;
+    color: var(--primary-dark);
+    font-weight: 600;
+  }
+
+  .ai-hub-motivation {
+    margin-top: 0.85rem;
+    font-style: italic;
+    color: var(--text-secondary);
+  }
+
+  .ai-hub-card {
+    background: var(--surface-elevated);
+    border-radius: var(--border-radius);
+    padding: 1.4rem;
+    border: 1px solid var(--outline-variant);
+    box-shadow: var(--shadow);
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .ai-hub-card h4 {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 1rem;
+    margin: 0;
+    color: var(--text-primary);
+  }
+
+  .ai-hub-card ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .ai-hub-card li {
+    background: var(--surface-variant);
+    border-radius: var(--border-radius-sm);
+    padding: 0.85rem 1rem;
+    border: 1px solid rgba(66, 133, 244, 0.08);
+  }
+
+  .ai-hub-card li strong {
+    display: block;
+    margin-bottom: 0.35rem;
+  }
+
+  .ai-hub-callout {
+    font-size: 0.8rem;
+    color: var(--text-tertiary);
+    margin-top: 0.35rem;
+    display: block;
+  }
+
+  .ai-hub-empty {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 2rem;
+    border: 2px dashed var(--outline-variant);
+    border-radius: var(--border-radius-lg);
+    background: rgba(66, 133, 244, 0.04);
+  }
+
+  .ai-hub-empty i {
+    font-size: 2.5rem;
+    color: var(--primary);
+    margin-bottom: 1rem;
+  }
+
+  .ai-hub-loading {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 2rem 1rem;
+    color: var(--text-secondary);
+  }
+
+  .ai-hub-loading i {
+    animation: spin 1s linear infinite;
+    font-size: 1.6rem;
+    color: var(--primary);
+    margin-bottom: 0.5rem;
+  }
+
+  .ai-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.75rem;
+    padding: 0.35rem 0.75rem;
+    border-radius: 999px;
+    background: rgba(52, 168, 83, 0.12);
+    color: #1b5e20;
+    margin-right: 0.4rem;
+  }
+
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
   /* Details Grid */
   .details-grid {
     display: grid;
@@ -666,6 +800,14 @@
         <div class="detail-value" id="dCoacheeEmail"></div>
       </div>
 
+      <div class="detail-item" style="grid-column: 1 / -1;">
+        <div class="detail-label">
+          <i class="fas fa-file-alt"></i>
+          Coaching Summary
+        </div>
+        <div class="detail-value" id="dSummary"></div>
+      </div>
+
       <div class="detail-item">
         <div class="detail-label">
           <i class="fas fa-tasks"></i>
@@ -704,6 +846,23 @@
           Updated At
         </div>
         <div class="detail-value" id="dUpdatedAt"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- AI Coaching Hub Insights -->
+<div class="coaching-card">
+  <div class="coaching-card-header">
+    <i class="fas fa-robot"></i>
+    <h3>AI Coaching Hub Insights</h3>
+  </div>
+  <div class="coaching-card-body">
+    <div class="ai-hub-grid" id="aiHubInsightsView">
+      <div class="ai-hub-empty">
+        <i class="fas fa-microchip"></i>
+        <h4>AI insights activate when this session links to a QA record.</h4>
+        <p>Coaching Hub will synthesize celebrations, focus areas, and etiquette prompts automatically.</p>
       </div>
     </div>
   </div>
@@ -779,15 +938,164 @@
     
     const get = key => record[key] || '';
 
+    const aiHubContainer = document.getElementById('aiHubInsightsView');
+    if (!aiHubContainer) {
+      console.warn('AI Coaching Hub container not found in CoachingView.');
+    }
+
+    function escapeHtml(str = '') {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function sanitizeRichText(html = '') {
+      const wrapper = document.createElement('div');
+      wrapper.innerHTML = html;
+      wrapper.querySelectorAll('script, style').forEach(node => node.remove());
+      wrapper.querySelectorAll('*').forEach(node => {
+        Array.from(node.attributes).forEach(attr => {
+          if (/^on/i.test(attr.name)) {
+            node.removeAttribute(attr.name);
+          }
+        });
+      });
+      return wrapper.innerHTML;
+    }
+
+    function setAiHubLoading() {
+      if (!aiHubContainer) return;
+      aiHubContainer.innerHTML = `
+        <div class="ai-hub-loading">
+          <i class="fas fa-spinner"></i>
+          <div>AI Coaching Hub is synthesizing insights…</div>
+        </div>`;
+    }
+
+    function setAiHubEmpty(message) {
+      if (!aiHubContainer) return;
+      aiHubContainer.innerHTML = `
+        <div class="ai-hub-empty">
+          <i class="fas fa-microchip"></i>
+          <h4>${escapeHtml(message || 'AI insights activate when this coaching session links to a QA record.')}</h4>
+          <p>Once connected, Lumina Coaching Hub blends Quality Service data with coaching outcomes to guide the next conversation.</p>
+        </div>`;
+    }
+
+    function setAiHubError(message) {
+      if (!aiHubContainer) return;
+      aiHubContainer.innerHTML = `
+        <div class="ai-hub-empty">
+          <i class="fas fa-triangle-exclamation"></i>
+          <h4>We couldn’t load insights.</h4>
+          <p>${escapeHtml(message || 'Try refreshing the page or reopening this session from the list.')}</p>
+        </div>`;
+    }
+
+    function renderInsightList(items, emptyCopy) {
+      if (!items || !items.length) {
+        return `<li>${escapeHtml(emptyCopy)}</li>`;
+      }
+      return items.map(item => {
+        if (typeof item === 'string') {
+          return `<li>${escapeHtml(item)}</li>`;
+        }
+        return `
+          <li>
+            <strong>${escapeHtml(item.title || 'Insight')}</strong>
+            <span>${escapeHtml(item.detail || '')}</span>
+            ${item.callout ? `<span class="ai-hub-callout">${escapeHtml(item.callout)}</span>` : ''}
+          </li>`;
+      }).join('');
+    }
+
+    function renderAiHub(data) {
+      if (!aiHubContainer) return;
+      if (!data) {
+        setAiHubEmpty();
+        return;
+      }
+
+      const metaPills = [];
+      if (data.metadata && data.metadata.client) {
+        metaPills.push(`<span class="ai-pill"><i class="fas fa-building"></i>${escapeHtml(data.metadata.client)}</span>`);
+      }
+      if (data.metadata && data.metadata.callDate) {
+        metaPills.push(`<span class="ai-pill"><i class="fas fa-calendar-day"></i>${escapeHtml(data.metadata.callDate)}</span>`);
+      }
+
+      aiHubContainer.innerHTML = `
+        <div class="ai-hub-summary-card">
+          <div class="ai-hub-summary-header">
+            <div>
+              <h3 style="margin:0; font-size:1.05rem;">AI Summary</h3>
+              <p style="margin:0.35rem 0 0; color:var(--text-secondary);">${escapeHtml(data.summary || '')}</p>
+            </div>
+            <div class="ai-score-pill">
+              <i class="fas fa-gauge-high"></i>
+              <span>${escapeHtml(data.scoreText || '—')}</span>
+            </div>
+          </div>
+          ${metaPills.length ? `<div style="margin-top:0.75rem;">${metaPills.join('')}</div>` : ''}
+          <div class="ai-hub-motivation"><i class="fas fa-sparkles"></i> ${escapeHtml(data.motivation || '')}</div>
+        </div>
+        <div class="ai-hub-card">
+          <h4><i class="fas fa-stars"></i>Celebrations</h4>
+          <ul>${renderInsightList(data.celebrations, 'AI will spotlight wins once the QA record is available.')}</ul>
+        </div>
+        <div class="ai-hub-card">
+          <h4><i class="fas fa-bullseye-arrow"></i>Focus Areas</h4>
+          <ul>${renderInsightList(data.focusAreas, 'No immediate coaching opportunities detected.')}</ul>
+        </div>
+        <div class="ai-hub-card">
+          <h4><i class="fas fa-hands-praying"></i>Etiquette Guidance</h4>
+          <ul>${renderInsightList(data.etiquetteTips, 'Etiquette prompts appear when QA highlights conversational risks.')}</ul>
+        </div>
+        <div class="ai-hub-card">
+          <h4><i class="fas fa-comment-lines"></i>Feedback Signals</h4>
+          <ul>${renderInsightList(data.feedbackSignals, 'No additional coaching keywords detected in QA feedback.')}</ul>
+        </div>
+        <div class="ai-hub-card">
+          <h4><i class="fas fa-clipboard-check"></i>Acknowledgement Prompts</h4>
+          <ul>${renderInsightList(data.acknowledgementPrompts, 'Prompts will appear here when acknowledgements are recommended.')}</ul>
+        </div>
+        <div class="ai-hub-card">
+          <h4><i class="fas fa-lightbulb"></i>AI Topic Recommendations</h4>
+          <ul>${renderInsightList((data.recommendedTopics || []).map(topic => ({ title: topic.name || 'Coaching Topic', detail: topic.detail || '' })), 'AI will recommend topics once focus areas are identified.')}</ul>
+        </div>
+      `;
+    }
+
+    function loadAiHubInsights(qaId) {
+      if (!aiHubContainer) return;
+      if (!qaId) {
+        setAiHubEmpty();
+        return;
+      }
+
+      setAiHubLoading();
+      google.script.run
+        .withSuccessHandler(renderAiHub)
+        .withFailureHandler(error => {
+          console.error('Failed to load AI coaching insights:', error);
+          setAiHubError(error && error.message ? error.message : 'Unable to generate insights at this time.');
+        })
+        .clientGetCoachingHubInsights(qaId);
+    }
+
     // Populate detail fields with proper text/HTML rendering
     const textFields = {
       'dSessionDate': { value: formatDate(get('SessionDate')), isHtml: false },
       'dAgentName': { value: get('AgentName'), isHtml: false },
       'dCoacheeName': { value: get('CoacheeName'), isHtml: false },
       'dCoacheeEmail': { value: get('CoacheeEmail'), isHtml: false },
-      'dActionPlan': { value: get('ActionPlan'), isHtml: true }, // Render as HTML for formatting
+      'dSummary': { value: sanitizeRichText(get('Summary')), isHtml: true },
+      'dActionPlan': { value: sanitizeRichText(get('ActionPlan')), isHtml: true }, // Render as HTML for formatting
       'dFollowUpDate': { value: formatDate(get('FollowUpDate')), isHtml: false },
-      'dNotes': { value: get('Notes'), isHtml: true }, // Render as HTML for formatting
+      'dNotes': { value: sanitizeRichText(get('Notes')), isHtml: true }, // Render as HTML for formatting
       'dCreatedAt': { value: formatDateTime(get('CreatedAt')), isHtml: false },
       'dUpdatedAt': { value: formatDateTime(get('UpdatedAt')), isHtml: false }
     };
@@ -809,33 +1117,60 @@
       }
     });
 
-    const plannedArr = JSON.parse(get('TopicsPlanned') || '[]');
-    const coveredArr = JSON.parse(get('CoveredTopics') || '[]');
+    let plannedArr = [];
+    let coveredArr = [];
+    try {
+      const parsedPlanned = JSON.parse(get('TopicsPlanned') || '[]');
+      if (Array.isArray(parsedPlanned)) {
+        plannedArr = parsedPlanned;
+      }
+    } catch (err) {
+      console.warn('Unable to parse TopicsPlanned JSON:', err);
+    }
+    try {
+      const parsedCovered = JSON.parse(get('CoveredTopics') || '[]');
+      if (Array.isArray(parsedCovered)) {
+        coveredArr = parsedCovered;
+      }
+    } catch (err) {
+      console.warn('Unable to parse CoveredTopics JSON:', err);
+    }
     const plannedPill = document.getElementById('plannedPill');
     const coveredPill = document.getElementById('coveredPill');
+
+    loadAiHubInsights(get('QAId'));
 
     // 1) Display planned topics as pills
     if (plannedArr.length > 0) {
       plannedPill.innerHTML = plannedArr
-        .map(t => `
-          <div class="topic-pill ${coveredArr.includes(t.name) ? 'covered' : ''}">
-            <i class="fas fa-${coveredArr.includes(t.name) ? 'check-circle' : 'circle'}"></i>
-            <strong>${t.name}</strong>: ${t.detail}
-          </div>
-        `).join('');
+        .map(t => {
+          const topicName = typeof t === 'string' ? t : (t && t.name) ? t.name : '';
+          const topicDetail = typeof t === 'string' ? '' : (t && t.detail) ? t.detail : '';
+          const plainDetail = topicDetail.replace(/<[^>]*>/g, '').trim();
+          const isCovered = coveredArr.some(name => String(name).toLowerCase() === String(topicName).toLowerCase());
+          return `
+          <div class="topic-pill ${isCovered ? 'covered' : ''}">
+            <i class="fas fa-${isCovered ? 'check-circle' : 'circle'}"></i>
+            <strong>${escapeHtml(topicName)}</strong>${plainDetail ? `: ${escapeHtml(plainDetail)}` : ''}
+          </div>`;
+        })
+        .join('');
     }
 
     // 2) Display covered topics as checkboxes
     if (plannedArr.length > 0) {
       coveredPill.innerHTML = plannedArr
-        .map(t => {
-          const checked = coveredArr.includes(t.name) ? 'checked' : '';
-          const checkedClass = coveredArr.includes(t.name) ? 'checked' : '';
-          const id = 'cov_' + t.name.replace(/\W+/g,'_');
+        .map((t, index) => {
+          const topicName = typeof t === 'string' ? t : (t && t.name) ? t.name : '';
+          const normalizedName = String(topicName || '').trim();
+          const safeName = escapeHtml(normalizedName);
+          const isCovered = coveredArr.some(name => String(name).toLowerCase() === normalizedName.toLowerCase());
+          const checkedAttr = isCovered ? 'checked' : '';
+          const id = 'cov_' + normalizedName.replace(/\W+/g, '_') + '_' + index;
           return `
-            <div class="topic-checkbox ${checkedClass}">
-              <input type="checkbox" id="${id}" value="${t.name}" ${checked}>
-              <label for="${id}">${t.name}</label>
+            <div class="topic-checkbox ${isCovered ? 'checked' : ''}">
+              <input type="checkbox" id="${id}" value="${escapeHtml(normalizedName)}" ${checkedAttr}>
+              <label for="${id}" data-label="${safeName || 'Topic'}">${safeName || 'Topic'}</label>
             </div>
           `;
         }).join('');
@@ -846,12 +1181,12 @@
       cb.addEventListener('change', (e) => {
         const parent = e.target.closest('.topic-checkbox');
         const label = parent.querySelector('label');
-        
+        const originalLabel = label.dataset.label || label.textContent;
+
         if (e.target.checked) {
           parent.classList.add('checked');
           // Add loading state
-          const originalText = label.textContent;
-          label.innerHTML = '<i class="fas fa-spinner loading-spinner"></i> ' + originalText;
+          label.innerHTML = '<i class="fas fa-spinner loading-spinner"></i> ' + escapeHtml(originalLabel);
         } else {
           parent.classList.remove('checked');
         }
@@ -863,7 +1198,10 @@
         google.script.run
           .withSuccessHandler(() => {
             // Remove loading state
-            label.textContent = label.textContent.replace(/^[\s]*/, '');
+            label.textContent = originalLabel;
+            coveredArr = Array.from(
+              coveredPill.querySelectorAll('input:checked')
+            ).map(i => i.value);
             // Update planned topics display
             updatePlannedTopics();
           })
@@ -877,7 +1215,7 @@
               parent.classList.add('checked');
               e.target.checked = true;
             }
-            label.textContent = label.textContent.replace(/^[\s]*/, '');
+            label.textContent = originalLabel;
           })
           .updateCoveredTopics(recordId, now);
       });
@@ -886,15 +1224,21 @@
     function updatePlannedTopics() {
       const currentCovered = Array.from(
         coveredPill.querySelectorAll('input:checked')
-      ).map(i => i.value);
-      
-      const updatedPills = plannedArr.map(t => `
-        <div class="topic-pill ${currentCovered.includes(t.name) ? 'covered' : ''}">
-          <i class="fas fa-${currentCovered.includes(t.name) ? 'check-circle' : 'circle'}"></i>
-          <strong>${t.name}</strong>: ${t.detail}
-        </div>
-      `).join('');
-      
+      ).map(i => i.value.toLowerCase());
+
+      const updatedPills = plannedArr.map((t, index) => {
+        const topicName = typeof t === 'string' ? t : (t && t.name) ? t.name : '';
+        const normalizedName = String(topicName || '').trim();
+        const topicDetail = typeof t === 'string' ? '' : (t && t.detail) ? t.detail : '';
+        const plainDetail = topicDetail.replace(/<[^>]*>/g, '').trim();
+        const covered = currentCovered.includes(normalizedName.toLowerCase());
+        return `
+        <div class="topic-pill ${covered ? 'covered' : ''}" data-index="${index}">
+          <i class="fas fa-${covered ? 'check-circle' : 'circle'}"></i>
+          <strong>${escapeHtml(normalizedName)}</strong>${plainDetail ? `: ${escapeHtml(plainDetail)}` : ''}
+        </div>`;
+      }).join('');
+
       plannedPill.innerHTML = updatedPills;
     }
 
