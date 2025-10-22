@@ -2557,7 +2557,6 @@ function clientGetCountryHolidays(countryCode, year) {
             error: 'Existing assignment overlaps the selected range'
           });
         });
-        return;
       }
 
       if (replaceExisting && overlap.length) {
