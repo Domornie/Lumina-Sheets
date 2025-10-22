@@ -452,19 +452,18 @@ function parseDaysCsv(daysCsv) {
 const SCHEDULE_GENERATION_HEADERS = [
   'ID', 'UserID', 'UserName', 'Date', 'PeriodStart', 'PeriodEnd', 'SlotID', 'SlotName', 'StartTime', 'EndTime',
   'OriginalStartTime', 'OriginalEndTime', 'BreakStart', 'BreakEnd', 'LunchStart', 'LunchEnd',
-  'IsDST', 'Status', 'GeneratedBy', 'ApprovedBy', 'NotificationSent', 'CreatedAt', 'UpdatedAt',
+  'IsDST', 'Status', 'IsActive', 'GeneratedBy', 'ApprovedBy', 'NotificationSent', 'CreatedAt', 'UpdatedAt',
   'RecurringScheduleID', 'SwapRequestID', 'Priority', 'Notes', 'Location', 'Department',
   'MaxCapacity', 'MinCoverage', 'BreakDuration', 'Break1Duration', 'Break2Duration', 'LunchDuration',
   'EnableStaggeredBreaks', 'BreakGroups', 'StaggerInterval', 'MinCoveragePct',
-  'EnableOvertime', 'MaxDailyOT', 'MaxWeeklyOT', 'OTApproval', 'OTRate', 'OTPolicy',
-  'AllowSwaps', 'WeekendPremium', 'HolidayPremium', 'AutoAssignment',
-  'RestPeriodHours', 'NotificationLeadHours', 'HandoverTimeMinutes', 'NotificationTarget', 'GenerationConfig'
+  'EnableOvertime', 'MaxDailyOT', 'MaxWeeklyOT', 'OTApproval', 'OTRate', 'OTPolicy', 'OvertimePolicy',
+  'AllowSwaps', 'WeekendPremium', 'HolidayPremium', 'AutoAssignment', 'NotificationLead', 'NotificationLeadHours',
+  'RestPeriodHours', 'HandoverTimeMinutes', 'OvertimeMinutes', 'GenerationConfig'
 ];
 
 const SHIFT_SLOTS_HEADERS = [
-  'SlotId', 'SlotName', 'Campaign', 'Location', 'StartTime', 'EndTime',
-  'DaysCSV', 'Description', 'Notes', 'Status',
-  'CreatedAt', 'CreatedBy', 'UpdatedAt', 'UpdatedBy'
+  'ID', 'Name', 'StartTime', 'EndTime', 'DaysOfWeek', 'Department', 'Location', 'Description', 'CreatedBy',
+  'Notes', 'Status', 'CreatedAt', 'UpdatedAt', 'UpdatedBy'
 ];
 
 const SHIFT_ASSIGNMENTS_HEADERS = [
@@ -1301,89 +1300,6 @@ function completeScheduleSetup() {
       success: false,
       error: error.message
     };
-  }
-}
-
-/**
- * Create default shift slots for initial setup
- */
-function createDefaultShiftSlots() {
-  try {
-    const slots = readScheduleSheet(SHIFT_SLOTS_SHEET) || [];
-    if (slots.length > 0) {
-      console.log('Shift slots already exist, skipping default creation');
-      return;
-    }
-
-    const now = new Date();
-    const defaultSlots = [
-      {
-        SlotId: Utilities.getUuid(),
-        SlotName: 'Morning Shift',
-        Campaign: 'General',
-        Location: 'Office',
-        StartTime: '08:00 AM',
-        EndTime: '04:00 PM',
-        DaysCSV: 'Mon,Tue,Wed,Thu,Fri',
-        Description: 'Standard morning shift (8 AM - 4 PM)',
-        Notes: '',
-        Status: 'Active',
-        CreatedAt: now,
-        CreatedBy: 'System',
-        UpdatedAt: now,
-        UpdatedBy: 'System'
-      },
-      {
-        SlotId: Utilities.getUuid(),
-        SlotName: 'Evening Shift',
-        Campaign: 'General',
-        Location: 'Hybrid',
-        StartTime: '04:00 PM',
-        EndTime: '12:00 AM',
-        DaysCSV: 'Mon,Tue,Wed,Thu,Fri',
-        Description: 'Evening coverage for escalations (4 PM - 12 AM)',
-        Notes: '',
-        Status: 'Active',
-        CreatedAt: now,
-        CreatedBy: 'System',
-        UpdatedAt: now,
-        UpdatedBy: 'System'
-      },
-      {
-        SlotId: Utilities.getUuid(),
-        SlotName: 'Weekend Support',
-        Campaign: 'General',
-        Location: 'Remote',
-        StartTime: '09:00 AM',
-        EndTime: '05:00 PM',
-        DaysCSV: 'Sat,Sun',
-        Description: 'Weekend staffing block (9 AM - 5 PM)',
-        Notes: '',
-        Status: 'Active',
-        CreatedAt: now,
-        CreatedBy: 'System',
-        UpdatedAt: now,
-        UpdatedBy: 'System'
-      }
-    ];
-
-    const sheet = ensureScheduleSheetWithHeaders(SHIFT_SLOTS_SHEET, SHIFT_SLOTS_HEADERS);
-    defaultSlots.forEach(slot => {
-      const rowData = SHIFT_SLOTS_HEADERS.map(header =>
-        Object.prototype.hasOwnProperty.call(slot, header) ? slot[header] : ''
-      );
-      sheet.appendRow(rowData);
-    });
-
-    // Invalidate cache
-    const cacheKey = `schedule_${SHIFT_SLOTS_SHEET}`;
-    removeFromCache(cacheKey);
-
-    console.log('Created default shift slots');
-
-  } catch (error) {
-    console.error('Error creating default shift slots:', error);
-    safeWriteError('createDefaultShiftSlots', error);
   }
 }
 

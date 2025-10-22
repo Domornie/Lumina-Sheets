@@ -826,20 +826,25 @@ function clientCreateShiftSlot(slotData) {
     }
 
     const slotRecord = {
-      SlotId: slotId,
-      SlotName: slotName,
-      Campaign: campaign,
-      Location: slotData.location || slotData.Location || 'Office',
+      ID: slotId,
+      Name: slotName,
       StartTime: startTime,
       EndTime: endTime,
-      DaysCSV: daysCsv,
+      DaysOfWeek: daysCsv,
+      Department: campaign,
+      Location: slotData.location || slotData.Location || 'Office',
       Description: slotData.description || '',
+      CreatedBy: actorName,
       Notes: slotData.notes || '',
       Status: 'Active',
       CreatedAt: now,
-      CreatedBy: actorName,
       UpdatedAt: now,
-      UpdatedBy: actorName
+      UpdatedBy: actorName,
+      // compatibility aliases
+      SlotId: slotId,
+      SlotName: slotName,
+      Campaign: campaign,
+      DaysCSV: daysCsv
     };
 
     const rowData = SHIFT_SLOTS_HEADERS.map(header => Object.prototype.hasOwnProperty.call(slotRecord, header) ? slotRecord[header] : '');
@@ -1039,6 +1044,7 @@ function clientGetAllShiftSlots() {
         Name: slotName,
         SlotName: slotName,
         Campaign: campaign,
+        Department: campaign,
         Location: location,
         StartTime: startTime,
         EndTime: endTime,
