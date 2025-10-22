@@ -1,5 +1,5 @@
 /**
- * ScheduleUtilities.js
+ * ScheduleUtilities.gs
  * Constants, sheet definitions, and utility functions for Schedule Management
  * Updated to include dedicated schedule spreadsheet management
  */
@@ -8,9 +8,8 @@
 // SCHEDULE SPREADSHEET CONFIGURATION
 // ────────────────────────────────────────────────────────────────────────────
 
-// Schedule Management Spreadsheet ID.
-// Update this constant (or the corresponding script property) with your actual schedule spreadsheet ID.
-const SCHEDULE_SPREADSHEET_ID = '';
+// Schedule Management Spreadsheet ID - UPDATE THIS WITH YOUR ACTUAL SCHEDULE SPREADSHEET ID
+const SCHEDULE_SPREADSHEET_ID = '1owlD-RdNBYgpnccOPp6zP4ndzg0W4IWtoQeWC3NIUL0'; // TODO: Set your dedicated schedule management spreadsheet ID here
 
 // If no dedicated schedule spreadsheet ID is set, these functions will fall back to the main spreadsheet
 const FALLBACK_TO_MAIN_SPREADSHEET = true;
@@ -164,7 +163,6 @@ function setScheduleSpreadsheetId(spreadsheetId) {
 // Main schedule management sheets
 const SCHEDULE_GENERATION_SHEET = "GeneratedSchedules";
 const SHIFT_SLOTS_SHEET = "ShiftSlots";
-const SHIFT_ASSIGNMENTS_SHEET = "ShiftAssignments";
 const SHIFT_SWAPS_SHEET = "ShiftSwaps";
 const SCHEDULE_TEMPLATES_SHEET = "ScheduleTemplates";
 const SCHEDULE_NOTIFICATIONS_SHEET = "ScheduleNotifications";
@@ -186,7 +184,6 @@ const SCHEDULE_SHEET_REGISTRY = Object.freeze({
   SHIFTS: 'Shifts',
   SCHEDULE_GENERATION: SCHEDULE_GENERATION_SHEET,
   SHIFT_SLOTS: SHIFT_SLOTS_SHEET,
-  SHIFT_ASSIGNMENTS: SHIFT_ASSIGNMENTS_SHEET,
   SHIFT_SWAPS: SHIFT_SWAPS_SHEET,
   SCHEDULE_TEMPLATES: SCHEDULE_TEMPLATES_SHEET,
   SCHEDULE_NOTIFICATIONS: SCHEDULE_NOTIFICATIONS_SHEET,
@@ -350,15 +347,7 @@ const SHIFT_SLOTS_HEADERS = [
   'EnableOvertime', 'MaxDailyOT', 'MaxWeeklyOT', 'OTApproval', 'OTRate', 'OTPolicy',
   'AllowSwaps', 'WeekendPremium', 'HolidayPremium', 'AutoAssignment',
   'RestPeriod', 'NotificationLead', 'HandoverTime',
-  'OvertimePolicy', 'IsActive', 'CreatedBy', 'CreatedAt', 'UpdatedAt',
-  'GenerationDefaults'
-];
-
-const SHIFT_ASSIGNMENTS_HEADERS = [
-  'AssignmentId', 'UserId', 'UserName', 'Campaign', 'SlotId', 'SlotName',
-  'StartDate', 'EndDate', 'Status', 'AllowSwap', 'Premiums', 'BreaksConfigJSON',
-  'OvertimeMinutes', 'RestPeriodHours', 'NotificationLeadHours', 'HandoverMinutes',
-  'Notes', 'CreatedAt', 'CreatedBy', 'UpdatedAt', 'UpdatedBy', 'RollbackGroupId'
+  'OvertimePolicy', 'IsActive', 'CreatedBy', 'CreatedAt', 'UpdatedAt'
 ];
 
 const SHIFT_SWAPS_HEADERS = [
@@ -773,7 +762,6 @@ function getHeadersForSheet(sheetName) {
   const map = {};
   map[SCHEDULE_GENERATION_SHEET] = SCHEDULE_GENERATION_HEADERS;
   map[SHIFT_SLOTS_SHEET] = SHIFT_SLOTS_HEADERS;
-  map[SHIFT_ASSIGNMENTS_SHEET] = SHIFT_ASSIGNMENTS_HEADERS;
   map[SHIFT_SWAPS_SHEET] = SHIFT_SWAPS_HEADERS;
   map[SCHEDULE_TEMPLATES_SHEET] = SCHEDULE_TEMPLATES_HEADERS;
   map[SCHEDULE_NOTIFICATIONS_SHEET] = SCHEDULE_NOTIFICATIONS_HEADERS;
@@ -962,7 +950,6 @@ function setupScheduleManagementSheets() {
     const coreSheets = [
       { name: SCHEDULE_GENERATION_SHEET, headers: SCHEDULE_GENERATION_HEADERS },
       { name: SHIFT_SLOTS_SHEET, headers: SHIFT_SLOTS_HEADERS },
-      { name: SHIFT_ASSIGNMENTS_SHEET, headers: SHIFT_ASSIGNMENTS_HEADERS },
       { name: SHIFT_SWAPS_SHEET, headers: SHIFT_SWAPS_HEADERS },
       { name: SCHEDULE_TEMPLATES_SHEET, headers: SCHEDULE_TEMPLATES_HEADERS },
       { name: SCHEDULE_NOTIFICATIONS_SHEET, headers: SCHEDULE_NOTIFICATIONS_HEADERS },
@@ -1065,7 +1052,6 @@ function fixExistingScheduleSheetsFormatting() {
     const allScheduleSheets = [
       SCHEDULE_GENERATION_SHEET,
       SHIFT_SLOTS_SHEET,
-      SHIFT_ASSIGNMENTS_SHEET,
       SHIFT_SWAPS_SHEET,
       SCHEDULE_TEMPLATES_SHEET,
       SCHEDULE_NOTIFICATIONS_SHEET,
@@ -1191,102 +1177,124 @@ function createDefaultShiftSlots() {
       return;
     }
 
-    const defaultGenerationTemplate = {
-      capacity: { max: 10, min: 5 },
-      breaks: {
-        first: 15,
-        lunch: 60,
-        second: 15,
-        enableStaggered: true,
-        groups: 3,
-        interval: 15,
-        minCoveragePct: 70
-      },
-      overtime: {
-        enabled: false,
-        maxDaily: 0,
-        maxWeekly: 0,
-        approval: 'supervisor',
-        rate: 1.5,
-        policy: 'MANDATORY'
-      },
-      advanced: {
-        allowSwaps: true,
-        weekendPremium: false,
-        holidayPremium: true,
-        autoAssignment: true,
-        restPeriod: 8,
-        notificationLead: 24,
-        handoverTime: 15
-      }
-    };
-
-    const applyOverrides = (target, overrides) => {
-      if (!overrides || typeof overrides !== 'object') {
-        return target;
-      }
-
-      Object.keys(overrides).forEach(key => {
-        const value = overrides[key];
-        if (value && typeof value === 'object' && !Array.isArray(value)) {
-          target[key] = target[key] || {};
-          applyOverrides(target[key], value);
-        } else if (value !== undefined) {
-          target[key] = value;
-        }
-      });
-
-      return target;
-    };
-
-    const createSlotRecord = (config, overrides = {}) => {
-      const generationDefaults = JSON.parse(JSON.stringify(defaultGenerationTemplate));
-      applyOverrides(generationDefaults, overrides);
-
-      return Object.assign({
-        ID: Utilities.getUuid(),
-        DaysOfWeek: '1,2,3,4,5',
-        Priority: 2,
-        Description: '',
-        IsActive: true,
-        CreatedBy: 'System',
-        CreatedAt: new Date(),
-        UpdatedAt: new Date(),
-        GenerationDefaults: JSON.stringify(generationDefaults)
-      }, config);
-    };
-
     const defaultSlots = [
-      createSlotRecord({
+      {
+        ID: Utilities.getUuid(),
         Name: 'Morning Shift',
         StartTime: '08:00',
         EndTime: '16:00',
+        DaysOfWeek: '1,2,3,4,5',
         Department: 'General',
         Location: 'Office',
-        Description: 'Standard morning shift (8 AM - 4 PM)'
-      }, {
-        capacity: { max: 10, min: 5 }
-      }),
-      createSlotRecord({
+        MaxCapacity: 10,
+        MinCoverage: 5,
+        Priority: 2,
+        Description: 'Standard morning shift (8 AM - 4 PM)',
+        BreakDuration: 15,
+        LunchDuration: 60,
+        Break1Duration: 15,
+        Break2Duration: 15,
+        EnableStaggeredBreaks: true,
+        BreakGroups: 3,
+        StaggerInterval: 15,
+        MinCoveragePct: 70,
+        EnableOvertime: false,
+        MaxDailyOT: 0,
+        MaxWeeklyOT: 0,
+        OTApproval: 'supervisor',
+        OTRate: 1.5,
+        OTPolicy: 'MANDATORY',
+        AllowSwaps: true,
+        WeekendPremium: false,
+        HolidayPremium: true,
+        AutoAssignment: true,
+        RestPeriod: 8,
+        NotificationLead: 24,
+        HandoverTime: 15,
+        OvertimePolicy: 'LIMITED_30',
+        IsActive: true,
+        CreatedBy: 'System',
+        CreatedAt: new Date(),
+        UpdatedAt: new Date()
+      },
+      {
+        ID: Utilities.getUuid(),
         Name: 'Evening Shift',
         StartTime: '16:00',
         EndTime: '00:00',
+        DaysOfWeek: '1,2,3,4,5',
         Department: 'General',
         Location: 'Office',
-        Description: 'Standard evening shift (4 PM - 12 AM)'
-      }, {
-        capacity: { max: 8, min: 4 }
-      }),
-      createSlotRecord({
+        MaxCapacity: 8,
+        MinCoverage: 4,
+        Priority: 2,
+        Description: 'Standard evening shift (4 PM - 12 AM)',
+        BreakDuration: 15,
+        LunchDuration: 60,
+        Break1Duration: 15,
+        Break2Duration: 15,
+        EnableStaggeredBreaks: true,
+        BreakGroups: 3,
+        StaggerInterval: 15,
+        MinCoveragePct: 70,
+        EnableOvertime: false,
+        MaxDailyOT: 0,
+        MaxWeeklyOT: 0,
+        OTApproval: 'supervisor',
+        OTRate: 1.5,
+        OTPolicy: 'MANDATORY',
+        AllowSwaps: true,
+        WeekendPremium: false,
+        HolidayPremium: true,
+        AutoAssignment: true,
+        RestPeriod: 8,
+        NotificationLead: 24,
+        HandoverTime: 15,
+        OvertimePolicy: 'LIMITED_30',
+        IsActive: true,
+        CreatedBy: 'System',
+        CreatedAt: new Date(),
+        UpdatedAt: new Date()
+      },
+      {
+        ID: Utilities.getUuid(),
         Name: 'Day Shift',
         StartTime: '09:00',
         EndTime: '17:00',
+        DaysOfWeek: '1,2,3,4,5',
         Department: 'Customer Service',
         Location: 'Remote',
-        Description: 'Standard day shift (9 AM - 5 PM)'
-      }, {
-        capacity: { max: 15, min: 6 }
-      })
+        MaxCapacity: 15,
+        MinCoverage: 6,
+        Priority: 2,
+        Description: 'Standard day shift (9 AM - 5 PM)',
+        BreakDuration: 15,
+        LunchDuration: 60,
+        Break1Duration: 15,
+        Break2Duration: 15,
+        EnableStaggeredBreaks: true,
+        BreakGroups: 3,
+        StaggerInterval: 15,
+        MinCoveragePct: 70,
+        EnableOvertime: false,
+        MaxDailyOT: 0,
+        MaxWeeklyOT: 0,
+        OTApproval: 'supervisor',
+        OTRate: 1.5,
+        OTPolicy: 'MANDATORY',
+        AllowSwaps: true,
+        WeekendPremium: false,
+        HolidayPremium: true,
+        AutoAssignment: true,
+        RestPeriod: 8,
+        NotificationLead: 24,
+        HandoverTime: 15,
+        OvertimePolicy: 'LIMITED_30',
+        IsActive: true,
+        CreatedBy: 'System',
+        CreatedAt: new Date(),
+        UpdatedAt: new Date()
+      }
     ];
 
     const sheet = ensureScheduleSheetWithHeaders(SHIFT_SLOTS_SHEET, SHIFT_SLOTS_HEADERS);
@@ -3118,7 +3126,7 @@ function testScheduleUtilities() {
   }
 }
 
-console.log('✅ Enhanced ScheduleUtilities.js loaded successfully');
+console.log('✅ Enhanced ScheduleUtilities.gs loaded successfully');
 console.log('🗂️ Features: Dedicated schedule spreadsheet support, enhanced caching, comprehensive utilities');
 console.log('⚙️ Configuration: Update SCHEDULE_SPREADSHEET_ID constant to use a dedicated spreadsheet');
 console.log('🔧 Debug: Run validateScheduleSpreadsheetConfig() or debugScheduleConfiguration() to check setup');
