@@ -811,26 +811,186 @@ function clientGetAttendanceUsers(requestingUserId, campaignId = null) {
  */
 function clientGetManagedUsersList(managerId) {
   try {
-    if (!managerId) return [];
-    
-    // Use MainUtilities function for managed campaigns
-    const managedCampaigns = getUserManagedCampaigns(managerId);
+    const normalizedManagerId = normalizeUserIdValue(managerId);
+    if (!normalizedManagerId) {
+      return [];
+    }
+
+    const managedIdSet = (typeof buildManagedUserSet === 'function')
+      ? buildManagedUserSet(normalizedManagerId)
+      : (() => {
+          const ids = (typeof getDirectManagedUserIds === 'function')
+            ? getDirectManagedUserIds(normalizedManagerId)
+            : new Set();
+
+          if (typeof getUserManagedCampaigns === 'function' && typeof getUsersByCampaign === 'function') {
+            try {
+              const campaigns = getUserManagedCampaigns(normalizedManagerId) || [];
+              campaigns.forEach(campaign => {
+                try {
+                  const campaignUsers = getUsersByCampaign(campaign.ID) || [];
+                  campaignUsers.forEach(user => {
+                    const candidateId = normalizeUserIdValue(user && user.ID);
+                    if (candidateId) {
+                      ids.add(candidateId);
+                    }
+                  });
+                } catch (campaignErr) {
+                  console.warn('Failed to merge campaign users for managed roster', campaign && campaign.ID, campaignErr);
+                }
+              });
+            } catch (campaignLookupErr) {
+              console.warn('Unable to expand managed roster via campaigns:', campaignLookupErr);
+            }
+          }
+
+          return ids;
+        })();
+
+    const managedIds = Array.from(managedIdSet || [])
+      .map(normalizeUserIdValue)
+      .filter(id => id && id !== normalizedManagerId);
+
+    if (!managedIds.length) {
+      return [];
+    }
+
+    const users = (() => {
+      try {
+        return readSheet(USERS_SHEET) || [];
+      } catch (userErr) {
+        console.warn('Unable to read users sheet while building managed roster:', userErr);
+        return [];
+      }
+    })();
+
+    const campaigns = (() => {
+      try {
+        return readSheet(CAMPAIGNS_SHEET) || [];
+      } catch (campaignErr) {
+        console.warn('Unable to read campaigns sheet while building managed roster:', campaignErr);
+        return [];
+      }
+    })();
+
+    const userCampaignRows = (() => {
+      if (typeof USER_CAMPAIGNS_SHEET === 'undefined') {
+        return [];
+      }
+      try {
+        return readSheet(USER_CAMPAIGNS_SHEET) || [];
+      } catch (rowErr) {
+        console.warn('Unable to read user campaign assignments while building managed roster:', rowErr);
+        return [];
+      }
+    })();
+
+    const campaignNameById = new Map();
+    campaigns.forEach(campaign => {
+      if (!campaign) {
+        return;
+      }
+      const campaignId = (campaign.ID || campaign.Id || campaign.id);
+      if (!campaignId) {
+        return;
+      }
+      const normalizedCampaignId = String(campaignId);
+      if (!campaignNameById.has(normalizedCampaignId)) {
+        campaignNameById.set(normalizedCampaignId, campaign.Name || campaign.name || '');
+      }
+    });
+
+    const userCampaignMap = new Map();
+    userCampaignRows.forEach(row => {
+      if (!row) {
+        return;
+      }
+      const userId = normalizeUserIdValue(row.UserId || row.UserID || row.userId || row.ManagedUserID || row.ManagedUserId);
+      const campaignId = row.CampaignId || row.CampaignID || row.campaignId || row.Campaign || row.campaign;
+      if (!userId || !campaignId) {
+        return;
+      }
+      const normalizedCampaignId = String(campaignId);
+      if (!userCampaignMap.has(userId)) {
+        userCampaignMap.set(userId, new Set());
+      }
+      userCampaignMap.get(userId).add(normalizedCampaignId);
+    });
+
+    const userById = new Map();
+    users.forEach(user => {
+      if (!user) {
+        return;
+      }
+      const candidates = [
+        user.ID,
+        user.Id,
+        user.UserID,
+        user.UserId,
+        user.id,
+        user.userId,
+        user.UserName,
+        user.Username
+      ];
+
+      const normalizedId = candidates
+        .map(normalizeUserIdValue)
+        .find(Boolean);
+
+      if (normalizedId && !userById.has(normalizedId)) {
+        userById.set(normalizedId, user);
+      }
+    });
+
     const managedUsers = [];
-    
-    managedCampaigns.forEach(campaign => {
-      const campaignUsers = getUsersByCampaign(campaign.ID);
-      campaignUsers.forEach(user => {
-        if (String(user.ID) !== String(managerId)) { // Don't include self
-          managedUsers.push({
-            ID: user.ID,
-            UserName: user.UserName,
-            FullName: user.FullName,
-            Email: user.Email,
-            CampaignID: user.CampaignID,
-            campaignName: campaign.Name,
-            EmploymentStatus: user.EmploymentStatus
-          });
+    const seen = new Set();
+
+    managedIds.forEach(id => {
+      if (!id || seen.has(id)) {
+        return;
+      }
+      seen.add(id);
+
+      const user = userById.get(id);
+      if (!user) {
+        managedUsers.push({
+          ID: id,
+          UserName: id,
+          FullName: id,
+          Email: '',
+          CampaignID: '',
+          campaignName: '',
+          EmploymentStatus: 'Active'
+        });
+        return;
+      }
+
+      const primaryCampaignId = (() => {
+        const assigned = userCampaignMap.get(id);
+        if (assigned && assigned.size) {
+          return Array.from(assigned)[0];
         }
+        if (user.CampaignID || user.CampaignId) {
+          return String(user.CampaignID || user.CampaignId);
+        }
+        return '';
+      })();
+
+      const campaignName = (() => {
+        if (primaryCampaignId && campaignNameById.has(primaryCampaignId)) {
+          return campaignNameById.get(primaryCampaignId);
+        }
+        return user.CampaignName || user.campaignName || user.Campaign || '';
+      })();
+
+      managedUsers.push({
+        ID: user.ID || user.Id || id,
+        UserName: user.UserName || user.Username || id,
+        FullName: user.FullName || user.fullName || user.UserName || user.Username || id,
+        Email: user.Email || user.email || '',
+        CampaignID: primaryCampaignId || '',
+        campaignName: campaignName || '',
+        EmploymentStatus: user.EmploymentStatus || user.employmentStatus || 'Active'
       });
     });
 
@@ -5548,76 +5708,433 @@ function clientGetAttendanceDataRange(startDate, endDate, campaignId = null) {
   try {
     const attendanceData = readScheduleSheet(ATTENDANCE_STATUS_SHEET) || [];
 
-    const normalizeDate = (value) => {
+    const toTrimmedString = (value) => {
+      if (value === null || typeof value === 'undefined') {
+        return '';
+      }
+
       if (value instanceof Date) {
-        return new Date(value.getTime());
+        return value.toISOString();
       }
+
+      if (Array.isArray(value)) {
+        for (let index = 0; index < value.length; index++) {
+          const candidate = toTrimmedString(value[index]);
+          if (candidate) {
+            return candidate;
+          }
+        }
+        return '';
+      }
+
+      if (typeof value === 'object') {
+        const objectCandidates = [
+          value.displayName,
+          value.name,
+          value.fullName,
+          value.userName,
+          value.username,
+          value.value,
+          value.label,
+          value.text
+        ];
+
+        for (let index = 0; index < objectCandidates.length; index++) {
+          const candidate = toTrimmedString(objectCandidates[index]);
+          if (candidate) {
+            return candidate;
+          }
+        }
+
+        return '';
+      }
+
       if (typeof value === 'number') {
-        const parsed = new Date(value);
+        if (!Number.isFinite(value)) {
+          return '';
+        }
+        return String(value);
+      }
+
+      if (typeof value === 'boolean') {
+        return value ? 'true' : 'false';
+      }
+
+      return String(value).trim();
+    };
+
+    const parseDateValue = (value) => {
+      if (value instanceof Date) {
+        return isNaN(value.getTime()) ? null : new Date(value.getTime());
+      }
+
+      if (typeof value === 'number' && Number.isFinite(value)) {
+        if (value > 100000000000) {
+          const millisDate = new Date(value);
+          if (!isNaN(millisDate.getTime())) {
+            return millisDate;
+          }
+        }
+
+        if (value > 1000000000) {
+          const secondsDate = new Date(value * 1000);
+          if (!isNaN(secondsDate.getTime())) {
+            return secondsDate;
+          }
+        }
+
+        const baseDate = new Date('1899-12-30T00:00:00Z');
+        const wholeDays = Math.floor(value);
+        const fractionalDay = value - wholeDays;
+        baseDate.setUTCDate(baseDate.getUTCDate() + wholeDays);
+        if (fractionalDay) {
+          const totalMinutes = Math.round(fractionalDay * 24 * 60);
+          baseDate.setUTCMinutes(baseDate.getUTCMinutes() + totalMinutes);
+        }
+        return baseDate;
+      }
+
+      if (typeof value === 'string') {
+        const trimmed = value.trim();
+        if (!trimmed) {
+          return null;
+        }
+
+        if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+          const isoDate = new Date(`${trimmed}T00:00:00Z`);
+          return isNaN(isoDate.getTime()) ? null : isoDate;
+        }
+
+        const numeric = Number(trimmed);
+        if (!Number.isNaN(numeric) && Number.isFinite(numeric)) {
+          return parseDateValue(numeric);
+        }
+
+        const parsed = new Date(trimmed);
         return isNaN(parsed.getTime()) ? null : parsed;
       }
-      if (typeof value === 'string' && value.trim().length > 0) {
-        const parsed = new Date(value);
-        return isNaN(parsed.getTime()) ? null : parsed;
-      }
+
       return null;
     };
 
-    const rangeStart = normalizeDate(startDate);
-    const rangeEnd = normalizeDate(endDate);
-
-    const filtered = attendanceData.filter(record => {
-      const recordDate = normalizeDate(record.Date || record.date);
-      if (!recordDate) {
-        return false;
+    const extractField = (record, fieldNames, parser = (value) => {
+      const normalized = toTrimmedString(value);
+      return normalized || null;
+    }) => {
+      if (!record || typeof record !== 'object') {
+        return null;
       }
 
-      if (rangeStart && recordDate < rangeStart) {
-        return false;
-      }
-      if (rangeEnd && recordDate > rangeEnd) {
-        return false;
-      }
-
-      if (campaignId) {
-        const recordCampaign = record.CampaignID || record.CampaignId || record.Campaign || null;
-        if (recordCampaign && recordCampaign !== campaignId) {
-          return false;
+      for (let index = 0; index < fieldNames.length; index++) {
+        const fieldName = fieldNames[index];
+        if (Object.prototype.hasOwnProperty.call(record, fieldName)) {
+          const parsed = parser(record[fieldName], fieldName);
+          if (parsed !== null && typeof parsed !== 'undefined') {
+            if (parsed instanceof Date) {
+              if (!isNaN(parsed.getTime())) {
+                return parsed;
+              }
+            } else if (typeof parsed === 'string') {
+              if (parsed.trim().length) {
+                return parsed.trim();
+              }
+            } else if (typeof parsed === 'number') {
+              if (!Number.isNaN(parsed)) {
+                return parsed;
+              }
+            } else if (parsed) {
+              return parsed;
+            }
+          }
         }
       }
 
-      return true;
-    });
+      return null;
+    };
+
+    const rangeStart = parseDateValue(startDate);
+    const rangeEnd = parseDateValue(endDate);
+    const normalizedCampaignId = campaignId && typeof normalizeCampaignIdValue === 'function'
+      ? normalizeCampaignIdValue(campaignId)
+      : (campaignId ? String(campaignId).trim() : '');
+    const normalizedCampaignIdKey = normalizedCampaignId
+      ? String(normalizedCampaignId).trim().toLowerCase()
+      : '';
+
+    const userIdLookup = new Map();
+    const userEmailLookup = new Map();
+
+    try {
+      const users = readSheet(USERS_SHEET) || [];
+      users.forEach(user => {
+        if (!user || typeof user !== 'object') {
+          return;
+        }
+
+        const userIdCandidates = [
+          user.ID,
+          user.Id,
+          user.UserID,
+          user.UserId,
+          user.EmployeeID,
+          user.EmployeeId,
+          user.AgentID,
+          user.AgentId,
+          user.username,
+          user.UserName,
+          user.Username
+        ];
+
+        const displayName = extractField(user, [
+          'FullName',
+          'Full Name',
+          'UserName',
+          'Username',
+          'Name'
+        ]);
+
+        const email = extractField(user, ['Email', 'email']);
+
+        userIdCandidates.forEach(candidate => {
+          const normalizedId = typeof normalizeUserIdValue === 'function'
+            ? normalizeUserIdValue(candidate)
+            : toTrimmedString(candidate);
+
+          if (!normalizedId) {
+            return;
+          }
+
+          if (!userIdLookup.has(normalizedId)) {
+            userIdLookup.set(normalizedId, {
+              name: displayName || toTrimmedString(candidate),
+              email: email ? email.toLowerCase() : ''
+            });
+          }
+        });
+
+        if (email) {
+          const normalizedEmail = email.toLowerCase();
+          if (normalizedEmail && !userEmailLookup.has(normalizedEmail)) {
+            userEmailLookup.set(normalizedEmail, {
+              name: displayName || toTrimmedString(user.UserName || user.Username || ''),
+              email: normalizedEmail
+            });
+          }
+        }
+      });
+    } catch (userError) {
+      console.warn('Unable to enrich attendance records with user metadata:', userError);
+    }
+
+    const dateFieldCandidates = [
+      'Date',
+      'date',
+      'AttendanceDate',
+      'Attendance Date',
+      'Day',
+      'RecordDate',
+      'Record Date',
+      'EventDate',
+      'Event Date',
+      'ScheduleDate',
+      'Schedule Date',
+      'ShiftDate',
+      'Shift Date',
+      'ReportedDate',
+      'Reported Date',
+      'Timestamp',
+      'CreatedAt',
+      'Created At'
+    ];
+
+    const userNameFieldCandidates = [
+      'UserName',
+      'User',
+      'user',
+      'Agent',
+      'AgentName',
+      'Agent Name',
+      'Employee',
+      'EmployeeName',
+      'Employee Name',
+      'FullName',
+      'Full Name',
+      'Name',
+      'AttendanceName',
+      'Attendance Name',
+      'Person',
+      'PersonName',
+      'Person Name',
+      'TeamMember',
+      'Team Member',
+      'Staff',
+      'StaffName',
+      'Staff Name'
+    ];
+
+    const userIdFieldCandidates = [
+      'UserID',
+      'UserId',
+      'userId',
+      'EmployeeID',
+      'EmployeeId',
+      'AgentID',
+      'AgentId',
+      'AssociateID',
+      'AssociateId',
+      'StaffID',
+      'StaffId',
+      'Login',
+      'LoginId',
+      'ID'
+    ];
+
+    const userEmailFieldCandidates = [
+      'Email',
+      'email',
+      'WorkEmail',
+      'Work Email',
+      'UserEmail',
+      'User Email',
+      'ContactEmail',
+      'Contact Email'
+    ];
+
+    const statusFieldCandidates = [
+      'Status',
+      'status',
+      'AttendanceStatus',
+      'Attendance Status',
+      'State',
+      'Attendance',
+      'Outcome',
+      'Result',
+      'CurrentStatus',
+      'Current Status',
+      'Presence',
+      'PresenceStatus',
+      'Presence Status',
+      'StatusDescription',
+      'Status Description',
+      'StatusName',
+      'Status Name'
+    ];
+
+    const campaignFieldCandidates = [
+      'CampaignID',
+      'CampaignId',
+      'Campaign',
+      'CampaignName',
+      'Campaign Name',
+      'TeamID',
+      'TeamId',
+      'Team',
+      'DepartmentID',
+      'DepartmentId',
+      'Department',
+      'Dept',
+      'ProgramId',
+      'Program',
+      'QueueId',
+      'Queue',
+      'QueueID'
+    ];
+
+    const notesFieldCandidates = [
+      'Notes',
+      'notes',
+      'Comments',
+      'comments',
+      'Remark',
+      'Remarks',
+      'Observation',
+      'Observations',
+      'Note',
+      'Details',
+      'Detail'
+    ];
 
     const toIsoDate = (date) => {
       if (!(date instanceof Date) || isNaN(date.getTime())) {
         return '';
       }
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
+      const year = date.getUTCFullYear();
+      const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+      const day = String(date.getUTCDate()).padStart(2, '0');
       return `${year}-${month}-${day}`;
     };
 
-    const records = filtered
-      .map(record => {
-        const date = normalizeDate(record.Date || record.date);
-        const isoDate = toIsoDate(date);
-        const userName = record.UserName || record.User || record.user || '';
-        const status = record.Status || record.status || record.state || '';
+    const records = [];
 
-        if (!userName || !isoDate || !status) {
-          return null;
+    attendanceData.forEach(record => {
+      if (!record || typeof record !== 'object') {
+        return;
+      }
+
+      const recordDate = extractField(record, dateFieldCandidates, parseDateValue);
+      if (!(recordDate instanceof Date) || isNaN(recordDate.getTime())) {
+        return;
+      }
+
+      if (rangeStart && recordDate < rangeStart) {
+        return;
+      }
+      if (rangeEnd && recordDate > rangeEnd) {
+        return;
+      }
+
+      if (normalizedCampaignIdKey) {
+        const recordCampaign = extractField(record, campaignFieldCandidates);
+        const normalizedRecordCampaign = recordCampaign && typeof normalizeCampaignIdValue === 'function'
+          ? normalizeCampaignIdValue(recordCampaign)
+          : (recordCampaign ? recordCampaign : '');
+        const normalizedRecordCampaignKey = normalizedRecordCampaign
+          ? String(normalizedRecordCampaign).trim().toLowerCase()
+          : '';
+
+        if (!normalizedRecordCampaignKey || normalizedRecordCampaignKey !== normalizedCampaignIdKey) {
+          return;
         }
+      }
 
-        return {
-          userName,
-          status,
-          date: isoDate,
-          notes: record.Notes || record.notes || ''
-        };
-      })
-      .filter(Boolean);
+      let userName = extractField(record, userNameFieldCandidates) || '';
+      const rawUserId = extractField(record, userIdFieldCandidates) || '';
+      const normalizedUserId = rawUserId && typeof normalizeUserIdValue === 'function'
+        ? normalizeUserIdValue(rawUserId)
+        : toTrimmedString(rawUserId);
+      const rawEmail = extractField(record, userEmailFieldCandidates) || '';
+      const normalizedEmail = rawEmail ? rawEmail.toLowerCase() : '';
+
+      if (!userName) {
+        if (normalizedUserId && userIdLookup.has(normalizedUserId)) {
+          const info = userIdLookup.get(normalizedUserId);
+          userName = info && info.name ? info.name : normalizedUserId;
+        } else if (normalizedEmail && userEmailLookup.has(normalizedEmail)) {
+          const info = userEmailLookup.get(normalizedEmail);
+          userName = info && info.name ? info.name : normalizedEmail;
+        }
+      }
+
+      if (!userName && normalizedEmail) {
+        userName = normalizedEmail;
+      }
+
+      if (!userName && normalizedUserId) {
+        userName = normalizedUserId;
+      }
+
+      const status = extractField(record, statusFieldCandidates);
+      if (!userName || !status) {
+        return;
+      }
+
+      records.push({
+        userName,
+        status,
+        date: toIsoDate(recordDate),
+        notes: extractField(record, notesFieldCandidates) || ''
+      });
+    });
 
     return {
       success: true,
