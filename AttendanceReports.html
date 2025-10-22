@@ -3848,10 +3848,27 @@
         if (result && result.success !== false) {
           this.updateExportProgress(100, 'Export completed successfully!');
 
-          if (result.csvData) {
-            this.downloadCSV(result.csvData, result.filename || `attendance_export_${new Date().toISOString().split('T')[0]}.csv`);
+          if (result.fileData) {
+            this.downloadFile(
+              result.fileData,
+              result.filename || `attendance_export_${new Date().toISOString().split('T')[0]}.xlsx`,
+              result.mimeType || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+              (result.encoding || '').toLowerCase() === 'base64'
+            );
+          } else if (result.csvData) {
+            this.downloadFile(
+              result.csvData,
+              result.filename || `attendance_export_${new Date().toISOString().split('T')[0]}.csv`,
+              result.mimeType || 'text/csv;charset=utf-8;',
+              false
+            );
           } else if (typeof result === 'string') {
-            this.downloadCSV(result, `attendance_export_${new Date().toISOString().split('T')[0]}.csv`);
+            this.downloadFile(
+              result,
+              `attendance_export_${new Date().toISOString().split('T')[0]}.csv`,
+              'text/csv;charset=utf-8;',
+              false
+            );
           }
 
           setTimeout(() => {
@@ -3952,15 +3969,23 @@
       if (statusText) statusText.textContent = status;
     }
 
-    downloadCSV(csvData, filename) {
-      const isHtmlExport = typeof csvData === 'string' && csvData.trim().startsWith('<!DOCTYPE html');
-      let downloadName = filename || `attendance_export_${new Date().toISOString().split('T')[0]}.${isHtmlExport ? 'html' : 'csv'}`;
-      if (isHtmlExport && downloadName.toLowerCase().endsWith('.csv')) {
-        downloadName = downloadName.replace(/\.csv$/i, '.html');
+    downloadFile(data, filename, mimeType, isBase64 = false) {
+      let downloadName = filename || `attendance_export_${new Date().toISOString().split('T')[0]}.${isBase64 ? 'xlsx' : 'csv'}`;
+      const resolvedMimeType = mimeType || (isBase64 ? 'application/octet-stream' : 'text/csv;charset=utf-8;');
+
+      let blob;
+      if (isBase64) {
+        const byteCharacters = atob(data);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        blob = new Blob([byteArray], { type: resolvedMimeType });
+      } else {
+        blob = new Blob([data], { type: resolvedMimeType });
       }
 
-      const mimeType = isHtmlExport ? 'text/html;charset=utf-8;' : 'text/csv;charset=utf-8;';
-      const blob = new Blob([csvData], { type: mimeType });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;

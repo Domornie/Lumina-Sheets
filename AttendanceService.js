@@ -1915,18 +1915,20 @@ function generateEnhancedDailyPivotMatrix(params) {
       hourPolicy: hourPolicyOptions
     });
     
-    // Generate CSV in enhanced matrix format
-    const csv = generateEnhancedDailyPivotCSV(pivotMatrix, params);
-    
+    // Generate enhanced export file (XLSX when possible, CSV fallback otherwise)
+    const exportFile = generateEnhancedDailyPivotExport(pivotMatrix, params, {
+      granularity,
+      periodValue
+    });
+
     return {
       success: true,
-      csvData: csv,
-      filename: `daily_matrix_${granularity}_${periodValue}_company.html`,
       type: 'daily_pivot_matrix',
       users: pivotMatrix.users.length,
       days: pivotMatrix.dateRange.length,
-      dateRange: pivotMatrix.dateRange.length > 0 ? 
-        `${pivotMatrix.dateRange[0].date} to ${pivotMatrix.dateRange[pivotMatrix.dateRange.length - 1].date}` : 'No data'
+      dateRange: pivotMatrix.dateRange.length > 0 ?
+        `${pivotMatrix.dateRange[0].date} to ${pivotMatrix.dateRange[pivotMatrix.dateRange.length - 1].date}` : 'No data',
+      ...exportFile
     };
 
   } catch (error) {
@@ -2225,253 +2227,581 @@ function generateDailyPivotMatrix(filteredRows, granularity, periodValue, option
   };
 }
 
-function generateEnhancedDailyPivotCSV(pivotMatrix, params) {
-  const now = new Date();
-  const timestamp = Utilities.formatDate(now, ATTENDANCE_TIMEZONE, 'yyyy-MM-dd HH:mm:ss');
+function generateEnhancedDailyPivotExport(pivotMatrix, params, context) {
   const options = params.dailyPivotOptions || {};
   const includeWeekends = !!options.includeWeekends;
   const highlightHours = options.highlightLowHours !== false;
-
-  const escapeHtml = value => String(value || '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-
-  const formatMinutes = minutes => {
-    const total = Math.round(Number(minutes) || 0);
-    const hours = Math.floor(total / 60);
-    const mins = Math.max(0, total - (hours * 60));
-    const parts = [];
-    if (hours) parts.push(`${hours}h`);
-    parts.push(`${mins}m`);
-    return parts.join(' ');
-  };
+  const includeTotalHours = !!options.includeTotalHours;
+  const includeDiscrepancy = !!options.includeDiscrepancy;
+  const includeOvertime = !!options.includeOvertime;
+  const includeTotalsRow = !!options.includeTotalsRow;
 
   const activeDates = pivotMatrix.dateRange
     .map((dateInfo, index) => ({ ...dateInfo, index }))
     .filter(dateInfo => includeWeekends || !dateInfo.isWeekend);
 
-  const style = `
-    body {
-      font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-      margin: 0;
-      padding: 2rem;
-      background: #0f172a;
-      color: #0f172a;
+  const summaryColumns = [];
+  if (includeTotalHours) summaryColumns.push({ key: 'totalHours', label: 'Total Hours', headerColor: '#1d4ed8', dataColor: '#dbeafe' });
+  if (includeDiscrepancy) summaryColumns.push({ key: 'discrepancy', label: 'Low Days', headerColor: '#ea580c', dataColor: '#fed7aa' });
+  if (includeOvertime) summaryColumns.push({ key: 'overtime', label: 'Overtime', headerColor: '#7c3aed', dataColor: '#e9d5ff' });
+  summaryColumns.push({ key: 'efficiency', label: 'Efficiency %', headerColor: '#059669', dataColor: '#bbf7d0' });
+  summaryColumns.push({ key: 'daysWorked', label: 'Days Worked', headerColor: '#0284c7', dataColor: '#bae6fd' });
+
+  const fileBaseName = buildDailyPivotFileBase(context.granularity, context.periodValue);
+
+  if (typeof SpreadsheetApp === 'undefined' || typeof DriveApp === 'undefined') {
+    console.warn('Spreadsheet services unavailable; falling back to CSV for daily pivot export.');
+    return generateEnhancedDailyPivotCsvFallback(pivotMatrix, params, {
+      activeDates,
+      summaryColumns,
+      includeTotalsRow,
+      highlightHours,
+      fileBaseName
+    });
+  }
+
+  const spreadsheet = SpreadsheetApp.create('Daily Pivot Matrix Export');
+  let fileId = spreadsheet.getId();
+
+  try {
+    const sheet = spreadsheet.getActiveSheet();
+    sheet.setName('Daily Pivot Matrix');
+
+    const totalColumns = 1 + activeDates.length + summaryColumns.length;
+    const exportWidth = Math.max(totalColumns, 7);
+    const now = new Date();
+    const timestamp = Utilities.formatDate(now, ATTENDANCE_TIMEZONE, 'yyyy-MM-dd HH:mm');
+
+    // Title row
+    let currentRow = 1;
+    sheet.getRange(currentRow, 1).setValue('Daily Attendance Matrix');
+    sheet.getRange(currentRow, 1, 1, exportWidth).merge()
+      .setFontSize(18)
+      .setFontWeight('bold')
+      .setFontColor('#0f172a')
+      .setHorizontalAlignment('left');
+
+    currentRow += 1;
+    sheet.getRange(currentRow, 1).setValue(`Generated: ${timestamp} (${ATTENDANCE_TIMEZONE_LABEL || ATTENDANCE_TIMEZONE})`);
+    sheet.getRange(currentRow, 1, 1, exportWidth).merge()
+      .setFontColor('#475569')
+      .setFontSize(11);
+
+    currentRow += 1;
+    const periodDescription = `${context.granularity || 'Period'} ${context.periodValue || 'Custom Range'}`;
+    sheet.getRange(currentRow, 1).setValue(`Period: ${periodDescription}`);
+    sheet.getRange(currentRow, 1, 1, exportWidth).merge()
+      .setFontColor('#475569')
+      .setFontSize(11);
+
+    currentRow += 2; // leave a blank row before table
+
+    // Header rows
+    const headerRow = currentRow;
+    const subHeaderRow = currentRow + 1;
+
+    sheet.getRange(headerRow, 1, 2, totalColumns)
+      .setFontWeight('bold')
+      .setHorizontalAlignment('center')
+      .setVerticalAlignment('middle');
+
+    // Agent column header
+    sheet.getRange(headerRow, 1).setValue('Agent');
+    sheet.getRange(headerRow, 1, 2, 1).merge()
+      .setBackground('#0f172a')
+      .setFontColor('#ffffff');
+    sheet.setColumnWidth(1, 200);
+
+    // Date columns
+    activeDates.forEach((dateInfo, idx) => {
+      const column = 2 + idx;
+      sheet.getRange(headerRow, column).setValue(dateInfo.dayName);
+      sheet.getRange(subHeaderRow, column).setValue(dateInfo.formattedDate);
+
+      if (dateInfo.isWeekend) {
+        sheet.getRange(headerRow, column).setBackground('#be123c').setFontColor('#fef2f2');
+        sheet.getRange(subHeaderRow, column).setBackground('#fee2e2').setFontColor('#7f1d1d');
+      } else {
+        sheet.getRange(headerRow, column).setBackground('#1d4ed8').setFontColor('#ffffff');
+        sheet.getRange(subHeaderRow, column).setBackground('#bfdbfe').setFontColor('#1e3a8a');
+      }
+
+      sheet.setColumnWidth(column, 110);
+    });
+
+    // Summary columns
+    let summaryColumnIndex = 2 + activeDates.length;
+    summaryColumns.forEach(col => {
+      sheet.getRange(headerRow, summaryColumnIndex).setValue(col.label);
+      sheet.getRange(headerRow, summaryColumnIndex, 2, 1).merge()
+        .setBackground(col.headerColor)
+        .setFontColor('#ffffff');
+      sheet.setColumnWidth(summaryColumnIndex, 120);
+      summaryColumnIndex += 1;
+    });
+
+    sheet.setFrozenRows(subHeaderRow);
+
+    currentRow = subHeaderRow + 1;
+
+    const performanceBackgrounds = {
+      under: '#fee2e2',
+      target: '#dcfce7',
+      over: '#ede9fe',
+      weekend: '#e2e8f0',
+      empty: '#fef2f2'
+    };
+    const performanceFontColors = {
+      under: '#b91c1c',
+      target: '#047857',
+      over: '#5b21b6',
+      weekend: '#0f172a',
+      empty: '#b91c1c',
+      default: '#0f172a'
+    };
+
+    const summaryValueFormats = {
+      totalHours: '0.00',
+      discrepancy: '0',
+      overtime: '0.00',
+      efficiency: '0.0"%"',
+      daysWorked: '0'
+    };
+
+    pivotMatrix.users.forEach((userData, userIdx) => {
+      const row = currentRow + userIdx;
+      sheet.getRange(row, 1).setValue(userData.user)
+        .setFontWeight('bold')
+        .setBackground('#0f172a')
+        .setFontColor('#ffffff')
+        .setHorizontalAlignment('left');
+
+    activeDates.forEach((dateInfo, idx) => {
+      const column = 2 + idx;
+      const dayData = userData.dailyData[dateInfo.index] || null;
+
+      let background = dateInfo.isWeekend ? performanceBackgrounds.weekend : '#ffffff';
+      let fontColor = performanceFontColors.default;
+      let value = '';
+      let numberFormat = '0.00';
+
+      if (dayData) {
+        if (dayData.isStatus) {
+          value = dayData.value || '';
+          background = performanceBackgrounds.weekend;
+          fontColor = performanceFontColors.weekend;
+          numberFormat = '@';
+        } else {
+          const status = dayData.performanceStatus || 'target';
+          if (highlightHours) {
+            background = performanceBackgrounds[status] || '#ffffff';
+            fontColor = performanceFontColors[status] || performanceFontColors.default;
+          } else if (dateInfo.isWeekend) {
+            background = performanceBackgrounds.weekend;
+            fontColor = performanceFontColors.weekend;
+          }
+
+          value = Number(dayData.numericValue || 0);
+
+          if (!highlightHours && Number(dayData.numericValue || 0) === 0) {
+            background = performanceBackgrounds.empty;
+            fontColor = performanceFontColors.empty;
+            value = '';
+          }
+        }
+      }
+
+      const cell = sheet.getRange(row, column);
+      cell.setBackground(background)
+        .setFontColor(fontColor)
+        .setHorizontalAlignment('center');
+
+      if (numberFormat === '@') {
+        cell.setValue(value).setNumberFormat('@');
+      } else {
+        cell.setValue(value).setNumberFormat('0.00');
+      }
+    });
+
+      let summaryColumnPointer = 2 + activeDates.length;
+      summaryColumns.forEach(col => {
+        const cell = sheet.getRange(row, summaryColumnPointer);
+        let value = userData.metrics[col.key];
+        if (col.key === 'efficiency') {
+          value = parseFloat(userData.metrics[col.key] || '0');
+        } else if (col.key === 'totalHours' || col.key === 'overtime') {
+          value = parseFloat(userData.metrics[col.key] || '0');
+        } else if (col.key === 'discrepancy' || col.key === 'daysWorked') {
+          value = Number(userData.metrics[col.key] || 0);
+        }
+
+        cell.setValue(value || 0)
+          .setBackground(col.dataColor)
+          .setFontColor('#0f172a')
+          .setFontWeight('600')
+          .setHorizontalAlignment('center')
+          .setNumberFormat(summaryValueFormats[col.key] || '0');
+
+        summaryColumnPointer += 1;
+      });
+    });
+
+    currentRow += pivotMatrix.users.length;
+
+    if (includeTotalsRow) {
+      const totalsRow = currentRow + 1;
+      const averagesRow = totalsRow + 1;
+
+      sheet.getRange(totalsRow, 1).setValue('Totals')
+        .setFontWeight('bold')
+        .setBackground('#0f172a')
+        .setFontColor('#ffffff')
+        .setHorizontalAlignment('left');
+
+      sheet.getRange(averagesRow, 1).setValue('Averages')
+        .setFontWeight('bold')
+        .setBackground('#312e81')
+        .setFontColor('#ffffff')
+        .setHorizontalAlignment('left');
+
+      activeDates.forEach((dateInfo, idx) => {
+        const column = 2 + idx;
+        const totals = pivotMatrix.dailyTotals[dateInfo.index] || { total: '0.00', average: '0.00' };
+
+        sheet.getRange(totalsRow, column)
+          .setValue(parseFloat(totals.total || '0'))
+          .setNumberFormat('0.00')
+          .setBackground('#e2e8f0')
+          .setFontWeight('600')
+          .setHorizontalAlignment('center');
+
+        sheet.getRange(averagesRow, column)
+          .setValue(parseFloat(totals.average || '0'))
+          .setNumberFormat('0.00')
+          .setBackground('#cbd5f5')
+          .setFontWeight('600')
+          .setHorizontalAlignment('center');
+      });
+
+      let summaryPointer = 2 + activeDates.length;
+      summaryColumns.forEach(col => {
+        const totalCell = sheet.getRange(totalsRow, summaryPointer);
+        const avgCell = sheet.getRange(averagesRow, summaryPointer);
+
+        switch (col.key) {
+          case 'totalHours':
+            totalCell.setValue(parseFloat(pivotMatrix.grandTotals.totalHours || '0')).setNumberFormat('0.00');
+            avgCell.setValue(pivotMatrix.users.length > 0
+              ? (parseFloat(pivotMatrix.grandTotals.totalHours || '0') / pivotMatrix.users.length)
+              : 0).setNumberFormat('0.00');
+            break;
+          case 'discrepancy':
+            totalCell.setValue(pivotMatrix.grandTotals.totalDiscrepancies || 0).setNumberFormat('0');
+            avgCell.setValue(pivotMatrix.users.length > 0
+              ? (pivotMatrix.grandTotals.totalDiscrepancies || 0) / pivotMatrix.users.length
+              : 0).setNumberFormat('0.0');
+            break;
+          case 'overtime':
+            totalCell.setValue(parseFloat(pivotMatrix.grandTotals.totalOvertime || '0')).setNumberFormat('0.00');
+            avgCell.setValue(pivotMatrix.users.length > 0
+              ? (parseFloat(pivotMatrix.grandTotals.totalOvertime || '0') / pivotMatrix.users.length)
+              : 0).setNumberFormat('0.00');
+            break;
+          case 'efficiency':
+            totalCell.setValue(parseFloat(pivotMatrix.grandTotals.averageEfficiency || '0')).setNumberFormat('0.0"%"');
+            avgCell.setValue(parseFloat(pivotMatrix.grandTotals.averageEfficiency || '0')).setNumberFormat('0.0"%"');
+            break;
+          case 'daysWorked':
+            totalCell.setValue('').setNumberFormat('@');
+            avgCell.setValue('').setNumberFormat('@');
+            break;
+          default:
+            totalCell.setValue('');
+            avgCell.setValue('');
+        }
+
+        totalCell.setBackground('#e2e8f0').setFontWeight('600').setHorizontalAlignment('center').setFontColor('#0f172a');
+        avgCell.setBackground('#cbd5f5').setFontWeight('600').setHorizontalAlignment('center').setFontColor('#0f172a');
+
+        summaryPointer += 1;
+      });
+
+      currentRow = averagesRow + 1;
+    } else {
+      currentRow += 1;
     }
-    h1, h2, h3, h4 {
-      margin-top: 0;
-      color: #0f172a;
+
+    currentRow += 1; // spacer row
+
+    // Legend section
+    sheet.getRange(currentRow, 1).setValue('Legend')
+      .setFontWeight('bold')
+      .setFontColor('#0f172a');
+    sheet.getRange(currentRow, 1, 1, exportWidth).merge();
+    currentRow += 1;
+
+    const legendItems = [
+      ['On target (8.0 hours)', performanceBackgrounds.target],
+      ['Below target', performanceBackgrounds.under],
+      ['Overtime', performanceBackgrounds.over],
+      ['Weekend/Off day', performanceBackgrounds.weekend]
+    ];
+
+    legendItems.forEach(item => {
+      const row = currentRow;
+      sheet.getRange(row, 1).setValue(item[0])
+        .setBackground(item[1])
+        .setFontColor('#0f172a')
+        .setHorizontalAlignment('left');
+      sheet.getRange(row, 1, 1, exportWidth).merge();
+      currentRow += 1;
+    });
+
+    currentRow += 1; // spacer before break summary
+
+    // Break summary table
+    sheet.getRange(currentRow, 1).setValue('Break & Lunch Summary')
+      .setFontSize(14)
+      .setFontWeight('bold')
+      .setFontColor('#0f172a');
+    sheet.getRange(currentRow, 1, 1, exportWidth).merge();
+    currentRow += 1;
+
+    const breakHeaders = ['Agent', 'Total Break', 'Avg Break', 'Break Violations', 'Total Lunch', 'Avg Lunch', 'Lunch Violations'];
+    sheet.getRange(currentRow, 1, 1, breakHeaders.length).setValues([breakHeaders])
+      .setBackground('#0f172a')
+      .setFontColor('#ffffff')
+      .setFontWeight('bold')
+      .setHorizontalAlignment('center');
+    currentRow += 1;
+
+    const formatMinutes = minutes => {
+      const total = Math.round(Number(minutes) || 0);
+      const hours = Math.floor(total / 60);
+      const mins = Math.max(0, total - hours * 60);
+      if (hours) {
+        return `${hours}h ${mins}m`;
+      }
+      return `${mins}m`;
+    };
+
+    const breakTotals = pivotMatrix.users.reduce((acc, user) => {
+      const summary = user.metrics?.breakSummary || {};
+      acc.breakMinutes += summary.totalBreakMinutes || 0;
+      acc.lunchMinutes += summary.totalLunchMinutes || 0;
+      acc.breakViolations += summary.breakViolationDays || 0;
+      acc.lunchViolations += summary.lunchViolationDays || 0;
+      acc.avgBreakMinutes += summary.averageBreakMinutes || 0;
+      acc.avgLunchMinutes += summary.averageLunchMinutes || 0;
+      return acc;
+    }, { breakMinutes: 0, lunchMinutes: 0, breakViolations: 0, lunchViolations: 0, avgBreakMinutes: 0, avgLunchMinutes: 0 });
+
+    pivotMatrix.users.forEach((userData, index) => {
+      const summary = userData.metrics?.breakSummary || {};
+      const row = currentRow + index;
+      sheet.getRange(row, 1, 1, breakHeaders.length).setValues([[
+        userData.user,
+        formatMinutes(summary.totalBreakMinutes || 0),
+        formatMinutes(summary.averageBreakMinutes || 0),
+        summary.breakViolationDays || 0,
+        formatMinutes(summary.totalLunchMinutes || 0),
+        formatMinutes(summary.averageLunchMinutes || 0),
+        summary.lunchViolationDays || 0
+      ]]);
+
+      const backgroundColor = index % 2 === 0 ? '#f8fafc' : '#ffffff';
+      sheet.getRange(row, 1, 1, breakHeaders.length)
+        .setBackground(backgroundColor)
+        .setFontColor('#0f172a')
+        .setHorizontalAlignment('center');
+      sheet.getRange(row, 1).setHorizontalAlignment('left').setFontWeight('bold');
+      if ((summary.breakViolationDays || 0) > 0) {
+        sheet.getRange(row, 4).setFontColor('#b91c1c').setFontWeight('bold');
+      }
+      if ((summary.lunchViolationDays || 0) > 0) {
+        sheet.getRange(row, 7).setFontColor('#b91c1c').setFontWeight('bold');
+      }
+    });
+
+    currentRow += Math.max(1, pivotMatrix.users.length);
+
+    const teamTotalsRow = currentRow;
+    const avgBreakAcross = pivotMatrix.users.length > 0
+      ? Math.round(breakTotals.avgBreakMinutes / pivotMatrix.users.length)
+      : 0;
+    const avgLunchAcross = pivotMatrix.users.length > 0
+      ? Math.round(breakTotals.avgLunchMinutes / pivotMatrix.users.length)
+      : 0;
+
+    sheet.getRange(teamTotalsRow, 1, 1, breakHeaders.length).setValues([[
+      'Team Total',
+      formatMinutes(breakTotals.breakMinutes),
+      formatMinutes(avgBreakAcross),
+      breakTotals.breakViolations,
+      formatMinutes(breakTotals.lunchMinutes),
+      formatMinutes(avgLunchAcross),
+      breakTotals.lunchViolations
+    ]]);
+
+    sheet.getRange(teamTotalsRow, 1, 1, breakHeaders.length)
+      .setBackground('#e2e8f0')
+      .setFontWeight('bold')
+      .setHorizontalAlignment('center')
+      .setFontColor('#0f172a');
+    sheet.getRange(teamTotalsRow, 1).setHorizontalAlignment('left');
+    sheet.getRange(teamTotalsRow, 4).setFontColor(breakTotals.breakViolations > 0 ? '#b91c1c' : '#0f172a');
+    sheet.getRange(teamTotalsRow, 7).setFontColor(breakTotals.lunchViolations > 0 ? '#b91c1c' : '#0f172a');
+
+    currentRow += 2;
+
+    const notes = [
+      'Data Quality Notes',
+      `All productive durations are converted from seconds into decimal hours using ${ATTENDANCE_TIMEZONE_LABEL || ATTENDANCE_TIMEZONE}.`,
+      'Break allowances assume 30 minutes per day; lunch allowances assume 60 minutes.',
+      `Only productive attendance states contribute to billable hours: ${BILLABLE_STATES.join(', ')}.`
+    ];
+
+    notes.forEach((note, idx) => {
+      const row = currentRow + idx;
+      sheet.getRange(row, 1).setValue(note);
+      sheet.getRange(row, 1, 1, exportWidth).merge()
+        .setFontColor(idx === 0 ? '#0f172a' : '#475569')
+        .setFontWeight(idx === 0 ? 'bold' : 'normal')
+        .setHorizontalAlignment('left');
+    });
+
+    SpreadsheetApp.flush();
+
+    const file = DriveApp.getFileById(fileId);
+    const blob = file.getAs('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    const fileData = Utilities.base64Encode(blob.getBytes());
+
+    return {
+      fileData,
+      encoding: 'base64',
+      mimeType: blob.getContentType(),
+      filename: `${fileBaseName}.xlsx`
+    };
+  } finally {
+    try {
+      if (fileId) {
+        DriveApp.getFileById(fileId).setTrashed(true);
+      }
+    } catch (cleanupError) {
+      console.warn('Failed to clean up temporary export spreadsheet:', cleanupError);
     }
-    .export-card {
-      background: #ffffff;
-      border-radius: 18px;
-      box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.25);
-      padding: 2.5rem;
-      max-width: 1200px;
-      margin: 0 auto;
+  }
+}
+
+function generateEnhancedDailyPivotCsvFallback(pivotMatrix, params, context) {
+  const { activeDates, summaryColumns, includeTotalsRow, highlightHours, fileBaseName } = context;
+
+  const csvEscape = value => {
+    const stringValue = value === null || typeof value === 'undefined' ? '' : String(value);
+    if (stringValue.includes('"') || stringValue.includes(',') || stringValue.includes('\n')) {
+      return '"' + stringValue.replace(/"/g, '""') + '"';
     }
-    .export-meta {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 1.25rem;
-      margin-bottom: 2rem;
+    return stringValue;
+  };
+
+  const header = ['Agent'];
+  activeDates.forEach(dateInfo => {
+    header.push(`${dateInfo.dayName} (${dateInfo.formattedDate})`);
+  });
+  summaryColumns.forEach(col => header.push(col.label));
+
+  const rows = [header.map(csvEscape).join(',')];
+
+  pivotMatrix.users.forEach(userData => {
+    const row = [userData.user];
+    activeDates.forEach(dateInfo => {
+      const dayData = userData.dailyData[dateInfo.index] || {};
+      if (dayData.isStatus) {
+        row.push(dayData.value || '');
+      } else if (!highlightHours && Number(dayData.numericValue || 0) === 0) {
+        row.push('');
+      } else {
+        row.push(Number(dayData.numericValue || 0).toFixed(2));
+      }
+    });
+
+    summaryColumns.forEach(col => {
+      let value = userData.metrics[col.key];
+      if (col.key === 'efficiency') {
+        value = `${parseFloat(value || '0').toFixed(1)}%`;
+      } else if (col.key === 'totalHours' || col.key === 'overtime') {
+        value = parseFloat(value || '0').toFixed(2);
+      }
+      row.push(value);
+    });
+
+    rows.push(row.map(csvEscape).join(','));
+  });
+
+  if (includeTotalsRow) {
+    const totalsRow = ['Totals'];
+    const averagesRow = ['Averages'];
+
+    activeDates.forEach(dateInfo => {
+      const totals = pivotMatrix.dailyTotals[dateInfo.index] || { total: '0.00', average: '0.00' };
+      totalsRow.push(parseFloat(totals.total || '0').toFixed(2));
+      averagesRow.push(parseFloat(totals.average || '0').toFixed(2));
+    });
+
+    summaryColumns.forEach(col => {
+      switch (col.key) {
+        case 'totalHours':
+          totalsRow.push(parseFloat(pivotMatrix.grandTotals.totalHours || '0').toFixed(2));
+          averagesRow.push(pivotMatrix.users.length > 0
+            ? (parseFloat(pivotMatrix.grandTotals.totalHours || '0') / pivotMatrix.users.length).toFixed(2)
+            : '0.00');
+          break;
+        case 'discrepancy':
+          totalsRow.push(pivotMatrix.grandTotals.totalDiscrepancies || 0);
+          averagesRow.push(pivotMatrix.users.length > 0
+            ? ((pivotMatrix.grandTotals.totalDiscrepancies || 0) / pivotMatrix.users.length).toFixed(1)
+            : '0.0');
+          break;
+        case 'overtime':
+          totalsRow.push(parseFloat(pivotMatrix.grandTotals.totalOvertime || '0').toFixed(2));
+          averagesRow.push(pivotMatrix.users.length > 0
+            ? (parseFloat(pivotMatrix.grandTotals.totalOvertime || '0') / pivotMatrix.users.length).toFixed(2)
+            : '0.00');
+          break;
+        case 'efficiency':
+          totalsRow.push(`${parseFloat(pivotMatrix.grandTotals.averageEfficiency || '0').toFixed(1)}%`);
+          averagesRow.push(`${parseFloat(pivotMatrix.grandTotals.averageEfficiency || '0').toFixed(1)}%`);
+          break;
+        case 'daysWorked':
+          totalsRow.push('');
+          averagesRow.push('');
+          break;
+        default:
+          totalsRow.push('');
+          averagesRow.push('');
+      }
+    });
+
+    rows.push(totalsRow.map(csvEscape).join(','));
+    rows.push(averagesRow.map(csvEscape).join(','));
+  }
+
+  rows.push('');
+  rows.push(csvEscape('Break & Lunch Summary'));
+  rows.push(['Agent', 'Total Break', 'Avg Break', 'Break Violations', 'Total Lunch', 'Avg Lunch', 'Lunch Violations'].map(csvEscape).join(','));
+
+  const formatMinutes = minutes => {
+    const total = Math.round(Number(minutes) || 0);
+    const hours = Math.floor(total / 60);
+    const mins = Math.max(0, total - hours * 60);
+    if (hours) {
+      return `${hours}h ${mins}m`;
     }
-    .meta-item {
-      background: linear-gradient(135deg, #eff6ff 0%, #ffffff 100%);
-      border-radius: 14px;
-      padding: 1.25rem;
-      border: 1px solid #dbeafe;
-    }
-    .meta-item strong {
-      display: block;
-      font-size: 0.9rem;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: #1d4ed8;
-      margin-bottom: 0.4rem;
-    }
-    .meta-item span {
-      font-size: 1.05rem;
-      font-weight: 600;
-      color: #0f172a;
-    }
-    table {
-      border-collapse: separate;
-      border-spacing: 0;
-      width: 100%;
-      margin-bottom: 2rem;
-    }
-    thead th {
-      text-align: center;
-      padding: 0.9rem 0.75rem;
-      font-size: 0.9rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
-      color: #ffffff;
-      border-right: 1px solid rgba(255,255,255,0.2);
-    }
-    thead th.day-weekend {
-      background: linear-gradient(135deg, #fb7185 0%, #e11d48 100%);
-    }
-    thead th.subhead {
-      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-      font-size: 0.8rem;
-      letter-spacing: 0.04em;
-    }
-    tbody th {
-      background: #0f172a;
-      color: #ffffff;
-      padding: 0.85rem 0.75rem;
-      text-align: left;
-      font-weight: 600;
-      position: sticky;
-      left: 0;
-      z-index: 2;
-    }
-    tbody td {
-      padding: 0.75rem;
-      text-align: center;
-      font-size: 0.95rem;
-      font-weight: 500;
-      border-right: 1px solid #e2e8f0;
-      border-bottom: 1px solid #e2e8f0;
-    }
-    tbody tr:nth-child(odd) td {
-      background: #f8fafc;
-    }
-    tbody tr:nth-child(even) td {
-      background: #ffffff;
-    }
-    .cell-status-under {
-      background: #fee2e2 !important;
-      color: #b91c1c;
-      font-weight: 600;
-    }
-    .cell-status-target {
-      background: #dcfce7 !important;
-      color: #047857;
-      font-weight: 600;
-    }
-    .cell-status-over {
-      background: #ede9fe !important;
-      color: #5b21b6;
-      font-weight: 600;
-    }
-    .cell-status-weekend {
-      background: #f1f5f9 !important;
-      color: #0f172a;
-      font-weight: 600;
-    }
-    .cell-status-empty {
-      background: #fef2f2 !important;
-      color: #b91c1c;
-    }
-    .summary-cell {
-      font-weight: 700;
-      color: #ffffff;
-    }
-    .summary-total { background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); }
-    .summary-low { background: linear-gradient(135deg, #f97316 0%, #ea580c 100%); }
-    .summary-overtime { background: linear-gradient(135deg, #9333ea 0%, #7c3aed 100%); }
-    .summary-efficiency { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
-    .summary-days { background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%); }
-    tfoot th {
-      text-align: left;
-      background: #0f172a;
-      color: #f8fafc;
-      padding: 0.85rem 0.75rem;
-    }
-    tfoot td {
-      padding: 0.75rem;
-      text-align: center;
-      background: #e2e8f0;
-      font-weight: 600;
-    }
-    .averages-row td {
-      background: #cbd5f5;
-      color: #1e1b4b;
-    }
-    .legend {
-      display: flex;
-      gap: 1.5rem;
-      flex-wrap: wrap;
-      margin: 1rem 0 2.5rem;
-      padding: 1rem 1.5rem;
-      border-radius: 12px;
-      background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
-      border: 1px solid #cbd5e1;
-    }
-    .legend-item {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-      font-size: 0.9rem;
-      font-weight: 600;
-      color: #1e293b;
-    }
-    .legend-swatch {
-      width: 20px;
-      height: 20px;
-      border-radius: 6px;
-      box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.12);
-    }
-    .notes {
-      font-size: 0.9rem;
-      line-height: 1.6;
-      color: #475569;
-    }
-    .notes strong {
-      color: #0f172a;
-    }
-    .break-table {
-      border-collapse: separate;
-      border-spacing: 0;
-    }
-    .break-table thead th {
-      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-    }
-    .break-table tbody tr:nth-child(odd) td {
-      background: #f1f5f9;
-    }
-    .break-table tbody tr:nth-child(even) td {
-      background: #ffffff;
-    }
-    .break-table td, .break-table th {
-      padding: 0.75rem;
-      text-align: center;
-      border-right: 1px solid #e2e8f0;
-      border-bottom: 1px solid #e2e8f0;
-    }
-    .break-table th {
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      font-size: 0.85rem;
-      color: #f8fafc;
-    }
-    .break-name {
-      text-align: left;
-      font-weight: 600;
-      color: #0f172a;
-    }
-    .break-violation {
-      color: #b91c1c;
-      font-weight: 600;
-    }
-    .break-summary-title {
-      font-size: 1.25rem;
-      font-weight: 700;
-      color: #0f172a;
-      margin-bottom: 0.75rem;
-    }
-  `;
+    return `${mins}m`;
+  };
 
   const breakTotals = pivotMatrix.users.reduce((acc, user) => {
-    const summary = user.metrics && user.metrics.breakSummary ? user.metrics.breakSummary : {};
+    const summary = user.metrics?.breakSummary || {};
     acc.breakMinutes += summary.totalBreakMinutes || 0;
     acc.lunchMinutes += summary.totalLunchMinutes || 0;
     acc.breakViolations += summary.breakViolationDays || 0;
@@ -2481,178 +2811,53 @@ function generateEnhancedDailyPivotCSV(pivotMatrix, params) {
     return acc;
   }, { breakMinutes: 0, lunchMinutes: 0, breakViolations: 0, lunchViolations: 0, avgBreakMinutes: 0, avgLunchMinutes: 0 });
 
-  let html = '';
-  html += '<!DOCTYPE html>';
-  html += '<html lang="en">';
-  html += '<head>';
-  html += '<meta charset="utf-8" />';
-  html += `<title>Daily Attendance Matrix Export</title>`;
-  html += `<style>${style}</style>`;
-  html += '</head>';
-  html += '<body>';
-  html += '<div class="export-card">';
-  html += '<h1>Daily Attendance Matrix</h1>';
-  html += '<div class="export-meta">';
-  html += `<div class="meta-item"><strong>Generated</strong><span>${escapeHtml(timestamp)} (${escapeHtml(ATTENDANCE_TIMEZONE_LABEL)})</span></div>`;
-  html += `<div class="meta-item"><strong>Period</strong><span>${escapeHtml(params.period.type)} ${escapeHtml(params.period.value || 'Custom')}</span></div>`;
-  html += `<div class="meta-item"><strong>Matrix Size</strong><span>${escapeHtml(pivotMatrix.metadata.totalUsers)} users • ${escapeHtml(pivotMatrix.metadata.totalDays)} days</span></div>`;
-  html += `<div class="meta-item"><strong>Composition</strong><span>${escapeHtml(pivotMatrix.metadata.weekdays)} weekdays • ${escapeHtml(pivotMatrix.metadata.weekends)} weekends</span></div>`;
-  html += '</div>';
-
-  html += '<table class="matrix-table">';
-  html += '<thead>';
-  html += '<tr>';
-  html += '<th rowspan="2">Agent</th>';
-  activeDates.forEach(dateInfo => {
-    const weekendClass = dateInfo.isWeekend ? ' day-weekend' : '';
-    html += `<th class="day${weekendClass}" scope="col">${escapeHtml(dateInfo.dayName)}</th>`;
-  });
-  if (options.includeTotalHours) html += '<th rowspan="2" class="summary-cell summary-total">Total Hours</th>';
-  if (options.includeDiscrepancy) html += '<th rowspan="2" class="summary-cell summary-low">Low Days</th>';
-  if (options.includeOvertime) html += '<th rowspan="2" class="summary-cell summary-overtime">Overtime</th>';
-  html += '<th rowspan="2" class="summary-cell summary-efficiency">Efficiency %</th>';
-  html += '<th rowspan="2" class="summary-cell summary-days">Days Worked</th>';
-  html += '</tr>';
-
-  html += '<tr>';
-  activeDates.forEach(dateInfo => {
-    html += `<th class="subhead">${escapeHtml(dateInfo.formattedDate)}</th>`;
-  });
-  html += '</tr>';
-  html += '</thead>';
-
-  html += '<tbody>';
   pivotMatrix.users.forEach(userData => {
-    html += '<tr>';
-    html += `<th scope="row">${escapeHtml(userData.user)}</th>`;
-    activeDates.forEach(dateInfo => {
-      const dayData = userData.dailyData.find(d => d.date === dateInfo.date) || { value: '', isStatus: false };
-      let cellClass = '';
-      if (dayData.isWeekend || dateInfo.isWeekend) {
-        cellClass = 'cell-status-weekend';
-      } else if (highlightHours && !dayData.isStatus) {
-        cellClass = `cell-status-${dayData.performanceStatus || 'neutral'}`;
-      } else if (!dayData.isStatus && Number(dayData.numericValue || 0) === 0) {
-        cellClass = 'cell-status-empty';
-      }
-      const displayValue = escapeHtml(dayData.value);
-      html += `<td class="${cellClass}">${displayValue}</td>`;
-    });
-
-    if (options.includeTotalHours) {
-      html += `<td class="summary-cell summary-total">${escapeHtml(userData.metrics.totalHours)}</td>`;
-    }
-    if (options.includeDiscrepancy) {
-      html += `<td class="summary-cell summary-low">${escapeHtml(userData.metrics.discrepancy)}</td>`;
-    }
-    if (options.includeOvertime) {
-      html += `<td class="summary-cell summary-overtime">${escapeHtml(userData.metrics.overtime)}</td>`;
-    }
-    html += `<td class="summary-cell summary-efficiency">${escapeHtml(userData.metrics.efficiency)}%</td>`;
-    html += `<td class="summary-cell summary-days">${escapeHtml(userData.metrics.daysWorked)}</td>`;
-    html += '</tr>';
+    const summary = userData.metrics?.breakSummary || {};
+    rows.push([
+      userData.user,
+      formatMinutes(summary.totalBreakMinutes || 0),
+      formatMinutes(summary.averageBreakMinutes || 0),
+      summary.breakViolationDays || 0,
+      formatMinutes(summary.totalLunchMinutes || 0),
+      formatMinutes(summary.averageLunchMinutes || 0),
+      summary.lunchViolationDays || 0
+    ].map(csvEscape).join(','));
   });
-  html += '</tbody>';
 
-  if (options.includeTotalsRow) {
-    html += '<tfoot>';
-    html += '<tr>';
-    html += '<th scope="row">Totals</th>';
-    activeDates.forEach(dateInfo => {
-      const totalInfo = pivotMatrix.dailyTotals[dateInfo.index] || { total: '0.00' };
-      html += `<td>${escapeHtml(totalInfo.total)}</td>`;
-    });
-    if (options.includeTotalHours) html += `<td>${escapeHtml(pivotMatrix.grandTotals.totalHours)}</td>`;
-    if (options.includeDiscrepancy) html += `<td>${escapeHtml(pivotMatrix.grandTotals.totalDiscrepancies)}</td>`;
-    if (options.includeOvertime) html += `<td>${escapeHtml(pivotMatrix.grandTotals.totalOvertime)}</td>`;
-    html += `<td>${escapeHtml(pivotMatrix.grandTotals.averageEfficiency)}%</td>`;
-    html += '<td></td>';
-    html += '</tr>';
+  const avgBreakAcross = pivotMatrix.users.length > 0
+    ? Math.round(breakTotals.avgBreakMinutes / pivotMatrix.users.length)
+    : 0;
+  const avgLunchAcross = pivotMatrix.users.length > 0
+    ? Math.round(breakTotals.avgLunchMinutes / pivotMatrix.users.length)
+    : 0;
 
-    html += '<tr class="averages-row">';
-    html += '<th scope="row">Averages</th>';
-    activeDates.forEach(dateInfo => {
-      const totalInfo = pivotMatrix.dailyTotals[dateInfo.index] || { average: '0.00' };
-      html += `<td>${escapeHtml(totalInfo.average || '0.00')}</td>`;
-    });
-    if (options.includeTotalHours) {
-      const avgTotal = pivotMatrix.users.length > 0 ? (parseFloat(pivotMatrix.grandTotals.totalHours) / pivotMatrix.users.length).toFixed(2) : '0.00';
-      html += `<td>${escapeHtml(avgTotal)}</td>`;
-    }
-    if (options.includeDiscrepancy) {
-      const avgDiscrepancy = pivotMatrix.users.length > 0 ? (pivotMatrix.grandTotals.totalDiscrepancies / pivotMatrix.users.length).toFixed(1) : '0.0';
-      html += `<td>${escapeHtml(avgDiscrepancy)}</td>`;
-    }
-    if (options.includeOvertime) {
-      const avgOvertime = pivotMatrix.users.length > 0 ? (parseFloat(pivotMatrix.grandTotals.totalOvertime) / pivotMatrix.users.length).toFixed(2) : '0.00';
-      html += `<td>${escapeHtml(avgOvertime)}</td>`;
-    }
-    html += `<td>${escapeHtml(pivotMatrix.grandTotals.averageEfficiency)}%</td>`;
-    html += '<td></td>';
-    html += '</tr>';
-    html += '</tfoot>';
-  }
+  rows.push([
+    'Team Total',
+    formatMinutes(breakTotals.breakMinutes),
+    formatMinutes(avgBreakAcross),
+    breakTotals.breakViolations,
+    formatMinutes(breakTotals.lunchMinutes),
+    formatMinutes(avgLunchAcross),
+    breakTotals.lunchViolations
+  ].map(csvEscape).join(','));
 
-  html += '</table>';
+  rows.push('');
+  rows.push(csvEscape('Notes'));
+  rows.push(csvEscape(`All productive durations are converted from seconds into decimal hours using ${ATTENDANCE_TIMEZONE_LABEL || ATTENDANCE_TIMEZONE}.`));
+  rows.push(csvEscape('Break allowances assume 30 minutes per day; lunch allowances assume 60 minutes.'));
+  rows.push(csvEscape(`Only productive attendance states contribute to billable hours: ${BILLABLE_STATES.join(', ')}.`));
 
-  html += '<div class="legend">';
-  html += '<div class="legend-item"><span class="legend-swatch" style="background:#dcfce7"></span><span>On target (8.0 hours)</span></div>';
-  html += '<div class="legend-item"><span class="legend-swatch" style="background:#fee2e2"></span><span>Below target</span></div>';
-  html += '<div class="legend-item"><span class="legend-swatch" style="background:#ede9fe"></span><span>Overtime</span></div>';
-  html += '<div class="legend-item"><span class="legend-swatch" style="background:#f1f5f9"></span><span>Weekend/Off day</span></div>';
-  html += '</div>';
+  return {
+    csvData: rows.join('\n'),
+    filename: `${fileBaseName}.csv`,
+    mimeType: 'text/csv;charset=utf-8;'
+  };
+}
 
-  html += '<h2 class="break-summary-title">Break &amp; Lunch Summary</h2>';
-  html += '<table class="break-table">';
-  html += '<thead><tr>';
-  html += '<th>Agent</th>';
-  html += '<th>Total Break</th>';
-  html += '<th>Avg Break</th>';
-  html += '<th>Break Violations</th>';
-  html += '<th>Total Lunch</th>';
-  html += '<th>Avg Lunch</th>';
-  html += '<th>Lunch Violations</th>';
-  html += '</tr></thead>';
-  html += '<tbody>';
-  pivotMatrix.users.forEach(userData => {
-    const summary = userData.metrics && userData.metrics.breakSummary ? userData.metrics.breakSummary : {};
-    html += '<tr>';
-    html += `<td class="break-name">${escapeHtml(userData.user)}</td>`;
-    html += `<td>${escapeHtml(formatMinutes(summary.totalBreakMinutes || 0))}</td>`;
-    html += `<td>${escapeHtml(formatMinutes(summary.averageBreakMinutes || 0))}</td>`;
-    html += `<td class="${(summary.breakViolationDays || 0) > 0 ? 'break-violation' : ''}">${escapeHtml(summary.breakViolationDays || 0)}</td>`;
-    html += `<td>${escapeHtml(formatMinutes(summary.totalLunchMinutes || 0))}</td>`;
-    html += `<td>${escapeHtml(formatMinutes(summary.averageLunchMinutes || 0))}</td>`;
-    html += `<td class="${(summary.lunchViolationDays || 0) > 0 ? 'break-violation' : ''}">${escapeHtml(summary.lunchViolationDays || 0)}</td>`;
-    html += '</tr>';
-  });
-  html += '</tbody>';
-  html += '<tfoot>';
-  html += '<tr>';
-  html += '<th scope="row">Team Total</th>';
-  html += `<td>${escapeHtml(formatMinutes(breakTotals.breakMinutes))}</td>`;
-  const avgBreakAcross = pivotMatrix.users.length > 0 ? Math.round(breakTotals.avgBreakMinutes / pivotMatrix.users.length) : 0;
-  html += `<td>${escapeHtml(formatMinutes(avgBreakAcross))}</td>`;
-  html += `<td class="${breakTotals.breakViolations > 0 ? 'break-violation' : ''}">${escapeHtml(breakTotals.breakViolations)}</td>`;
-  html += `<td>${escapeHtml(formatMinutes(breakTotals.lunchMinutes))}</td>`;
-  const avgLunchAcross = pivotMatrix.users.length > 0 ? Math.round(breakTotals.avgLunchMinutes / pivotMatrix.users.length) : 0;
-  html += `<td>${escapeHtml(formatMinutes(avgLunchAcross))}</td>`;
-  html += `<td class="${breakTotals.lunchViolations > 0 ? 'break-violation' : ''}">${escapeHtml(breakTotals.lunchViolations)}</td>`;
-  html += '</tr>';
-  html += '</tfoot>';
-  html += '</table>';
-
-  html += '<div class="notes">';
-  html += '<p><strong>Data Quality Notes</strong></p>';
-  html += `<p>All productive durations are converted from seconds (DurationMin column) into decimal hours and evaluated against the configured hour policy in ${escapeHtml(ATTENDANCE_TIMEZONE_LABEL)} (${escapeHtml(ATTENDANCE_TIMEZONE)}).</p>`;
-  html += `<p>Break allowances assume 30 minutes per day; lunch allowances assume 60 minutes. Violations represent days where totals exceeded policy limits.</p>`;
-  html += `<p>Only productive attendance states contribute to billable hours: ${escapeHtml(BILLABLE_STATES.join(', '))}.</p>`;
-  html += '</div>';
-
-  html += '</div>';
-  html += '</body></html>';
-
-  return html;
+function buildDailyPivotFileBase(granularity, periodValue) {
+  const safeGranularity = String(granularity || 'period').replace(/[^0-9A-Za-z_-]+/g, '_');
+  const safePeriod = String(periodValue || 'range').replace(/[^0-9A-Za-z_-]+/g, '_');
+  return `daily_matrix_${safeGranularity}_${safePeriod}`;
 }
 
 // ────────────────────────────────────────────────────────────────────────────
