@@ -1474,12 +1474,12 @@
     </div>
     <div class="col-lg-6 recognition-column">
         <div class="recognition-card is-empty" id="attRecognitionCard">
-            <div class="recognition-badge"><i class="fas fa-stopwatch"></i> ATT Ace</div>
+            <div class="recognition-badge"><i class="fas fa-stopwatch"></i> Average Handle Time</div>
             <div class="recognition-agent" id="attChampionName">Awaiting data</div>
             <div class="recognition-stat" id="attChampionValue">—</div>
-            <div class="recognition-meta" id="attChampionDetail">Recognition unlocks after maintaining weekday call coverage (Mon–Fri) at least 5 days per week for every week in the month.</div>
-            <ul class="recognition-ranking is-empty" id="attRecognitionList" aria-label="Top average talk time performers"></ul>
-            <div class="recognition-footer"><i class="fas fa-headset"></i><span id="attChampionFooter">No qualifying calls with full weekday coverage yet</span></div>
+            <div class="recognition-meta" id="attChampionDetail">Recognition unlocks after tracking consistent weekday coverage or sustained qualifying call volume across the selected period.</div>
+            <ul class="recognition-ranking is-empty" id="attRecognitionList" aria-label="Top average handle time performers"></ul>
+            <div class="recognition-footer"><i class="fas fa-headset"></i><span id="attChampionFooter">No qualifying average handle time records yet</span></div>
         </div>
     </div>
 </div>
@@ -2519,9 +2519,15 @@
             : 0;
           return sum + boundedActual;
         }, 0);
-        const hasFullCoverage = Boolean(item.fullWeekCoverage)
-          && coverageRequiredDays > 0
-          && coverageActualDays >= coverageRequiredDays;
+        const coverageExpectationsDefined = coverageSummaries.some(summary => {
+          const required = Number(summary?.requiredDays ?? 0);
+          return Number.isFinite(required) && required > 0;
+        });
+        const hasFullCoverage = coverageExpectationsDefined
+          ? Boolean(item.fullWeekCoverage)
+            && coverageRequiredDays > 0
+            && coverageActualDays >= coverageRequiredDays
+          : calls > 0;
         return {
           agent: item.agent || '—',
           calls,
@@ -2529,7 +2535,8 @@
           avgTalk,
           coverageRequiredDays,
           coverageActualDays,
-          hasFullCoverage
+          hasFullCoverage,
+          coverageExpectationsDefined
         };
       })
       .filter(entry => (
@@ -2553,35 +2560,46 @@
       attCard.classList.add('is-empty');
       attNameEl.textContent = 'Awaiting data';
       attValueEl.textContent = '—';
-      attDetailEl.textContent = 'Track talk time for agents who maintained full weekday coverage across the selected period.';
-      attFooterEl.textContent = 'No qualifying full-coverage talk time records yet';
+      attDetailEl.textContent = 'Track handle time for agents with consistent coverage or qualifying call volume to spotlight leaders here.';
+      attFooterEl.textContent = 'No qualifying average handle time records yet';
       updateRankingList(attListEl, []);
     } else {
       const champion = attLeaders[0];
       const championAvg = Math.round(champion.avgTalk);
       const championCalls = champion.calls === 1 ? '1 qualifying call' : `${champion.calls} qualifying calls`;
       const championMinutes = `${champion.totalMinutes.toLocaleString()} total minutes`;
-      const coverageLabel = champion.coverageRequiredDays === 1
-        ? '1 weekday'
-        : `${champion.coverageRequiredDays} weekdays`;
+      const coverageLabel = champion.coverageExpectationsDefined
+        ? (champion.coverageRequiredDays === 1
+          ? '1 weekday'
+          : `${champion.coverageRequiredDays} weekdays`)
+        : null;
       attCard.classList.remove('is-empty');
       attNameEl.textContent = champion.agent;
       attValueEl.textContent = `${championAvg} min avg`;
       const teamAverageLabel = benchmarkDisplay !== null
         ? `Team average: ${benchmarkDisplay} min.`
         : '';
-      const detailParts = [`${championCalls} (${championMinutes}).`, `Covered ${coverageLabel}.`];
+      const detailParts = [`${championCalls} (${championMinutes}).`];
+      if (coverageLabel) detailParts.push(`Covered ${coverageLabel}.`);
       if (teamAverageLabel) detailParts.push(teamAverageLabel);
       attDetailEl.textContent = detailParts.join(' ').replace(/\s+/g, ' ').trim();
-      attFooterEl.textContent = 'Ranked by highest call volume with the lowest talk time (full coverage required)';
+      const footerParts = ['Ranked by highest qualifying call volume with the lowest average handle time'];
+      if (champion.coverageExpectationsDefined) {
+        footerParts.push('(coverage goals met)');
+      }
+      attFooterEl.textContent = footerParts.join(' ');
       updateRankingList(attListEl, attLeaders, entry => {
         const avgLabel = `${Math.round(entry.avgTalk)} min avg`;
         const callLabel = entry.calls === 1 ? '1 call' : `${entry.calls} calls`;
         const totalLabel = `${entry.totalMinutes.toLocaleString()} total minutes`;
-        const coverageDisplay = entry.coverageRequiredDays === 1
-          ? '1 weekday'
-          : `${entry.coverageRequiredDays} weekdays`;
-        return `${avgLabel} • ${callLabel} (${totalLabel}) • ${coverageDisplay}`;
+        const coverageDisplay = entry.coverageExpectationsDefined
+          ? (entry.coverageRequiredDays === 1
+            ? 'Covered 1 weekday'
+            : `Covered ${entry.coverageRequiredDays} weekdays`)
+          : null;
+        const detailParts = [`${avgLabel} • ${callLabel}`, `(${totalLabel})`];
+        if (coverageDisplay) detailParts.push(coverageDisplay);
+        return detailParts.join(' ');
       });
     }
 
