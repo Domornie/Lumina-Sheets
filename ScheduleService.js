@@ -335,15 +335,17 @@ function formatMinutesToTime12Hour(minutes) {
   return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')} ${period}`;
 }
 
-const GLOBAL_SCOPE = (typeof globalThis !== 'undefined')
-  ? globalThis
-  : (typeof self !== 'undefined')
-    ? self
-    : (typeof window !== 'undefined')
-      ? window
-      : (typeof global !== 'undefined')
-        ? global
-        : this;
+var GLOBAL_SCOPE = (typeof GLOBAL_SCOPE !== 'undefined')
+  ? GLOBAL_SCOPE
+  : (typeof globalThis !== 'undefined')
+    ? globalThis
+    : (typeof self !== 'undefined')
+      ? self
+      : (typeof window !== 'undefined')
+        ? window
+        : (typeof global !== 'undefined')
+          ? global
+          : this;
 
 if (GLOBAL_SCOPE) {
   if (typeof GLOBAL_SCOPE.convertCsvToDayIndexes !== 'function') {
