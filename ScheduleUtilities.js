@@ -5,6 +5,16 @@
  */
 
 // ────────────────────────────────────────────────────────────────────────────
+// GLOBAL CONSTANTS
+// ────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Weekday ordering helper shared by schedule utilities and services.
+ * Values use the short three-letter form to align with existing sheet data.
+ */
+const DAY_NAME_ORDER = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+// ────────────────────────────────────────────────────────────────────────────
 // SCHEDULE SPREADSHEET CONFIGURATION
 // ────────────────────────────────────────────────────────────────────────────
 
