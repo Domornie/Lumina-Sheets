@@ -1474,12 +1474,12 @@
     </div>
     <div class="col-lg-6 recognition-column">
         <div class="recognition-card is-empty" id="attRecognitionCard">
-            <div class="recognition-badge"><i class="fas fa-stopwatch"></i> Average Talk Time</div>
+            <div class="recognition-badge"><i class="fas fa-stopwatch"></i> Average Handle Time</div>
             <div class="recognition-agent" id="attChampionName">Awaiting data</div>
             <div class="recognition-stat" id="attChampionValue">—</div>
             <div class="recognition-meta" id="attChampionDetail">Recognition unlocks after tracking consistent weekday coverage or sustained qualifying call volume across the selected period.</div>
-            <ul class="recognition-ranking is-empty" id="attRecognitionList" aria-label="Top average talk time performers"></ul>
-            <div class="recognition-footer"><i class="fas fa-headset"></i><span id="attChampionFooter">No qualifying average talk time records yet</span></div>
+            <ul class="recognition-ranking is-empty" id="attRecognitionList" aria-label="Top average handle time performers"></ul>
+            <div class="recognition-footer"><i class="fas fa-headset"></i><span id="attChampionFooter">No qualifying average handle time records yet</span></div>
         </div>
     </div>
 </div>
@@ -2560,8 +2560,8 @@
       attCard.classList.add('is-empty');
       attNameEl.textContent = 'Awaiting data';
       attValueEl.textContent = '—';
-      attDetailEl.textContent = 'Track talk time for agents with consistent coverage or qualifying call volume to spotlight leaders here.';
-      attFooterEl.textContent = 'No qualifying average talk time records yet';
+      attDetailEl.textContent = 'Track handle time for agents with consistent coverage or qualifying call volume to spotlight leaders here.';
+      attFooterEl.textContent = 'No qualifying average handle time records yet';
       updateRankingList(attListEl, []);
     } else {
       const champion = attLeaders[0];
@@ -2583,7 +2583,7 @@
       if (coverageLabel) detailParts.push(`Covered ${coverageLabel}.`);
       if (teamAverageLabel) detailParts.push(teamAverageLabel);
       attDetailEl.textContent = detailParts.join(' ').replace(/\s+/g, ' ').trim();
-      const footerParts = ['Ranked by highest qualifying call volume with the lowest average talk time'];
+      const footerParts = ['Ranked by highest qualifying call volume with the lowest average handle time'];
       if (champion.coverageExpectationsDefined) {
         footerParts.push('(coverage goals met)');
       }
