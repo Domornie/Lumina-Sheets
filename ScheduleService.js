@@ -811,26 +811,186 @@ function clientGetAttendanceUsers(requestingUserId, campaignId = null) {
  */
 function clientGetManagedUsersList(managerId) {
   try {
-    if (!managerId) return [];
-    
-    // Use MainUtilities function for managed campaigns
-    const managedCampaigns = getUserManagedCampaigns(managerId);
+    const normalizedManagerId = normalizeUserIdValue(managerId);
+    if (!normalizedManagerId) {
+      return [];
+    }
+
+    const managedIdSet = (typeof buildManagedUserSet === 'function')
+      ? buildManagedUserSet(normalizedManagerId)
+      : (() => {
+          const ids = (typeof getDirectManagedUserIds === 'function')
+            ? getDirectManagedUserIds(normalizedManagerId)
+            : new Set();
+
+          if (typeof getUserManagedCampaigns === 'function' && typeof getUsersByCampaign === 'function') {
+            try {
+              const campaigns = getUserManagedCampaigns(normalizedManagerId) || [];
+              campaigns.forEach(campaign => {
+                try {
+                  const campaignUsers = getUsersByCampaign(campaign.ID) || [];
+                  campaignUsers.forEach(user => {
+                    const candidateId = normalizeUserIdValue(user && user.ID);
+                    if (candidateId) {
+                      ids.add(candidateId);
+                    }
+                  });
+                } catch (campaignErr) {
+                  console.warn('Failed to merge campaign users for managed roster', campaign && campaign.ID, campaignErr);
+                }
+              });
+            } catch (campaignLookupErr) {
+              console.warn('Unable to expand managed roster via campaigns:', campaignLookupErr);
+            }
+          }
+
+          return ids;
+        })();
+
+    const managedIds = Array.from(managedIdSet || [])
+      .map(normalizeUserIdValue)
+      .filter(id => id && id !== normalizedManagerId);
+
+    if (!managedIds.length) {
+      return [];
+    }
+
+    const users = (() => {
+      try {
+        return readSheet(USERS_SHEET) || [];
+      } catch (userErr) {
+        console.warn('Unable to read users sheet while building managed roster:', userErr);
+        return [];
+      }
+    })();
+
+    const campaigns = (() => {
+      try {
+        return readSheet(CAMPAIGNS_SHEET) || [];
+      } catch (campaignErr) {
+        console.warn('Unable to read campaigns sheet while building managed roster:', campaignErr);
+        return [];
+      }
+    })();
+
+    const userCampaignRows = (() => {
+      if (typeof USER_CAMPAIGNS_SHEET === 'undefined') {
+        return [];
+      }
+      try {
+        return readSheet(USER_CAMPAIGNS_SHEET) || [];
+      } catch (rowErr) {
+        console.warn('Unable to read user campaign assignments while building managed roster:', rowErr);
+        return [];
+      }
+    })();
+
+    const campaignNameById = new Map();
+    campaigns.forEach(campaign => {
+      if (!campaign) {
+        return;
+      }
+      const campaignId = (campaign.ID || campaign.Id || campaign.id);
+      if (!campaignId) {
+        return;
+      }
+      const normalizedCampaignId = String(campaignId);
+      if (!campaignNameById.has(normalizedCampaignId)) {
+        campaignNameById.set(normalizedCampaignId, campaign.Name || campaign.name || '');
+      }
+    });
+
+    const userCampaignMap = new Map();
+    userCampaignRows.forEach(row => {
+      if (!row) {
+        return;
+      }
+      const userId = normalizeUserIdValue(row.UserId || row.UserID || row.userId || row.ManagedUserID || row.ManagedUserId);
+      const campaignId = row.CampaignId || row.CampaignID || row.campaignId || row.Campaign || row.campaign;
+      if (!userId || !campaignId) {
+        return;
+      }
+      const normalizedCampaignId = String(campaignId);
+      if (!userCampaignMap.has(userId)) {
+        userCampaignMap.set(userId, new Set());
+      }
+      userCampaignMap.get(userId).add(normalizedCampaignId);
+    });
+
+    const userById = new Map();
+    users.forEach(user => {
+      if (!user) {
+        return;
+      }
+      const candidates = [
+        user.ID,
+        user.Id,
+        user.UserID,
+        user.UserId,
+        user.id,
+        user.userId,
+        user.UserName,
+        user.Username
+      ];
+
+      const normalizedId = candidates
+        .map(normalizeUserIdValue)
+        .find(Boolean);
+
+      if (normalizedId && !userById.has(normalizedId)) {
+        userById.set(normalizedId, user);
+      }
+    });
+
     const managedUsers = [];
-    
-    managedCampaigns.forEach(campaign => {
-      const campaignUsers = getUsersByCampaign(campaign.ID);
-      campaignUsers.forEach(user => {
-        if (String(user.ID) !== String(managerId)) { // Don't include self
-          managedUsers.push({
-            ID: user.ID,
-            UserName: user.UserName,
-            FullName: user.FullName,
-            Email: user.Email,
-            CampaignID: user.CampaignID,
-            campaignName: campaign.Name,
-            EmploymentStatus: user.EmploymentStatus
-          });
+    const seen = new Set();
+
+    managedIds.forEach(id => {
+      if (!id || seen.has(id)) {
+        return;
+      }
+      seen.add(id);
+
+      const user = userById.get(id);
+      if (!user) {
+        managedUsers.push({
+          ID: id,
+          UserName: id,
+          FullName: id,
+          Email: '',
+          CampaignID: '',
+          campaignName: '',
+          EmploymentStatus: 'Active'
+        });
+        return;
+      }
+
+      const primaryCampaignId = (() => {
+        const assigned = userCampaignMap.get(id);
+        if (assigned && assigned.size) {
+          return Array.from(assigned)[0];
         }
+        if (user.CampaignID || user.CampaignId) {
+          return String(user.CampaignID || user.CampaignId);
+        }
+        return '';
+      })();
+
+      const campaignName = (() => {
+        if (primaryCampaignId && campaignNameById.has(primaryCampaignId)) {
+          return campaignNameById.get(primaryCampaignId);
+        }
+        return user.CampaignName || user.campaignName || user.Campaign || '';
+      })();
+
+      managedUsers.push({
+        ID: user.ID || user.Id || id,
+        UserName: user.UserName || user.Username || id,
+        FullName: user.FullName || user.fullName || user.UserName || user.Username || id,
+        Email: user.Email || user.email || '',
+        CampaignID: primaryCampaignId || '',
+        campaignName: campaignName || '',
+        EmploymentStatus: user.EmploymentStatus || user.employmentStatus || 'Active'
       });
     });
 
