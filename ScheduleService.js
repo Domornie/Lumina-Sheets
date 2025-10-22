@@ -1068,14 +1068,6 @@ function clientGetAllShiftSlots() {
       return (a.SlotName || '').localeCompare(b.SlotName || '');
     });
 
-    normalizedSlots.sort((a, b) => {
-      const campaignCompare = (a.Campaign || '').localeCompare(b.Campaign || '');
-      if (campaignCompare !== 0) {
-        return campaignCompare;
-      }
-      return (a.SlotName || '').localeCompare(b.SlotName || '');
-    });
-
     console.log(`✅ Returning ${normalizedSlots.length} normalized shift slots`);
     return normalizedSlots;
 
@@ -2477,7 +2469,17 @@ function clientGetCountryHolidays(countryCode, year) {
       };
     }
 
-    const slot = clientGetAllShiftSlots().find(slot => slot.SlotId === slotId);
+    const availableSlots = clientGetAllShiftSlots();
+    const slot = availableSlots.find(slotRecord => {
+      if (!slotRecord || typeof slotRecord !== 'object') {
+        return false;
+      }
+      const candidates = [
+        slotRecord.SlotId, slotRecord.SlotID, slotRecord.slotId,
+        slotRecord.ID, slotRecord.Id, slotRecord.id
+      ];
+      return candidates.some(candidate => candidate && String(candidate) === String(slotId));
+    });
     if (!slot) {
       return {
         success: false,
@@ -2524,7 +2526,12 @@ function clientGetCountryHolidays(countryCode, year) {
       const idKey = String(entry.ID || entry.id || entry.userId || entry);
       const user = userKeyMap.get(nameKey) || userIdMap.get(idKey);
       if (!user) {
-        failedUsers.push({ entry, reason: 'User not found in schedule directory' });
+        failedUsers.push({
+          entry,
+          userId: idKey,
+          userName: entry.UserName || entry.FullName || entry.name || '',
+          reason: 'User not found in schedule directory'
+        });
         return;
       }
 
@@ -2550,7 +2557,6 @@ function clientGetCountryHolidays(countryCode, year) {
             error: 'Existing assignment overlaps the selected range'
           });
         });
-        return;
       }
 
       if (replaceExisting && overlap.length) {
@@ -2609,21 +2615,35 @@ function clientGetCountryHolidays(countryCode, year) {
 
     const writeResult = writeShiftAssignments(createdAssignments, actor, request.notes || 'Manual assignment', 'PENDING');
 
+    const outputAssignments = createdAssignments.map(item => ({
+      AssignmentId: item.AssignmentId,
+      UserId: item.UserId,
+      UserName: item.UserName,
+      SlotId: item.SlotId,
+      SlotName: item.SlotName,
+      StartDate: item.StartDate,
+      EndDate: item.EndDate,
+      Notes: item.Notes || ''
+    }));
+
+    const slotNameLabel = slot.SlotName || slot.Name || 'Shift Slot';
+    const startLabel = normalizedStart;
+    const endLabel = normalizedEnd;
+    const rangeLabel = startLabel === endLabel
+      ? startLabel
+      : `${startLabel} to ${endLabel}`;
+    const userCountLabel = outputAssignments.length === 1 ? 'user' : 'users';
+    const message = `Assigned ${outputAssignments.length} ${userCountLabel} to ${slotNameLabel} for ${rangeLabel}.`;
+
     return {
       success: true,
       created: writeResult.count || createdAssignments.length,
       conflicts,
       failed: failedUsers,
       archived: archivedAssignments,
-      assignments: createdAssignments.map(item => ({
-        AssignmentId: item.AssignmentId,
-        UserId: item.UserId,
-        UserName: item.UserName,
-        SlotId: item.SlotId,
-        SlotName: item.SlotName,
-        StartDate: item.StartDate,
-        EndDate: item.EndDate
-      }))
+      message,
+      assignments: outputAssignments,
+      details: outputAssignments
     };
 
   } catch (error) {
