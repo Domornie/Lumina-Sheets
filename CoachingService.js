@@ -118,9 +118,14 @@ function getDashboardCoaching(granularity, period, agentFilter) {
   // 3) Topics distribution
   const topicCounts = {};
   filtered.forEach(r => {
-    (r.TopicsCovered||'').split(',').forEach(t => {
-      t = t.trim(); if (!t) return;
-      topicCounts[t] = (topicCounts[t]||0)+1;
+    let coveredTopics = parseTopicsList_(r && r.CoveredTopics);
+    if (!coveredTopics.length && typeof r.TopicsCovered === 'string') {
+      coveredTopics = r.TopicsCovered.split(',')
+        .map(function (t) { return sanitizeAiText_(t); })
+        .filter(Boolean);
+    }
+    coveredTopics.forEach(function (topic) {
+      topicCounts[topic] = (topicCounts[topic] || 0) + 1;
     });
   });
   const topicsDist = Object.entries(topicCounts)
@@ -136,7 +141,17 @@ function getDashboardCoaching(granularity, period, agentFilter) {
     .sort((a,b) => new Date(a.FollowUpDate) - new Date(b.FollowUpDate))
     .slice(0,20);
 
-  return { sessionsTrend, topicsDist, upcoming };
+  const aiIntel = buildCoachingDashboardIntel_(filtered, topicsDist, upcoming, {
+    granularity: granularity,
+    periodIdentifier: period,
+    startDate: startDate,
+    endDate: endDate,
+    agentName: agentFilter,
+    tz: tz,
+    today: today
+  });
+
+  return { sessionsTrend, topicsDist, upcoming, aiIntel };
 }
 
 /**
@@ -998,4 +1013,289 @@ function generateCoachingHubInsights(qaId) {
 
 function clientGetCoachingHubInsights(qaId) {
   return generateCoachingHubInsights(qaId);
+}
+
+function buildCoachingDashboardIntel_(sessions, topicsDist, upcoming, context) {
+  const tz = context && context.tz ? context.tz : Session.getScriptTimeZone();
+  const agentName = sanitizeAiText_(context && context.agentName ? context.agentName : '');
+  const { startDate, endDate } = context || {};
+  const periodLabel = formatDashboardPeriodLabel_(context && context.granularity, startDate, endDate, tz);
+
+  const totalSessions = Array.isArray(sessions) ? sessions.length : 0;
+  const today = context && context.today ? new Date(context.today) : new Date();
+  const summarySubject = agentName ? ('for ' + agentName) : 'across your teams';
+  const sessionSummary = totalSessions
+    ? 'Lumina AI reviewed ' + totalSessions + ' coaching session' + (totalSessions === 1 ? '' : 's') + ' ' + summarySubject + ' covering ' + periodLabel + '.'
+    : 'No coaching sessions logged ' + summarySubject + ' during ' + periodLabel + '. Log a session to activate hub intelligence.';
+
+  const motivator = COACHING_AI_MOTIVATORS[Math.floor(Math.random() * COACHING_AI_MOTIVATORS.length)];
+
+  let sessionsWithPlans = 0;
+  let sessionsWithCoverage = 0;
+  const topicAccumulator = {};
+  const uniqueCoachees = new Set();
+  const aggregatedSignals = [];
+  const signalSet = new Set();
+  const keywordTopicCandidates = [];
+
+  if (Array.isArray(sessions)) {
+    sessions.forEach(session => {
+      const planned = parseTopicsList_(session && session.TopicsPlanned);
+      const covered = parseTopicsList_(session && session.CoveredTopics);
+
+      if (planned.length) sessionsWithPlans++;
+      if (covered.length) sessionsWithCoverage++;
+
+      planned.concat(covered).forEach(topicName => {
+        if (!topicName) return;
+        const key = topicName.toLowerCase();
+        if (!topicAccumulator[key]) {
+          topicAccumulator[key] = { name: topicName, count: 0 };
+        }
+        topicAccumulator[key].count += 1;
+      });
+
+      const summaryText = session && session.Summary ? session.Summary : '';
+      const notesText = session && session.Notes ? session.Notes : '';
+      const planText = session && session.ActionPlan ? session.ActionPlan : '';
+
+      [summaryText, notesText, planText].forEach(text => {
+        extractCoachingSignalsFromText_(text).forEach(signal => {
+          const cleanSignal = sanitizeAiText_(signal);
+          if (cleanSignal && !signalSet.has(cleanSignal)) {
+            signalSet.add(cleanSignal);
+            aggregatedSignals.push(cleanSignal);
+          }
+        });
+        findKeywordTopics_(text).forEach(topic => {
+          if (topic && topic.name) {
+            keywordTopicCandidates.push(topic);
+          }
+        });
+      });
+
+      const coachee = sanitizeAiText_(session && session.CoacheeName ? session.CoacheeName : '');
+      if (coachee) {
+        uniqueCoachees.add(coachee);
+      }
+    });
+  }
+
+  if (Array.isArray(topicsDist)) {
+    topicsDist.forEach(item => {
+      const name = sanitizeAiText_(item && item.topic ? item.topic : '');
+      if (!name) return;
+      const key = name.toLowerCase();
+      if (!topicAccumulator[key]) {
+        topicAccumulator[key] = { name: name, count: 0 };
+      }
+      const count = Number(item && item.count ? item.count : 0);
+      if (!isNaN(count)) {
+        topicAccumulator[key].count += count;
+      }
+    });
+  }
+
+  const combinedTopics = Object.values(topicAccumulator)
+    .sort((a, b) => (b.count || 0) - (a.count || 0));
+  const topTopics = combinedTopics.slice(0, 5);
+
+  const coverageRate = totalSessions ? Math.round((sessionsWithCoverage / totalSessions) * 100) : 0;
+  const planRate = totalSessions ? Math.round((sessionsWithPlans / totalSessions) * 100) : 0;
+
+  const upcomingSoon = Array.isArray(upcoming)
+    ? upcoming.filter(record => {
+        if (!record || !record.FollowUpDate) return false;
+        const followDate = new Date(record.FollowUpDate + 'T00:00:00');
+        const diffMs = followDate.getTime() - today.getTime();
+        return diffMs >= 0 && diffMs <= 7 * 24 * 60 * 60 * 1000;
+      }).length
+    : 0;
+
+  const stats = [
+    {
+      label: 'Sessions logged',
+      value: totalSessions ? String(totalSessions) : '0',
+      helper: totalSessions
+        ? sessionsWithPlans + ' captured action plans.'
+        : 'Log a coaching session to activate insights.'
+    },
+    {
+      label: 'Plan capture rate',
+      value: totalSessions ? planRate + '%' : '—',
+      helper: totalSessions
+        ? 'Action plans documented in ' + sessionsWithPlans + ' session' + (sessionsWithPlans === 1 ? '' : 's') + '.'
+        : 'No plans recorded yet.'
+    },
+    {
+      label: 'Covered topics rate',
+      value: totalSessions ? coverageRate + '%' : '—',
+      helper: totalSessions
+        ? 'Covered topics tracked in ' + sessionsWithCoverage + ' session' + (sessionsWithCoverage === 1 ? '' : 's') + '.'
+        : 'Mark topics as covered to capture progress.'
+    },
+    {
+      label: 'Upcoming follow-ups',
+      value: Array.isArray(upcoming) ? String(upcoming.length) : '0',
+      helper: upcomingSoon
+        ? upcomingSoon + ' due within 7 days.'
+        : 'No follow-ups due within 7 days.'
+    }
+  ];
+
+  const highlights = [];
+  if (topTopics.length) {
+    highlights.push({
+      title: 'Trending coaching theme',
+      detail: topTopics[0].name + ' surfaced in ' + topTopics[0].count + ' session' + (topTopics[0].count === 1 ? '' : 's') + '. '
+        + 'Amplify what is working and scale the playbook.'
+    });
+  }
+  if (uniqueCoachees.size) {
+    highlights.push({
+      title: 'Coaching reach',
+      detail: 'Engaged ' + uniqueCoachees.size + ' unique coachee' + (uniqueCoachees.size === 1 ? '' : 's') + ' this period.'
+    });
+  }
+  if (planRate >= 80 && totalSessions) {
+    highlights.push({
+      title: 'Plan discipline',
+      detail: 'Action plans captured in ' + planRate + '% of sessions—keep the cadence strong.'
+    });
+  }
+
+  const celebrations = [];
+  if (totalSessions) {
+    celebrations.push({
+      title: 'Momentum',
+      detail: totalSessions + ' coaching touchpoint' + (totalSessions === 1 ? '' : 's') + ' recorded for ' + periodLabel + '.',
+      callout: COACHING_AI_CELEBRATIONS[Math.floor(Math.random() * COACHING_AI_CELEBRATIONS.length)]
+    });
+  }
+  if (coverageRate >= 70 && totalSessions) {
+    celebrations.push({
+      title: 'Follow-through',
+      detail: 'Covered topics logged in ' + coverageRate + '% of sessions keeps progress measurable.',
+      callout: COACHING_AI_CELEBRATIONS[Math.floor(Math.random() * COACHING_AI_CELEBRATIONS.length)]
+    });
+  }
+
+  const focusSignals = [];
+  if (totalSessions && planRate < 80) {
+    focusSignals.push({
+      title: 'Reinforce plan capture',
+      detail: 'Only ' + planRate + '% of sessions document action plans. Reinforce the template during huddles.',
+      callout: COACHING_AI_FOCUS_OPENERS[Math.floor(Math.random() * COACHING_AI_FOCUS_OPENERS.length)]
+    });
+  }
+  if (totalSessions && coverageRate < 75) {
+    focusSignals.push({
+      title: 'Track completion signals',
+      detail: 'Covered topics are marked in ' + coverageRate + '% of sessions. Coach leaders to close the loop in the hub.',
+      callout: COACHING_AI_FOCUS_OPENERS[Math.floor(Math.random() * COACHING_AI_FOCUS_OPENERS.length)]
+    });
+  }
+  if (upcomingSoon > 0) {
+    focusSignals.push({
+      title: 'Follow-up urgency',
+      detail: upcomingSoon + ' follow-up' + (upcomingSoon === 1 ? '' : 's') + ' due within 7 days. Confirm preparation with each coach.',
+      callout: COACHING_AI_FOCUS_OPENERS[Math.floor(Math.random() * COACHING_AI_FOCUS_OPENERS.length)]
+    });
+  }
+
+  const etiquetteSet = new Set();
+  while (etiquetteSet.size < 4) {
+    etiquetteSet.add(COACHING_AI_ETIQUETTE_TIPS[Math.floor(Math.random() * COACHING_AI_ETIQUETTE_TIPS.length)]);
+  }
+  const etiquetteTips = Array.from(etiquetteSet);
+
+  const acknowledgementPrompts = [];
+  acknowledgementPrompts.push('Open your next huddle with one celebration before diving into focus areas.');
+  acknowledgementPrompts.push('Ask coachees to restate their next step in writing inside the Coaching Hub.');
+  if (upcomingSoon > 0) {
+    acknowledgementPrompts.push('Send acknowledgement reminders for follow-ups due this week to keep commitments visible.');
+  }
+  acknowledgementPrompts.push('Update the QA Performance Command Center once acknowledgement forms return to close the loop.');
+
+  const recommendedTopicsMap = {};
+  topTopics.forEach(topic => {
+    if (!topic || !topic.name) return;
+    const detail = lookupTopicDetail_(topic.name) || 'Keep this theme visible in coaching plans to reinforce mastery.';
+    const key = topic.name.toLowerCase();
+    if (!recommendedTopicsMap[key]) {
+      recommendedTopicsMap[key] = { name: topic.name, detail: detail };
+    }
+  });
+  keywordTopicCandidates.forEach(topic => {
+    if (!topic || !topic.name) return;
+    const key = topic.name.toLowerCase();
+    if (!recommendedTopicsMap[key]) {
+      recommendedTopicsMap[key] = { name: topic.name, detail: topic.detail || 'Bring this topic into the next session agenda.' };
+    }
+  });
+  const recommendedTopics = Object.values(recommendedTopicsMap).slice(0, 8);
+
+  const feedbackSignals = aggregatedSignals.slice(0, 6);
+
+  return {
+    summary: sessionSummary,
+    motivator: motivator,
+    periodLabel: periodLabel,
+    stats: stats,
+    highlights: highlights,
+    celebrations: celebrations,
+    focusSignals: focusSignals,
+    etiquetteTips: etiquetteTips,
+    acknowledgementPrompts: acknowledgementPrompts,
+    feedbackSignals: feedbackSignals,
+    recommendedTopics: recommendedTopics
+  };
+}
+
+function parseTopicsList_(topicsJson) {
+  if (!topicsJson) return [];
+  try {
+    const parsed = typeof topicsJson === 'string' ? JSON.parse(topicsJson) : topicsJson;
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .map(item => {
+        if (!item) return '';
+        if (typeof item === 'string') return sanitizeAiText_(item);
+        const name = item.name || item.topic || item.Title || '';
+        return sanitizeAiText_(name);
+      })
+      .filter(Boolean);
+  } catch (_) {
+    return [];
+  }
+}
+
+function lookupTopicDetail_(topicName) {
+  if (!topicName) return '';
+  const cleanName = sanitizeAiText_(topicName).toLowerCase();
+  if (!cleanName) return '';
+  const match = COACHING_AI_KEYWORD_TOPICS.find(topic => topic && topic.name && topic.name.toLowerCase() === cleanName);
+  return match ? match.detail : '';
+}
+
+function formatDashboardPeriodLabel_(granularity, startDate, endDate, tz) {
+  try {
+    if (!(startDate instanceof Date) || isNaN(startDate)) return 'the selected period';
+    if (!(endDate instanceof Date) || isNaN(endDate)) return 'the selected period';
+    const start = Utilities.formatDate(startDate, tz, 'MMM d');
+    const end = Utilities.formatDate(endDate, tz, 'MMM d, yyyy');
+    if (granularity === 'Year') {
+      return Utilities.formatDate(startDate, tz, 'yyyy');
+    }
+    if (granularity === 'Month') {
+      return Utilities.formatDate(startDate, tz, 'MMMM yyyy');
+    }
+    if (granularity === 'Quarter') {
+      const q = Math.floor(startDate.getMonth() / 3) + 1;
+      return 'Q' + q + ' ' + Utilities.formatDate(startDate, tz, 'yyyy');
+    }
+    return start + ' – ' + end;
+  } catch (_) {
+    return 'the selected period';
+  }
 }
