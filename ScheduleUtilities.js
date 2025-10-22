@@ -164,6 +164,7 @@ function setScheduleSpreadsheetId(spreadsheetId) {
 // Main schedule management sheets
 const SCHEDULE_GENERATION_SHEET = "GeneratedSchedules";
 const SHIFT_SLOTS_SHEET = "ShiftSlots";
+const SHIFT_ASSIGNMENTS_SHEET = "ShiftAssignments";
 const SHIFT_SWAPS_SHEET = "ShiftSwaps";
 const SCHEDULE_TEMPLATES_SHEET = "ScheduleTemplates";
 const SCHEDULE_NOTIFICATIONS_SHEET = "ScheduleNotifications";
@@ -185,6 +186,7 @@ const SCHEDULE_SHEET_REGISTRY = Object.freeze({
   SHIFTS: 'Shifts',
   SCHEDULE_GENERATION: SCHEDULE_GENERATION_SHEET,
   SHIFT_SLOTS: SHIFT_SLOTS_SHEET,
+  SHIFT_ASSIGNMENTS: SHIFT_ASSIGNMENTS_SHEET,
   SHIFT_SWAPS: SHIFT_SWAPS_SHEET,
   SCHEDULE_TEMPLATES: SCHEDULE_TEMPLATES_SHEET,
   SCHEDULE_NOTIFICATIONS: SCHEDULE_NOTIFICATIONS_SHEET,
@@ -350,6 +352,13 @@ const SHIFT_SLOTS_HEADERS = [
   'RestPeriod', 'NotificationLead', 'HandoverTime',
   'OvertimePolicy', 'IsActive', 'CreatedBy', 'CreatedAt', 'UpdatedAt',
   'GenerationDefaults'
+];
+
+const SHIFT_ASSIGNMENTS_HEADERS = [
+  'AssignmentId', 'UserId', 'UserName', 'Campaign', 'SlotId', 'SlotName',
+  'StartDate', 'EndDate', 'Status', 'AllowSwap', 'Premiums', 'BreaksConfigJSON',
+  'OvertimeMinutes', 'RestPeriodHours', 'NotificationLeadHours', 'HandoverMinutes',
+  'Notes', 'CreatedAt', 'CreatedBy', 'UpdatedAt', 'UpdatedBy', 'RollbackGroupId'
 ];
 
 const SHIFT_SWAPS_HEADERS = [
@@ -764,6 +773,7 @@ function getHeadersForSheet(sheetName) {
   const map = {};
   map[SCHEDULE_GENERATION_SHEET] = SCHEDULE_GENERATION_HEADERS;
   map[SHIFT_SLOTS_SHEET] = SHIFT_SLOTS_HEADERS;
+  map[SHIFT_ASSIGNMENTS_SHEET] = SHIFT_ASSIGNMENTS_HEADERS;
   map[SHIFT_SWAPS_SHEET] = SHIFT_SWAPS_HEADERS;
   map[SCHEDULE_TEMPLATES_SHEET] = SCHEDULE_TEMPLATES_HEADERS;
   map[SCHEDULE_NOTIFICATIONS_SHEET] = SCHEDULE_NOTIFICATIONS_HEADERS;
@@ -952,6 +962,7 @@ function setupScheduleManagementSheets() {
     const coreSheets = [
       { name: SCHEDULE_GENERATION_SHEET, headers: SCHEDULE_GENERATION_HEADERS },
       { name: SHIFT_SLOTS_SHEET, headers: SHIFT_SLOTS_HEADERS },
+      { name: SHIFT_ASSIGNMENTS_SHEET, headers: SHIFT_ASSIGNMENTS_HEADERS },
       { name: SHIFT_SWAPS_SHEET, headers: SHIFT_SWAPS_HEADERS },
       { name: SCHEDULE_TEMPLATES_SHEET, headers: SCHEDULE_TEMPLATES_HEADERS },
       { name: SCHEDULE_NOTIFICATIONS_SHEET, headers: SCHEDULE_NOTIFICATIONS_HEADERS },
@@ -1054,6 +1065,7 @@ function fixExistingScheduleSheetsFormatting() {
     const allScheduleSheets = [
       SCHEDULE_GENERATION_SHEET,
       SHIFT_SLOTS_SHEET,
+      SHIFT_ASSIGNMENTS_SHEET,
       SHIFT_SWAPS_SHEET,
       SCHEDULE_TEMPLATES_SHEET,
       SCHEDULE_NOTIFICATIONS_SHEET,
