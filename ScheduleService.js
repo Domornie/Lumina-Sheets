@@ -23,6 +23,113 @@ const DEFAULT_SCHEDULE_TIME_ZONE = (typeof Session !== 'undefined' && typeof Ses
   ? Session.getScriptTimeZone()
   : 'UTC';
 
+const DAY_NAME_TO_INDEX_MAP = {
+  sun: 0,
+  sunday: 0,
+  mon: 1,
+  monday: 1,
+  tue: 2,
+  tues: 2,
+  tuesday: 2,
+  wed: 3,
+  weds: 3,
+  wednesday: 3,
+  thu: 4,
+  thur: 4,
+  thurs: 4,
+  thursday: 4,
+  fri: 5,
+  friday: 5,
+  sat: 6,
+  saturday: 6
+};
+
+function convertCsvToDayIndexes(value) {
+  if (value === null || typeof value === 'undefined') {
+    return [];
+  }
+
+  const values = [];
+
+  if (Array.isArray(value)) {
+    values.push(...value);
+  } else if (typeof value === 'string') {
+    const normalized = value
+      .replace(/[\[\](){}]/g, ' ')
+      .replace(/weekdays?/gi, '1,2,3,4,5')
+      .replace(/weekends?/gi, '0,6');
+
+    normalized
+      .split(/[^0-9a-zA-Z]+/)
+      .map(token => token.trim())
+      .filter(Boolean)
+      .forEach(token => values.push(token));
+  } else if (typeof value === 'number') {
+    values.push(value);
+  } else if (typeof value === 'object') {
+    // If we received an object with a DaysOfWeek or similar property, reuse it.
+    const candidate = value.DaysOfWeekArray || value.DaysOfWeek || value.daysOfWeek || value.days;
+    if (candidate) {
+      return convertCsvToDayIndexes(candidate);
+    }
+  }
+
+  const indexes = new Set();
+
+  values.forEach(entry => {
+    if (entry === null || typeof entry === 'undefined') {
+      return;
+    }
+
+    let index = null;
+
+    if (typeof entry === 'number' && Number.isFinite(entry)) {
+      index = Math.round(entry);
+    } else {
+      const token = String(entry).trim();
+      if (!token) {
+        return;
+      }
+
+      const numeric = Number(token);
+      if (!Number.isNaN(numeric) && Number.isFinite(numeric)) {
+        index = Math.round(numeric);
+      } else {
+        const normalizedToken = token.toLowerCase();
+
+        if (normalizedToken.includes('-')) {
+          const [startToken, endToken] = normalizedToken.split('-').map(part => part.trim());
+          const startIndex = convertCsvToDayIndexes(startToken)[0];
+          const endIndex = convertCsvToDayIndexes(endToken)[0];
+
+          if (Number.isInteger(startIndex) && Number.isInteger(endIndex)) {
+            const count = ((endIndex - startIndex + 7) % 7) + 1;
+            for (let offset = 0; offset < count; offset++) {
+              indexes.add((startIndex + offset) % 7);
+            }
+            return;
+          }
+        }
+
+        if (DAY_NAME_TO_INDEX_MAP.hasOwnProperty(normalizedToken)) {
+          index = DAY_NAME_TO_INDEX_MAP[normalizedToken];
+        }
+      }
+    }
+
+    if (Number.isInteger(index) && index >= 0 && index <= 6) {
+      indexes.add(index);
+    }
+  });
+
+  return Array.from(indexes).sort((a, b) => a - b);
+}
+
+function convertDayIndexesToCsv(days) {
+  const normalized = convertCsvToDayIndexes(days);
+  return normalized.length ? normalized.join(',') : '';
+}
+
 function resolveSchedulePeriodStart(record, timeZone = DEFAULT_SCHEDULE_TIME_ZONE) {
   if (!record || typeof record !== 'object') {
     return '';
