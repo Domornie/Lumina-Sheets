@@ -1021,68 +1021,38 @@ function clientGetAllShiftSlots() {
   try {
     console.log('📊 Getting all shift slots');
 
-    let slots = readScheduleSheet(SHIFT_SLOTS_SHEET) || [];
-    if (!slots.length) {
-      createDefaultShiftSlots();
-      slots = readScheduleSheet(SHIFT_SLOTS_SHEET) || [];
-    }
+    const aggregatedSlots = [];
+    const seenIds = new Set();
+    const seenComposite = new Set();
 
-    const normalizedSlots = slots.map(slot => {
-      const slotId = (slot.SlotId || slot.ID || slot.Id || slot.slotId || '').toString().trim() || Utilities.getUuid();
-      const slotName = (slot.SlotName || slot.Name || '').toString().trim();
-      const campaign = (slot.Campaign || slot.Department || '').toString().trim();
-      const location = (slot.Location || '').toString().trim() || 'Office';
-      const startTime = normalizeTimeTo12Hour(slot.StartTime || slot.startTime || '');
-      const endTime = normalizeTimeTo12Hour(slot.EndTime || slot.endTime || '');
-      const daysArray = parseDaysCsv(slot.DaysCSV || slot.DaysOfWeek || '');
-      const statusValue = (slot.Status || '').toString().trim().toUpperCase();
-      const status = statusValue || (scheduleFlagToBool(slot.IsActive, true) ? 'Active' : 'Archived');
-
-      return {
-        ID: slotId,
-        SlotId: slotId,
-        Name: slotName,
-        SlotName: slotName,
-        Campaign: campaign,
-        Department: campaign,
-        Location: location,
-        StartTime: startTime,
-        EndTime: endTime,
-        DaysOfWeekArray: daysArray,
-        DaysOfWeek: daysArray.join(','),
-        Description: slot.Description || '',
-        Notes: slot.Notes || '',
-        Status: status,
-        CreatedAt: slot.CreatedAt || '',
-        CreatedBy: slot.CreatedBy || '',
-        UpdatedAt: slot.UpdatedAt || '',
-        UpdatedBy: slot.UpdatedBy || ''
-      };
-    });
-
-    normalizedSlots.sort((a, b) => {
-      const campaignCompare = (a.Campaign || '').localeCompare(b.Campaign || '');
-      if (campaignCompare !== 0) {
-        return campaignCompare;
+    const resolveSlotId = (slot = {}) => {
+      const rawId = slot.SlotId || slot.slotId || slot.ID || slot.Id || slot.id;
+      if (rawId === null || typeof rawId === 'undefined') {
+        return '';
       }
-      return (a.SlotName || '').localeCompare(b.SlotName || '');
-    });
+      return String(rawId).trim();
+    };
 
-    console.log(`✅ Returning ${normalizedSlots.length} normalized shift slots`);
-    return normalizedSlots;
+    const ensureSlotId = slot => {
+      const resolved = resolveSlotId(slot);
+      if (resolved) {
+        return resolved;
+      }
+      if (typeof Utilities !== 'undefined' && Utilities && typeof Utilities.getUuid === 'function') {
+        return Utilities.getUuid();
+      }
+      return `slot_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
+    };
 
-  } catch (error) {
-    console.error('❌ Error getting shift slots:', error);
-    safeWriteError('clientGetAllShiftSlots', error);
-    return [];
-  }
-}
+    const registerSlot = (slot, source) => {
+      if (!slot || typeof slot !== 'object') {
+        return;
+      }
 
       const normalizedSlot = { ...slot };
       const slotId = resolveSlotId(normalizedSlot);
       if (slotId) {
         if (seenIds.has(slotId)) {
-          // Merge any additional properties from the new slot into the existing one
           const existingIndex = aggregatedSlots.findIndex(item => resolveSlotId(item) === slotId);
           if (existingIndex >= 0) {
             aggregatedSlots[existingIndex] = Object.assign({}, aggregatedSlots[existingIndex], normalizedSlot);
@@ -1094,8 +1064,8 @@ function clientGetAllShiftSlots() {
       } else {
         const compositeKey = [
           normalizedSlot.Name || normalizedSlot.SlotName || '',
-          normalizedSlot.StartTime || normalizedSlot.Start || '',
-          normalizedSlot.EndTime || normalizedSlot.End || ''
+          normalizedSlot.StartTime || normalizedSlot.Start || normalizedSlot.ScheduleStart || '',
+          normalizedSlot.EndTime || normalizedSlot.End || normalizedSlot.ScheduleEnd || ''
         ].map(value => String(value || '').trim().toLowerCase()).join('|');
 
         if (compositeKey && seenComposite.has(compositeKey)) {
@@ -1211,42 +1181,69 @@ function clientGetAllShiftSlots() {
           .filter(day => !isNaN(day));
       }
 
+      if (typeof slot.DaysCSV === 'string') {
+        return (parseDaysCsv(slot.DaysCSV) || []).map(day => parseInt(String(day).trim(), 10)).filter(day => !isNaN(day));
+      }
+
       return [1, 2, 3, 4, 5];
     };
 
     const normalizedSlots = aggregatedSlots.map(slot => {
       const normalizedSlot = { ...slot };
 
-      normalizedSlot.DaysOfWeekArray = normalizeDaysOfWeek(slot);
+      const slotId = ensureSlotId(normalizedSlot);
+      normalizedSlot.ID = slotId;
+      normalizedSlot.SlotId = slotId;
+
+      const slotName = (normalizedSlot.Name || normalizedSlot.SlotName || '').toString().trim();
+      normalizedSlot.Name = slotName;
+      normalizedSlot.SlotName = slotName;
+
+      const campaign = (normalizedSlot.Campaign || normalizedSlot.Department || '').toString().trim();
+      normalizedSlot.Campaign = campaign;
+      normalizedSlot.Department = campaign;
+
+      const location = (normalizedSlot.Location || '').toString().trim() || 'Office';
+      normalizedSlot.Location = location;
+
+      const startTime = normalizeTimeTo12Hour(normalizedSlot.StartTime || normalizedSlot.Start || normalizedSlot.ScheduleStart || '');
+      const endTime = normalizeTimeTo12Hour(normalizedSlot.EndTime || normalizedSlot.End || normalizedSlot.ScheduleEnd || '');
+      normalizedSlot.StartTime = startTime;
+      normalizedSlot.EndTime = endTime;
+
+      normalizedSlot.DaysOfWeekArray = normalizeDaysOfWeek(normalizedSlot);
       normalizedSlot.DaysOfWeek = normalizedSlot.DaysOfWeekArray.join(',');
 
-      normalizedSlot.EnableStaggeredBreaks = normalizeBoolean(slot.EnableStaggeredBreaks);
-      normalizedSlot.EnableOvertime = normalizeBoolean(slot.EnableOvertime);
-      normalizedSlot.AllowSwaps = normalizeBoolean(slot.AllowSwaps);
-      normalizedSlot.WeekendPremium = normalizeBoolean(slot.WeekendPremium);
-      normalizedSlot.HolidayPremium = normalizeBoolean(slot.HolidayPremium);
-      normalizedSlot.AutoAssignment = normalizeBoolean(slot.AutoAssignment);
-      const isActive = slot.IsActive === '' ? true : normalizeBoolean(slot.IsActive);
+      normalizedSlot.EnableStaggeredBreaks = normalizeBoolean(normalizedSlot.EnableStaggeredBreaks);
+      normalizedSlot.EnableOvertime = normalizeBoolean(normalizedSlot.EnableOvertime || normalizedSlot.EnableOT);
+      normalizedSlot.AllowSwaps = normalizeBoolean(normalizedSlot.AllowSwaps || normalizedSlot.AllowSwap);
+      normalizedSlot.WeekendPremium = normalizeBoolean(normalizedSlot.WeekendPremium);
+      normalizedSlot.HolidayPremium = normalizeBoolean(normalizedSlot.HolidayPremium);
+      normalizedSlot.AutoAssignment = normalizeBoolean(normalizedSlot.AutoAssignment);
+      const isActive = scheduleFlagToBool(normalizedSlot.IsActive, true);
       normalizedSlot.IsActive = isActive;
 
-      normalizedSlot.MaxCapacity = normalizeNumber(slot.MaxCapacity);
-      normalizedSlot.MinCoverage = normalizeNumber(slot.MinCoverage);
-      normalizedSlot.Priority = normalizeNumber(slot.Priority);
-      normalizedSlot.BreakDuration = normalizeNumber(slot.BreakDuration);
-      normalizedSlot.LunchDuration = normalizeNumber(slot.LunchDuration);
-      normalizedSlot.Break1Duration = normalizeNumber(slot.Break1Duration);
-      normalizedSlot.Break2Duration = normalizeNumber(slot.Break2Duration);
-      normalizedSlot.BreakGroups = normalizeNumber(slot.BreakGroups);
-      normalizedSlot.StaggerInterval = normalizeNumber(slot.StaggerInterval);
-      normalizedSlot.MinCoveragePct = normalizeNumber(slot.MinCoveragePct);
-      normalizedSlot.MaxDailyOT = normalizeNumber(slot.MaxDailyOT);
-      normalizedSlot.MaxWeeklyOT = normalizeNumber(slot.MaxWeeklyOT);
-      normalizedSlot.OTRate = normalizeNumber(slot.OTRate);
-      normalizedSlot.RestPeriod = normalizeNumber(slot.RestPeriod);
-      normalizedSlot.NotificationLead = normalizeNumber(slot.NotificationLead);
-      normalizedSlot.HandoverTime = normalizeNumber(slot.HandoverTime);
+      normalizedSlot.MaxCapacity = normalizeNumber(normalizedSlot.MaxCapacity);
+      normalizedSlot.MinCoverage = normalizeNumber(normalizedSlot.MinCoverage);
+      normalizedSlot.Priority = normalizeNumber(normalizedSlot.Priority);
+      normalizedSlot.BreakDuration = normalizeNumber(normalizedSlot.BreakDuration);
+      normalizedSlot.LunchDuration = normalizeNumber(normalizedSlot.LunchDuration);
+      normalizedSlot.Break1Duration = normalizeNumber(normalizedSlot.Break1Duration);
+      normalizedSlot.Break2Duration = normalizeNumber(normalizedSlot.Break2Duration);
+      normalizedSlot.BreakGroups = normalizeNumber(normalizedSlot.BreakGroups);
+      normalizedSlot.StaggerInterval = normalizeNumber(normalizedSlot.StaggerInterval);
+      normalizedSlot.MinCoveragePct = normalizeNumber(normalizedSlot.MinCoveragePct);
+      normalizedSlot.MaxDailyOT = normalizeNumber(normalizedSlot.MaxDailyOT);
+      normalizedSlot.MaxWeeklyOT = normalizeNumber(normalizedSlot.MaxWeeklyOT);
+      normalizedSlot.OTRate = normalizeNumber(normalizedSlot.OTRate);
+      normalizedSlot.RestPeriod = normalizeNumber(normalizedSlot.RestPeriod);
+      normalizedSlot.NotificationLead = normalizeNumber(normalizedSlot.NotificationLead);
+      normalizedSlot.HandoverTime = normalizeNumber(normalizedSlot.HandoverTime);
 
-      const normalizeDate = (value) => {
+      const statusValue = (normalizedSlot.Status || '').toString().trim();
+      normalizedSlot.Status = statusValue || (isActive ? 'Active' : 'Archived');
+
+      const normalizeDate = value => {
         if (!value) {
           return value;
         }
@@ -1257,18 +1254,25 @@ function clientGetAllShiftSlots() {
         return isNaN(parsed.getTime()) ? value : parsed;
       };
 
-      normalizedSlot.CreatedAt = normalizeDate(slot.CreatedAt);
-      normalizedSlot.UpdatedAt = normalizeDate(slot.UpdatedAt);
-
-      if (!normalizedSlot.Name && normalizedSlot.SlotName) {
-        normalizedSlot.Name = normalizedSlot.SlotName;
-      }
+      normalizedSlot.CreatedAt = normalizeDate(normalizedSlot.CreatedAt);
+      normalizedSlot.UpdatedAt = normalizeDate(normalizedSlot.UpdatedAt);
 
       if (Object.prototype.hasOwnProperty.call(normalizedSlot, '__source')) {
         delete normalizedSlot.__source;
       }
 
+      normalizedSlot.Description = normalizedSlot.Description || '';
+      normalizedSlot.Notes = normalizedSlot.Notes || '';
+
       return normalizedSlot;
+    });
+
+    normalizedSlots.sort((a, b) => {
+      const campaignCompare = (a.Campaign || '').localeCompare(b.Campaign || '');
+      if (campaignCompare !== 0) {
+        return campaignCompare;
+      }
+      return (a.SlotName || '').localeCompare(b.SlotName || '');
     });
 
     console.log(`✅ Returning ${normalizedSlots.length} normalized shift slots`);
