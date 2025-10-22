@@ -3848,7 +3848,9 @@
         if (result && result.success !== false) {
           this.updateExportProgress(100, 'Export completed successfully!');
 
-          if (result.fileData) {
+          if (result.spreadsheetUrl) {
+            this.openSpreadsheet(result.spreadsheetUrl);
+          } else if (result.fileData) {
             this.downloadFile(
               result.fileData,
               result.filename || `attendance_export_${new Date().toISOString().split('T')[0]}.xlsx`,
@@ -3871,9 +3873,13 @@
             );
           }
 
+          const successMessage = result.fileType === 'google_sheet'
+            ? 'Daily pivot matrix opened in Google Sheets.'
+            : 'Export completed successfully!';
+
           setTimeout(() => {
             if (progressModal) progressModal.hide();
-            this.showSuccessMessage('Export completed successfully!');
+            this.showSuccessMessage(successMessage);
           }, 1000);
 
         } else {
@@ -3994,6 +4000,22 @@
       a.click();
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
+    }
+
+    openSpreadsheet(url) {
+      if (!url) {
+        this.showErrorMessage('Google Sheets link unavailable for this export.');
+        return;
+      }
+
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.target = '_blank';
+      anchor.rel = 'noopener';
+      anchor.style.display = 'none';
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
     }
 
     showSuccessMessage(message) {
