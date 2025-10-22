@@ -2453,9 +2453,11 @@
                 this.identityResolved = false;
                 this.identitySummary = null;
                 this.contextLoadingPromise = null;
-                this.manualShiftManager = null;
-                this.visibleManagedCount = 0;
-                this.attendanceCharts = {};
+                  this.manualShiftManager = null;
+                  this.visibleManagedCount = 0;
+                  this.latestPreviewState = null;
+                  this.previewContextHash = '';
+                  this.attendanceCharts = {};
                 this.attendanceDashboardInitialized = false;
                 this.attendanceDashboardResizeHandler = null;
                 this.attendanceDashboardData = null;
@@ -3822,45 +3824,45 @@
                 }).join('');
             }
 
-            async generateSchedules() {
+            async generateSchedules(options = {}) {
                 try {
-                    this.showLoading(true);
-                    this.updateGenerationStatus('Assigning shift slots...', 'info');
-
                     const formData = this.getScheduleGenerationData();
-                    console.log('Generating schedules with data:', formData);
+                    const contextHash = this.buildGenerationContextHash(formData);
 
                     if (!formData.shiftSlots || formData.shiftSlots.length === 0) {
-                        this.showToast('Please select a shift slot before generating assignments.', 'warning');
+                        this.showToast('Please select at least one shift slot before generating assignments.', 'warning');
                         this.updateGenerationStatus('Select a shift slot to assign before generating.', 'warning');
-                        this.showLoading(false);
                         return;
                     }
 
-                    const result = await this.callServerFunction('clientGenerateSchedulesEnhanced',
-                        formData.startDate,
-                        formData.endDate,
-                        formData.users,
-                        formData.shiftSlots,
-                        formData.templateId,
-                        formData.generatedBy,
-                        formData.options
-                    );
+                    const hasPreview = this.latestPreviewState
+                        && this.latestPreviewState.token
+                        && this.latestPreviewState.contextHash === contextHash;
 
-                    if (result && result.success) {
-                        this.displayGenerationResults(result);
-                        this.showToast(`Successfully assigned ${result.generated} schedule slot${result.generated === 1 ? '' : 's'}!`, 'success');
-                        await this.loadSchedules();
-                    } else {
-                        throw new Error(result?.error || 'Failed to generate schedules');
+                    if (!hasPreview) {
+                        await this.previewSchedules({
+                            formData,
+                            contextHash,
+                            silent: !!options.autoCommit
+                        });
+
+                        if (!options.autoCommit) {
+                            this.showToast('Preview ready. Review the details and confirm to publish.', 'info');
+                            return;
+                        }
                     }
 
+                    await this.confirmScheduleGeneration({
+                        formData,
+                        skipHashCheck: false
+                    });
+
                 } catch (error) {
-                    console.error('❌ Schedule generation failed:', error);
-                    this.showToast('Schedule generation failed: ' + error.message, 'danger');
-                    this.updateGenerationStatus('Generation failed: ' + error.message, 'danger');
-                } finally {
-                    this.showLoading(false);
+                    console.error('❌ Schedule generation workflow failed:', error);
+                    if (!error || !error.__previewHandled) {
+                        this.showToast('Schedule generation failed: ' + error.message, 'danger');
+                        this.updateGenerationStatus('Generation failed: ' + error.message, 'danger');
+                    }
                 }
             }
 
@@ -3978,67 +3980,471 @@
                 };
             }
 
-            displayGenerationResults(result) {
-                const container = document.getElementById('generationResults');
-                if (!container) return;
+            buildGenerationContextHash(formData) {
+                if (!formData || typeof formData !== 'object') {
+                    return '';
+                }
 
+                const normalize = (value) => {
+                    if (Array.isArray(value)) {
+                        return value.map(normalize).sort();
+                    }
+                    if (value && typeof value === 'object') {
+                        const sortedKeys = Object.keys(value).sort();
+                        const normalizedObject = {};
+                        sortedKeys.forEach(key => {
+                            normalizedObject[key] = normalize(value[key]);
+                        });
+                        return normalizedObject;
+                    }
+                    if (value === undefined || value === null) {
+                        return '';
+                    }
+                    return value;
+                };
+
+                const payload = {
+                    startDate: formData.startDate || '',
+                    endDate: formData.endDate || '',
+                    users: Array.isArray(formData.users) ? formData.users.slice().sort() : [],
+                    shiftSlots: Array.isArray(formData.shiftSlots) ? formData.shiftSlots.slice().sort() : [],
+                    options: normalize(formData.options || {})
+                };
+
+                return JSON.stringify(payload);
+            }
+
+            async previewSchedules(options = {}) {
+                const { formData = null, contextHash = null, silent = false } = options;
+
+                try {
+                    const payload = formData || this.getScheduleGenerationData();
+                    const hash = contextHash || this.buildGenerationContextHash(payload);
+
+                    this.showLoading(true);
+                    this.updateGenerationStatus('Building preview...', 'info');
+
+                    const optionsPayload = JSON.parse(JSON.stringify(payload.options || {}));
+                    delete optionsPayload.commitToken;
+
+                    const result = await this.callServerFunction('clientGenerateSchedulesEnhanced',
+                        payload.startDate,
+                        payload.endDate,
+                        payload.users,
+                        payload.shiftSlots,
+                        payload.templateId,
+                        payload.generatedBy,
+                        optionsPayload
+                    );
+
+                    if (!result || !result.success) {
+                        throw new Error(result?.error || 'Failed to generate schedule preview.');
+                    }
+
+                    if (!result.previewToken) {
+                        throw new Error('Preview token missing from response. Please regenerate.');
+                    }
+
+                    const previewState = {
+                        token: result.previewToken,
+                        contextHash: hash,
+                        parameters: JSON.parse(JSON.stringify({
+                            startDate: payload.startDate,
+                            endDate: payload.endDate,
+                            users: payload.users,
+                            shiftSlots: payload.shiftSlots,
+                            templateId: payload.templateId,
+                            generatedBy: payload.generatedBy,
+                            options: optionsPayload
+                        })),
+                        preview: result.preview || {},
+                        assignments: Array.isArray(result.assignments) ? result.assignments : [],
+                        conflicts: Array.isArray(result.conflicts) ? result.conflicts : [],
+                        skippedUsers: Array.isArray(result.skippedUsers) ? result.skippedUsers : [],
+                        unresolvedUsers: Array.isArray(result.unresolvedUsers) ? result.unresolvedUsers : []
+                    };
+
+                    this.latestPreviewState = previewState;
+                    this.previewContextHash = hash;
+
+                    this.renderSchedulePreview(previewState);
+
+                    if (!silent) {
+                        this.showToast('Preview ready. Review the details and confirm to publish.', 'info');
+                    }
+                    this.updateGenerationStatus('Preview ready. Review details and confirm to publish.', 'info');
+
+                    return result;
+                } catch (error) {
+                    console.error('❌ Schedule preview failed:', error);
+                    this.showToast('Schedule preview failed: ' + error.message, 'danger');
+                    this.updateGenerationStatus('Preview failed: ' + error.message, 'danger');
+                    if (error && typeof error === 'object') {
+                        error.__previewHandled = true;
+                    }
+                    throw error;
+                } finally {
+                    this.showLoading(false);
+                }
+            }
+
+            resetPreviewState() {
+                this.latestPreviewState = null;
+                this.previewContextHash = '';
+            }
+
+            clearSchedulePreview(updateStatus = true) {
+                this.resetPreviewState();
+
+                const container = document.getElementById('generationResults');
+                if (container) {
+                    container.innerHTML = '';
+                    container.classList.add('d-none');
+                    container.style.display = 'none';
+                }
+
+                if (updateStatus) {
+                    this.updateGenerationStatus('Preview cleared. Adjust parameters and generate again when ready.', 'info');
+                }
+            }
+
+            renderSchedulePreview(previewState) {
+                const container = document.getElementById('generationResults');
+                if (!container) {
+                    return;
+                }
+
+                const preview = previewState.preview || {};
+                const assignmentsCount = Number(preview.totalAssignments || (previewState.assignments ? previewState.assignments.length : 0) || 0);
+                const coveragePercentRaw = Number(preview.coveragePercent || 0);
+                const coveragePercent = Number.isFinite(coveragePercentRaw) ? Math.round(coveragePercentRaw) : 0;
+                const shortfallDaysRaw = Number(preview.shortfallDays || 0);
+                const shortfallDays = Number.isFinite(shortfallDaysRaw) ? shortfallDaysRaw : 0;
+                const periodLabel = this.formatPeriodLabel(preview.periodStart, preview.periodEnd) || '—';
+                const coverageDetails = Array.isArray(preview.coverageDetails) ? preview.coverageDetails : [];
+
+                const slotTotals = {};
+                (previewState.assignments || []).forEach(assignment => {
+                    const slotKey = assignment.SlotName || assignment.SlotId || 'Shift';
+                    slotTotals[slotKey] = (slotTotals[slotKey] || 0) + 1;
+                });
+                const slotSummaryChips = Object.keys(slotTotals).sort().map(slotName => {
+                    const count = slotTotals[slotName];
+                    return `<span class="badge bg-light text-dark border me-1 mb-1">${this.escapeHtml(slotName)} • ${count}</span>`;
+                }).join('');
+                const slotSummaryHtml = slotSummaryChips
+                    ? `<div class="mt-3 small text-muted"><strong>Slot distribution:</strong> ${slotSummaryChips}</div>`
+                    : '';
+
+                const conflicts = Array.isArray(previewState.conflicts) ? previewState.conflicts : [];
+                const conflictItems = conflicts.map(conflict => {
+                    const name = this.escapeHtml(conflict.userName || conflict.user || conflict.userId || 'Agent');
+                    const period = this.formatPeriodLabel(conflict.periodStart, conflict.periodEnd) || '';
+                    const reason = this.escapeHtml(conflict.error || conflict.reason || conflict.type || 'Conflict detected');
+                    const periodLabelHtml = period ? ` • ${this.escapeHtml(period)}` : '';
+                    return `<li>${name}${periodLabelHtml} — ${reason}</li>`;
+                }).join('');
+                const conflictsHtml = conflicts.length
+                    ? `<div class="alert alert-warning-modern mt-3"><strong>Conflicts detected:</strong><ul class="mb-0 mt-2">${conflictItems}</ul></div>`
+                    : `<div class="alert alert-success-modern mt-3 mb-0"><i class="fas fa-check-circle me-2"></i>No conflicts detected.</div>`;
+
+                const skippedUsers = Array.isArray(previewState.skippedUsers) ? previewState.skippedUsers : [];
+                const skippedItems = skippedUsers.map(entry => {
+                    const name = this.escapeHtml(entry.userName || entry.user || entry.userId || 'Agent');
+                    const reason = this.escapeHtml(entry.reason || 'Skipped due to rule constraints');
+                    return `<li>${name} — ${reason}</li>`;
+                }).join('');
+                const skippedHtml = skippedUsers.length
+                    ? `<div class="alert alert-info-modern mt-3"><strong>Skipped users:</strong><ul class="mb-0 mt-2">${skippedItems}</ul></div>`
+                    : '';
+
+                const unresolvedUsers = Array.isArray(previewState.unresolvedUsers) ? previewState.unresolvedUsers : [];
+                const unresolvedItems = unresolvedUsers.map(entry => `<li>${this.escapeHtml(entry)}</li>`).join('');
+                const unresolvedHtml = unresolvedUsers.length
+                    ? `<div class="alert alert-secondary-modern mt-3"><strong>Unresolved users:</strong><ul class="mb-0 mt-2">${unresolvedItems}</ul></div>`
+                    : '';
+
+                container.classList.remove('d-none');
                 container.style.display = 'block';
                 container.innerHTML = `
-                        <div class="modern-card">
-                            <div class="modern-card-header">
-                                <h5 class="modern-card-title">
-                                    <i class="fas fa-check-circle text-success"></i>
-                                    Slot Assignment Complete
-                                </h5>
+                    <div class="modern-card">
+                        <div class="modern-card-header">
+                            <h5 class="modern-card-title">
+                                <i class="fas fa-eye text-info"></i>
+                                Schedule Preview
+                            </h5>
+                        </div>
+                        <div class="modern-card-body">
+                            <div class="row g-3">
+                                <div class="col-md-3">
+                                    <div class="metric-card">
+                                        <div class="metric-number text-primary">${assignmentsCount}</div>
+                                        <div class="metric-label">Assignments</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="metric-card">
+                                        <div class="metric-number text-success">${coveragePercent}%</div>
+                                        <div class="metric-label">% Days Meeting Coverage</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="metric-card">
+                                        <div class="metric-number text-warning">${shortfallDays}</div>
+                                        <div class="metric-label">Days Below Target</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="metric-card">
+                                        <div class="metric-number text-info">${this.escapeHtml(periodLabel)}</div>
+                                        <div class="metric-label">Assignment Period</div>
+                                    </div>
+                                </div>
                             </div>
-                            <div class="modern-card-body">
-                                <div class="row g-3">
-                                    <div class="col-md-3">
-                                        <div class="metric-card">
-                                            <div class="metric-number text-success">${result.generated}</div>
-                                            <div class="metric-label">Generated</div>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-3">
-                                        <div class="metric-card">
-                                            <div class="metric-number text-primary">${result.userCount || 0}</div>
-                                            <div class="metric-label">Users</div>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-3">
-                                        <div class="metric-card">
-                                            <div class="metric-number text-warning">${result.conflicts?.length || 0}</div>
-                                            <div class="metric-label">Conflicts</div>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-3">
-                                        <div class="metric-card">
-                                            <div class="metric-number text-info">${this.formatPeriodLabel(result.periodStart, result.periodEnd) || '—'}</div>
-                                            <div class="metric-label">Assignment Period</div>
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                ${result.conflicts && result.conflicts.length > 0 ? `
-                                    <div class="alert alert-warning-modern mt-3">
-                                        <strong>Conflicts Found:</strong>
-                                        <ul class="mb-0 mt-2">
-                                            ${result.conflicts.map(c => `<li>${c.user}: ${this.formatPeriodLabel(c.periodStart, c.periodEnd)} — ${c.error}</li>`).join('')}
-                                        </ul>
-                                    </div>
-                                ` : ''}
-                                
-                                <div class="mt-3">
-                                    <p class="text-muted mb-0">
-                                        <i class="fas fa-info-circle me-1"></i>
-                                        All assignments are pending approval. Review them in the Schedule Management tab.
-                                    </p>
-                                </div>
+                            ${slotSummaryHtml}
+                            ${this.renderCoveragePreviewTable(coverageDetails)}
+                            ${conflictsHtml}
+                            ${skippedHtml}
+                            ${unresolvedHtml}
+                            <div class="d-flex justify-content-end gap-2 mt-4">
+                                <button type="button" class="btn btn-outline-modern btn-modern" onclick="scheduleManager.clearSchedulePreview()">
+                                    <i class="fas fa-times"></i>
+                                    Cancel Preview
+                                </button>
+                                <button type="button" class="btn btn-primary-modern btn-modern" onclick="scheduleManager.confirmScheduleGeneration()">
+                                    <i class="fas fa-cloud-upload-alt"></i>
+                                    Confirm &amp; Save
+                                </button>
                             </div>
                         </div>
-                    `;
+                    </div>
+                `;
+            }
 
-                this.updateGenerationStatus('Slot assignments completed successfully!', 'success');
+            renderCoveragePreviewTable(coverageDetails = []) {
+                if (!Array.isArray(coverageDetails) || coverageDetails.length === 0) {
+                    return `<div class="alert alert-info-modern mt-3 mb-0"><i class="fas fa-info-circle me-2"></i>No coverage details available for this preview.</div>`;
+                }
+
+                const rows = coverageDetails.map(day => {
+                    const total = Number(day.total || 0);
+                    const minRequired = Number(day.minRequired || 0);
+                    const shortfall = Number(day.shortfall || 0);
+                    const excess = Number(day.excess || 0);
+                    const dateLabel = this.escapeHtml(this.formatDate(day.date));
+
+                    const status = shortfall > 0
+                        ? { icon: 'exclamation-triangle', label: `Shortfall (${shortfall})`, className: 'text-danger fw-semibold' }
+                        : excess > 0
+                            ? { icon: 'exclamation-triangle', label: `Excess (+${excess})`, className: 'text-warning fw-semibold' }
+                            : { icon: 'check-circle', label: 'Met', className: 'text-success fw-semibold' };
+
+                    const varianceLabel = shortfall > 0
+                        ? `<span class="text-danger">-${shortfall}</span>`
+                        : excess > 0
+                            ? `<span class="text-warning">+${excess}</span>`
+                            : '<span class="text-success">0</span>';
+
+                    const coverageLabel = minRequired > 0 ? `${total}/${minRequired}` : `${total}`;
+
+                    return `
+                        <tr>
+                            <td>${dateLabel}</td>
+                            <td>${coverageLabel}</td>
+                            <td>${varianceLabel}</td>
+                            <td><span class="${status.className}"><i class="fas fa-${status.icon} me-1"></i>${status.label}</span></td>
+                            <td>${this.renderPremiumBadges(day)}</td>
+                        </tr>
+                    `;
+                }).join('');
+
+                return `
+                    <div class="table-responsive mt-3">
+                        <table class="table table-modern table-sm align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Coverage (Actual / Target)</th>
+                                    <th>Variance</th>
+                                    <th>Status</th>
+                                    <th>Premiums &amp; Flags</th>
+                                </tr>
+                            </thead>
+                            <tbody>${rows}</tbody>
+                        </table>
+                    </div>
+                `;
+            }
+
+            renderPremiumBadges(day) {
+                if (!day || typeof day !== 'object') {
+                    return '<span class="text-muted small">—</span>';
+                }
+
+                const badges = [];
+                if (day.weekend) {
+                    badges.push('<span class="badge bg-light text-dark border me-1 mb-1"><i class="fas fa-calendar-week me-1"></i>Weekend</span>');
+                }
+
+                const regions = Array.isArray(day.holidayRegions) ? day.holidayRegions : [];
+                regions.forEach(region => {
+                    const label = this.escapeHtml(region || 'Holiday');
+                    const isJamaica = (region || '').toLowerCase() === 'jamaica';
+                    const badgeClass = isJamaica ? 'badge bg-success text-white' : 'badge bg-secondary text-white';
+                    badges.push(`<span class="${badgeClass} me-1 mb-1"><i class="fas fa-flag me-1"></i>${label}</span>`);
+                });
+
+                const premium = day.premium || {};
+                if (premium.weekend) {
+                    badges.push('<span class="badge bg-warning text-dark me-1 mb-1"><i class="fas fa-star me-1"></i>Weekend Premium</span>');
+                }
+                if (premium.holiday) {
+                    badges.push('<span class="badge bg-success text-white me-1 mb-1"><i class="fas fa-gift me-1"></i>Holiday Premium</span>');
+                }
+
+                return badges.length ? badges.join('') : '<span class="text-muted small">—</span>';
+            }
+
+            async confirmScheduleGeneration(options = {}) {
+                const previewState = this.latestPreviewState;
+                if (!previewState || !previewState.token) {
+                    this.showToast('Generate a preview before confirming assignments.', 'warning');
+                    return;
+                }
+
+                const formData = options.formData || this.getScheduleGenerationData();
+                const contextHash = this.buildGenerationContextHash(formData);
+
+                if (!options.skipHashCheck && previewState.contextHash !== contextHash) {
+                    this.showToast('The preview no longer matches the current selections. Please regenerate the preview.', 'warning');
+                    this.updateGenerationStatus('Preview mismatch detected. Regenerate before confirming.', 'warning');
+                    return;
+                }
+
+                try {
+                    this.showLoading(true);
+                    this.updateGenerationStatus('Saving assignments...', 'info');
+
+                    const commitOptions = Object.assign({}, previewState.parameters.options || {});
+                    commitOptions.commitToken = previewState.token;
+
+                    const result = await this.callServerFunction('clientGenerateSchedulesEnhanced',
+                        previewState.parameters.startDate,
+                        previewState.parameters.endDate,
+                        previewState.parameters.users,
+                        previewState.parameters.shiftSlots,
+                        previewState.parameters.templateId,
+                        previewState.parameters.generatedBy,
+                        commitOptions
+                    );
+
+                    if (!result || !result.success) {
+                        throw new Error(result?.error || 'Failed to save assignments.');
+                    }
+
+                    if (!result.coverage && previewState.preview) {
+                        result.coverage = previewState.preview;
+                    }
+
+                    this.resetPreviewState();
+                    this.displayGenerationResults(result, { mode: 'commit' });
+                    this.showToast(`Successfully scheduled ${result.generated} assignment${result.generated === 1 ? '' : 's'}.`, 'success');
+                    this.updateGenerationStatus('Assignments saved. Review them in Manage Schedule.', 'success');
+                    await this.loadSchedules();
+                } catch (error) {
+                    console.error('❌ Failed to confirm schedule generation:', error);
+                    this.showToast('Failed to confirm schedule generation: ' + error.message, 'danger');
+                    this.updateGenerationStatus('Failed to confirm: ' + error.message, 'danger');
+                } finally {
+                    this.showLoading(false);
+                }
+            }
+
+            displayGenerationResults(result, options = {}) {
+                const container = document.getElementById('generationResults');
+                if (!container) {
+                    return;
+                }
+
+                const coverageSummary = (result && (result.coverage || result.preview)) || {};
+                const coverageDetails = Array.isArray(coverageSummary.coverageDetails) ? coverageSummary.coverageDetails : [];
+                const periodLabel = this.formatPeriodLabel(coverageSummary.periodStart || result?.periodStart, coverageSummary.periodEnd || result?.periodEnd) || '—';
+                const coveragePercentRaw = Number(coverageSummary.coveragePercent || 0);
+                const coveragePercent = Number.isFinite(coveragePercentRaw) ? Math.round(coveragePercentRaw) : 0;
+                const shortfallDaysRaw = Number(coverageSummary.shortfallDays || 0);
+                const shortfallDays = Number.isFinite(shortfallDaysRaw) ? shortfallDaysRaw : 0;
+                const conflicts = Array.isArray(result?.conflicts) ? result.conflicts : [];
+                const skipped = Array.isArray(result?.skipped) ? result.skipped : [];
+
+                const conflictItems = conflicts.map(conflict => {
+                    const name = this.escapeHtml(conflict.userName || conflict.user || conflict.userId || 'Agent');
+                    const period = this.formatPeriodLabel(conflict.periodStart, conflict.periodEnd) || '';
+                    const reason = this.escapeHtml(conflict.error || conflict.reason || conflict.type || 'Conflict detected');
+                    const periodLabelHtml = period ? ` • ${this.escapeHtml(period)}` : '';
+                    return `<li>${name}${periodLabelHtml} — ${reason}</li>`;
+                }).join('');
+                const conflictsHtml = conflicts.length
+                    ? `<div class="alert alert-warning-modern mt-3"><strong>Conflicts detected:</strong><ul class="mb-0 mt-2">${conflictItems}</ul></div>`
+                    : `<div class="alert alert-success-modern mt-3"><i class="fas fa-check-circle me-2"></i>No conflicts detected.</div>`;
+
+                const skippedItems = skipped.map(entry => {
+                    const name = this.escapeHtml(entry.userName || entry.user || entry.userId || 'Agent');
+                    const reason = this.escapeHtml(entry.reason || 'Skipped due to rule constraints');
+                    return `<li>${name} — ${reason}</li>`;
+                }).join('');
+                const skippedHtml = skipped.length
+                    ? `<div class="alert alert-info-modern mt-3"><strong>Skipped users:</strong><ul class="mb-0 mt-2">${skippedItems}</ul></div>`
+                    : '';
+
+                container.classList.remove('d-none');
+                container.style.display = 'block';
+                container.innerHTML = `
+                    <div class="modern-card">
+                        <div class="modern-card-header">
+                            <h5 class="modern-card-title">
+                                <i class="fas fa-check-circle text-success"></i>
+                                Shift Assignments Saved
+                            </h5>
+                        </div>
+                        <div class="modern-card-body">
+                            <div class="row g-3">
+                                <div class="col-md-3">
+                                    <div class="metric-card">
+                                        <div class="metric-number text-success">${result.generated || 0}</div>
+                                        <div class="metric-label">Assignments</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="metric-card">
+                                        <div class="metric-number text-primary">${coveragePercent}%</div>
+                                        <div class="metric-label">% Days Meeting Coverage</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="metric-card">
+                                        <div class="metric-number text-warning">${shortfallDays}</div>
+                                        <div class="metric-label">Days Below Target</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="metric-card">
+                                        <div class="metric-number text-info">${this.escapeHtml(periodLabel)}</div>
+                                        <div class="metric-label">Assignment Period</div>
+                                    </div>
+                                </div>
+                            </div>
+                            ${this.renderCoveragePreviewTable(coverageDetails)}
+                            ${conflictsHtml}
+                            ${skippedHtml}
+                            <div class="mt-3">
+                                <p class="text-muted mb-0">
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    All assignments are pending approval. Review them in the Schedule Management tab.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                `;
             }
 
             updateGenerationStatus(message, type = 'info') {
@@ -9349,19 +9755,19 @@
 
         function previewSchedules() {
             if (window.scheduleManager) {
-                window.scheduleManager.showToast('Schedule preview - coming soon!', 'info');
+                window.scheduleManager.previewSchedules().catch(() => {});
             }
         }
 
         function generateThisWeek() {
             if (window.scheduleManager) {
-                window.scheduleManager.generateSchedules();
+                window.scheduleManager.generateSchedules({ autoCommit: true }).catch(() => {});
             }
         }
 
         function generateNextWeek() {
             if (window.scheduleManager) {
-                window.scheduleManager.generateSchedules();
+                window.scheduleManager.generateSchedules({ autoCommit: true }).catch(() => {});
             }
         }
 
