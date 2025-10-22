@@ -1915,18 +1915,20 @@ function generateEnhancedDailyPivotMatrix(params) {
       hourPolicy: hourPolicyOptions
     });
     
-    // Generate CSV in enhanced matrix format
-    const csv = generateEnhancedDailyPivotCSV(pivotMatrix, params);
-    
+    // Generate enhanced export file (XLSX when possible, CSV fallback otherwise)
+    const exportFile = generateEnhancedDailyPivotExport(pivotMatrix, params, {
+      granularity,
+      periodValue
+    });
+
     return {
       success: true,
-      csvData: csv,
-      filename: `daily_matrix_${granularity}_${periodValue}_company.csv`,
       type: 'daily_pivot_matrix',
       users: pivotMatrix.users.length,
       days: pivotMatrix.dateRange.length,
-      dateRange: pivotMatrix.dateRange.length > 0 ? 
-        `${pivotMatrix.dateRange[0].date} to ${pivotMatrix.dateRange[pivotMatrix.dateRange.length - 1].date}` : 'No data'
+      dateRange: pivotMatrix.dateRange.length > 0 ?
+        `${pivotMatrix.dateRange[0].date} to ${pivotMatrix.dateRange[pivotMatrix.dateRange.length - 1].date}` : 'No data',
+      ...exportFile
     };
 
   } catch (error) {
@@ -2064,7 +2066,7 @@ function generateDailyPivotMatrix(filteredRows, granularity, periodValue, option
     const userHours = userDateHours.get(user);
     const userBreakMin = userDateBreakMinutes.get(user);
     const userLunchMin = userDateLunchMinutes.get(user);
-    
+
     let totalHours = 0;
     let weekdayHours = 0;
     let weekendHours = 0;
@@ -2072,7 +2074,11 @@ function generateDailyPivotMatrix(filteredRows, granularity, periodValue, option
     let overtimeHours = 0;
     let perfectAttendanceDays = 0;
     let violationDays = 0;
-    
+    let totalBreakMinutes = 0;
+    let totalLunchMinutes = 0;
+    let breakViolationDays = 0;
+    let lunchViolationDays = 0;
+
     const dailyData = dateRange.map(dateInfo => {
       const rawHours = userHours.get(dateInfo.date) || 0;
       const breakMin = userBreakMin.get(dateInfo.date) || 0;
@@ -2081,6 +2087,15 @@ function generateDailyPivotMatrix(filteredRows, granularity, periodValue, option
       const performanceStatus = determineDailyPerformanceStatus(cappedHours, dateInfo.isWeekend);
       const effectiveHoursForOvertime = Math.min(rawHours, capHours);
       const capApplied = rawHours - cappedHours > 0.001;
+
+      totalBreakMinutes += breakMin;
+      totalLunchMinutes += lunchMin;
+      if (breakMin > 30) {
+        breakViolationDays++;
+      }
+      if (lunchMin > 60) {
+        lunchViolationDays++;
+      }
 
       if (dateInfo.isWeekend) {
         weekendHours += cappedHours;
@@ -2141,7 +2156,10 @@ function generateDailyPivotMatrix(filteredRows, granularity, periodValue, option
     // Calculate efficiency and compliance metrics
     const expectedWeekdayHours = dateRange.filter(d => !d.isWeekend).length * 8;
     const efficiency = expectedWeekdayHours > 0 ? (weekdayHours / expectedWeekdayHours * 100) : 0;
-    
+    const workedDays = dailyData.filter(d => !d.isStatus && d.numericValue > 0).length;
+    const averageBreakMinutes = workedDays > 0 ? Math.round(totalBreakMinutes / workedDays) : 0;
+    const averageLunchMinutes = workedDays > 0 ? Math.round(totalLunchMinutes / workedDays) : 0;
+
     return {
       user: user,
       dailyData: dailyData,
@@ -2154,7 +2172,15 @@ function generateDailyPivotMatrix(filteredRows, granularity, periodValue, option
         perfectDays: perfectAttendanceDays,
         violationDays: violationDays,
         efficiency: efficiency.toFixed(1),
-        daysWorked: dailyData.filter(d => !d.isStatus && d.numericValue > 0).length
+        daysWorked: workedDays,
+        breakSummary: {
+          totalBreakMinutes: Math.round(totalBreakMinutes),
+          totalLunchMinutes: Math.round(totalLunchMinutes),
+          averageBreakMinutes: averageBreakMinutes,
+          averageLunchMinutes: averageLunchMinutes,
+          breakViolationDays: breakViolationDays,
+          lunchViolationDays: lunchViolationDays
+        }
       }
     };
   });
@@ -2201,172 +2227,643 @@ function generateDailyPivotMatrix(filteredRows, granularity, periodValue, option
   };
 }
 
-function generateEnhancedDailyPivotCSV(pivotMatrix, params) {
-  const now = new Date();
-  const timestamp = Utilities.formatDate(now, ATTENDANCE_TIMEZONE, 'yyyy-MM-dd HH:mm:ss');
+function generateEnhancedDailyPivotExport(pivotMatrix, params, context) {
   const options = params.dailyPivotOptions || {};
-  const performanceIcons = {
-    under: '🔴',
-    target: '🟢',
-    over: '🟣'
-  };
+  const includeWeekends = !!options.includeWeekends;
+  const highlightHours = options.highlightLowHours !== false;
+  const includeTotalHours = !!options.includeTotalHours;
+  const includeDiscrepancy = !!options.includeDiscrepancy;
+  const includeOvertime = !!options.includeOvertime;
+  const includeTotalsRow = !!options.includeTotalsRow;
 
-  let csv = '';
-  
-  // Header section
-  csv += `Daily Attendance Matrix (Users × Days)\n`;
-  csv += `Generated: ${timestamp} (${ATTENDANCE_TIMEZONE_LABEL})\n`;
-  csv += `Period: ${params.period.type} ${params.period.value || 'Custom'}\n`;
-  csv += `Users: ${pivotMatrix.metadata.totalUsers}, Days: ${pivotMatrix.metadata.totalDays} (${pivotMatrix.metadata.weekdays} weekdays, ${pivotMatrix.metadata.weekends} weekends)\n`;
-  csv += `Data Format: Productive hours converted from seconds to decimal hours\n\n`;
-  
-  // Column headers - First row with day names
-  csv += `User Name`;
-  pivotMatrix.dateRange.forEach(dateInfo => {
-    if (!dateInfo.isWeekend || options.includeWeekends) {
-      csv += `,${dateInfo.dayName}`;
-    }
-  });
-  
-  // Summary columns
-  if (options.includeTotalHours) csv += `,Total Hours`;
-  if (options.includeDiscrepancy) csv += `,Low Days`;
-  if (options.includeOvertime) csv += `,Overtime`;
-  csv += `,Efficiency %,Days Worked`;
-  csv += `\n`;
-  
-  // Second header row with dates
-  csv += ``;
-  pivotMatrix.dateRange.forEach(dateInfo => {
-    if (!dateInfo.isWeekend || options.includeWeekends) {
-      csv += `,${dateInfo.formattedDate}`;
-    }
-  });
-  
-  // Summary column headers
-  if (options.includeTotalHours) csv += `,`;
-  if (options.includeDiscrepancy) csv += `,`;
-  if (options.includeOvertime) csv += `,`;
-  csv += `,,`;
-  csv += `\n`;
-  
-  // User data rows
-  pivotMatrix.users.forEach(userData => {
-    csv += `"${userData.user}"`;
-    
-    // Daily hours columns
-    userData.dailyData.forEach(dayData => {
-      if (!dayData.isWeekend || options.includeWeekends) {
-        let cellValue = dayData.value;
+  const activeDates = pivotMatrix.dateRange
+    .map((dateInfo, index) => ({ ...dateInfo, index }))
+    .filter(dateInfo => includeWeekends || !dateInfo.isWeekend);
 
-        // Add markers for special conditions
-        if (options.highlightLowHours && !dayData.isStatus) {
-          const icon = performanceIcons[dayData.performanceStatus];
-          if (icon) {
-            cellValue = `${icon} ${cellValue}`;
+  const summaryColumns = [];
+  if (includeTotalHours) summaryColumns.push({ key: 'totalHours', label: 'Total Hours', headerColor: '#1d4ed8', dataColor: '#dbeafe' });
+  if (includeDiscrepancy) summaryColumns.push({ key: 'discrepancy', label: 'Low Days', headerColor: '#ea580c', dataColor: '#fed7aa' });
+  if (includeOvertime) summaryColumns.push({ key: 'overtime', label: 'Overtime', headerColor: '#7c3aed', dataColor: '#e9d5ff' });
+  summaryColumns.push({ key: 'efficiency', label: 'Efficiency %', headerColor: '#059669', dataColor: '#bbf7d0' });
+  summaryColumns.push({ key: 'daysWorked', label: 'Days Worked', headerColor: '#0284c7', dataColor: '#bae6fd' });
+
+  const fileBaseName = buildDailyPivotFileBase(context.granularity, context.periodValue);
+
+  if (typeof SpreadsheetApp === 'undefined' || typeof DriveApp === 'undefined') {
+    console.warn('Spreadsheet services unavailable; falling back to CSV for daily pivot export.');
+    return generateEnhancedDailyPivotCsvFallback(pivotMatrix, params, {
+      activeDates,
+      summaryColumns,
+      includeTotalsRow,
+      highlightHours,
+      fileBaseName
+    });
+  }
+
+  const spreadsheetName = fileBaseName || 'Daily Pivot Matrix Export';
+  const spreadsheet = SpreadsheetApp.create(spreadsheetName);
+  let fileId = spreadsheet.getId();
+
+  try {
+    const sheet = spreadsheet.getActiveSheet();
+    sheet.setName('Daily Pivot Matrix');
+
+    const totalColumns = 1 + activeDates.length + summaryColumns.length;
+    const exportWidth = Math.max(totalColumns, 7);
+    const now = new Date();
+    const timestamp = Utilities.formatDate(now, ATTENDANCE_TIMEZONE, 'yyyy-MM-dd HH:mm');
+
+    // Title row
+    let currentRow = 1;
+    sheet.getRange(currentRow, 1).setValue('Daily Attendance Matrix');
+    sheet.getRange(currentRow, 1, 1, exportWidth).merge()
+      .setFontSize(18)
+      .setFontWeight('bold')
+      .setFontColor('#0f172a')
+      .setHorizontalAlignment('left');
+
+    currentRow += 1;
+    sheet.getRange(currentRow, 1).setValue(`Generated: ${timestamp} (${ATTENDANCE_TIMEZONE_LABEL || ATTENDANCE_TIMEZONE})`);
+    sheet.getRange(currentRow, 1, 1, exportWidth).merge()
+      .setFontColor('#475569')
+      .setFontSize(11);
+
+    currentRow += 1;
+    const periodDescription = `${context.granularity || 'Period'} ${context.periodValue || 'Custom Range'}`;
+    sheet.getRange(currentRow, 1).setValue(`Period: ${periodDescription}`);
+    sheet.getRange(currentRow, 1, 1, exportWidth).merge()
+      .setFontColor('#475569')
+      .setFontSize(11);
+
+    currentRow += 2; // leave a blank row before table
+
+    // Header rows
+    const headerRow = currentRow;
+    const subHeaderRow = currentRow + 1;
+
+    sheet.getRange(headerRow, 1, 2, totalColumns)
+      .setFontWeight('bold')
+      .setHorizontalAlignment('center')
+      .setVerticalAlignment('middle');
+
+    // Agent column header
+    sheet.getRange(headerRow, 1).setValue('Agent');
+    sheet.getRange(headerRow, 1, 2, 1).merge()
+      .setBackground('#0f172a')
+      .setFontColor('#ffffff');
+    sheet.setColumnWidth(1, 200);
+
+    // Date columns
+    activeDates.forEach((dateInfo, idx) => {
+      const column = 2 + idx;
+      sheet.getRange(headerRow, column).setValue(dateInfo.dayName);
+      sheet.getRange(subHeaderRow, column).setValue(dateInfo.formattedDate);
+
+      if (dateInfo.isWeekend) {
+        sheet.getRange(headerRow, column).setBackground('#be123c').setFontColor('#fef2f2');
+        sheet.getRange(subHeaderRow, column).setBackground('#fee2e2').setFontColor('#7f1d1d');
+      } else {
+        sheet.getRange(headerRow, column).setBackground('#1d4ed8').setFontColor('#ffffff');
+        sheet.getRange(subHeaderRow, column).setBackground('#bfdbfe').setFontColor('#1e3a8a');
+      }
+
+      sheet.setColumnWidth(column, 110);
+    });
+
+    // Summary columns
+    let summaryColumnIndex = 2 + activeDates.length;
+    summaryColumns.forEach(col => {
+      sheet.getRange(headerRow, summaryColumnIndex).setValue(col.label);
+      sheet.getRange(headerRow, summaryColumnIndex, 2, 1).merge()
+        .setBackground(col.headerColor)
+        .setFontColor('#ffffff');
+      sheet.setColumnWidth(summaryColumnIndex, 120);
+      summaryColumnIndex += 1;
+    });
+
+    sheet.setFrozenRows(subHeaderRow);
+
+    currentRow = subHeaderRow + 1;
+
+    const performanceBackgrounds = {
+      under: '#fee2e2',
+      target: '#dcfce7',
+      over: '#ede9fe',
+      weekend: '#e2e8f0',
+      empty: '#fef2f2'
+    };
+    const performanceFontColors = {
+      under: '#b91c1c',
+      target: '#047857',
+      over: '#5b21b6',
+      weekend: '#0f172a',
+      empty: '#b91c1c',
+      default: '#0f172a'
+    };
+
+    const summaryValueFormats = {
+      totalHours: '0.00',
+      discrepancy: '0',
+      overtime: '0.00',
+      efficiency: '0.0"%"',
+      daysWorked: '0'
+    };
+
+    pivotMatrix.users.forEach((userData, userIdx) => {
+      const row = currentRow + userIdx;
+      sheet.getRange(row, 1).setValue(userData.user)
+        .setFontWeight('bold')
+        .setBackground('#0f172a')
+        .setFontColor('#ffffff')
+        .setHorizontalAlignment('left');
+
+    activeDates.forEach((dateInfo, idx) => {
+      const column = 2 + idx;
+      const dayData = userData.dailyData[dateInfo.index] || null;
+
+      let background = dateInfo.isWeekend ? performanceBackgrounds.weekend : '#ffffff';
+      let fontColor = performanceFontColors.default;
+      let value = '';
+      let numberFormat = '0.00';
+
+      if (dayData) {
+        if (dayData.isStatus) {
+          value = dayData.value || '';
+          background = performanceBackgrounds.weekend;
+          fontColor = performanceFontColors.weekend;
+          numberFormat = '@';
+        } else {
+          const status = dayData.performanceStatus || 'target';
+          if (highlightHours) {
+            background = performanceBackgrounds[status] || '#ffffff';
+            fontColor = performanceFontColors[status] || performanceFontColors.default;
+          } else if (dateInfo.isWeekend) {
+            background = performanceBackgrounds.weekend;
+            fontColor = performanceFontColors.weekend;
+          }
+
+          value = Number(dayData.numericValue || 0);
+
+          if (!highlightHours && Number(dayData.numericValue || 0) === 0) {
+            background = performanceBackgrounds.empty;
+            fontColor = performanceFontColors.empty;
+            value = '';
           }
         }
+      }
 
-        // Show violations in parentheses if requested
-        if (dayData.hasViolations && !dayData.isStatus) {
-          cellValue += ` (B${dayData.breakMin}m L${dayData.lunchMin}m)`;
+      const cell = sheet.getRange(row, column);
+      cell.setBackground(background)
+        .setFontColor(fontColor)
+        .setHorizontalAlignment('center');
+
+      if (numberFormat === '@') {
+        cell.setValue(value).setNumberFormat('@');
+      } else {
+        cell.setValue(value).setNumberFormat('0.00');
+      }
+    });
+
+      let summaryColumnPointer = 2 + activeDates.length;
+      summaryColumns.forEach(col => {
+        const cell = sheet.getRange(row, summaryColumnPointer);
+        let value = userData.metrics[col.key];
+        if (col.key === 'efficiency') {
+          value = parseFloat(userData.metrics[col.key] || '0');
+        } else if (col.key === 'totalHours' || col.key === 'overtime') {
+          value = parseFloat(userData.metrics[col.key] || '0');
+        } else if (col.key === 'discrepancy' || col.key === 'daysWorked') {
+          value = Number(userData.metrics[col.key] || 0);
         }
-        
-        csv += `,${cellValue}`;
+
+        cell.setValue(value || 0)
+          .setBackground(col.dataColor)
+          .setFontColor('#0f172a')
+          .setFontWeight('600')
+          .setHorizontalAlignment('center')
+          .setNumberFormat(summaryValueFormats[col.key] || '0');
+
+        summaryColumnPointer += 1;
+      });
+    });
+
+    currentRow += pivotMatrix.users.length;
+
+    if (includeTotalsRow) {
+      const totalsRow = currentRow + 1;
+      const averagesRow = totalsRow + 1;
+
+      sheet.getRange(totalsRow, 1).setValue('Totals')
+        .setFontWeight('bold')
+        .setBackground('#0f172a')
+        .setFontColor('#ffffff')
+        .setHorizontalAlignment('left');
+
+      sheet.getRange(averagesRow, 1).setValue('Averages')
+        .setFontWeight('bold')
+        .setBackground('#312e81')
+        .setFontColor('#ffffff')
+        .setHorizontalAlignment('left');
+
+      activeDates.forEach((dateInfo, idx) => {
+        const column = 2 + idx;
+        const totals = pivotMatrix.dailyTotals[dateInfo.index] || { total: '0.00', average: '0.00' };
+
+        sheet.getRange(totalsRow, column)
+          .setValue(parseFloat(totals.total || '0'))
+          .setNumberFormat('0.00')
+          .setBackground('#e2e8f0')
+          .setFontWeight('600')
+          .setHorizontalAlignment('center');
+
+        sheet.getRange(averagesRow, column)
+          .setValue(parseFloat(totals.average || '0'))
+          .setNumberFormat('0.00')
+          .setBackground('#cbd5f5')
+          .setFontWeight('600')
+          .setHorizontalAlignment('center');
+      });
+
+      let summaryPointer = 2 + activeDates.length;
+      summaryColumns.forEach(col => {
+        const totalCell = sheet.getRange(totalsRow, summaryPointer);
+        const avgCell = sheet.getRange(averagesRow, summaryPointer);
+
+        switch (col.key) {
+          case 'totalHours':
+            totalCell.setValue(parseFloat(pivotMatrix.grandTotals.totalHours || '0')).setNumberFormat('0.00');
+            avgCell.setValue(pivotMatrix.users.length > 0
+              ? (parseFloat(pivotMatrix.grandTotals.totalHours || '0') / pivotMatrix.users.length)
+              : 0).setNumberFormat('0.00');
+            break;
+          case 'discrepancy':
+            totalCell.setValue(pivotMatrix.grandTotals.totalDiscrepancies || 0).setNumberFormat('0');
+            avgCell.setValue(pivotMatrix.users.length > 0
+              ? (pivotMatrix.grandTotals.totalDiscrepancies || 0) / pivotMatrix.users.length
+              : 0).setNumberFormat('0.0');
+            break;
+          case 'overtime':
+            totalCell.setValue(parseFloat(pivotMatrix.grandTotals.totalOvertime || '0')).setNumberFormat('0.00');
+            avgCell.setValue(pivotMatrix.users.length > 0
+              ? (parseFloat(pivotMatrix.grandTotals.totalOvertime || '0') / pivotMatrix.users.length)
+              : 0).setNumberFormat('0.00');
+            break;
+          case 'efficiency':
+            totalCell.setValue(parseFloat(pivotMatrix.grandTotals.averageEfficiency || '0')).setNumberFormat('0.0"%"');
+            avgCell.setValue(parseFloat(pivotMatrix.grandTotals.averageEfficiency || '0')).setNumberFormat('0.0"%"');
+            break;
+          case 'daysWorked':
+            totalCell.setValue('').setNumberFormat('@');
+            avgCell.setValue('').setNumberFormat('@');
+            break;
+          default:
+            totalCell.setValue('');
+            avgCell.setValue('');
+        }
+
+        totalCell.setBackground('#e2e8f0').setFontWeight('600').setHorizontalAlignment('center').setFontColor('#0f172a');
+        avgCell.setBackground('#cbd5f5').setFontWeight('600').setHorizontalAlignment('center').setFontColor('#0f172a');
+
+        summaryPointer += 1;
+      });
+
+      currentRow = averagesRow + 1;
+    } else {
+      currentRow += 1;
+    }
+
+    currentRow += 1; // spacer row
+
+    // Legend section
+    sheet.getRange(currentRow, 1).setValue('Legend')
+      .setFontWeight('bold')
+      .setFontColor('#0f172a');
+    sheet.getRange(currentRow, 1, 1, exportWidth).merge();
+    currentRow += 1;
+
+    const legendItems = [
+      ['On target (8.0 hours)', performanceBackgrounds.target],
+      ['Below target', performanceBackgrounds.under],
+      ['Overtime', performanceBackgrounds.over],
+      ['Weekend/Off day', performanceBackgrounds.weekend]
+    ];
+
+    legendItems.forEach(item => {
+      const row = currentRow;
+      sheet.getRange(row, 1).setValue(item[0])
+        .setBackground(item[1])
+        .setFontColor('#0f172a')
+        .setHorizontalAlignment('left');
+      sheet.getRange(row, 1, 1, exportWidth).merge();
+      currentRow += 1;
+    });
+
+    currentRow += 1; // spacer before break summary
+
+    // Break summary table
+    sheet.getRange(currentRow, 1).setValue('Break & Lunch Summary')
+      .setFontSize(14)
+      .setFontWeight('bold')
+      .setFontColor('#0f172a');
+    sheet.getRange(currentRow, 1, 1, exportWidth).merge();
+    currentRow += 1;
+
+    const breakHeaders = ['Agent', 'Total Break', 'Avg Break', 'Break Violations', 'Total Lunch', 'Avg Lunch', 'Lunch Violations'];
+    sheet.getRange(currentRow, 1, 1, breakHeaders.length).setValues([breakHeaders])
+      .setBackground('#0f172a')
+      .setFontColor('#ffffff')
+      .setFontWeight('bold')
+      .setHorizontalAlignment('center');
+    currentRow += 1;
+
+    const formatMinutes = minutes => {
+      const total = Math.round(Number(minutes) || 0);
+      const hours = Math.floor(total / 60);
+      const mins = Math.max(0, total - hours * 60);
+      if (hours) {
+        return `${hours}h ${mins}m`;
+      }
+      return `${mins}m`;
+    };
+
+    const breakTotals = pivotMatrix.users.reduce((acc, user) => {
+      const summary = user.metrics?.breakSummary || {};
+      acc.breakMinutes += summary.totalBreakMinutes || 0;
+      acc.lunchMinutes += summary.totalLunchMinutes || 0;
+      acc.breakViolations += summary.breakViolationDays || 0;
+      acc.lunchViolations += summary.lunchViolationDays || 0;
+      acc.avgBreakMinutes += summary.averageBreakMinutes || 0;
+      acc.avgLunchMinutes += summary.averageLunchMinutes || 0;
+      return acc;
+    }, { breakMinutes: 0, lunchMinutes: 0, breakViolations: 0, lunchViolations: 0, avgBreakMinutes: 0, avgLunchMinutes: 0 });
+
+    pivotMatrix.users.forEach((userData, index) => {
+      const summary = userData.metrics?.breakSummary || {};
+      const row = currentRow + index;
+      sheet.getRange(row, 1, 1, breakHeaders.length).setValues([[
+        userData.user,
+        formatMinutes(summary.totalBreakMinutes || 0),
+        formatMinutes(summary.averageBreakMinutes || 0),
+        summary.breakViolationDays || 0,
+        formatMinutes(summary.totalLunchMinutes || 0),
+        formatMinutes(summary.averageLunchMinutes || 0),
+        summary.lunchViolationDays || 0
+      ]]);
+
+      const backgroundColor = index % 2 === 0 ? '#f8fafc' : '#ffffff';
+      sheet.getRange(row, 1, 1, breakHeaders.length)
+        .setBackground(backgroundColor)
+        .setFontColor('#0f172a')
+        .setHorizontalAlignment('center');
+      sheet.getRange(row, 1).setHorizontalAlignment('left').setFontWeight('bold');
+      if ((summary.breakViolationDays || 0) > 0) {
+        sheet.getRange(row, 4).setFontColor('#b91c1c').setFontWeight('bold');
+      }
+      if ((summary.lunchViolationDays || 0) > 0) {
+        sheet.getRange(row, 7).setFontColor('#b91c1c').setFontWeight('bold');
       }
     });
-    
-    // Summary columns
-    if (options.includeTotalHours) {
-      csv += `,${userData.metrics.totalHours}`;
+
+    currentRow += Math.max(1, pivotMatrix.users.length);
+
+    const teamTotalsRow = currentRow;
+    const avgBreakAcross = pivotMatrix.users.length > 0
+      ? Math.round(breakTotals.avgBreakMinutes / pivotMatrix.users.length)
+      : 0;
+    const avgLunchAcross = pivotMatrix.users.length > 0
+      ? Math.round(breakTotals.avgLunchMinutes / pivotMatrix.users.length)
+      : 0;
+
+    sheet.getRange(teamTotalsRow, 1, 1, breakHeaders.length).setValues([[
+      'Team Total',
+      formatMinutes(breakTotals.breakMinutes),
+      formatMinutes(avgBreakAcross),
+      breakTotals.breakViolations,
+      formatMinutes(breakTotals.lunchMinutes),
+      formatMinutes(avgLunchAcross),
+      breakTotals.lunchViolations
+    ]]);
+
+    sheet.getRange(teamTotalsRow, 1, 1, breakHeaders.length)
+      .setBackground('#e2e8f0')
+      .setFontWeight('bold')
+      .setHorizontalAlignment('center')
+      .setFontColor('#0f172a');
+    sheet.getRange(teamTotalsRow, 1).setHorizontalAlignment('left');
+    sheet.getRange(teamTotalsRow, 4).setFontColor(breakTotals.breakViolations > 0 ? '#b91c1c' : '#0f172a');
+    sheet.getRange(teamTotalsRow, 7).setFontColor(breakTotals.lunchViolations > 0 ? '#b91c1c' : '#0f172a');
+
+    currentRow += 2;
+
+    const notes = [
+      'Data Quality Notes',
+      `All productive durations are converted from seconds into decimal hours using ${ATTENDANCE_TIMEZONE_LABEL || ATTENDANCE_TIMEZONE}.`,
+      'Break allowances assume 30 minutes per day; lunch allowances assume 60 minutes.',
+      `Only productive attendance states contribute to billable hours: ${BILLABLE_STATES.join(', ')}.`
+    ];
+
+    notes.forEach((note, idx) => {
+      const row = currentRow + idx;
+      sheet.getRange(row, 1).setValue(note);
+      sheet.getRange(row, 1, 1, exportWidth).merge()
+        .setFontColor(idx === 0 ? '#0f172a' : '#475569')
+        .setFontWeight(idx === 0 ? 'bold' : 'normal')
+        .setHorizontalAlignment('left');
+    });
+
+    SpreadsheetApp.flush();
+
+    const file = DriveApp.getFileById(fileId);
+    if (file.getName() !== spreadsheetName) {
+      file.setName(spreadsheetName);
     }
-    if (options.includeDiscrepancy) {
-      csv += `,${userData.metrics.discrepancy}`;
+
+    const spreadsheetUrl = spreadsheet.getUrl();
+
+    return {
+      fileId,
+      spreadsheetUrl,
+      mimeType: 'application/vnd.google-apps.spreadsheet',
+      filename: `${spreadsheetName}.gsheet`,
+      fileType: 'google_sheet'
+    };
+  } catch (error) {
+    try {
+      if (fileId) {
+        DriveApp.getFileById(fileId).setTrashed(true);
+      }
+    } catch (cleanupError) {
+      console.warn('Failed to clean up temporary export spreadsheet after error:', cleanupError);
     }
-    if (options.includeOvertime) {
-      csv += `,${userData.metrics.overtime}`;
+    throw error;
+  }
+}
+
+function generateEnhancedDailyPivotCsvFallback(pivotMatrix, params, context) {
+  const { activeDates, summaryColumns, includeTotalsRow, highlightHours, fileBaseName } = context;
+
+  const csvEscape = value => {
+    const stringValue = value === null || typeof value === 'undefined' ? '' : String(value);
+    if (stringValue.includes('"') || stringValue.includes(',') || stringValue.includes('\n')) {
+      return '"' + stringValue.replace(/"/g, '""') + '"';
     }
-    
-    csv += `,${userData.metrics.efficiency}%,${userData.metrics.daysWorked}`;
-    csv += `\n`;
+    return stringValue;
+  };
+
+  const header = ['Agent'];
+  activeDates.forEach(dateInfo => {
+    header.push(`${dateInfo.dayName} (${dateInfo.formattedDate})`);
   });
-  
-  // Totals row
-  if (options.includeTotalsRow) {
-    csv += `\nTOTALS`;
-    
-    // Daily totals
-    pivotMatrix.dailyTotals.forEach((dayTotal, index) => {
-      const dateInfo = pivotMatrix.dateRange[index];
-      if (!dateInfo.isWeekend || options.includeWeekends) {
-        csv += `,${dayTotal.total}`;
+  summaryColumns.forEach(col => header.push(col.label));
+
+  const rows = [header.map(csvEscape).join(',')];
+
+  pivotMatrix.users.forEach(userData => {
+    const row = [userData.user];
+    activeDates.forEach(dateInfo => {
+      const dayData = userData.dailyData[dateInfo.index] || {};
+      if (dayData.isStatus) {
+        row.push(dayData.value || '');
+      } else if (!highlightHours && Number(dayData.numericValue || 0) === 0) {
+        row.push('');
+      } else {
+        row.push(Number(dayData.numericValue || 0).toFixed(2));
       }
     });
-    
-    // Summary totals
-    if (options.includeTotalHours) {
-      csv += `,${pivotMatrix.grandTotals.totalHours}`;
-    }
-    if (options.includeDiscrepancy) {
-      csv += `,${pivotMatrix.grandTotals.totalDiscrepancies}`;
-    }
-    if (options.includeOvertime) {
-      csv += `,${pivotMatrix.grandTotals.totalOvertime}`;
-    }
-    
-    csv += `,${pivotMatrix.grandTotals.averageEfficiency}%,`;
-    csv += `\n`;
-    
-    // Average row
-    csv += `AVERAGES`;
-    
-    // Daily averages
-    pivotMatrix.dailyTotals.forEach((dayTotal, index) => {
-      const dateInfo = pivotMatrix.dateRange[index];
-      if (!dateInfo.isWeekend || options.includeWeekends) {
-        csv += `,${dayTotal.average}`;
+
+    summaryColumns.forEach(col => {
+      let value = userData.metrics[col.key];
+      if (col.key === 'efficiency') {
+        value = `${parseFloat(value || '0').toFixed(1)}%`;
+      } else if (col.key === 'totalHours' || col.key === 'overtime') {
+        value = parseFloat(value || '0').toFixed(2);
+      }
+      row.push(value);
+    });
+
+    rows.push(row.map(csvEscape).join(','));
+  });
+
+  if (includeTotalsRow) {
+    const totalsRow = ['Totals'];
+    const averagesRow = ['Averages'];
+
+    activeDates.forEach(dateInfo => {
+      const totals = pivotMatrix.dailyTotals[dateInfo.index] || { total: '0.00', average: '0.00' };
+      totalsRow.push(parseFloat(totals.total || '0').toFixed(2));
+      averagesRow.push(parseFloat(totals.average || '0').toFixed(2));
+    });
+
+    summaryColumns.forEach(col => {
+      switch (col.key) {
+        case 'totalHours':
+          totalsRow.push(parseFloat(pivotMatrix.grandTotals.totalHours || '0').toFixed(2));
+          averagesRow.push(pivotMatrix.users.length > 0
+            ? (parseFloat(pivotMatrix.grandTotals.totalHours || '0') / pivotMatrix.users.length).toFixed(2)
+            : '0.00');
+          break;
+        case 'discrepancy':
+          totalsRow.push(pivotMatrix.grandTotals.totalDiscrepancies || 0);
+          averagesRow.push(pivotMatrix.users.length > 0
+            ? ((pivotMatrix.grandTotals.totalDiscrepancies || 0) / pivotMatrix.users.length).toFixed(1)
+            : '0.0');
+          break;
+        case 'overtime':
+          totalsRow.push(parseFloat(pivotMatrix.grandTotals.totalOvertime || '0').toFixed(2));
+          averagesRow.push(pivotMatrix.users.length > 0
+            ? (parseFloat(pivotMatrix.grandTotals.totalOvertime || '0') / pivotMatrix.users.length).toFixed(2)
+            : '0.00');
+          break;
+        case 'efficiency':
+          totalsRow.push(`${parseFloat(pivotMatrix.grandTotals.averageEfficiency || '0').toFixed(1)}%`);
+          averagesRow.push(`${parseFloat(pivotMatrix.grandTotals.averageEfficiency || '0').toFixed(1)}%`);
+          break;
+        case 'daysWorked':
+          totalsRow.push('');
+          averagesRow.push('');
+          break;
+        default:
+          totalsRow.push('');
+          averagesRow.push('');
       }
     });
-    
-    // Summary averages
-    if (options.includeTotalHours) {
-      const avgTotal = pivotMatrix.users.length > 0 ? (parseFloat(pivotMatrix.grandTotals.totalHours) / pivotMatrix.users.length).toFixed(2) : '0.00';
-      csv += `,${avgTotal}`;
-    }
-    if (options.includeDiscrepancy) {
-      const avgDiscrepancy = pivotMatrix.users.length > 0 ? (pivotMatrix.grandTotals.totalDiscrepancies / pivotMatrix.users.length).toFixed(1) : '0.0';
-      csv += `,${avgDiscrepancy}`;
-    }
-    if (options.includeOvertime) {
-      const avgOvertime = pivotMatrix.users.length > 0 ? (parseFloat(pivotMatrix.grandTotals.totalOvertime) / pivotMatrix.users.length).toFixed(2) : '0.00';
-      csv += `,${avgOvertime}`;
-    }
-    
-    csv += `,${pivotMatrix.grandTotals.averageEfficiency}%,`;
-    csv += `\n`;
+
+    rows.push(totalsRow.map(csvEscape).join(','));
+    rows.push(averagesRow.map(csvEscape).join(','));
   }
-  
-  // Footer with legend and notes
-  csv += `\n\nLEGEND AND NOTES:`;
-  csv += `\n"OFF" = Weekend or non-working day`;
-  csv += `\n"0.00" = No productive hours recorded`;
-  if (options.highlightLowHours) {
-    csv += `\n"🔴" = Weekday hours below 8.00 (attention)`;
-    csv += `\n"🟢" = Weekday hours meeting the 8.00 target`;
-    csv += `\n"🟣" = Weekday overtime above 8.00`;
-  }
-  csv += `\n"(B##m L##m)" = Break and lunch minutes if violations detected`;
-  csv += `\n"Low Days" = Number of weekdays with less than 8 hours`;
-  csv += `\n"Overtime" = Total hours over 8.00 per day`;
-  csv += `\n"Efficiency %" = Weekday hours / Expected hours (weekdays × 8)`;
-  csv += `\n\nDATA QUALITY NOTES:`;
-  csv += `\n- All duration values converted from seconds to decimal hours`;
-  csv += `\n- Times calculated in ${ATTENDANCE_TIMEZONE_LABEL} (${ATTENDANCE_TIMEZONE})`;
-  csv += `\n- Only productive states counted: ${BILLABLE_STATES.join(', ')}`;
-  csv += `\n- Break/lunch times tracked separately for violations`;
-  csv += `\n- Source: DurationMin column (contains seconds despite name)`;
-  
-  return csv;
+
+  rows.push('');
+  rows.push(csvEscape('Break & Lunch Summary'));
+  rows.push(['Agent', 'Total Break', 'Avg Break', 'Break Violations', 'Total Lunch', 'Avg Lunch', 'Lunch Violations'].map(csvEscape).join(','));
+
+  const formatMinutes = minutes => {
+    const total = Math.round(Number(minutes) || 0);
+    const hours = Math.floor(total / 60);
+    const mins = Math.max(0, total - hours * 60);
+    if (hours) {
+      return `${hours}h ${mins}m`;
+    }
+    return `${mins}m`;
+  };
+
+  const breakTotals = pivotMatrix.users.reduce((acc, user) => {
+    const summary = user.metrics?.breakSummary || {};
+    acc.breakMinutes += summary.totalBreakMinutes || 0;
+    acc.lunchMinutes += summary.totalLunchMinutes || 0;
+    acc.breakViolations += summary.breakViolationDays || 0;
+    acc.lunchViolations += summary.lunchViolationDays || 0;
+    acc.avgBreakMinutes += summary.averageBreakMinutes || 0;
+    acc.avgLunchMinutes += summary.averageLunchMinutes || 0;
+    return acc;
+  }, { breakMinutes: 0, lunchMinutes: 0, breakViolations: 0, lunchViolations: 0, avgBreakMinutes: 0, avgLunchMinutes: 0 });
+
+  pivotMatrix.users.forEach(userData => {
+    const summary = userData.metrics?.breakSummary || {};
+    rows.push([
+      userData.user,
+      formatMinutes(summary.totalBreakMinutes || 0),
+      formatMinutes(summary.averageBreakMinutes || 0),
+      summary.breakViolationDays || 0,
+      formatMinutes(summary.totalLunchMinutes || 0),
+      formatMinutes(summary.averageLunchMinutes || 0),
+      summary.lunchViolationDays || 0
+    ].map(csvEscape).join(','));
+  });
+
+  const avgBreakAcross = pivotMatrix.users.length > 0
+    ? Math.round(breakTotals.avgBreakMinutes / pivotMatrix.users.length)
+    : 0;
+  const avgLunchAcross = pivotMatrix.users.length > 0
+    ? Math.round(breakTotals.avgLunchMinutes / pivotMatrix.users.length)
+    : 0;
+
+  rows.push([
+    'Team Total',
+    formatMinutes(breakTotals.breakMinutes),
+    formatMinutes(avgBreakAcross),
+    breakTotals.breakViolations,
+    formatMinutes(breakTotals.lunchMinutes),
+    formatMinutes(avgLunchAcross),
+    breakTotals.lunchViolations
+  ].map(csvEscape).join(','));
+
+  rows.push('');
+  rows.push(csvEscape('Notes'));
+  rows.push(csvEscape(`All productive durations are converted from seconds into decimal hours using ${ATTENDANCE_TIMEZONE_LABEL || ATTENDANCE_TIMEZONE}.`));
+  rows.push(csvEscape('Break allowances assume 30 minutes per day; lunch allowances assume 60 minutes.'));
+  rows.push(csvEscape(`Only productive attendance states contribute to billable hours: ${BILLABLE_STATES.join(', ')}.`));
+
+  return {
+    csvData: rows.join('\n'),
+    filename: `${fileBaseName}.csv`,
+    mimeType: 'text/csv;charset=utf-8;'
+  };
+}
+
+function buildDailyPivotFileBase(granularity, periodValue) {
+  const safeGranularity = String(granularity || 'period').replace(/[^0-9A-Za-z_-]+/g, '_');
+  const safePeriod = String(periodValue || 'range').replace(/[^0-9A-Za-z_-]+/g, '_');
+  return `daily_matrix_${safeGranularity}_${safePeriod}`;
 }
 
 // ────────────────────────────────────────────────────────────────────────────
