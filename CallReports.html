@@ -2504,20 +2504,46 @@
         const calls = Number(item.qualifyingTalkCalls ?? item.totalCalls ?? 0);
         const totalMinutes = Number(item.totalTalkWholeMinutes ?? item.totalTalk ?? 0);
         const avgTalk = calls > 0 ? totalMinutes / calls : null;
+        const coverageSummaries = Array.isArray(item.weeklyCoverageSummary)
+          ? item.weeklyCoverageSummary
+          : [];
+        const coverageRequiredDays = coverageSummaries.reduce((sum, summary) => {
+          const required = Number(summary?.requiredDays ?? 0);
+          return Number.isFinite(required) ? sum + Math.max(0, required) : sum;
+        }, 0);
+        const coverageActualDays = coverageSummaries.reduce((sum, summary) => {
+          const required = Number(summary?.requiredDays ?? 0);
+          const actual = Number(summary?.actualDays ?? 0);
+          const boundedActual = Number.isFinite(actual)
+            ? Math.max(0, Math.min(actual, Math.max(0, required)))
+            : 0;
+          return sum + boundedActual;
+        }, 0);
+        const hasFullCoverage = Boolean(item.fullWeekCoverage)
+          && coverageRequiredDays > 0
+          && coverageActualDays >= coverageRequiredDays;
         return {
           agent: item.agent || '—',
           calls,
           totalMinutes,
-          avgTalk
+          avgTalk,
+          coverageRequiredDays,
+          coverageActualDays,
+          hasFullCoverage
         };
       })
-      .filter(entry => entry.avgTalk !== null && Number.isFinite(entry.avgTalk) && entry.calls > 0);
+      .filter(entry => (
+        entry.avgTalk !== null
+        && Number.isFinite(entry.avgTalk)
+        && entry.calls > 0
+        && entry.hasFullCoverage
+      ));
 
     const attLeaders = attEligible
       .slice()
       .sort((a, b) => {
-        if (a.avgTalk !== b.avgTalk) return a.avgTalk - b.avgTalk;
         if (b.calls !== a.calls) return b.calls - a.calls;
+        if (a.avgTalk !== b.avgTalk) return a.avgTalk - b.avgTalk;
         if (b.totalMinutes !== a.totalMinutes) return b.totalMinutes - a.totalMinutes;
         return a.agent.localeCompare(b.agent);
       })
@@ -2527,29 +2553,35 @@
       attCard.classList.add('is-empty');
       attNameEl.textContent = 'Awaiting data';
       attValueEl.textContent = '—';
-      attDetailEl.textContent = 'Log calls with talk time data so we can spotlight the top performers.';
-      attFooterEl.textContent = 'No qualifying talk time records yet';
+      attDetailEl.textContent = 'Track talk time for agents who maintained full weekday coverage across the selected period.';
+      attFooterEl.textContent = 'No qualifying full-coverage talk time records yet';
       updateRankingList(attListEl, []);
     } else {
       const champion = attLeaders[0];
       const championAvg = Math.round(champion.avgTalk);
       const championCalls = champion.calls === 1 ? '1 qualifying call' : `${champion.calls} qualifying calls`;
       const championMinutes = `${champion.totalMinutes.toLocaleString()} total minutes`;
+      const coverageLabel = champion.coverageRequiredDays === 1
+        ? '1 weekday'
+        : `${champion.coverageRequiredDays} weekdays`;
       attCard.classList.remove('is-empty');
       attNameEl.textContent = champion.agent;
       attValueEl.textContent = `${championAvg} min avg`;
       const teamAverageLabel = benchmarkDisplay !== null
         ? `Team average: ${benchmarkDisplay} min.`
         : '';
-      const detailParts = [`${championCalls} (${championMinutes}).`];
+      const detailParts = [`${championCalls} (${championMinutes}).`, `Covered ${coverageLabel}.`];
       if (teamAverageLabel) detailParts.push(teamAverageLabel);
       attDetailEl.textContent = detailParts.join(' ').replace(/\s+/g, ' ').trim();
-      attFooterEl.textContent = 'Ranked by lowest average talk time';
+      attFooterEl.textContent = 'Ranked by highest call volume with the lowest talk time (full coverage required)';
       updateRankingList(attListEl, attLeaders, entry => {
         const avgLabel = `${Math.round(entry.avgTalk)} min avg`;
         const callLabel = entry.calls === 1 ? '1 call' : `${entry.calls} calls`;
         const totalLabel = `${entry.totalMinutes.toLocaleString()} total minutes`;
-        return `${avgLabel} • ${callLabel} (${totalLabel})`;
+        const coverageDisplay = entry.coverageRequiredDays === 1
+          ? '1 weekday'
+          : `${entry.coverageRequiredDays} weekdays`;
+        return `${avgLabel} • ${callLabel} (${totalLabel}) • ${coverageDisplay}`;
       });
     }
 
