@@ -23,6 +23,350 @@ const DEFAULT_SCHEDULE_TIME_ZONE = (typeof Session !== 'undefined' && typeof Ses
   ? Session.getScriptTimeZone()
   : 'UTC';
 
+const DAY_NAME_TO_INDEX_MAP = {
+  sun: 0,
+  sunday: 0,
+  mon: 1,
+  monday: 1,
+  tue: 2,
+  tues: 2,
+  tuesday: 2,
+  wed: 3,
+  weds: 3,
+  wednesday: 3,
+  thu: 4,
+  thur: 4,
+  thurs: 4,
+  thursday: 4,
+  fri: 5,
+  friday: 5,
+  sat: 6,
+  saturday: 6
+};
+
+function convertCsvToDayIndexes(value) {
+  if (value === null || typeof value === 'undefined') {
+    return [];
+  }
+
+  const values = [];
+
+  if (Array.isArray(value)) {
+    values.push(...value);
+  } else if (typeof value === 'string') {
+    const normalized = value
+      .replace(/[\[\](){}]/g, ' ')
+      .replace(/weekdays?/gi, '1,2,3,4,5')
+      .replace(/weekends?/gi, '0,6');
+
+    normalized
+      .split(/[^0-9a-zA-Z]+/)
+      .map(token => token.trim())
+      .filter(Boolean)
+      .forEach(token => values.push(token));
+  } else if (typeof value === 'number') {
+    values.push(value);
+  } else if (typeof value === 'object') {
+    // If we received an object with a DaysOfWeek or similar property, reuse it.
+    const candidate = value.DaysOfWeekArray || value.DaysOfWeek || value.daysOfWeek || value.days;
+    if (candidate) {
+      return convertCsvToDayIndexes(candidate);
+    }
+  }
+
+  const indexes = new Set();
+
+  values.forEach(entry => {
+    if (entry === null || typeof entry === 'undefined') {
+      return;
+    }
+
+    let index = null;
+
+    if (typeof entry === 'number' && Number.isFinite(entry)) {
+      index = Math.round(entry);
+    } else {
+      const token = String(entry).trim();
+      if (!token) {
+        return;
+      }
+
+      const numeric = Number(token);
+      if (!Number.isNaN(numeric) && Number.isFinite(numeric)) {
+        index = Math.round(numeric);
+      } else {
+        const normalizedToken = token.toLowerCase();
+
+        if (normalizedToken.includes('-')) {
+          const [startToken, endToken] = normalizedToken.split('-').map(part => part.trim());
+          const startIndex = convertCsvToDayIndexes(startToken)[0];
+          const endIndex = convertCsvToDayIndexes(endToken)[0];
+
+          if (Number.isInteger(startIndex) && Number.isInteger(endIndex)) {
+            const count = ((endIndex - startIndex + 7) % 7) + 1;
+            for (let offset = 0; offset < count; offset++) {
+              indexes.add((startIndex + offset) % 7);
+            }
+            return;
+          }
+        }
+
+        if (DAY_NAME_TO_INDEX_MAP.hasOwnProperty(normalizedToken)) {
+          index = DAY_NAME_TO_INDEX_MAP[normalizedToken];
+        }
+      }
+    }
+
+    if (Number.isInteger(index) && index >= 0 && index <= 6) {
+      indexes.add(index);
+    }
+  });
+
+  return Array.from(indexes).sort((a, b) => a - b);
+}
+
+function normalizeDayTokens(value) {
+  return convertCsvToDayIndexes(value);
+}
+
+function convertDayIndexesToCsv(days) {
+  const normalized = convertCsvToDayIndexes(days);
+  return normalized.length ? normalized.join(',') : '';
+}
+
+function parseTimeToMinutes(value) {
+  if (value === null || typeof value === 'undefined') {
+    return null;
+  }
+
+  if (Array.isArray(value)) {
+    for (let i = 0; i < value.length; i++) {
+      const candidate = parseTimeToMinutes(value[i]);
+      if (Number.isFinite(candidate)) {
+        return candidate;
+      }
+    }
+    return null;
+  }
+
+  if (typeof value === 'object' && !(value instanceof Date)) {
+    const hoursCandidate = value.hours ?? value.hour ?? null;
+    const minutesCandidate = value.minutes ?? value.minute ?? value.m ?? null;
+
+    if (hoursCandidate !== null && minutesCandidate !== null) {
+      const hours = Number(hoursCandidate);
+      const minutes = Number(minutesCandidate);
+      if (Number.isFinite(hours) && Number.isFinite(minutes)) {
+        return hours * 60 + minutes;
+      }
+    }
+
+    const totalMinutesCandidate = value.totalMinutes ?? value.TotalMinutes ?? value.total ?? value.Total;
+    if (totalMinutesCandidate !== undefined && totalMinutesCandidate !== null) {
+      const total = parseTimeToMinutes(totalMinutesCandidate);
+      if (Number.isFinite(total)) {
+        return total;
+      }
+    }
+
+    const keys = [
+      'value', 'Value', 'time', 'Time', 'start', 'Start', 'startTime', 'StartTime',
+      'end', 'End', 'endTime', 'EndTime', 'minutes', 'Minutes'
+    ];
+
+    for (let i = 0; i < keys.length; i++) {
+      const key = keys[i];
+      if (value[key] !== undefined && value[key] !== null && value[key] !== value) {
+        const candidate = parseTimeToMinutes(value[key]);
+        if (Number.isFinite(candidate)) {
+          return candidate;
+        }
+      }
+    }
+  }
+
+  if (value instanceof Date && !isNaN(value.getTime())) {
+    return value.getHours() * 60 + value.getMinutes();
+  }
+
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    if (value > 100000000000) {
+      const date = new Date(value);
+      return date.getHours() * 60 + date.getMinutes();
+    }
+
+    if (value >= 0 && value <= 1) {
+      return Math.round(value * 24 * 60);
+    }
+
+    if (value > 1 && value < 24) {
+      return Math.round(value * 60);
+    }
+
+    const rounded = Math.round(value);
+    if (rounded >= 0 && rounded < 24) {
+      return rounded * 60;
+    }
+
+    if (rounded >= 100 && rounded < 2500) {
+      const hours = Math.floor(rounded / 100);
+      const minutes = rounded % 100;
+      if (hours < 24 && minutes < 60) {
+        return hours * 60 + minutes;
+      }
+    }
+
+    if (rounded >= 0 && rounded <= 1440) {
+      return rounded;
+    }
+
+    return rounded;
+  }
+
+  let text = String(value).trim();
+  if (!text) {
+    return null;
+  }
+
+  if (typeof safeNormalizeScheduleTimeToMinutes === 'function') {
+    const normalizedFromSafe = safeNormalizeScheduleTimeToMinutes(text);
+    if (Number.isFinite(normalizedFromSafe)) {
+      return normalizedFromSafe;
+    }
+  }
+
+  text = text
+    .replace(/\b(?:hrs?|hours?|hour)\b/gi, 'h')
+    .replace(/\s+/g, ' ')
+    .replace(/\s*h\b/gi, 'h')
+    .trim();
+
+  const ampmShortMatch = text.match(/^(\d{1,2})(?:[:.](\d{2}))?\s*([ap])\.?(?:m)?$/i);
+  if (ampmShortMatch) {
+    let hours = parseInt(ampmShortMatch[1], 10);
+    const minutes = parseInt(ampmShortMatch[2] || '0', 10);
+    const period = ampmShortMatch[3].toUpperCase();
+    if (period === 'P' && hours < 12) {
+      hours += 12;
+    }
+    if (period === 'A' && hours === 12) {
+      hours = 0;
+    }
+    if (hours < 24 && minutes < 60) {
+      return hours * 60 + minutes;
+    }
+  }
+
+  const decimalHoursMatch = text.match(/^(\d+(?:\.\d+)?)h$/i);
+  if (decimalHoursMatch) {
+    const hours = parseFloat(decimalHoursMatch[1]);
+    if (Number.isFinite(hours)) {
+      return Math.round(hours * 60);
+    }
+  }
+
+  if (/^\d+$/.test(text)) {
+    const numeric = parseInt(text, 10);
+    if (numeric < 24) {
+      return numeric * 60;
+    }
+    if (numeric >= 100 && numeric < 2500) {
+      const hours = Math.floor(numeric / 100);
+      const minutes = numeric % 100;
+      if (hours < 24 && minutes < 60) {
+        return hours * 60 + minutes;
+      }
+    }
+    if (numeric <= 1440) {
+      return numeric;
+    }
+  }
+
+  const decimalOnlyMatch = text.match(/^(\d+(?:\.\d+)?)$/);
+  if (decimalOnlyMatch) {
+    const numeric = parseFloat(decimalOnlyMatch[1]);
+    if (Number.isFinite(numeric)) {
+      if (numeric >= 0 && numeric <= 1) {
+        return Math.round(numeric * 24 * 60);
+      }
+      if (numeric < 24) {
+        return Math.round(numeric * 60);
+      }
+      if (numeric <= 1440) {
+        return Math.round(numeric);
+      }
+    }
+  }
+
+  const compactHourMinute = text.match(/^(\d{1,2})h(\d{2})$/i);
+  if (compactHourMinute) {
+    const hours = parseInt(compactHourMinute[1], 10);
+    const minutes = parseInt(compactHourMinute[2] || '0', 10);
+    if (hours < 24 && minutes < 60) {
+      return hours * 60 + minutes;
+    }
+  }
+
+  const dateParsed = new Date(text);
+  if (!isNaN(dateParsed.getTime())) {
+    return dateParsed.getHours() * 60 + dateParsed.getMinutes();
+  }
+
+  return null;
+}
+
+function formatMinutesToTime12Hour(minutes) {
+  if (!Number.isFinite(minutes)) {
+    return '';
+  }
+
+  const rounded = Math.round(minutes);
+  const normalized = ((rounded % (24 * 60)) + (24 * 60)) % (24 * 60);
+  let hours = Math.floor(normalized / 60);
+  const mins = normalized % 60;
+  const period = hours >= 12 ? 'PM' : 'AM';
+
+  if (hours === 0) {
+    hours = 12;
+  } else if (hours > 12) {
+    hours -= 12;
+  }
+
+  return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')} ${period}`;
+}
+
+const GLOBAL_SCOPE = (typeof globalThis !== 'undefined')
+  ? globalThis
+  : (typeof self !== 'undefined')
+    ? self
+    : (typeof window !== 'undefined')
+      ? window
+      : (typeof global !== 'undefined')
+        ? global
+        : this;
+
+if (GLOBAL_SCOPE) {
+  if (typeof GLOBAL_SCOPE.convertCsvToDayIndexes !== 'function') {
+    GLOBAL_SCOPE.convertCsvToDayIndexes = convertCsvToDayIndexes;
+  }
+
+  if (typeof GLOBAL_SCOPE.normalizeDayTokens !== 'function') {
+    GLOBAL_SCOPE.normalizeDayTokens = normalizeDayTokens;
+  }
+
+  if (typeof GLOBAL_SCOPE.convertDayIndexesToCsv !== 'function') {
+    GLOBAL_SCOPE.convertDayIndexesToCsv = convertDayIndexesToCsv;
+  }
+
+  if (typeof GLOBAL_SCOPE.parseTimeToMinutes !== 'function') {
+    GLOBAL_SCOPE.parseTimeToMinutes = parseTimeToMinutes;
+  }
+
+  if (typeof GLOBAL_SCOPE.formatMinutesToTime12Hour !== 'function') {
+    GLOBAL_SCOPE.formatMinutesToTime12Hour = formatMinutesToTime12Hour;
+  }
+}
+
 function resolveSchedulePeriodStart(record, timeZone = DEFAULT_SCHEDULE_TIME_ZONE) {
   if (!record || typeof record !== 'object') {
     return '';
