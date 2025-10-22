@@ -140,6 +140,269 @@ function getSchedulePeriodSortValue(record, timeZone = DEFAULT_SCHEDULE_TIME_ZON
 }
 
 // ────────────────────────────────────────────────────────────────────────────
+// CORE SCHEDULE STORAGE HELPERS
+// ────────────────────────────────────────────────────────────────────────────
+
+function ensureShiftAssignmentsSheet() {
+  return ensureScheduleSheetWithHeaders(SHIFT_ASSIGNMENTS_SHEET, SHIFT_ASSIGNMENTS_HEADERS);
+}
+
+function ensureAuditLogSheet() {
+  return ensureScheduleSheetWithHeaders(AUDIT_LOG_SHEET, AUDIT_LOG_HEADERS);
+}
+
+function appendAuditLogEntry(action, entityType, entityId, beforeObj, afterObj, notes) {
+  try {
+    const sheet = ensureAuditLogSheet();
+    const actor = typeof getCurrentUser === 'function' ? getCurrentUser() : null;
+    const actorName = actor && (actor.Email || actor.email || actor.UserName || actor.name) || 'System';
+    const timestamp = new Date();
+
+    const row = [
+      timestamp,
+      actorName,
+      action,
+      entityType,
+      entityId || '',
+      beforeObj ? JSON.stringify(beforeObj) : '',
+      afterObj ? JSON.stringify(afterObj) : '',
+      notes || ''
+    ];
+
+    sheet.appendRow(row);
+  } catch (error) {
+    console.warn('Failed to append audit log entry:', error && error.message ? error.message : error);
+  }
+}
+
+function readShiftAssignments() {
+  return readScheduleSheet(SHIFT_ASSIGNMENTS_SHEET) || [];
+}
+
+function normalizeAssignmentRecord(record) {
+  if (!record || typeof record !== 'object') {
+    return null;
+  }
+
+  const normalized = Object.assign({}, record);
+  const startDate = normalizeDateForSheet(record.StartDate || record.PeriodStart || record.Date, DEFAULT_SCHEDULE_TIME_ZONE);
+  const endDate = normalizeDateForSheet(record.EndDate || record.PeriodEnd || record.Date, DEFAULT_SCHEDULE_TIME_ZONE);
+  if (startDate) {
+    normalized.StartDate = startDate;
+  }
+  if (endDate) {
+    normalized.EndDate = endDate;
+  }
+
+  normalized.Status = (record.Status || 'Pending').toString().toUpperCase();
+  normalized.AllowSwap = scheduleFlagToBool(record.AllowSwap || record.AllowSwaps || record.allowSwap);
+  normalized.Premiums = record.Premiums || '';
+  normalized.BreaksConfigJSON = record.BreaksConfigJSON || record.BreaksJson || '';
+
+  if (!normalized.AssignmentId && record.ID) {
+    normalized.AssignmentId = record.ID;
+  }
+
+  if (!normalized.UserName && record.UserID) {
+    const users = readSheet(USERS_SHEET) || [];
+    const match = users.find(u => String(u.ID) === String(record.UserID));
+    if (match) {
+      normalized.UserName = match.UserName || match.FullName || '';
+    }
+  }
+
+  normalized.StartDateObj = normalized.StartDate ? new Date(normalized.StartDate) : null;
+  normalized.EndDateObj = normalized.EndDate ? new Date(normalized.EndDate) : null;
+
+  return normalized;
+}
+
+function writeShiftAssignments(assignments, actorId, notes, statusOverride) {
+  if (!Array.isArray(assignments) || !assignments.length) {
+    return { success: false, error: 'No assignments to write' };
+  }
+
+  const sheet = ensureShiftAssignmentsSheet();
+  const now = new Date();
+  const actor = actorId || (typeof getCurrentUser === 'function' ? getCurrentUser()?.Email : 'System');
+
+  const rows = assignments.map(assignment => {
+    const normalized = Object.assign({}, assignment);
+    normalized.AssignmentId = normalized.AssignmentId || Utilities.getUuid();
+    normalized.CreatedAt = normalized.CreatedAt || now;
+    normalized.CreatedBy = normalized.CreatedBy || actor;
+    normalized.UpdatedAt = now;
+    normalized.UpdatedBy = actor;
+    if (statusOverride) {
+      normalized.Status = statusOverride;
+    } else {
+      normalized.Status = normalized.Status || 'PENDING';
+    }
+
+    return SHIFT_ASSIGNMENTS_HEADERS.map(header => Object.prototype.hasOwnProperty.call(normalized, header) ? normalized[header] : '');
+  });
+
+  sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, SHIFT_ASSIGNMENTS_HEADERS.length).setValues(rows);
+  SpreadsheetApp.flush();
+
+  assignments.forEach(assignment => {
+    appendAuditLogEntry(
+      'CREATE',
+      'ShiftAssignment',
+      assignment.AssignmentId,
+      null,
+      assignment,
+      notes || ''
+    );
+  });
+
+  return { success: true, count: rows.length };
+}
+
+function updateShiftAssignmentRow(assignmentId, updater) {
+  const sheet = ensureShiftAssignmentsSheet();
+  const data = sheet.getDataRange().getValues();
+  if (data.length <= 1) {
+    return { success: false, error: 'No assignments found' };
+  }
+
+  const headers = data[0];
+  const idIndex = headers.indexOf('AssignmentId');
+  if (idIndex === -1) {
+    return { success: false, error: 'Assignment sheet missing AssignmentId column' };
+  }
+
+  for (let rowIndex = 1; rowIndex < data.length; rowIndex++) {
+    if (String(data[rowIndex][idIndex]) === String(assignmentId)) {
+      const rowObject = {};
+      headers.forEach((header, columnIndex) => {
+        rowObject[header] = data[rowIndex][columnIndex];
+      });
+
+      const before = Object.assign({}, rowObject);
+      const updated = updater(rowObject) || rowObject;
+
+      const rowValues = SHIFT_ASSIGNMENTS_HEADERS.map(header => Object.prototype.hasOwnProperty.call(updated, header) ? updated[header] : '');
+      sheet.getRange(rowIndex + 1, 1, 1, SHIFT_ASSIGNMENTS_HEADERS.length).setValues([rowValues]);
+      SpreadsheetApp.flush();
+
+      appendAuditLogEntry('UPDATE', 'ShiftAssignment', assignmentId, before, updated, 'Assignment updated');
+
+      return { success: true, assignment: updated };
+    }
+  }
+
+  return { success: false, error: 'Assignment not found' };
+}
+
+function buildDateSeries(startDateStr, endDateStr) {
+  const start = new Date(startDateStr);
+  const end = new Date(endDateStr);
+  if (isNaN(start.getTime()) || isNaN(end.getTime()) || start > end) {
+    return [];
+  }
+
+  const dates = [];
+  const current = new Date(start.getTime());
+  while (current <= end) {
+    dates.push(Utilities.formatDate(current, DEFAULT_SCHEDULE_TIME_ZONE, 'yyyy-MM-dd'));
+    current.setDate(current.getDate() + 1);
+  }
+
+  return dates;
+}
+
+function loadHolidayMap(startDateStr, endDateStr) {
+  const holidays = readScheduleSheet(HOLIDAYS_SHEET) || [];
+  const holidayMap = new Map();
+  if (!holidays.length) {
+    return holidayMap;
+  }
+
+  const dateRange = buildDateSeries(startDateStr, endDateStr);
+  const dateSet = new Set(dateRange);
+
+  holidays.forEach(holiday => {
+    const dateStr = normalizeDateForSheet(holiday.Date, DEFAULT_SCHEDULE_TIME_ZONE);
+    if (!dateStr || (dateSet.size && !dateSet.has(dateStr))) {
+      return;
+    }
+    const entry = holidayMap.get(dateStr) || [];
+    entry.push({
+      name: holiday.Name || '',
+      region: holiday.Region || '',
+      isWorkingDay: scheduleFlagToBool(holiday.IsWorkingDayOverride, false)
+    });
+    holidayMap.set(dateStr, entry);
+  });
+
+  return holidayMap;
+}
+
+function isWeekendDate(dateStr) {
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) {
+    return false;
+  }
+  const day = date.getDay();
+  return day === 0 || day === 6;
+}
+
+function createSeededRandom(seedValue) {
+  let seed = 0;
+  if (typeof seedValue === 'number') {
+    seed = seedValue;
+  } else if (seedValue) {
+    const text = String(seedValue);
+    for (let i = 0; i < text.length; i++) {
+      seed = (seed << 5) - seed + text.charCodeAt(i);
+      seed |= 0;
+    }
+  } else {
+    seed = Date.now();
+  }
+
+  return function seededRandom() {
+    seed = (seed * 9301 + 49297) % 233280;
+    return seed / 233280;
+  };
+}
+
+function shuffleWithSeed(array, seedValue) {
+  const shuffled = array.slice();
+  const random = createSeededRandom(seedValue);
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}
+
+function storeSchedulePreview(previewData) {
+  const cache = CacheService.getScriptCache();
+  const token = Utilities.getUuid();
+  cache.put(`schedule_preview_${token}`, JSON.stringify(previewData), 600);
+  return token;
+}
+
+function loadSchedulePreview(token) {
+  if (!token) {
+    return null;
+  }
+  const cache = CacheService.getScriptCache();
+  const payload = cache.get(`schedule_preview_${token}`);
+  if (!payload) {
+    return null;
+  }
+  try {
+    return JSON.parse(payload);
+  } catch (error) {
+    console.warn('Failed to parse schedule preview payload:', error);
+    return null;
+  }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
 // USER MANAGEMENT FUNCTIONS - Integrated with MainUtilities
 // ────────────────────────────────────────────────────────────────────────────
 
@@ -504,19 +767,18 @@ function clientGetManagedUsersList(managerId) {
 /**
  * Create shift slot with proper validation - uses ScheduleUtilities
  */
+
 function clientCreateShiftSlot(slotData) {
   try {
     console.log('🕒 Creating shift slot:', slotData);
 
-    // Validate required fields
-    if (!slotData.name || !slotData.startTime || !slotData.endTime) {
+    if (!slotData || !slotData.name || !slotData.startTime || !slotData.endTime) {
       return {
         success: false,
         error: 'Slot name, start time, and end time are required'
       };
     }
 
-    // Use ScheduleUtilities validation
     const validation = validateShiftSlot(slotData);
     if (!validation.isValid) {
       return {
@@ -525,118 +787,86 @@ function clientCreateShiftSlot(slotData) {
       };
     }
 
-    // Use ScheduleUtilities to ensure sheet exists with proper headers
     const sheet = ensureScheduleSheetWithHeaders(SHIFT_SLOTS_SHEET, SHIFT_SLOTS_HEADERS);
+    const existingSlots = readScheduleSheet(SHIFT_SLOTS_SHEET) || [];
+
+    const actor = typeof getCurrentUser === 'function' ? getCurrentUser() : null;
+    const actorName = actor && (actor.Email || actor.UserName || actor.name) || 'System';
     const now = new Date();
+
     const slotId = Utilities.getUuid();
+    const normalizedDays = normalizeDaySelection(slotData.daysOfWeek || slotData.DaysOfWeek || slotData.days);
+    const daysCsv = normalizedDays.length ? convertDaysToCsv(normalizedDays) : 'Mon,Tue,Wed,Thu,Fri';
+    const startTime = normalizeTimeTo12Hour(slotData.startTime);
+    const endTime = normalizeTimeTo12Hour(slotData.endTime);
 
-    const toNumber = (value, fallback = '') => {
-      if (value === null || value === undefined || value === '') {
-        return fallback;
-      }
-
-      const num = Number(value);
-      return Number.isFinite(num) ? num : fallback;
-    };
-
-    const toBoolean = (value, fallback = false) => {
-      if (typeof value === 'boolean') return value;
-      if (typeof value === 'number') return value !== 0;
-      if (typeof value === 'string') {
-        const normalized = value.trim().toLowerCase();
-        if (!normalized) return fallback;
-        return ['true', 'yes', '1', 'y'].includes(normalized);
-      }
-      return fallback;
-    };
-
-    // Process days of week
-    let daysOfWeek = '1,2,3,4,5'; // Default to weekdays
-    if (slotData.daysOfWeek && Array.isArray(slotData.daysOfWeek)) {
-      daysOfWeek = slotData.daysOfWeek.join(',');
+    if (!startTime || !endTime) {
+      return {
+        success: false,
+        error: 'Start and end times must be valid 12-hour values.'
+      };
     }
 
-    const maxCapacity = toNumber(
-      slotData.maxCapacity,
-      SCHEDULE_SETTINGS.DEFAULT_SHIFT_CAPACITY
-    );
-    const breakDuration = toNumber(
-      slotData.breakDuration !== undefined ? slotData.breakDuration : slotData.break1Duration,
-      SCHEDULE_SETTINGS.DEFAULT_BREAK_MINUTES
-    );
-    const lunchDuration = toNumber(
-      slotData.lunchDuration,
-      SCHEDULE_SETTINGS.DEFAULT_LUNCH_MINUTES
-    );
+    const campaign = (slotData.campaign || slotData.Campaign || 'General').toString().trim();
+    const slotName = slotData.name.toString().trim();
 
-    const slot = {
+    const duplicate = existingSlots.some(slot => {
+      const name = (slot.SlotName || slot.Name || '').toString().trim().toLowerCase();
+      const campaignName = (slot.Campaign || slot.Department || '').toString().trim().toLowerCase();
+      const statusValue = (slot.Status || '').toString().trim();
+      const isActive = statusValue ? statusValue.toUpperCase() !== 'ARCHIVED' : scheduleFlagToBool(slot.IsActive, true);
+      return isActive && name === slotName.toLowerCase() && campaignName === campaign.toLowerCase();
+    });
+
+    if (duplicate) {
+      return {
+        success: false,
+        error: `A shift slot named "${slotName}" already exists for campaign "${campaign}".`
+      };
+    }
+
+    const slotRecord = {
       ID: slotId,
-      Name: slotData.name,
-      StartTime: slotData.startTime,
-      EndTime: slotData.endTime,
-      DaysOfWeek: daysOfWeek,
-      Department: slotData.department || 'General',
-      Location: slotData.location || 'Office',
-      MaxCapacity: maxCapacity,
-      MinCoverage: toNumber(slotData.minCoverage, ''),
-      Priority: toNumber(slotData.priority, 2),
+      Name: slotName,
+      StartTime: startTime,
+      EndTime: endTime,
+      DaysOfWeek: daysCsv,
+      Department: campaign,
+      Location: slotData.location || slotData.Location || 'Office',
       Description: slotData.description || '',
-      BreakDuration: breakDuration,
-      LunchDuration: lunchDuration,
-      Break1Duration: toNumber(slotData.break1Duration, breakDuration),
-      Break2Duration: toNumber(slotData.break2Duration, 0),
-      EnableStaggeredBreaks: toBoolean(slotData.enableStaggeredBreaks, true),
-      BreakGroups: toNumber(slotData.breakGroups, 3),
-      StaggerInterval: toNumber(slotData.staggerInterval, 15),
-      MinCoveragePct: toNumber(slotData.minCoveragePct, 70),
-      EnableOvertime: toBoolean(slotData.enableOvertime, false),
-      MaxDailyOT: toNumber(slotData.maxDailyOT, 0),
-      MaxWeeklyOT: toNumber(slotData.maxWeeklyOT, 0),
-      OTApproval: slotData.otApproval || slotData.overtimeApproval || 'supervisor',
-      OTRate: toNumber(slotData.otRate, 1.5),
-      OTPolicy: slotData.otPolicy || slotData.overtimePolicy || 'MANDATORY',
-      AllowSwaps: toBoolean(slotData.allowSwaps, true),
-      WeekendPremium: toBoolean(slotData.weekendPremium, false),
-      HolidayPremium: toBoolean(slotData.holidayPremium, true),
-      AutoAssignment: toBoolean(slotData.autoAssignment, false),
-      RestPeriod: toNumber(slotData.restPeriod, 8),
-      NotificationLead: toNumber(slotData.notificationLead, 24),
-      HandoverTime: toNumber(slotData.handoverTime, 15),
-      OvertimePolicy: slotData.overtimePolicy || slotData.otPolicy || 'LIMITED_30',
-      IsActive: true,
-      CreatedBy: slotData.createdBy || 'System',
+      CreatedBy: actorName,
+      Notes: slotData.notes || '',
+      Status: 'Active',
       CreatedAt: now,
-      UpdatedAt: now
+      UpdatedAt: now,
+      UpdatedBy: actorName,
+      // compatibility aliases
+      SlotId: slotId,
+      SlotName: slotName,
+      Campaign: campaign,
+      DaysCSV: daysCsv
     };
 
-    // Create row data using proper header order
-    const rowData = SHIFT_SLOTS_HEADERS.map(header =>
-      Object.prototype.hasOwnProperty.call(slot, header) ? slot[header] : ''
-    );
+    const rowData = SHIFT_SLOTS_HEADERS.map(header => Object.prototype.hasOwnProperty.call(slotRecord, header) ? slotRecord[header] : '');
     sheet.appendRow(rowData);
     SpreadsheetApp.flush();
 
-    // Invalidate cache
+    appendAuditLogEntry('CREATE', 'ShiftSlot', slotId, null, slotRecord, 'Created shift slot');
     invalidateScheduleCaches();
 
-    console.log('✅ Shift slot created successfully:', slotId);
-
+    console.log('✅ Shift slot created:', slotId);
     return {
       success: true,
-      message: 'Shift slot created successfully',
-      slot: slot
+      slotId: slotId,
+      slot: slotRecord
     };
 
   } catch (error) {
-    console.error('❌ Error creating shift slot:', error);
-    try {
-      safeWriteError('clientCreateShiftSlot', error);
-    } catch (loggingError) {
-      console.error('Error logging shift slot failure:', loggingError);
-    }
+    console.error('Error creating shift slot:', error);
+    safeWriteError('clientCreateShiftSlot', error);
     return {
       success: false,
-      error: error && error.message ? error.message : String(error || 'Unknown error')
+      error: error.message
     };
   }
 }
@@ -786,37 +1016,67 @@ function isUserConsideredActive(user) {
 /**
  * Get all shift slots - uses ScheduleUtilities
  */
+
 function clientGetAllShiftSlots() {
   try {
     console.log('📊 Getting all shift slots');
 
-    const aggregatedSlots = [];
-    const seenIds = new Set();
-    const seenComposite = new Set();
+    let slots = readScheduleSheet(SHIFT_SLOTS_SHEET) || [];
+    if (!slots.length) {
+      createDefaultShiftSlots();
+      slots = readScheduleSheet(SHIFT_SLOTS_SHEET) || [];
+    }
 
-    const resolveSlotId = slot => {
-      const candidates = [
-        slot.ID, slot.Id, slot.id,
-        slot.SlotID, slot.SlotId, slot.slotId,
-        slot.Guid, slot.UUID, slot.Uuid
-      ];
-      for (let i = 0; i < candidates.length; i++) {
-        const candidate = candidates[i];
-        if (candidate === undefined || candidate === null) {
-          continue;
-        }
-        const normalized = String(candidate).trim();
-        if (normalized) {
-          return normalized;
-        }
-      }
-      return '';
-    };
+    const normalizedSlots = slots.map(slot => {
+      const slotId = (slot.SlotId || slot.ID || slot.Id || slot.slotId || '').toString().trim() || Utilities.getUuid();
+      const slotName = (slot.SlotName || slot.Name || '').toString().trim();
+      const campaign = (slot.Campaign || slot.Department || '').toString().trim();
+      const location = (slot.Location || '').toString().trim() || 'Office';
+      const startTime = normalizeTimeTo12Hour(slot.StartTime || slot.startTime || '');
+      const endTime = normalizeTimeTo12Hour(slot.EndTime || slot.endTime || '');
+      const daysArray = parseDaysCsv(slot.DaysCSV || slot.DaysOfWeek || '');
+      const statusValue = (slot.Status || '').toString().trim().toUpperCase();
+      const status = statusValue || (scheduleFlagToBool(slot.IsActive, true) ? 'Active' : 'Archived');
 
-    const registerSlot = (slot, source) => {
-      if (!slot || typeof slot !== 'object') {
-        return;
+      return {
+        ID: slotId,
+        SlotId: slotId,
+        Name: slotName,
+        SlotName: slotName,
+        Campaign: campaign,
+        Department: campaign,
+        Location: location,
+        StartTime: startTime,
+        EndTime: endTime,
+        DaysOfWeekArray: daysArray,
+        DaysOfWeek: daysArray.join(','),
+        Description: slot.Description || '',
+        Notes: slot.Notes || '',
+        Status: status,
+        CreatedAt: slot.CreatedAt || '',
+        CreatedBy: slot.CreatedBy || '',
+        UpdatedAt: slot.UpdatedAt || '',
+        UpdatedBy: slot.UpdatedBy || ''
+      };
+    });
+
+    normalizedSlots.sort((a, b) => {
+      const campaignCompare = (a.Campaign || '').localeCompare(b.Campaign || '');
+      if (campaignCompare !== 0) {
+        return campaignCompare;
       }
+      return (a.SlotName || '').localeCompare(b.SlotName || '');
+    });
+
+    console.log(`✅ Returning ${normalizedSlots.length} normalized shift slots`);
+    return normalizedSlots;
+
+  } catch (error) {
+    console.error('❌ Error getting shift slots:', error);
+    safeWriteError('clientGetAllShiftSlots', error);
+    return [];
+  }
+}
 
       const normalizedSlot = { ...slot };
       const slotId = resolveSlotId(normalizedSlot);
@@ -1302,337 +1562,426 @@ function determineCapacityLimit(slot, generationOptions) {
 /**
  * Enhanced schedule generation with comprehensive validation
  */
+
 function clientGenerateSchedulesEnhanced(startDate, endDate, userNames, shiftSlotIds, templateId, generatedBy, options = {}) {
   try {
-    console.log('🚀 Enhanced schedule generation started');
-    console.log('Parameters:', { startDate, endDate, userNames, shiftSlotIds, templateId, generatedBy, options });
+    const normalizedStart = normalizeDateForSheet(startDate, DEFAULT_SCHEDULE_TIME_ZONE);
+    const normalizedEnd = normalizeDateForSheet(endDate, DEFAULT_SCHEDULE_TIME_ZONE);
 
-    // Use ScheduleUtilities validation
-    const validation = validateScheduleParameters(startDate, endDate, userNames);
-    if (!validation.isValid) {
-      throw new Error('Invalid parameters: ' + validation.errors.join('; '));
+    if (!normalizedStart || !normalizedEnd) {
+      return {
+        success: false,
+        error: 'Start and end dates are required for schedule generation.'
+      };
     }
 
-    if (!generatedBy) {
-      generatedBy = 'System';
+    const startDateObj = new Date(normalizedStart);
+    const endDateObj = new Date(normalizedEnd);
+    if (startDateObj > endDateObj) {
+      return {
+        success: false,
+        error: 'End date must be on or after the start date.'
+      };
     }
 
-    const start = new Date(startDate);
-    const end = new Date(endDate);
+    const campaignId = normalizeCampaignIdValue(options.campaignId || '');
+    const detectConflicts = options.detectConflicts !== false;
+    const includeHolidays = options.includeHolidays !== false;
+    const advancedOptions = options.advanced || {};
+    const capacityOptions = options.capacity || {};
+    const breaksOptions = options.breaks || {};
+    const overtimeOptions = options.overtime || {};
+    const allowSwaps = scheduleFlagToBool(advancedOptions.allowSwaps, true);
+    const restHours = Number(advancedOptions.restPeriod || 0);
+    const notificationLead = Number(advancedOptions.notificationLead || 0);
+    const handoverMinutes = Number(advancedOptions.handoverTime || 0);
+    const overtimeEnabled = scheduleFlagToBool(overtimeOptions.enabled, false);
+    const overtimeMinutes = overtimeEnabled ? Math.round(Number(overtimeOptions.maxDaily || 0) * 60) : '';
+    const maxCapacity = Number(capacityOptions.max || options.maxCapacity || 0) || null;
+    const minCoverage = Number(capacityOptions.min || options.minCoverage || 0) || 0;
+    const minCoveragePct = Number(breaksOptions.minCoveragePct || options.minCoveragePct || 0) || 0;
 
-    // Get users to schedule
-    let usersToSchedule = [];
-    if (userNames && userNames.length > 0) {
-      usersToSchedule = userNames;
+    let selectedSlots = clientGetAllShiftSlots();
+    selectedSlots = selectedSlots.filter(slot => (slot.Status || 'Active').toUpperCase() !== 'ARCHIVED');
+    if (campaignId) {
+      selectedSlots = selectedSlots.filter(slot => (slot.Campaign || '').toString().toLowerCase() === campaignId.toLowerCase());
+    }
+    if (Array.isArray(shiftSlotIds) && shiftSlotIds.length) {
+      selectedSlots = selectedSlots.filter(slot => shiftSlotIds.includes(slot.SlotId));
+    }
+
+    if (!selectedSlots.length) {
+      return {
+        success: false,
+        error: 'No active shift slots matched the selection for this campaign.'
+      };
+    }
+
+    const slotMap = new Map(selectedSlots.map(slot => [slot.SlotId, slot]));
+    const scheduleUsers = clientGetScheduleUsers(generatedBy || 'system', campaignId || null);
+    const userKeyMap = new Map();
+    const userIdMap = new Map();
+    scheduleUsers.forEach(user => {
+      userKeyMap.set(normalizeUserKey(user.UserName || user.FullName), user);
+      userIdMap.set(String(user.ID), user);
+    });
+
+    let targetUsers = [];
+    const unresolvedUsers = [];
+    if (Array.isArray(userNames) && userNames.length) {
+      userNames.forEach(entry => {
+        if (!entry) {
+          return;
+        }
+        const nameKey = normalizeUserKey(entry);
+        const idKey = String(entry);
+        const user = userKeyMap.get(nameKey) || userIdMap.get(idKey);
+        if (user) {
+          targetUsers.push(user);
+        } else {
+          unresolvedUsers.push(entry);
+        }
+      });
     } else {
-      // If no users specified, get all active users for the requesting user
-      const allUsers = clientGetAttendanceUsers(generatedBy, options.campaignId);
-      if (!allUsers || allUsers.length === 0) {
-        throw new Error('No users found for scheduling. Please check user data.');
+      targetUsers = scheduleUsers.slice();
+    }
+
+    const filteredUsers = targetUsers.filter(user => {
+      if (!user || !user.ID) {
+        return false;
       }
-      usersToSchedule = allUsers;
-    }
-
-    const generationOptions = normalizeGenerationOptions(options || {});
-
-    console.log(`📝 Scheduling for ${usersToSchedule.length} users`);
-    console.log('🧭 Generation options snapshot:', generationOptions.snapshot);
-
-    // Get shift slots - either selected ones or all available
-    let shiftSlots = [];
-    if (shiftSlotIds && shiftSlotIds.length > 0) {
-      // Get only the selected shift slots
-      console.log(`🎯 Using ${shiftSlotIds.length} selected shift slots:`, shiftSlotIds);
-      const allSlots = clientGetAllShiftSlots();
-      shiftSlots = allSlots.filter(slot => shiftSlotIds.includes(slot.ID));
-      
-      if (shiftSlots.length === 0) {
-        throw new Error('None of the selected shift slots were found. Please refresh and try again.');
+      if (user.isActive === false) {
+        return false;
       }
-      
-      console.log(`✅ Found ${shiftSlots.length} matching shift slots`);
-    } else {
-      // Use all available shift slots
-      shiftSlots = clientGetAllShiftSlots();
-      console.log(`📋 Using all available shift slots (${shiftSlots.length} total)`);
+      if (campaignId && (user.CampaignID || '').toString().toLowerCase() !== campaignId.toLowerCase()) {
+        return false;
+      }
+      if (user.HireDate) {
+        const hireDate = new Date(user.HireDate);
+        if (!isNaN(hireDate.getTime()) && hireDate > endDateObj) {
+          return false;
+        }
+      }
+      return true;
+    });
+
+    if (!filteredUsers.length) {
+      return {
+        success: false,
+        error: 'No eligible users were found for the selected campaign and date range.'
+      };
     }
 
-    if (!shiftSlots || shiftSlots.length === 0) {
-      throw new Error('No shift slots available. Please create shift slots first or select specific slots.');
-    }
+    const seed = options.seed || `${campaignId || 'ALL'}-${normalizedStart}-${normalizedEnd}-${(shiftSlotIds || []).join('|')}`;
+    const orderedUsers = shuffleWithSeed(filteredUsers, seed);
+    const slotCounts = new Map();
+    const assignments = [];
+    const skippedUsers = [];
+    const now = new Date();
+    const actor = generatedBy || (typeof getCurrentUser === 'function' ? (getCurrentUser()?.Email || 'System') : 'System');
 
-    console.log(`⏰ Working with ${shiftSlots.length} shift slot(s)`);
+    orderedUsers.forEach((user, index) => {
+      let assignedSlot = null;
+      for (let attempt = 0; attempt < selectedSlots.length; attempt++) {
+        const slot = selectedSlots[(index + attempt) % selectedSlots.length];
+        const slotCount = slotCounts.get(slot.SlotId) || 0;
+        if (maxCapacity && slotCount >= maxCapacity) {
+          continue;
+        }
+        assignedSlot = slot;
+        break;
+      }
 
-    // Prepare schedule generation tracking
-    const generatedSchedules = [];
+      if (!assignedSlot) {
+        skippedUsers.push({
+          userId: user.ID,
+          userName: user.UserName || user.FullName,
+          reason: 'Max capacity reached for selected slots'
+        });
+        return;
+      }
+
+      slotCounts.set(assignedSlot.SlotId, (slotCounts.get(assignedSlot.SlotId) || 0) + 1);
+
+      assignments.push({
+        AssignmentId: Utilities.getUuid(),
+        UserId: user.ID,
+        UserName: user.UserName || user.FullName,
+        Campaign: campaignId || user.CampaignID || '',
+        SlotId: assignedSlot.SlotId,
+        SlotName: assignedSlot.SlotName || assignedSlot.Name,
+        StartDate: normalizedStart,
+        EndDate: normalizedEnd,
+        Status: 'PENDING',
+        AllowSwap: allowSwaps,
+        Premiums: '',
+        BreaksConfigJSON: JSON.stringify({
+          break1: breaksOptions.first || 15,
+          break2: breaksOptions.second || 0,
+          lunch: breaksOptions.lunch || 30,
+          enableStaggered: scheduleFlagToBool(breaksOptions.enableStaggered, false),
+          groups: breaksOptions.groups || '',
+          interval: breaksOptions.interval || '',
+          minCoveragePct: breaksOptions.minCoveragePct || '',
+          unproductive: (breaksOptions.first || 0) + (breaksOptions.second || 0) + (breaksOptions.lunch || 0)
+        }),
+        OvertimeMinutes: overtimeMinutes || '',
+        RestPeriodHours: restHours || '',
+        NotificationLeadHours: notificationLead || '',
+        HandoverMinutes: handoverMinutes || '',
+        Notes: options.notes || '',
+        CreatedAt: now,
+        CreatedBy: actor,
+        UpdatedAt: now,
+        UpdatedBy: actor
+      });
+    });
+
+    const dateSeries = buildDateSeries(normalizedStart, normalizedEnd);
+    const holidayMap = includeHolidays ? loadHolidayMap(normalizedStart, normalizedEnd) : new Map();
+
+    const existingAssignments = readShiftAssignments()
+      .map(normalizeAssignmentRecord)
+      .filter(record => record && record.AssignmentId)
+      .filter(record => (record.Status || '').toUpperCase() !== 'ARCHIVED' && (record.Status || '').toUpperCase() !== 'REJECTED');
+
+    const relevantExisting = existingAssignments.filter(record => {
+      if (campaignId && (record.Campaign || '').toString().toLowerCase() !== campaignId.toLowerCase()) {
+        return false;
+      }
+      return !(record.EndDate < normalizedStart || record.StartDate > normalizedEnd);
+    });
+
     const conflicts = [];
-    const dstChanges = [];
-    const assignmentsBySlotDate = new Map();
-    const existingAssignments = new Map();
-    const lastShiftEndByUser = new Map();
+    const assignmentPremiums = new Map();
 
-    // Generate schedules for the entire period
-    const timeZone = Session.getScriptTimeZone();
-    const periodStartStr = Utilities.formatDate(start, timeZone, 'yyyy-MM-dd');
-    const periodEndStr = Utilities.formatDate(end, timeZone, 'yyyy-MM-dd');
+    const checkRestPeriod = (existing, generatedSlot, assignment) => {
+      if (!restHours || !generatedSlot) {
+        return false;
+      }
+      const candidateSlot = slotMap.get(existing.SlotId);
+      if (!candidateSlot) {
+        return false;
+      }
+      const existingStart = new Date(`${existing.StartDate}T00:00:00`);
+      const existingEnd = new Date(`${existing.EndDate}T00:00:00`);
+      const generatedStart = new Date(`${assignment.StartDate}T00:00:00`);
+      const generatedEnd = new Date(`${assignment.EndDate}T00:00:00`);
+      const existingStartMinutes = parseTimeToMinutes(candidateSlot.StartTime || candidateSlot.startTime || '');
+      const existingEndMinutes = parseTimeToMinutes(candidateSlot.EndTime || candidateSlot.endTime || '');
+      const generatedStartMinutes = parseTimeToMinutes(generatedSlot.StartTime || generatedSlot.startTime || '');
+      const generatedEndMinutes = parseTimeToMinutes(generatedSlot.EndTime || generatedSlot.endTime || '');
 
-    let historicalSchedules = [];
-    try {
-      historicalSchedules = readScheduleSheet(SCHEDULE_GENERATION_SHEET) || [];
-    } catch (historyError) {
-      console.warn('Unable to load existing schedules for generation context:', historyError);
-    }
-
-    historicalSchedules.forEach(schedule => {
-      const slotKey = buildSlotAssignmentKey(schedule && (schedule.SlotID || schedule.SlotId), schedule && (schedule.PeriodStart || schedule.Date));
-      if (slotKey) {
-        existingAssignments.set(slotKey, (existingAssignments.get(slotKey) || 0) + 1);
+      if (Number.isFinite(existingEndMinutes)) {
+        existingEnd.setHours(0, existingEndMinutes, 0, 0);
+        if (Number.isFinite(existingStartMinutes) && existingEndMinutes <= existingStartMinutes) {
+          existingEnd.setDate(existingEnd.getDate() + 1);
+        }
       }
 
-      const scheduleUser = schedule && (schedule.UserName || schedule.UserID);
-      if (!scheduleUser) {
-        return;
+      if (Number.isFinite(generatedStartMinutes)) {
+        generatedStart.setHours(0, generatedStartMinutes, 0, 0);
+      }
+      if (Number.isFinite(generatedEndMinutes)) {
+        generatedEnd.setHours(0, generatedEndMinutes, 0, 0);
+        if (Number.isFinite(generatedStartMinutes) && generatedEndMinutes <= generatedStartMinutes) {
+          generatedEnd.setDate(generatedEnd.getDate() + 1);
+        }
       }
 
-      const scheduleEnd = parseDateTimeForGeneration(schedule.PeriodEnd || schedule.Date || schedule.PeriodStart, schedule.EndTime || schedule.OriginalEndTime || schedule.End || schedule.StartTime);
-      if (!scheduleEnd) {
-        return;
-      }
-
-      const existingHandoverMinutes = Number(schedule.HandoverTimeMinutes || schedule.HandoverTime || 0);
-      const bufferedEnd = new Date(scheduleEnd.getTime() + (Number.isFinite(existingHandoverMinutes) ? Math.max(existingHandoverMinutes, 0) : 0) * 60 * 1000);
-      const currentEnd = lastShiftEndByUser.get(scheduleUser);
-      if (!currentEnd || currentEnd < bufferedEnd) {
-        lastShiftEndByUser.set(scheduleUser, bufferedEnd);
-      }
-    });
-
-    const dstStatusByDate = {};
-    [periodStartStr, periodEndStr].forEach(dateStr => {
-      if (!dateStr || dstStatusByDate[dateStr]) {
-        return;
-      }
-
-      const dstStatus = checkDSTStatus(dateStr);
-      dstStatusByDate[dateStr] = dstStatus;
-
-      if (dstStatus.isDSTChange) {
-        dstChanges.push({
-          date: dateStr,
-          changeType: dstStatus.changeType,
-          adjustment: dstStatus.timeAdjustment
-        });
-      }
-    });
-
-    usersToSchedule.forEach(userName => {
-      try {
-        const activeSlots = shiftSlots.filter(slot => slot && slot.IsActive !== false);
-
-        if (activeSlots.length === 0) {
-          console.log(`⚠️ No active slots available for ${userName} in the requested period`);
-          conflicts.push({
-            user: userName,
-            periodStart: periodStartStr,
-            periodEnd: periodEndStr,
-            error: 'No active shift slots available for this period',
-            type: 'NO_SLOT'
-          });
-          return;
-        }
-
-        const capacityFilteredSlots = activeSlots.filter(slot => {
-          const capacityLimit = determineCapacityLimit(slot, generationOptions);
-          const slotKey = buildSlotAssignmentKey(slot && slot.ID, periodStartStr);
-          if (capacityLimit && capacityLimit > 0 && slotKey) {
-            const usedCount = (existingAssignments.get(slotKey) || 0) + (assignmentsBySlotDate.get(slotKey) || 0);
-            if (usedCount >= capacityLimit) {
-              return false;
-            }
-          }
-          return true;
-        });
-
-        if (capacityFilteredSlots.length === 0) {
-          conflicts.push({
-            user: userName,
-            periodStart: periodStartStr,
-            periodEnd: periodEndStr,
-            error: 'All eligible shift slots have reached capacity for this period',
-            type: 'CAPACITY_LIMIT'
-          });
-          return;
-        }
-
-        const selectedSlot = capacityFilteredSlots.sort((a, b) => {
-          const priorityA = a.Priority || 2;
-          const priorityB = b.Priority || 2;
-          if (priorityA !== priorityB) {
-            return priorityB - priorityA;
-          }
-
-          const capacityA = Number(a.MaxCapacity) || 0;
-          const capacityB = Number(b.MaxCapacity) || 0;
-          return capacityB - capacityA;
-        })[0];
-
-        const appliedSlot = applyGenerationOptionsToSlot(selectedSlot, generationOptions);
-
-        const existingSchedule = checkExistingSchedule(userName, periodStartStr, periodEndStr);
-        if (existingSchedule && !options.overrideExisting) {
-          conflicts.push({
-            user: userName,
-            periodStart: periodStartStr,
-            periodEnd: periodEndStr,
-            existingScheduleId: existingSchedule.ID,
-            error: 'User already has a schedule in this period',
-            type: 'USER_DOUBLE_BOOKING'
-          });
-          return;
-        }
-
-        const restHours = Number(generationOptions.advanced && generationOptions.advanced.restPeriod || 0);
-        const handoverMinutes = Number(generationOptions.advanced && generationOptions.advanced.handoverTime || 0);
-        const restRequirementMs = (restHours * 60 * 60 * 1000) + (handoverMinutes * 60 * 1000);
-
-        const scheduleStartDateTime = parseDateTimeForGeneration(periodStartStr, appliedSlot.StartTime || selectedSlot.StartTime);
-        if (restRequirementMs > 0) {
-          const lastRecordedEnd = lastShiftEndByUser.get(userName);
-          if (lastRecordedEnd && scheduleStartDateTime && (scheduleStartDateTime.getTime() - lastRecordedEnd.getTime()) < restRequirementMs) {
-            const restMessage = handoverMinutes > 0
-              ? `Insufficient rest window before new assignment (requires ${restHours}h ${handoverMinutes}m buffer)`
-              : `Insufficient rest window before new assignment (requires ${restHours}h)`;
-            conflicts.push({
-              user: userName,
-              periodStart: periodStartStr,
-              periodEnd: periodEndStr,
-              error: restMessage,
-              type: 'REST_LIMIT'
-            });
-            return;
-          }
-        }
-
-        const scheduleEndDateTime = parseDateTimeForGeneration(periodEndStr, appliedSlot.EndTime || appliedSlot.StartTime || selectedSlot.EndTime);
-        const notificationLeadHours = Number(generationOptions.advanced && generationOptions.advanced.notificationLead || 0);
-        let notificationTarget = '';
-        if (scheduleStartDateTime && notificationLeadHours > 0) {
-          const notifyAt = new Date(scheduleStartDateTime.getTime() - notificationLeadHours * 60 * 60 * 1000);
-          notificationTarget = Utilities.formatDate(notifyAt, timeZone, "yyyy-MM-dd'T'HH:mm:ss");
-        }
-
-        const toSafeNumber = (value) => {
-          const num = Number(value);
-          return Number.isFinite(num) ? num : '';
-        };
-
-        const schedule = {
-          ID: Utilities.getUuid(),
-          UserID: getUserIdByName(userName),
-          UserName: userName,
-          Date: periodStartStr,
-          PeriodStart: periodStartStr,
-          PeriodEnd: periodEndStr,
-          SlotID: appliedSlot.ID,
-          SlotName: appliedSlot.Name,
-          StartTime: appliedSlot.StartTime,
-          EndTime: appliedSlot.EndTime,
-          OriginalStartTime: appliedSlot.StartTime,
-          OriginalEndTime: appliedSlot.EndTime,
-          BreakStart: calculateBreakStart(appliedSlot),
-          BreakEnd: calculateBreakEnd(appliedSlot),
-          LunchStart: calculateLunchStart(appliedSlot),
-          LunchEnd: calculateLunchEnd(appliedSlot),
-          IsDST: (dstStatusByDate[periodStartStr] && dstStatusByDate[periodStartStr].isDST) || false,
-          Status: 'PENDING',
-          GeneratedBy: generatedBy,
-          ApprovedBy: null,
-          NotificationSent: false,
-          CreatedAt: new Date(),
-          UpdatedAt: new Date(),
-          RecurringScheduleID: null,
-          SwapRequestID: null,
-          Priority: options.priority || 2,
-          Notes: options.notes || `Generated from selected slot: ${appliedSlot.Name}`,
-          Location: appliedSlot.Location || '',
-          Department: appliedSlot.Department || '',
-          MaxCapacity: toSafeNumber(typeof appliedSlot.MaxCapacity === 'number' ? appliedSlot.MaxCapacity : generationOptions.capacity.max),
-          MinCoverage: toSafeNumber(typeof appliedSlot.MinCoverage === 'number' ? appliedSlot.MinCoverage : generationOptions.capacity.min),
-          BreakDuration: toSafeNumber(appliedSlot.BreakDuration !== undefined ? appliedSlot.BreakDuration : appliedSlot.Break1Duration),
-          Break1Duration: toSafeNumber(appliedSlot.Break1Duration),
-          Break2Duration: toSafeNumber(appliedSlot.Break2Duration),
-          LunchDuration: toSafeNumber(appliedSlot.LunchDuration),
-          EnableStaggeredBreaks: typeof appliedSlot.EnableStaggeredBreaks === 'boolean' ? appliedSlot.EnableStaggeredBreaks : '',
-          BreakGroups: toSafeNumber(appliedSlot.BreakGroups),
-          StaggerInterval: toSafeNumber(appliedSlot.StaggerInterval),
-          MinCoveragePct: toSafeNumber(appliedSlot.MinCoveragePct),
-          EnableOvertime: typeof appliedSlot.EnableOvertime === 'boolean' ? appliedSlot.EnableOvertime : '',
-          MaxDailyOT: toSafeNumber(appliedSlot.MaxDailyOT),
-          MaxWeeklyOT: toSafeNumber(appliedSlot.MaxWeeklyOT),
-          OTApproval: appliedSlot.OTApproval || '',
-          OTRate: toSafeNumber(appliedSlot.OTRate),
-          OTPolicy: appliedSlot.OTPolicy || '',
-          AllowSwaps: typeof appliedSlot.AllowSwaps === 'boolean' ? appliedSlot.AllowSwaps : '',
-          WeekendPremium: typeof appliedSlot.WeekendPremium === 'boolean' ? appliedSlot.WeekendPremium : '',
-          HolidayPremium: typeof appliedSlot.HolidayPremium === 'boolean' ? appliedSlot.HolidayPremium : '',
-          AutoAssignment: typeof appliedSlot.AutoAssignment === 'boolean' ? appliedSlot.AutoAssignment : '',
-          RestPeriodHours: restHours,
-          NotificationLeadHours: notificationLeadHours,
-          HandoverTimeMinutes: handoverMinutes,
-          NotificationTarget: notificationTarget,
-          GenerationConfig: JSON.stringify(generationOptions.snapshot)
-        };
-
-        const normalizedSchedule = normalizeSchedulePeriodRecord(schedule, timeZone);
-        generatedSchedules.push(normalizedSchedule);
-        console.log(`✅ Generated schedule for ${userName} from ${periodStartStr} to ${periodEndStr} using slot: ${appliedSlot.Name}`);
-
-        const slotAssignmentKey = buildSlotAssignmentKey(appliedSlot.ID, periodStartStr);
-        if (slotAssignmentKey) {
-          assignmentsBySlotDate.set(slotAssignmentKey, (assignmentsBySlotDate.get(slotAssignmentKey) || 0) + 1);
-        }
-
-        if (scheduleEndDateTime) {
-          const bufferedEnd = new Date(scheduleEndDateTime.getTime() + Math.max(handoverMinutes, 0) * 60 * 1000);
-          lastShiftEndByUser.set(userName, bufferedEnd);
-        } else if (scheduleStartDateTime) {
-          lastShiftEndByUser.set(userName, scheduleStartDateTime);
-        }
-
-      } catch (userError) {
-        conflicts.push({
-          user: userName,
-          periodStart: periodStartStr,
-          periodEnd: periodEndStr,
-          error: userError.message,
-          type: 'GENERATION_ERROR'
-        });
-      }
-    });
-
-    // Save generated schedules using ScheduleUtilities
-    if (generatedSchedules.length > 0) {
-      saveSchedulesToSheet(generatedSchedules);
-      console.log(`💾 Saved ${generatedSchedules.length} schedules`);
-    }
-
-    // Return comprehensive result with shift slot information
-    const result = {
-      success: true,
-      generated: generatedSchedules.length,
-      conflicts: conflicts,
-      dstChanges: dstChanges,
-      message: `Successfully generated ${generatedSchedules.length} schedules for period ${periodStartStr} to ${periodEndStr} using ${shiftSlots.length} shift slot(s)`,
-      periodStart: periodStartStr,
-      periodEnd: periodEndStr,
-      schedules: generatedSchedules.slice(0, 10), // Return first 10 for preview
-      userCount: usersToSchedule.length,
-      shiftSlotsUsed: shiftSlots.length,
-      selectedSlots: shiftSlotIds && shiftSlotIds.length > 0 ? shiftSlotIds : null
+      const diffHours = (generatedStart.getTime() - existingEnd.getTime()) / (1000 * 60 * 60);
+      return diffHours < restHours;
     };
 
-    console.log('✅ Enhanced schedule generation completed:', result);
-    return result;
+    const normalizedAssignments = assignments.filter(assignment => {
+      const slot = slotMap.get(assignment.SlotId);
+      if (!slot) {
+        conflicts.push({
+          userId: assignment.UserId,
+          userName: assignment.UserName,
+          type: 'MISSING_SLOT',
+          error: 'Assigned slot could not be found',
+          periodStart: assignment.StartDate,
+          periodEnd: assignment.EndDate
+        });
+        return false;
+      }
+
+      const existingForUser = relevantExisting.filter(existing => {
+        const existingUserKey = normalizeUserKey(existing.UserName || '');
+        const assignmentUserKey = normalizeUserKey(assignment.UserName || '');
+        const sameUser = existing.UserId && assignment.UserId
+          ? String(existing.UserId) === String(assignment.UserId)
+          : existingUserKey && existingUserKey === assignmentUserKey;
+        if (!sameUser) {
+          return false;
+        }
+        const overlaps = !(existing.EndDate < assignment.StartDate || existing.StartDate > assignment.EndDate);
+        if (!overlaps) {
+          return false;
+        }
+        return true;
+      });
+
+      if (existingForUser.length) {
+        existingForUser.forEach(existing => {
+          conflicts.push({
+            userId: assignment.UserId,
+            userName: assignment.UserName,
+            type: 'USER_DOUBLE_BOOKING',
+            existingAssignmentId: existing.AssignmentId,
+            periodStart: existing.StartDate,
+            periodEnd: existing.EndDate,
+            error: 'User already has an assignment that overlaps this period'
+          });
+        });
+        if (detectConflicts) {
+          return false;
+        }
+      }
+
+      if (restHours > 0) {
+        const restConflict = existingForUser.some(existing => checkRestPeriod(existing, slot, assignment));
+        if (restConflict) {
+          conflicts.push({
+            userId: assignment.UserId,
+            userName: assignment.UserName,
+            type: 'REST_VIOLATION',
+            periodStart: assignment.StartDate,
+            periodEnd: assignment.EndDate,
+            error: `Rest period requirement of ${restHours} hours would be violated`
+          });
+          if (detectConflicts) {
+            return false;
+          }
+        }
+      }
+
+      const premiumSet = new Set();
+      const datesForAssignment = dateSeries.filter(date => date >= assignment.StartDate && date <= assignment.EndDate);
+      const hasWeekend = datesForAssignment.some(isWeekendDate);
+      if (hasWeekend && scheduleFlagToBool(advancedOptions.weekendPremium, false)) {
+        premiumSet.add('Weekend');
+      }
+      const hasHoliday = datesForAssignment.some(date => {
+        const entries = holidayMap.get(date) || [];
+        return entries.some(entry => (entry.region || '').toLowerCase() === 'jamaica');
+      });
+      if (hasHoliday && scheduleFlagToBool(advancedOptions.holidayPremium, true)) {
+        premiumSet.add('Holiday');
+      }
+      if (overtimeEnabled) {
+        premiumSet.add('Overtime');
+      }
+      assignmentPremiums.set(assignment.AssignmentId, Array.from(premiumSet));
+      assignment.Premiums = Array.from(premiumSet).join(',');
+      return true;
+    });
+
+    const coverageDetails = dateSeries.map(date => {
+      let total = 0;
+      const breakdown = {};
+      normalizedAssignments.forEach(assignment => {
+        if (assignment.StartDate <= date && assignment.EndDate >= date) {
+          total += 1;
+          breakdown[assignment.SlotId] = (breakdown[assignment.SlotId] || 0) + 1;
+        }
+      });
+
+      let target = minCoverage;
+      if (minCoveragePct > 0) {
+        const base = maxCapacity || normalizedAssignments.length || selectedSlots.length;
+        const pctTarget = Math.ceil(base * (minCoveragePct / 100));
+        target = Math.max(target, pctTarget);
+      }
+
+      const holidayEntries = holidayMap.get(date) || [];
+      const weekend = isWeekendDate(date);
+      return {
+        date,
+        total,
+        minRequired: target,
+        shortfall: target > total ? target - total : 0,
+        excess: target && total > target ? total - target : 0,
+        weekend,
+        holidayRegions: holidayEntries.map(entry => entry.region || ''),
+        slotBreakdown: breakdown,
+        premium: {
+          weekend: weekend && scheduleFlagToBool(advancedOptions.weekendPremium, false),
+          holiday: holidayEntries.some(entry => (entry.region || '').toLowerCase() === 'jamaica') && scheduleFlagToBool(advancedOptions.holidayPremium, true)
+        }
+      };
+    });
+
+    const daysWithShortfall = coverageDetails.filter(day => day.shortfall > 0).length;
+    const coverageMetDays = coverageDetails.length ? coverageDetails.length - daysWithShortfall : 0;
+    const coveragePercent = coverageDetails.length ? Math.round((coverageMetDays / coverageDetails.length) * 100) : 100;
+
+    const previewSummary = {
+      periodStart: normalizedStart,
+      periodEnd: normalizedEnd,
+      totalAssignments: normalizedAssignments.length,
+      coverageDetails,
+      coveragePercent,
+      shortfallDays: daysWithShortfall,
+      skippedUsers,
+      conflicts,
+      unresolvedUsers
+    };
+
+    if (options.commitToken) {
+      const cached = loadSchedulePreview(options.commitToken);
+      if (!cached || !Array.isArray(cached.assignments)) {
+        return {
+          success: false,
+          error: 'Preview token expired or not found. Please regenerate the schedule preview.'
+        };
+      }
+      const commitResult = writeShiftAssignments(cached.assignments, actor, options.notes || 'Auto-assigned schedule generation', 'PENDING');
+      CacheService.getScriptCache().put(`schedule_preview_${options.commitToken}`, '', 1);
+      return {
+        success: true,
+        generated: commitResult.count || cached.assignments.length,
+        periodStart: cached.metadata?.periodStart || normalizedStart,
+        periodEnd: cached.metadata?.periodEnd || normalizedEnd,
+        coverage: cached.metadata?.coverage || previewSummary,
+        conflicts: cached.metadata?.conflicts || [],
+        skipped: cached.metadata?.skippedUsers || []
+      };
+    }
+
+    const previewToken = storeSchedulePreview({
+      assignments: normalizedAssignments,
+      metadata: {
+        periodStart: normalizedStart,
+        periodEnd: normalizedEnd,
+        coverage: previewSummary,
+        conflicts,
+        skippedUsers
+      }
+    });
+
+    const assignmentSummary = normalizedAssignments.map(assignment => ({
+      AssignmentId: assignment.AssignmentId,
+      UserId: assignment.UserId,
+      UserName: assignment.UserName,
+      SlotId: assignment.SlotId,
+      SlotName: assignment.SlotName,
+      StartDate: assignment.StartDate,
+      EndDate: assignment.EndDate,
+      Premiums: assignmentPremiums.get(assignment.AssignmentId) || []
+    }));
+
+    return {
+      success: true,
+      previewToken,
+      generated: normalizedAssignments.length,
+      preview: previewSummary,
+      assignments: assignmentSummary,
+      conflicts,
+      skippedUsers,
+      unresolvedUsers
+    };
 
   } catch (error) {
     console.error('❌ Enhanced schedule generation failed:', error);
@@ -1641,34 +1990,48 @@ function clientGenerateSchedulesEnhanced(startDate, endDate, userNames, shiftSlo
       success: false,
       error: error.message,
       generated: 0,
-      conflicts: [],
-      dstChanges: []
+      conflicts: []
     };
   }
 }
 
-/**
- * Save schedules to sheet using ScheduleUtilities
- */
+
 function saveSchedulesToSheet(schedules) {
   try {
-    // Use ScheduleUtilities to ensure proper sheet and headers
-    const sheet = ensureScheduleSheetWithHeaders(SCHEDULE_GENERATION_SHEET, SCHEDULE_GENERATION_HEADERS);
+    if (!Array.isArray(schedules) || !schedules.length) {
+      return;
+    }
 
-    schedules.forEach(schedule => {
-      const normalized = normalizeSchedulePeriodRecord(schedule);
-      // Create row data using proper header order from ScheduleUtilities
-      const rowData = SCHEDULE_GENERATION_HEADERS.map(header => {
-        if (normalized && Object.prototype.hasOwnProperty.call(normalized, header)) {
-          return normalized[header];
-        }
-        return '';
-      });
-      sheet.appendRow(rowData);
-    });
+    const actor = 'Import';
+    const assignments = schedules.map(schedule => ({
+      AssignmentId: schedule.AssignmentId || schedule.ID || Utilities.getUuid(),
+      UserId: schedule.UserID || schedule.UserId || '',
+      UserName: schedule.UserName || '',
+      Campaign: schedule.Campaign || schedule.Department || '',
+      SlotId: schedule.SlotID || schedule.SlotId || '',
+      SlotName: schedule.SlotName || schedule.Name || '',
+      StartDate: normalizeDateForSheet(schedule.PeriodStart || schedule.Date, DEFAULT_SCHEDULE_TIME_ZONE),
+      EndDate: normalizeDateForSheet(schedule.PeriodEnd || schedule.Date, DEFAULT_SCHEDULE_TIME_ZONE) || normalizeDateForSheet(schedule.PeriodStart || schedule.Date, DEFAULT_SCHEDULE_TIME_ZONE),
+      Status: schedule.Status || 'PENDING',
+      AllowSwap: scheduleFlagToBool(schedule.AllowSwaps || schedule.AllowSwap, false),
+      Premiums: [
+        scheduleFlagToBool(schedule.WeekendPremium, false) ? 'Weekend' : '',
+        scheduleFlagToBool(schedule.HolidayPremium, false) ? 'Holiday' : '',
+        scheduleFlagToBool(schedule.EnableOvertime || schedule.EnableOT, false) ? 'Overtime' : ''
+      ].filter(Boolean).join(','),
+      BreaksConfigJSON: schedule.GenerationConfig || schedule.BreaksConfigJSON || '',
+      OvertimeMinutes: schedule.MaxDailyOT ? Math.round(Number(schedule.MaxDailyOT) * 60) : '',
+      RestPeriodHours: schedule.RestPeriodHours || schedule.RestPeriod || '',
+      NotificationLeadHours: schedule.NotificationLeadHours || schedule.NotificationLead || '',
+      HandoverMinutes: schedule.HandoverTimeMinutes || schedule.HandoverTime || '',
+      Notes: schedule.Notes || '',
+      CreatedAt: new Date(),
+      CreatedBy: actor,
+      UpdatedAt: new Date(),
+      UpdatedBy: actor
+    }));
 
-    SpreadsheetApp.flush();
-    invalidateScheduleCaches();
+    writeShiftAssignments(assignments, actor, 'Legacy schedule import', 'PENDING');
 
   } catch (error) {
     console.error('Error saving schedules to sheet:', error);
@@ -1680,23 +2043,84 @@ function saveSchedulesToSheet(schedules) {
 /**
  * Get all schedules with filtering - uses ScheduleUtilities
  */
+
 function clientGetAllSchedules(filters = {}) {
   try {
-    console.log('📋 Getting all schedules with filters:', filters);
+    console.log('📋 Getting all assignments with filters:', filters);
+    const assignments = readShiftAssignments().map(normalizeAssignmentRecord);
+    const slotMap = new Map(clientGetAllShiftSlots().map(slot => [slot.SlotId, slot]));
 
-    // Use ScheduleUtilities to read schedules
-    let schedules = readScheduleSheet(SCHEDULE_GENERATION_SHEET) || [];
+    let filtered = assignments;
 
-    if (!schedules.length) {
-      const legacySheets = ['Schedules', 'Schedule', 'AgentSchedules'];
-      for (let i = 0; i < legacySheets.length && !schedules.length; i++) {
-        const legacyRows = readSheet(legacySheets[i]);
-        if (Array.isArray(legacyRows) && legacyRows.length) {
-          console.log(`Discovered legacy schedule data in ${legacySheets[i]}`);
-          schedules = legacyRows.map(convertLegacyScheduleRecord).filter(Boolean);
-        }
-      }
+    if (filters.startDate) {
+      filtered = filtered.filter(record => !record.EndDate || record.EndDate >= filters.startDate);
     }
+    if (filters.endDate) {
+      filtered = filtered.filter(record => !record.StartDate || record.StartDate <= filters.endDate);
+    }
+    if (filters.userId) {
+      filtered = filtered.filter(record => String(record.UserId || '') === String(filters.userId));
+    }
+    if (filters.userName) {
+      filtered = filtered.filter(record => (record.UserName || '').toString() === filters.userName);
+    }
+    if (filters.status) {
+      filtered = filtered.filter(record => (record.Status || '').toString().toUpperCase() === filters.status.toUpperCase());
+    }
+    if (filters.campaign) {
+      filtered = filtered.filter(record => (record.Campaign || '').toString().toLowerCase() === filters.campaign.toLowerCase());
+    }
+    if (filters.slotId) {
+      filtered = filtered.filter(record => record.SlotId === filters.slotId);
+    }
+
+    const normalized = filtered.map(record => {
+      const slot = slotMap.get(record.SlotId) || {};
+      return {
+        ID: record.AssignmentId,
+        AssignmentId: record.AssignmentId,
+        UserId: record.UserId,
+        UserName: record.UserName,
+        SlotId: record.SlotId,
+        SlotName: record.SlotName || slot.SlotName || slot.Name || '',
+        Campaign: record.Campaign || slot.Campaign || '',
+        Location: slot.Location || '',
+        StartDate: record.StartDate,
+        EndDate: record.EndDate,
+        Status: record.Status || 'PENDING',
+        AllowSwap: scheduleFlagToBool(record.AllowSwap, false),
+        Premiums: record.Premiums || '',
+        Notes: record.Notes || '',
+        StartTime: slot.StartTime || '',
+        EndTime: slot.EndTime || ''
+      };
+    });
+
+    normalized.sort((a, b) => {
+      const startCompare = (b.StartDate || '').localeCompare(a.StartDate || '');
+      if (startCompare !== 0) {
+        return startCompare;
+      }
+      return (a.UserName || '').localeCompare(b.UserName || '');
+    });
+
+    return {
+      success: true,
+      schedules: normalized,
+      total: normalized.length,
+      filters
+    };
+
+  } catch (error) {
+    console.error('❌ Error getting assignments:', error);
+    safeWriteError('clientGetAllSchedules', error);
+    return {
+      success: false,
+      error: error.message,
+      schedules: []
+    };
+  }
+}
 
     const normalizedSchedules = schedules.map(record => normalizeSchedulePeriodRecord(record));
 
@@ -1774,12 +2198,30 @@ function clientGetAllSchedules(filters = {}) {
 /**
  * Core schedule import implementation shared by all callers
  */
+
 function internalClientImportSchedules(importRequest = {}) {
   try {
     const schedules = Array.isArray(importRequest.schedules) ? importRequest.schedules : [];
     if (schedules.length === 0) {
       throw new Error('No schedules were provided for import.');
     }
+
+    saveSchedulesToSheet(schedules);
+
+    return {
+      success: true,
+      imported: schedules.length
+    };
+
+  } catch (error) {
+    console.error('❌ Error importing schedules:', error);
+    safeWriteError('internalClientImportSchedules', error);
+    return {
+      success: false,
+      error: error.message || 'Unknown schedule import error'
+    };
+  }
+}
 
     const metadata = importRequest.metadata || {};
     const timeZone = DEFAULT_SCHEDULE_TIME_ZONE;
@@ -1796,159 +2238,6 @@ function internalClientImportSchedules(importRequest = {}) {
       throw new Error('No valid schedules were found in the uploaded file.');
     }
 
-    const existingRecords = readScheduleSheet(SCHEDULE_GENERATION_SHEET) || [];
-    const normalizedExisting = existingRecords.map(record => normalizeSchedulePeriodRecord(record, timeZone));
-    const replaceExisting = metadata.replaceExisting === true;
-
-    let minStart = null;
-    let maxEnd = null;
-
-    normalizedNew.forEach(record => {
-      const startDate = resolveSchedulePeriodStartDate(record, timeZone);
-      const endDate = resolveSchedulePeriodEndDate(record, timeZone) || startDate;
-
-      if (startDate && (!minStart || startDate < minStart)) {
-        minStart = new Date(startDate);
-      }
-      if (endDate && (!maxEnd || endDate > maxEnd)) {
-        maxEnd = new Date(endDate);
-      }
-    });
-
-    if (metadata.startDate) {
-      metadata.startDate = normalizeDateForSheet(metadata.startDate, timeZone);
-    }
-    if (metadata.endDate) {
-      metadata.endDate = normalizeDateForSheet(metadata.endDate, timeZone);
-    }
-    if (metadata.startWeekDate) {
-      metadata.startWeekDate = normalizeDateForSheet(metadata.startWeekDate, timeZone);
-    }
-    if (metadata.endWeekDate) {
-      metadata.endWeekDate = normalizeDateForSheet(metadata.endWeekDate, timeZone);
-    }
-
-    if (!metadata.startDate && metadata.startWeekDate) {
-      metadata.startDate = metadata.startWeekDate;
-    }
-    if (!metadata.endDate && metadata.endWeekDate) {
-      metadata.endDate = metadata.endWeekDate;
-    }
-
-    const newKeys = new Set(normalizedNew.map(record => buildScheduleCompositeKey(record, timeZone)));
-    let replacedCount = 0;
-
-    const retainedRecords = normalizedExisting.filter(existing => {
-      const key = buildScheduleCompositeKey(existing, timeZone);
-      if (newKeys.has(key)) {
-        replacedCount++;
-        return false;
-      }
-
-      if (replaceExisting && minStart && maxEnd) {
-        const existingStart = resolveSchedulePeriodStartDate(existing, timeZone);
-        const existingEnd = resolveSchedulePeriodEndDate(existing, timeZone) || existingStart;
-        if (existingStart && existingEnd && existingEnd >= minStart && existingStart <= maxEnd) {
-          replacedCount++;
-          return false;
-        }
-      }
-
-      return true;
-    });
-
-    const combinedRecords = retainedRecords.concat(normalizedNew);
-
-    combinedRecords.sort((a, b) => {
-      const diff = getSchedulePeriodSortValue(a, timeZone) - getSchedulePeriodSortValue(b, timeZone);
-      if (diff !== 0) {
-        return diff;
-      }
-
-      const nameA = (a.UserName || '').toString();
-      const nameB = (b.UserName || '').toString();
-      return nameA.localeCompare(nameB);
-    });
-
-    writeToScheduleSheet(SCHEDULE_GENERATION_SHEET, combinedRecords);
-    invalidateScheduleCaches();
-
-    const normalizedStart = minStart ? normalizeDateForSheet(minStart, timeZone) : '';
-    const normalizedEnd = maxEnd ? normalizeDateForSheet(maxEnd, timeZone) : '';
-
-    const summary = typeof metadata.summary === 'object' && metadata.summary !== null
-      ? metadata.summary
-      : {};
-
-    if (metadata.startDate && !summary.startDate) {
-      summary.startDate = metadata.startDate;
-    } else if (normalizedStart && !summary.startDate) {
-      summary.startDate = normalizedStart;
-    }
-
-    if (metadata.endDate && !summary.endDate) {
-      summary.endDate = metadata.endDate;
-    } else if (normalizedEnd && !summary.endDate) {
-      summary.endDate = normalizedEnd;
-    }
-
-    if (typeof summary.totalAssignments !== 'number') {
-      summary.totalAssignments = normalizedNew.length;
-    }
-    if (typeof summary.totalShifts !== 'number') {
-      summary.totalShifts = normalizedNew.length;
-    }
-
-    const daySpan = calculateDaySpanCount(metadata.startDate, metadata.endDate, minStart, maxEnd);
-    if ((typeof summary.dayCount !== 'number' || summary.dayCount <= 0) && daySpan) {
-      summary.dayCount = daySpan;
-    }
-
-    const weekSpan = calculateWeekSpanCount(
-      metadata.startWeekDate || metadata.startDate,
-      metadata.endWeekDate || metadata.endDate,
-      minStart,
-      maxEnd
-    );
-    if ((typeof summary.weekCount !== 'number' || summary.weekCount <= 0) && weekSpan) {
-      summary.weekCount = weekSpan;
-    }
-
-    metadata.summary = summary;
-
-    if (!metadata.dayCount && daySpan) {
-      metadata.dayCount = daySpan;
-    }
-
-    if (!metadata.weekCount && weekSpan) {
-      metadata.weekCount = weekSpan;
-    }
-
-    return {
-      success: true,
-      importedCount: normalizedNew.length,
-      replacedCount,
-      totalAfterImport: combinedRecords.length,
-      range: {
-        start: normalizedStart,
-        end: normalizedEnd
-      },
-      metadata
-    };
-
-  } catch (error) {
-    console.error('❌ Error importing schedules:', error);
-    safeWriteError('clientImportSchedules', error);
-    return {
-      success: false,
-      error: error.message
-    };
-  }
-}
-
-/**
- * Import schedules from uploaded data
- */
 function clientImportSchedules(importRequest = {}) {
   return internalClientImportSchedules(importRequest);
 }
@@ -2450,360 +2739,194 @@ function clientGetCountryHolidays(countryCode, year) {
   }
 }
 
-/**
- * Manually create shift slot assignments for specific users
- */
-function clientAddManualShiftSlots(request = {}) {
+  function clientAddManualShiftSlots(request = {}) {
   try {
-    const timeZone = typeof Session !== 'undefined' ? Session.getScriptTimeZone() : 'UTC';
-    const normalizedDate = normalizeDateForSheet(request.date, timeZone);
+    const timeZone = typeof Session !== 'undefined' ? Session.getScriptTimeZone() : DEFAULT_SCHEDULE_TIME_ZONE;
+    const normalizedStart = normalizeDateForSheet(request.startDate || request.date, timeZone);
+    const normalizedEnd = normalizeDateForSheet(request.endDate || request.date, timeZone) || normalizedStart;
 
-    if (!normalizedDate) {
+    if (!normalizedStart || !normalizedEnd) {
       return {
         success: false,
-        error: 'A valid assignment date is required.'
+        error: 'Start and end dates are required for manual assignment.'
       };
     }
 
-    const assignmentDate = new Date(`${normalizedDate}T00:00:00Z`);
-    const earliestDate = new Date('2023-01-01T00:00:00Z');
-    if (assignmentDate < earliestDate) {
+    if (new Date(normalizedStart) > new Date(normalizedEnd)) {
       return {
         success: false,
-        error: 'Assignments can only be created for dates in 2023 or later.'
+        error: 'End date must be on or after the start date.'
       };
     }
 
-    const normalizeTimeValue = (value) => {
-      if (value === null || typeof value === 'undefined') {
-        return '';
-      }
-
-      const text = value.toString().trim();
-      if (!text) {
-        return '';
-      }
-
-      if (/^\d{1,2}:\d{2}$/.test(text)) {
-        const [hours, minutes] = text.split(':');
-        return `${hours.padStart(2, '0')}:${minutes}`;
-      }
-
-      if (/^\d{1,2}:\d{2}:\d{2}$/.test(text)) {
-        const [hours, minutes] = text.split(':');
-        return `${hours.padStart(2, '0')}:${minutes}`;
-      }
-
-      const parsed = new Date(`1970-01-01T${text}`);
-      if (!isNaN(parsed.getTime())) {
-        const hours = parsed.getHours().toString().padStart(2, '0');
-        const minutes = parsed.getMinutes().toString().padStart(2, '0');
-        return `${hours}:${minutes}`;
-      }
-
-      return text;
-    };
-
-    const startTime = normalizeTimeValue(request.startTime);
-    const endTime = normalizeTimeValue(request.endTime);
-
-    if (!startTime || !endTime) {
+    const slotId = request.slotId || request.slot || '';
+    if (!slotId) {
       return {
         success: false,
-        error: 'Start and end times are required.'
+        error: 'Select a shift slot before creating assignments.'
       };
     }
 
-    const toMinutes = (value) => {
-      if (!value) {
-        return NaN;
-      }
-      const parts = value.split(':');
-      if (parts.length < 2) {
-        return NaN;
-      }
-      const hours = Number(parts[0]);
-      const minutes = Number(parts[1]);
-      if (!Number.isFinite(hours) || !Number.isFinite(minutes)) {
-        return NaN;
-      }
-      return (hours * 60) + minutes;
-    };
-
-    const startMinutes = toMinutes(startTime);
-    const endMinutes = toMinutes(endTime);
-
-    if (!Number.isFinite(startMinutes) || !Number.isFinite(endMinutes)) {
+    const slot = clientGetAllShiftSlots().find(slot => slot.SlotId === slotId);
+    if (!slot) {
       return {
         success: false,
-        error: 'Start and end times must be valid HH:MM values.'
+        error: 'The selected shift slot could not be found.'
       };
     }
 
-    if (endMinutes <= startMinutes) {
+    const userEntries = Array.isArray(request.users) ? request.users : [];
+    if (!userEntries.length) {
       return {
         success: false,
-        error: 'End time must be later than start time.'
+        error: 'Choose at least one user for manual assignment.'
       };
     }
 
-    const rawUsers = Array.isArray(request.users) ? request.users : [];
-    if (rawUsers.length === 0) {
-      return {
-        success: false,
-        error: 'Select at least one user to receive the shift slot.'
-      };
-    }
+    const replaceExisting = scheduleFlagToBool(request.replaceExisting, false);
+    const campaignId = normalizeCampaignIdValue(request.campaignId || slot.Campaign || '');
+    const actor = request.createdBy || (typeof getCurrentUser === 'function' ? (getCurrentUser()?.Email || 'System') : 'System');
 
-    const scheduleUsers = clientGetScheduleUsers('system') || [];
-    const usersById = {};
-    const usersByName = {};
-
+    const scheduleUsers = clientGetScheduleUsers(actor, campaignId || null);
+    const userKeyMap = new Map();
+    const userIdMap = new Map();
     scheduleUsers.forEach(user => {
-      if (!user) {
-        return;
-      }
-      const idKey = normalizeUserIdValue(user.ID);
-      if (idKey) {
-        usersById[idKey] = user;
-      }
-      const nameKey = normalizeUserKey(user.UserName || user.FullName || user.Email || '');
-      if (nameKey) {
-        usersByName[nameKey] = user;
-      }
+      userKeyMap.set(normalizeUserKey(user.UserName || user.FullName), user);
+      userIdMap.set(String(user.ID), user);
     });
 
-    const existingRecords = readScheduleSheet(SCHEDULE_GENERATION_SHEET) || [];
-    const existingKeySet = new Set();
+    const existingAssignments = readShiftAssignments()
+      .map(normalizeAssignmentRecord)
+      .filter(record => record && record.AssignmentId)
+      .filter(record => (record.Status || '').toUpperCase() !== 'ARCHIVED');
 
-    const buildRecordKeys = (record) => {
-      const keys = [];
-      const normalized = normalizeSchedulePeriodRecord(record, timeZone);
-      const start = normalized && normalized.PeriodStart ? normalized.PeriodStart : '';
-      const end = normalized && normalized.PeriodEnd ? normalized.PeriodEnd : start;
-
-      if (!start) {
-        return keys;
-      }
-
-      const periodKey = `${start}::${end}`;
-
-      const idKey = normalizeUserIdValue(record && record.UserID);
-      if (idKey) {
-        keys.push(`id::${idKey}::${periodKey}`);
-      }
-
-      const nameKey = normalizeUserKey(record && (record.UserName || record.FullName || record.UserID));
-      if (nameKey) {
-        keys.push(`name::${nameKey}::${periodKey}`);
-      }
-
-      return keys;
-    };
-
-    existingRecords.forEach(record => {
-      buildRecordKeys(record).forEach(key => existingKeySet.add(key));
-    });
-
-    const replaceExisting = request.replaceExisting === true;
-    const keysToReplace = new Set();
-
-    const monthNumber = Number(request.sourceMonth);
-    const validSourceMonth = Number.isFinite(monthNumber) && monthNumber >= 1 && monthNumber <= 12 ? monthNumber : null;
-    const yearNumber = Number(request.sourceYear);
-    const validSourceYear = Number.isFinite(yearNumber) ? yearNumber : null;
-
-    const sourceParts = [];
-    if (validSourceMonth) {
-      const monthLabel = getMonthNameFromNumber(validSourceMonth) || `Month ${validSourceMonth}`;
-      sourceParts.push(monthLabel);
-    }
-    if (validSourceYear) {
-      sourceParts.push(validSourceYear);
-    }
-    const sourceNote = sourceParts.length ? `Source schedule: ${sourceParts.join(' ')}` : '';
-    const additionalNotes = (request.notes || '').toString().trim();
-    const combinedNotes = [sourceNote, additionalNotes].filter(Boolean).join(' | ');
-
-    const slotLabel = (request.slotName || request.slotLabel || '').toString().trim();
-    const slotName = slotLabel || `Manual Shift ${startTime}-${endTime}`;
-
-    const activeUserEmail = typeof Session !== 'undefined' && Session.getActiveUser
-      ? (Session.getActiveUser().getEmail() || '')
-      : '';
-    const generatedBy = activeUserEmail || 'Manual Shift Slot Entry';
-
-    const now = new Date();
-    const nowIso = Utilities.formatDate(now, timeZone, "yyyy-MM-dd'T'HH:mm:ss");
-
-    const newRecords = [];
+    const conflicts = [];
+    const createdAssignments = [];
     const failedUsers = [];
+    const archivedAssignments = [];
+    const now = new Date();
 
-    rawUsers.forEach(entry => {
-      const resolvedId = normalizeUserIdValue(entry && (entry.id || entry.ID || entry.userId || entry.UserID));
-      const nameCandidates = [];
-
-      if (typeof entry === 'string') {
-        nameCandidates.push(entry);
-      } else if (entry && typeof entry === 'object') {
-        ['userName', 'UserName', 'fullName', 'FullName', 'name', 'Name'].forEach(key => {
-          const value = entry[key];
-          if (value) {
-            nameCandidates.push(value);
-          }
-        });
+    userEntries.forEach(entry => {
+      if (!entry) {
+        return;
+      }
+      const nameKey = normalizeUserKey(entry.UserName || entry.FullName || entry.name || entry);
+      const idKey = String(entry.ID || entry.id || entry.userId || entry);
+      const user = userKeyMap.get(nameKey) || userIdMap.get(idKey);
+      if (!user) {
+        failedUsers.push({ entry, reason: 'User not found in schedule directory' });
+        return;
       }
 
-      const resolvedName = nameCandidates.find(name => name && name.toString().trim()) || '';
-      const normalizedName = normalizeUserKey(resolvedName);
-
-      let matchedUser = null;
-      if (resolvedId && usersById[resolvedId]) {
-        matchedUser = usersById[resolvedId];
-      } else if (normalizedName && usersByName[normalizedName]) {
-        matchedUser = usersByName[normalizedName];
-      }
-
-      if (!matchedUser && normalizedName) {
-        const partialMatch = scheduleUsers.find(user => normalizeUserKey(user.FullName || user.UserName) === normalizedName);
-        if (partialMatch) {
-          matchedUser = partialMatch;
+      const overlap = existingAssignments.filter(record => {
+        const sameUser = record.UserId && user.ID
+          ? String(record.UserId) === String(user.ID)
+          : normalizeUserKey(record.UserName || '') === normalizeUserKey(user.UserName || user.FullName);
+        if (!sameUser) {
+          return false;
         }
-      }
-
-      const userIdForRecord = normalizeUserIdValue(matchedUser ? matchedUser.ID : resolvedId);
-      const nameForRecord = matchedUser
-        ? (matchedUser.UserName || matchedUser.FullName)
-        : (resolvedName || resolvedId || '');
-
-      if (!nameForRecord) {
-        failedUsers.push({
-          userId: resolvedId || '',
-          userName: resolvedName || '',
-          reason: 'User could not be resolved'
-        });
-        return;
-      }
-
-      const recordKeys = [];
-      if (userIdForRecord) {
-        recordKeys.push(`id::${userIdForRecord}::${normalizedDate}`);
-      }
-
-      const nameKey = normalizeUserKey(nameForRecord);
-      if (nameKey) {
-        recordKeys.push(`name::${nameKey}::${normalizedDate}`);
-      }
-
-      const hasExisting = recordKeys.some(key => existingKeySet.has(key));
-      if (hasExisting && !replaceExisting) {
-        failedUsers.push({
-          userId: userIdForRecord || '',
-          userName: nameForRecord,
-          reason: 'Existing assignment found for this date'
-        });
-        return;
-      }
-
-      recordKeys.forEach(key => {
-        existingKeySet.add(key);
-        keysToReplace.add(key);
+        return !(record.EndDate < normalizedStart || record.StartDate > normalizedEnd);
       });
 
-      const department = request.department || (matchedUser && matchedUser.campaignName) || '';
-      const location = request.location || '';
-      const priority = Number.isFinite(Number(request.priority)) ? Number(request.priority) : 2;
+      if (overlap.length && !replaceExisting) {
+        overlap.forEach(conflict => {
+          conflicts.push({
+            userId: user.ID,
+            userName: user.UserName || user.FullName,
+            type: 'USER_DOUBLE_BOOKING',
+            existingAssignmentId: conflict.AssignmentId,
+            periodStart: conflict.StartDate,
+            periodEnd: conflict.EndDate,
+            error: 'Existing assignment overlaps the selected range'
+          });
+        });
+        return;
+      }
 
-      newRecords.push({
-        ID: Utilities.getUuid(),
-        UserID: userIdForRecord || '',
-        UserName: nameForRecord,
-        Date: normalizedDate,
-        PeriodStart: normalizedDate,
-        PeriodEnd: normalizedDate,
-        SlotID: '',
-        SlotName: slotName,
-        StartTime: startTime,
-        EndTime: endTime,
-        OriginalStartTime: startTime,
-        OriginalEndTime: endTime,
-        BreakStart: '',
-        BreakEnd: '',
-        LunchStart: '',
-        LunchEnd: '',
-        IsDST: '',
-        Status: 'MANUAL',
-        GeneratedBy: generatedBy,
-        ApprovedBy: '',
-        NotificationSent: '',
-        CreatedAt: nowIso,
-        UpdatedAt: nowIso,
-        RecurringScheduleID: '',
-        SwapRequestID: '',
-        Priority: priority,
-        Notes: combinedNotes,
-        Location: location,
-        Department: department
+      if (replaceExisting && overlap.length) {
+        overlap.forEach(conflict => {
+          updateShiftAssignmentRow(conflict.AssignmentId, row => {
+            row.Status = 'ARCHIVED';
+            row.UpdatedAt = now;
+            row.UpdatedBy = actor;
+            return row;
+          });
+          archivedAssignments.push(conflict.AssignmentId);
+        });
+      }
+
+      createdAssignments.push({
+        AssignmentId: Utilities.getUuid(),
+        UserId: user.ID,
+        UserName: user.UserName || user.FullName,
+        Campaign: campaignId || user.CampaignID || '',
+        SlotId: slot.SlotId,
+        SlotName: slot.SlotName || slot.Name,
+        StartDate: normalizedStart,
+        EndDate: normalizedEnd,
+        Status: 'PENDING',
+        AllowSwap: scheduleFlagToBool(request.allowSwaps, true),
+        Premiums: '',
+        BreaksConfigJSON: JSON.stringify({
+          break1: 15,
+          break2: 15,
+          lunch: 30,
+          enableStaggered: false,
+          groups: '',
+          interval: '',
+          unproductive: 60
+        }),
+        OvertimeMinutes: '',
+        RestPeriodHours: '',
+        NotificationLeadHours: '',
+        HandoverMinutes: '',
+        Notes: request.notes || '',
+        CreatedAt: now,
+        CreatedBy: actor,
+        UpdatedAt: now,
+        UpdatedBy: actor
       });
     });
 
-    if (!newRecords.length) {
+    if (!createdAssignments.length) {
       return {
         success: false,
-        error: 'No new shift slots were created.',
+        error: conflicts.length ? 'Assignments blocked by existing conflicts.' : 'No assignments were created.',
+        conflicts,
         failed: failedUsers
       };
     }
 
-    let replacedCount = 0;
-
-    if (replaceExisting) {
-      const retainedRecords = existingRecords.filter(existing => {
-        const keys = buildRecordKeys(existing);
-        return !keys.some(key => keysToReplace.has(key));
-      });
-
-      replacedCount = existingRecords.length - retainedRecords.length;
-
-      const updatedRecords = retainedRecords.concat(newRecords);
-      writeToScheduleSheet(SCHEDULE_GENERATION_SHEET, updatedRecords);
-    } else {
-      saveSchedulesToSheet(newRecords);
-    }
+    const writeResult = writeShiftAssignments(createdAssignments, actor, request.notes || 'Manual assignment', 'PENDING');
 
     return {
       success: true,
-      created: newRecords.length,
-      replaced: replacedCount,
+      created: writeResult.count || createdAssignments.length,
+      conflicts,
       failed: failedUsers,
-      details: newRecords.map(record => ({
-        userId: record.UserID,
-        userName: record.UserName,
-        date: record.Date,
-        startTime: record.StartTime,
-        endTime: record.EndTime,
-        slotName: record.SlotName
-      })),
-      message: `Added ${newRecords.length} manual shift slot${newRecords.length === 1 ? '' : 's'} on ${normalizedDate}.`
+      archived: archivedAssignments,
+      assignments: createdAssignments.map(item => ({
+        AssignmentId: item.AssignmentId,
+        UserId: item.UserId,
+        UserName: item.UserName,
+        SlotId: item.SlotId,
+        SlotName: item.SlotName,
+        StartDate: item.StartDate,
+        EndDate: item.EndDate
+      }))
     };
+
   } catch (error) {
-    console.error('Error manually adding shift slots:', error);
+    console.error('❌ Error creating manual shift assignments:', error);
     safeWriteError('clientAddManualShiftSlots', error);
     return {
       success: false,
-      error: error && error.message ? error.message : 'Failed to add manual shift slots.'
+      error: error.message
     };
   }
 }
 
-// ────────────────────────────────────────────────────────────────────────────
-// ATTENDANCE MANAGEMENT - Uses ScheduleUtilities
-// ────────────────────────────────────────────────────────────────────────────
-
-/**
- * Mark attendance status for a user on a specific date
- */
-function clientMarkAttendanceStatus(userName, date, status, notes = '') {
+  function clientMarkAttendanceStatus(userName, date, status, notes = '') {
   try {
     console.log('📝 Marking attendance status:', { userName, date, status, notes });
 
@@ -3121,14 +3244,51 @@ function clientRunSystemDiagnostics() {
 /**
  * Approve schedules
  */
+
 function clientApproveSchedules(scheduleIds, approvingUserId, notes = '') {
   try {
-    console.log('✅ Approving schedules:', scheduleIds);
-    
-    const sheet = getScheduleSpreadsheet().getSheetByName(SCHEDULE_GENERATION_SHEET);
-    if (!sheet) {
-      throw new Error('Schedules sheet not found');
+    if (!Array.isArray(scheduleIds) || !scheduleIds.length) {
+      return {
+        success: false,
+        error: 'Select at least one assignment to approve.'
+      };
     }
+
+    const actor = approvingUserId || (typeof getCurrentUser === 'function' ? (getCurrentUser()?.Email || 'System') : 'System');
+    const results = [];
+
+    scheduleIds.forEach(id => {
+      const update = updateShiftAssignmentRow(id, row => {
+        const updated = Object.assign({}, row);
+        updated.Status = 'APPROVED';
+        updated.UpdatedAt = new Date();
+        updated.UpdatedBy = actor;
+        if (notes) {
+          updated.Notes = updated.Notes ? `${updated.Notes}
+${notes}` : notes;
+        }
+        return updated;
+      });
+      if (update.success) {
+        results.push(update.assignment);
+      }
+    });
+
+    return {
+      success: true,
+      approved: results.length,
+      assignments: results
+    };
+
+  } catch (error) {
+    console.error('Error approving assignments:', error);
+    safeWriteError('clientApproveSchedules', error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
 
     const data = sheet.getDataRange().getValues();
     const headers = data[0];
@@ -3170,14 +3330,51 @@ function clientApproveSchedules(scheduleIds, approvingUserId, notes = '') {
 /**
  * Reject schedules
  */
+
 function clientRejectSchedules(scheduleIds, rejectingUserId, reason = '') {
   try {
-    console.log('❌ Rejecting schedules:', scheduleIds);
-    
-    const sheet = getScheduleSpreadsheet().getSheetByName(SCHEDULE_GENERATION_SHEET);
-    if (!sheet) {
-      throw new Error('Schedules sheet not found');
+    if (!Array.isArray(scheduleIds) || !scheduleIds.length) {
+      return {
+        success: false,
+        error: 'Select at least one assignment to reject.'
+      };
     }
+
+    const actor = rejectingUserId || (typeof getCurrentUser === 'function' ? (getCurrentUser()?.Email || 'System') : 'System');
+    const results = [];
+
+    scheduleIds.forEach(id => {
+      const update = updateShiftAssignmentRow(id, row => {
+        const updated = Object.assign({}, row);
+        updated.Status = 'REJECTED';
+        updated.UpdatedAt = new Date();
+        updated.UpdatedBy = actor;
+        if (reason) {
+          updated.Notes = updated.Notes ? `${updated.Notes}
+Rejected: ${reason}` : `Rejected: ${reason}`;
+        }
+        return updated;
+      });
+      if (update.success) {
+        results.push(update.assignment);
+      }
+    });
+
+    return {
+      success: true,
+      rejected: results.length,
+      assignments: results
+    };
+
+  } catch (error) {
+    console.error('Error rejecting assignments:', error);
+    safeWriteError('clientRejectSchedules', error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
 
     const data = sheet.getDataRange().getValues();
     const headers = data[0];
@@ -3246,25 +3443,35 @@ function getUserIdByName(userName) {
 /**
  * Check if schedule exists for user within a period - uses ScheduleUtilities
  */
+
 function checkExistingSchedule(userName, periodStart, periodEnd) {
   try {
-    const schedules = readScheduleSheet(SCHEDULE_GENERATION_SHEET) || [];
-    const normalizeDate = (typeof normalizeScheduleDate === 'function')
-      ? normalizeScheduleDate
-      : value => {
-          if (!value) {
-            return null;
-          }
-          const date = new Date(value);
-          return isNaN(date.getTime()) ? null : date;
-        };
+    const assignments = readShiftAssignments().map(normalizeAssignmentRecord);
+    const start = normalizeDateForSheet(periodStart, DEFAULT_SCHEDULE_TIME_ZONE);
+    const end = normalizeDateForSheet(periodEnd || periodStart, DEFAULT_SCHEDULE_TIME_ZONE) || start;
 
-    const requestedStart = normalizeDate(periodStart);
-    const requestedEnd = normalizeDate(periodEnd || periodStart);
-
-    if (!requestedStart || !requestedEnd) {
+    if (!start || !end) {
       return null;
     }
+
+    const userKey = normalizeUserKey(userName);
+    return assignments.find(record => {
+      if (!record) {
+        return false;
+      }
+      const recordUserKey = normalizeUserKey(record.UserName || '');
+      const sameUser = recordUserKey === userKey || (record.UserId && userName && String(record.UserId) === String(userName));
+      if (!sameUser) {
+        return false;
+      }
+      return !(record.EndDate < start || record.StartDate > end);
+    }) || null;
+
+  } catch (error) {
+    console.warn('Error checking existing assignment:', error);
+    return null;
+  }
+}
 
     return schedules.find(schedule => {
       if (schedule.UserName !== userName) {
@@ -4031,7 +4238,7 @@ function loadScheduleDataBundle(campaignId, options = {}) {
     }
   };
 
-  const scheduleRows = loadSheet(SCHEDULE_GENERATION_SHEET);
+    const scheduleRows = readShiftAssignments().map(normalizeAssignmentRecord);
   const demandRows = loadSheet(DEMAND_SHEET);
   const ftePlanRows = loadSheet(FTE_PLAN_SHEET);
 
