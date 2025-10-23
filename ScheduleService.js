@@ -1386,6 +1386,23 @@ function getDirectManagedUserIds(managerId) {
     }
   });
 
+  let hasManagedUsers = false;
+  managedUsers.forEach(id => {
+    if (id && id !== normalizedManagerId) {
+      hasManagedUsers = true;
+    }
+  });
+
+  if (!hasManagedUsers) {
+    const fallback = collectCampaignUsersForManager(normalizedManagerId, { allUsers: userLookup.users });
+    const fallbackIds = extractUserIdsFromCandidates(fallback.users, userLookup);
+    fallbackIds.forEach(id => {
+      if (id && id !== normalizedManagerId) {
+        managedUsers.add(id);
+      }
+    });
+  }
+
   return managedUsers;
 }
 
@@ -1421,6 +1438,13 @@ function buildManagedUserSet(managerId) {
   } catch (error) {
     console.warn('Unable to expand managed users via campaigns:', error);
   }
+
+  let hasManagedUsers = false;
+  managedUserIds.forEach(id => {
+    if (id && id !== normalizedManagerId) {
+      hasManagedUsers = true;
+    }
+  });
 
   return managedUserIds;
 }
