@@ -4262,6 +4262,424 @@ function clientGetScheduleDashboard(managerIdCandidate, campaignIdCandidate, opt
   }
 }
 
+function normalizeManagedRosterPayload(payload) {
+  const result = {
+    recognized: false,
+    users: [],
+    error: null
+  };
+
+  if (payload == null) {
+    return result;
+  }
+
+  if (Array.isArray(payload)) {
+    result.recognized = true;
+    result.users = payload.filter(user => user && typeof user === 'object');
+    return result;
+  }
+
+  if (payload && typeof payload === 'object') {
+    if (Array.isArray(payload.users)) {
+      result.recognized = true;
+      result.users = payload.users.filter(user => user && typeof user === 'object');
+      if (payload.success === false && payload.error) {
+        result.error = String(payload.error);
+      }
+      return result;
+    }
+
+    if (Array.isArray(payload.managedUsers)) {
+      result.recognized = true;
+      result.users = payload.managedUsers.filter(user => user && typeof user === 'object');
+      if (payload.success === false && payload.error) {
+        result.error = String(payload.error);
+      }
+      return result;
+    }
+
+    if (payload.success === false && payload.error) {
+      result.recognized = true;
+      result.error = String(payload.error);
+    }
+  }
+
+  return result;
+}
+
+function resolveUnifiedManagedRoster(managerId) {
+  const normalizedManagerId = normalizeUserIdValue(managerId);
+  const response = {
+    users: [],
+    source: '',
+    warnings: [],
+    managedUserIds: []
+  };
+
+  if (!normalizedManagerId) {
+    response.warnings.push('Manager identifier unavailable for roster resolution.');
+    return response;
+  }
+
+  const attempts = [
+    { name: 'clientGetManagedUsersList', fn: () => clientGetManagedUsersList(normalizedManagerId) },
+    {
+      name: 'clientGetManagedUsers',
+      fn: () => (typeof clientGetManagedUsers === 'function' ? clientGetManagedUsers(normalizedManagerId) : null)
+    }
+  ];
+
+  for (let index = 0; index < attempts.length; index++) {
+    const attempt = attempts[index];
+    if (typeof attempt.fn !== 'function') {
+      continue;
+    }
+
+    try {
+      const raw = attempt.fn();
+      const parsed = normalizeManagedRosterPayload(raw);
+
+      if (!parsed.recognized) {
+        continue;
+      }
+
+      if (parsed.error) {
+        response.warnings.push(`${attempt.name}: ${parsed.error}`);
+      }
+
+      response.users = parsed.users;
+      response.source = attempt.name;
+      response.managedUserIds = parsed.users
+        .map(user => normalizeUserIdValue(user && (user.ID || user.UserID || user.id || user.userId)))
+        .filter(Boolean);
+      return response;
+    } catch (error) {
+      response.warnings.push(`${attempt.name}: ${error && error.message ? error.message : error}`);
+    }
+  }
+
+  return response;
+}
+
+function buildUnifiedUserCollection(...collections) {
+  const map = new Map();
+
+  const addUser = (user) => {
+    if (!user || typeof user !== 'object') {
+      return;
+    }
+
+    const normalizedId = normalizeUserIdValue(user.ID || user.UserID || user.id || user.userId);
+    const normalizedUserName = (user.UserName || user.username || '').toString().trim().toLowerCase();
+    const normalizedEmail = (user.Email || user.email || '').toString().trim().toLowerCase();
+
+    const key = normalizedId
+      ? `id:${normalizedId}`
+      : (normalizedUserName ? `username:${normalizedUserName}` : (normalizedEmail ? `email:${normalizedEmail}` : null));
+
+    if (!key) {
+      return;
+    }
+
+    const existing = map.get(key) || {};
+
+    const normalized = Object.assign({}, existing, user, {
+      ID: normalizedId || existing.ID || '',
+      UserName: user.UserName || user.username || existing.UserName || existing.username || '',
+      FullName: user.FullName || user.fullName || existing.FullName || existing.fullName || user.UserName || existing.UserName || '',
+      Email: user.Email || user.email || existing.Email || existing.email || '',
+      CampaignID: user.CampaignID || user.campaignID || existing.CampaignID || existing.campaignID || '',
+      campaignName: user.campaignName || user.CampaignName || existing.campaignName || existing.CampaignName || '',
+      EmploymentStatus: user.EmploymentStatus || existing.EmploymentStatus || 'Active',
+      HireDate: user.HireDate || existing.HireDate || '',
+      TerminationDate: user.TerminationDate || user.terminationDate || existing.TerminationDate || existing.terminationDate || '',
+      isActive: typeof user.isActive === 'boolean'
+        ? user.isActive
+        : (typeof existing.isActive === 'boolean' ? existing.isActive : isUserConsideredActive(user)),
+      roleNames: Array.isArray(user.roleNames)
+        ? user.roleNames.slice()
+        : (Array.isArray(existing.roleNames) ? existing.roleNames.slice() : [])
+    });
+
+    map.set(key, normalized);
+  };
+
+  collections
+    .filter(collection => Array.isArray(collection) && collection.length)
+    .forEach(collection => collection.forEach(addUser));
+
+  const merged = Array.from(map.values());
+  merged.sort((a, b) => {
+    const nameA = (a.FullName || a.UserName || '').toString().toLowerCase();
+    const nameB = (b.FullName || b.UserName || '').toString().toLowerCase();
+    return nameA.localeCompare(nameB);
+  });
+
+  return merged;
+}
+
+function resolveUnifiedScheduleRange(request = {}, timeZone = DEFAULT_SCHEDULE_TIME_ZONE) {
+  const now = new Date();
+  const fallbackStart = normalizeDateForSheet(new Date(now.getFullYear(), now.getMonth(), 1), timeZone);
+  const fallbackEnd = normalizeDateForSheet(new Date(now.getFullYear(), now.getMonth() + 1, 0), timeZone);
+
+  const candidateStart = request.scheduleStart || request.startDate || request.filterStartDate || request.schedulesStart;
+  const candidateEnd = request.scheduleEnd || request.endDate || request.filterEndDate || request.schedulesEnd;
+
+  const startDate = normalizeDateForSheet(candidateStart, timeZone) || fallbackStart;
+  const endDate = normalizeDateForSheet(candidateEnd, timeZone) || fallbackEnd;
+
+  return {
+    startDate,
+    endDate,
+    fallbackStart,
+    fallbackEnd
+  };
+}
+
+function resolveUnifiedAttendanceRange(request = {}, scheduleRange = {}, timeZone = DEFAULT_SCHEDULE_TIME_ZONE) {
+  const monthCandidate = Number(request.attendanceMonth || request.month);
+  const yearCandidate = Number(request.attendanceYear || request.year);
+
+  let resolvedYear = Number.isFinite(yearCandidate) && yearCandidate > 1900 ? yearCandidate : null;
+  let resolvedMonth = Number.isFinite(monthCandidate) && monthCandidate >= 1 && monthCandidate <= 12 ? monthCandidate : null;
+
+  if (!resolvedYear && scheduleRange.startDate) {
+    const parsed = new Date(scheduleRange.startDate);
+    if (!isNaN(parsed.getTime())) {
+      resolvedYear = parsed.getFullYear();
+    }
+  }
+
+  if (!resolvedMonth && scheduleRange.startDate) {
+    const parsed = new Date(scheduleRange.startDate);
+    if (!isNaN(parsed.getTime())) {
+      resolvedMonth = parsed.getMonth() + 1;
+    }
+  }
+
+  if (!resolvedYear) {
+    resolvedYear = new Date().getFullYear();
+  }
+
+  if (!resolvedMonth) {
+    resolvedMonth = new Date().getMonth() + 1;
+  }
+
+  const monthStart = new Date(resolvedYear, resolvedMonth - 1, 1);
+  const monthEnd = new Date(resolvedYear, resolvedMonth, 0);
+
+  const startDate = normalizeDateForSheet(request.attendanceStart || monthStart, timeZone)
+    || normalizeDateForSheet(monthStart, timeZone);
+  const endDate = normalizeDateForSheet(request.attendanceEnd || monthEnd, timeZone)
+    || normalizeDateForSheet(monthEnd, timeZone);
+
+  const yearStart = normalizeDateForSheet(`${resolvedYear}-01-01`, timeZone);
+  const yearEnd = normalizeDateForSheet(`${resolvedYear}-12-31`, timeZone);
+
+  return {
+    startDate,
+    endDate,
+    month: resolvedMonth,
+    year: resolvedYear,
+    yearRange: { start: yearStart, end: yearEnd }
+  };
+}
+
+function clientGetScheduleUnifiedState(request = {}) {
+  try {
+    const options = (request && typeof request === 'object') ? request : {};
+    const candidateManagerId = normalizeUserIdValue(
+      options.managerId || options.userId || options.requestingUserId || options.identityUserId
+    );
+    const candidateCampaignId = normalizeCampaignIdValue(
+      options.campaignId || options.teamId || options.programId || options.identityCampaignId
+    );
+
+    const context = clientGetScheduleContext(candidateManagerId || null, candidateCampaignId || null);
+    if (!context || !context.success) {
+      return {
+        success: false,
+        error: context && context.error ? context.error : 'Unable to resolve schedule context',
+        context
+      };
+    }
+
+    const resolvedManagerId = normalizeUserIdValue(
+      options.managerId
+      || context.managerId
+      || context.providedManagerId
+      || (context.user && (context.user.ID || context.user.UserID))
+      || candidateManagerId
+      || context.identity?.userId
+    );
+
+    const resolvedCampaignId = normalizeCampaignIdValue(
+      options.campaignId
+      || context.campaignId
+      || context.providedCampaignId
+      || candidateCampaignId
+    );
+
+    const scheduleRange = resolveUnifiedScheduleRange(options, DEFAULT_SCHEDULE_TIME_ZONE);
+    const attendanceRange = resolveUnifiedAttendanceRange(options, scheduleRange, DEFAULT_SCHEDULE_TIME_ZONE);
+
+    const scheduleUsers = clientGetScheduleUsers(resolvedManagerId || 'system', resolvedCampaignId || null) || [];
+    const roster = resolveUnifiedManagedRoster(resolvedManagerId || candidateManagerId || context.identity?.userId || '');
+
+    const scheduleFilters = {
+      startDate: scheduleRange.startDate,
+      endDate: scheduleRange.endDate,
+      campaign: resolvedCampaignId || undefined
+    };
+
+    const assignments = options.includeSchedules === false
+      ? { success: true, schedules: [], total: 0, filters: scheduleFilters }
+      : clientGetAllSchedules(scheduleFilters);
+
+    const assignmentUsers = (typeof collectUsersFromScheduleAssignments === 'function')
+      ? collectUsersFromScheduleAssignments(assignments, [scheduleUsers, roster.users])
+      : [];
+
+    const shiftSlots = options.includeShiftSlots === false ? [] : clientGetAllShiftSlots();
+
+    const dashboard = options.includeScheduleDashboard === false
+      ? null
+      : clientGetScheduleDashboard(resolvedManagerId || null, resolvedCampaignId || null, {
+          startDate: scheduleRange.startDate,
+          endDate: scheduleRange.endDate,
+          intervalMinutes: options.intervalMinutes || 30,
+          openingHour: options.openingHour || 8,
+          closingHour: options.closingHour || 21,
+          skipPersistence: options.skipDashboardPersistence === true
+        });
+
+    const attendanceUsers = options.includeAttendanceUsers === false
+      ? []
+      : clientGetAttendanceUsers(resolvedManagerId || null, resolvedCampaignId || null);
+
+    const attendanceUserRecords = (typeof buildUserRecordsFromNames === 'function')
+      ? buildUserRecordsFromNames(attendanceUsers)
+      : attendanceUsers.map(name => ({
+        ID: '',
+        UserID: '',
+        UserName: String(name || ''),
+        FullName: String(name || ''),
+        Email: '',
+        CampaignID: '',
+        campaignName: '',
+        EmploymentStatus: 'Active',
+        isActive: true
+      }));
+
+    const attendanceYearResponse = options.includeAttendance === false
+      ? { success: true, records: [] }
+      : clientGetAttendanceDataRange(attendanceRange.yearRange.start, attendanceRange.yearRange.end, resolvedCampaignId || null);
+
+    const yearlyAttendanceRecords = attendanceYearResponse && attendanceYearResponse.success
+      ? attendanceYearResponse.records || []
+      : [];
+
+    const monthlyAttendanceRecords = yearlyAttendanceRecords.filter(record => {
+      if (!record || !record.date) {
+        return false;
+      }
+      return (!attendanceRange.startDate || record.date >= attendanceRange.startDate)
+        && (!attendanceRange.endDate || record.date <= attendanceRange.endDate);
+    });
+
+    const attendanceDashboard = options.includeAttendanceDashboard === false
+      ? null
+      : clientGetAttendanceDashboard(attendanceRange.yearRange.start, attendanceRange.yearRange.end, resolvedCampaignId || null);
+
+    const holidayCountry = options.holidayCountry || context.identity?.country || SCHEDULE_SETTINGS.PRIMARY_COUNTRY;
+    const holidayYear = options.holidayYear
+      || (scheduleRange.startDate ? Number(String(scheduleRange.startDate).slice(0, 4)) : null)
+      || new Date().getFullYear();
+
+    const holidays = options.includeHolidays === false
+      ? null
+      : clientGetCountryHolidays(holidayCountry, holidayYear);
+
+    const combinedUsers = buildUnifiedUserCollection(
+      scheduleUsers,
+      roster.users,
+      options.combinedUsers,
+      assignmentUsers,
+      attendanceUserRecords
+    );
+
+    const managedUserIdSet = new Set();
+    const appendManagedUserId = (value) => {
+      const normalized = normalizeUserIdValue(value);
+      if (normalized) {
+        managedUserIdSet.add(normalized);
+      }
+    };
+
+    (Array.isArray(roster.managedUserIds) ? roster.managedUserIds : []).forEach(appendManagedUserId);
+    (Array.isArray(context.managedUserIds) ? context.managedUserIds : []).forEach(appendManagedUserId);
+    roster.users.forEach(user => appendManagedUserId(user && (user.ID || user.UserID || user.id || user.userId)));
+    scheduleUsers.forEach(user => appendManagedUserId(user && (user.ID || user.UserID || user.id || user.userId)));
+    assignmentUsers.forEach(user => appendManagedUserId(user && (user.ID || user.UserID || user.id || user.userId)));
+
+    if (resolvedManagerId) {
+      managedUserIdSet.delete(resolvedManagerId);
+    }
+
+    const managedUserIds = Array.from(managedUserIdSet);
+
+    const userSources = {
+      schedule: scheduleUsers.length,
+      roster: roster.users.length,
+      assignments: assignmentUsers.length,
+      attendance: attendanceUserRecords.length
+    };
+
+    return {
+      success: true,
+      generatedAt: new Date().toISOString(),
+      managerId: resolvedManagerId || '',
+      campaignId: resolvedCampaignId || '',
+      context,
+      users: {
+        combined: combinedUsers,
+        schedule: scheduleUsers,
+        roster: roster.users,
+        assignments: assignmentUsers,
+        attendance: attendanceUserRecords,
+        rosterSource: roster.source,
+        managedUserIds,
+        rosterManagedUserIds: Array.isArray(roster.managedUserIds) ? roster.managedUserIds.slice() : [],
+        contextManagedUserIds: Array.isArray(context.managedUserIds) ? context.managedUserIds.slice() : [],
+        warnings: roster.warnings,
+        sources: userSources
+      },
+      schedule: {
+        range: scheduleRange,
+        assignments,
+        shiftSlots,
+        dashboard
+      },
+      attendance: {
+        range: attendanceRange,
+        users: attendanceUsers,
+        monthlyRecords: monthlyAttendanceRecords,
+        yearlyRecords: yearlyAttendanceRecords,
+        dashboard: attendanceDashboard
+      },
+      holidays
+    };
+  } catch (error) {
+    console.error('Error building unified schedule state:', error);
+    safeWriteError && safeWriteError('clientGetScheduleUnifiedState', error);
+    return {
+      success: false,
+      error: error && error.message ? error.message : String(error || 'Unknown error')
+    };
+  }
+}
+
 function applyScenarioAdjustments(bundle, scenario = {}) {
   const volumeMultiplier = scenario.volumeMultiplier || (scenario.volumeDelta ? 1 + scenario.volumeDelta : 1);
   const ahtMultiplier = scenario.ahtMultiplier || (scenario.ahtDelta ? 1 + scenario.ahtDelta : 1);
