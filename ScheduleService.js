@@ -780,47 +780,72 @@ function clientGetAttendanceUsers(requestingUserId, campaignId = null) {
 
     const normalizedManagerId = normalizeUserIdValue(requestingUserId);
     const scheduleUsers = clientGetScheduleUsers(requestingUserId, campaignId) || [];
+    const scheduleById = new Map();
+    scheduleUsers.forEach(user => {
+      const normalizedId = normalizeUserIdValue(user && (user.ID || user.UserID));
+      if (normalizedId) {
+        scheduleById.set(normalizedId, user);
+      }
+    });
+
     const managedRoster = normalizedManagerId
       ? clientGetManagedUsersList(normalizedManagerId)
       : [];
 
-    const uniqueNames = new Map();
-    const appendCandidate = (candidate) => {
-      if (!candidate) {
-        return;
+    const managedById = new Map();
+    managedRoster.forEach(user => {
+      const normalizedId = normalizeUserIdValue(user && (user.ID || user.UserID));
+      if (normalizedId && normalizedId !== normalizedManagerId && !managedById.has(normalizedId)) {
+        managedById.set(normalizedId, user);
       }
+    });
 
-      const name = typeof candidate === 'string'
-        ? candidate
-        : (candidate.UserName || candidate.FullName || candidate.Email || '');
-      const trimmedName = (name || '').toString().trim();
+    const finalRoster = new Map();
 
-      const normalizedName = normalizeUserKey(trimmedName);
-      if (!normalizedName) {
-        return;
-      }
+    if (normalizedManagerId && managedById.size) {
+      managedById.forEach((rosterUser, userId) => {
+        const bestRecord = scheduleById.get(userId) || rosterUser;
+        if (!bestRecord || normalizeUserIdValue(bestRecord && (bestRecord.ID || bestRecord.UserID)) === normalizedManagerId) {
+          return;
+        }
 
-      if (!uniqueNames.has(normalizedName)) {
-        uniqueNames.set(normalizedName, trimmedName);
-      }
-    };
-
-    scheduleUsers.forEach(appendCandidate);
-    managedRoster.forEach(appendCandidate);
-
-    if (normalizedManagerId && !uniqueNames.size) {
-      const lookup = buildScheduleUserLookupIndex();
-      const managerRecord = Array.isArray(lookup.users)
-        ? lookup.users.find(user => normalizeUserIdValue(user && (user.ID || user.UserID)) === normalizedManagerId)
-        : null;
-      appendCandidate(managerRecord);
+        finalRoster.set(userId, bestRecord);
+      });
+    } else {
+      scheduleById.forEach((user, userId) => {
+        if (userId && (!normalizedManagerId || userId !== normalizedManagerId)) {
+          finalRoster.set(userId, user);
+        }
+      });
     }
 
-    const userNames = Array.from(uniqueNames.values())
+    if (!finalRoster.size && normalizedManagerId) {
+      const lookup = buildScheduleUserLookupIndex();
+      const managerRecord = scheduleById.get(normalizedManagerId)
+        || managedById.get(normalizedManagerId)
+        || (Array.isArray(lookup.users)
+          ? lookup.users.find(user => normalizeUserIdValue(user && (user.ID || user.UserID)) === normalizedManagerId)
+          : null);
+
+      if (managerRecord) {
+        finalRoster.set(normalizedManagerId, managerRecord);
+      }
+    }
+
+    const userNames = Array.from(finalRoster.values())
+      .map(candidate => {
+        if (!candidate) {
+          return '';
+        }
+
+        const name = candidate.UserName || candidate.FullName || candidate.Email || '';
+        return name ? name.toString().trim() : '';
+      })
       .filter(Boolean)
       .sort((a, b) => a.localeCompare(b));
 
-    console.log(`✅ Returning ${userNames.length} attendance users`);
+    const sourceLabel = normalizedManagerId && managedById.size ? 'managed roster' : 'schedule users';
+    console.log(`✅ Returning ${userNames.length} attendance users (source: ${sourceLabel})`);
     return userNames;
 
   } catch (error) {
