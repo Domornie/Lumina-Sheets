@@ -2750,6 +2750,48 @@
                         }
                     });
                 });
+
+                const fallbackParseDateValue = (input) => {
+                    if (!input) {
+                        return null;
+                    }
+
+                    if (input instanceof Date) {
+                        return isNaN(input.getTime()) ? null : new Date(input);
+                    }
+
+                    if (typeof input === 'number' && !Number.isNaN(input)) {
+                        const fromNumber = new Date(input);
+                        return isNaN(fromNumber.getTime()) ? null : fromNumber;
+                    }
+
+                    if (typeof input === 'object' && input.iso) {
+                        return fallbackParseDateValue(input.iso);
+                    }
+
+                    if (typeof input === 'string') {
+                        const normalized = input.trim();
+                        if (!normalized) {
+                            return null;
+                        }
+
+                        const fromString = new Date(normalized);
+                        return isNaN(fromString.getTime()) ? null : fromString;
+                    }
+
+                    return null;
+                };
+
+                if (typeof this.parseDateValue === 'function') {
+                    this.parseDateValue = this.parseDateValue.bind(this);
+                } else {
+                    this.parseDateValue = fallbackParseDateValue;
+                }
+
+                if (typeof this.resolveIsoDate === 'function') {
+                    this.resolveIsoDate = this.resolveIsoDate.bind(this);
+                }
+
                 this.updateStatusLegendCard();
                 this.init();
             }
