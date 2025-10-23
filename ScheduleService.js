@@ -777,15 +777,75 @@ function normalizeScheduleUserRecord(user, lookup = null) {
 function clientGetAttendanceUsers(requestingUserId, campaignId = null) {
   try {
     console.log('📋 Getting attendance users');
-    
-    // Use the existing function but return just names for compatibility
-    const scheduleUsers = clientGetScheduleUsers(requestingUserId, campaignId);
-    const userNames = scheduleUsers
-      .map(user => user.UserName || user.FullName)
-      .filter(name => name && name.trim())
-      .sort();
 
-    console.log(`✅ Returning ${userNames.length} attendance users`);
+    const normalizedManagerId = normalizeUserIdValue(requestingUserId);
+    const scheduleUsers = clientGetScheduleUsers(requestingUserId, campaignId) || [];
+    const scheduleById = new Map();
+    scheduleUsers.forEach(user => {
+      const normalizedId = normalizeUserIdValue(user && (user.ID || user.UserID));
+      if (normalizedId) {
+        scheduleById.set(normalizedId, user);
+      }
+    });
+
+    const managedRoster = normalizedManagerId
+      ? clientGetManagedUsersList(normalizedManagerId)
+      : [];
+
+    const managedById = new Map();
+    managedRoster.forEach(user => {
+      const normalizedId = normalizeUserIdValue(user && (user.ID || user.UserID));
+      if (normalizedId && normalizedId !== normalizedManagerId && !managedById.has(normalizedId)) {
+        managedById.set(normalizedId, user);
+      }
+    });
+
+    const finalRoster = new Map();
+
+    if (normalizedManagerId && managedById.size) {
+      managedById.forEach((rosterUser, userId) => {
+        const bestRecord = scheduleById.get(userId) || rosterUser;
+        if (!bestRecord || normalizeUserIdValue(bestRecord && (bestRecord.ID || bestRecord.UserID)) === normalizedManagerId) {
+          return;
+        }
+
+        finalRoster.set(userId, bestRecord);
+      });
+    } else {
+      scheduleById.forEach((user, userId) => {
+        if (userId && (!normalizedManagerId || userId !== normalizedManagerId)) {
+          finalRoster.set(userId, user);
+        }
+      });
+    }
+
+    if (!finalRoster.size && normalizedManagerId) {
+      const lookup = buildScheduleUserLookupIndex();
+      const managerRecord = scheduleById.get(normalizedManagerId)
+        || managedById.get(normalizedManagerId)
+        || (Array.isArray(lookup.users)
+          ? lookup.users.find(user => normalizeUserIdValue(user && (user.ID || user.UserID)) === normalizedManagerId)
+          : null);
+
+      if (managerRecord) {
+        finalRoster.set(normalizedManagerId, managerRecord);
+      }
+    }
+
+    const userNames = Array.from(finalRoster.values())
+      .map(candidate => {
+        if (!candidate) {
+          return '';
+        }
+
+        const name = candidate.UserName || candidate.FullName || candidate.Email || '';
+        return name ? name.toString().trim() : '';
+      })
+      .filter(Boolean)
+      .sort((a, b) => a.localeCompare(b));
+
+    const sourceLabel = normalizedManagerId && managedById.size ? 'managed roster' : 'schedule users';
+    console.log(`✅ Returning ${userNames.length} attendance users (source: ${sourceLabel})`);
     return userNames;
 
   } catch (error) {
