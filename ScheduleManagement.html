@@ -2563,6 +2563,8 @@
                 this.resolvedCampaignId = '';
                 this.managedUserIds = [];
                 this.managedUserIdSet = new Set();
+                this.managedRosterSource = '';
+                this.managedRosterUsers = [];
                 this.identityResolved = false;
                 this.identitySummary = null;
                 this.contextLoadingPromise = null;
@@ -3033,6 +3035,94 @@
                 }
             }
 
+            parseManagedRosterResponse(response) {
+                const result = {
+                    users: [],
+                    recognized: false,
+                    error: null
+                };
+
+                if (Array.isArray(response)) {
+                    result.users = response.slice();
+                    result.recognized = true;
+                    return result;
+                }
+
+                if (response && typeof response === 'object') {
+                    if (Array.isArray(response.users)) {
+                        result.users = response.users.slice();
+                        result.recognized = true;
+                        if (response.success === false && response.error) {
+                            result.error = response.error;
+                        }
+                        return result;
+                    }
+
+                    if (Array.isArray(response.managedUsers)) {
+                        result.users = response.managedUsers.slice();
+                        result.recognized = true;
+                        if (response.success === false && response.error) {
+                            result.error = response.error;
+                        }
+                        return result;
+                    }
+
+                    if (response.success === false && response.error) {
+                        result.recognized = true;
+                        result.error = response.error;
+                        return result;
+                    }
+                }
+
+                return result;
+            }
+
+            async fetchManagedRoster(managerId) {
+                if (!managerId) {
+                    console.warn('⚠️ Managed roster request skipped - missing manager identifier');
+                    return { users: [], source: null, error: 'Missing manager ID' };
+                }
+
+                const attempts = [
+                    { functionName: 'clientGetManagedUsersList', label: 'ScheduleService roster endpoint' },
+                    { functionName: 'clientGetManagedUsers', label: 'UserService roster endpoint' }
+                ];
+
+                for (let index = 0; index < attempts.length; index++) {
+                    const attempt = attempts[index];
+                    const isLastAttempt = index === attempts.length - 1;
+
+                    try {
+                        const response = await this.callServerFunction(attempt.functionName, managerId);
+                        const parsed = this.parseManagedRosterResponse(response);
+
+                        if (!parsed.recognized) {
+                            continue;
+                        }
+
+                        if (parsed.error) {
+                            console.warn(`⚠️ ${attempt.label} responded with: ${parsed.error}`);
+                            if (!isLastAttempt && parsed.users.length === 0) {
+                                continue;
+                            }
+                        }
+
+                        return {
+                            users: Array.isArray(parsed.users) ? parsed.users : [],
+                            source: attempt.functionName,
+                            error: parsed.error || null
+                        };
+                    } catch (error) {
+                        console.warn(`⚠️ ${attempt.label} failed:`, error);
+                        if (isLastAttempt) {
+                            return { users: [], source: attempt.functionName, error: error.message || String(error) };
+                        }
+                    }
+                }
+
+                return { users: [], source: null, error: null };
+            }
+
             async loadUsers() {
                 try {
                     console.log('👥 Loading users...');
@@ -3043,24 +3133,15 @@
                     console.log('🔐 Resolved manager context:', { managerId: currentUserId, campaignId: campaignId || '(all)' });
 
                     const scheduleUsers = await this.callServerFunction('clientGetScheduleUsers', currentUserId, campaignId || null);
-                    const rosterResponse = await this.callServerFunction('clientGetManagedUsers', currentUserId);
+                    const rosterResult = await this.fetchManagedRoster(currentUserId);
+                    const rosterUsers = Array.isArray(rosterResult.users) ? rosterResult.users : [];
 
-                    const rosterUsers = (() => {
-                        if (!rosterResponse) {
-                            return [];
-                        }
-                        if (Array.isArray(rosterResponse)) {
-                            return rosterResponse;
-                        }
-                        if (typeof rosterResponse === 'object' && rosterResponse.success === false) {
-                            console.warn('⚠️ Unable to load managed roster:', rosterResponse.error);
-                            return [];
-                        }
-                        if (typeof rosterResponse === 'object' && Array.isArray(rosterResponse.users)) {
-                            return rosterResponse.users;
-                        }
-                        return [];
-                    })();
+                    this.managedRosterSource = rosterResult.source || '';
+                    this.managedRosterUsers = rosterUsers.slice();
+
+                    if (rosterResult.error && rosterUsers.length === 0) {
+                        console.warn('⚠️ Managed roster fallback warning:', rosterResult.error);
+                    }
 
                     const byId = new Map();
                     const pushUserRecord = (user) => {
@@ -3164,7 +3245,10 @@
                         }).length || this.availableUsers.length;
                     }
 
-                    console.log(`✅ Loaded ${this.availableUsers.length} users (including ${rosterUsers.length} managed roster entries)`);
+                    const rosterSourceLabel = this.managedRosterSource
+                        ? ` via ${this.managedRosterSource}`
+                        : '';
+                    console.log(`✅ Loaded ${this.availableUsers.length} users (including ${rosterUsers.length} managed roster entries${rosterSourceLabel})`);
 
                     // Update user dropdowns
                     this.updateUserDropdowns();
