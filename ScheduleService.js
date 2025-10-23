@@ -620,6 +620,28 @@ function clientGetScheduleUsers(requestingUserId, campaignId = null) {
     }
 
     const normalizedManagerId = normalizeUserIdValue(requestingUserId);
+    const rosterContext = normalizedManagerId
+      ? resolveUnifiedManagedRoster(normalizedManagerId)
+      : { users: [], managedUserIds: [] };
+    const managedRosterUsers = Array.isArray(rosterContext.users) ? rosterContext.users : [];
+    const managedIdSet = new Set(
+      Array.isArray(rosterContext.managedUserIds)
+        ? rosterContext.managedUserIds
+            .map(id => normalizeUserIdValue(id))
+            .filter(id => id && id !== normalizedManagerId)
+        : []
+    );
+
+    if (normalizedManagerId && !managedIdSet.size) {
+      const supplemental = buildManagedUserSet(normalizedManagerId);
+      supplemental.forEach(id => {
+        const normalized = normalizeUserIdValue(id);
+        if (normalized && normalized !== normalizedManagerId) {
+          managedIdSet.add(normalized);
+        }
+      });
+    }
+
     let requestingUser = null;
     if (normalizedManagerId) {
       requestingUser = allUsers.find(u => normalizeUserIdValue(u && (u.ID || u.UserID)) === normalizedManagerId) || null;
@@ -647,46 +669,31 @@ function clientGetScheduleUsers(requestingUserId, campaignId = null) {
 
     let filteredUsers = allUsers;
 
-    if (effectiveCampaignId) {
+    if (normalizedManagerId && requestingUser && !scheduleFlagToBool(requestingUser.IsAdmin)) {
+      if (managedIdSet.size) {
+        const matchedUsers = allUsers.filter(user => managedIdSet.has(normalizeUserIdValue(user && (user.ID || user.UserID))));
+
+        if (matchedUsers.length) {
+          filteredUsers = matchedUsers;
+        } else if (managedRosterUsers.length) {
+          filteredUsers = managedRosterUsers;
+        } else {
+          filteredUsers = [];
+          console.warn('Managed roster ids resolved but no matching users found for manager', normalizedManagerId);
+        }
+      } else {
+        filteredUsers = [];
+        console.warn('No managed users associated with manager', normalizedManagerId, '- returning empty roster.');
+      }
+    } else if (normalizedManagerId && !requestingUser) {
+      filteredUsers = [];
+      console.warn('Requesting user not found when applying manager filter:', requestingUserId);
+    } else if (effectiveCampaignId) {
       filteredUsers = filterUsersByCampaign(allUsers, effectiveCampaignId);
     }
 
-    if (normalizedManagerId) {
-      if (requestingUser) {
-        const isAdmin = scheduleFlagToBool(requestingUser.IsAdmin);
-
-        if (!isAdmin) {
-          const managedUserIds = buildManagedUserSet(normalizedManagerId);
-          const hasManagedRoster = Array.from(managedUserIds).some(id => id && id !== normalizedManagerId);
-
-          let restrictedUsers = [];
-          if (hasManagedRoster) {
-            restrictedUsers = filteredUsers.filter(user => managedUserIds.has(normalizeUserIdValue(user && (user.ID || user.UserID))));
-          }
-
-          if (!restrictedUsers.length) {
-            const fallbackRoster = collectCampaignUsersForManager(normalizedManagerId, { allUsers });
-            const fallbackSet = new Set(
-              (fallbackRoster.users || [])
-                .map(user => normalizeUserIdValue(user && (user.ID || user.UserID)))
-                .filter(Boolean)
-            );
-            const hasFallbackRoster = Array.from(fallbackSet).some(id => id && id !== normalizedManagerId);
-
-            if (hasFallbackRoster) {
-              restrictedUsers = filteredUsers.filter(user => fallbackSet.has(normalizeUserIdValue(user && (user.ID || user.UserID))));
-            }
-          }
-
-          if (restrictedUsers.length) {
-            filteredUsers = restrictedUsers;
-          } else {
-            console.warn('Managed roster empty for manager', normalizedManagerId, '- using campaign roster');
-          }
-        }
-      } else {
-        console.warn('Requesting user not found when applying manager filter:', requestingUserId);
-      }
+    if (!filteredUsers.length && effectiveCampaignId && (!normalizedManagerId || scheduleFlagToBool(requestingUser && requestingUser.IsAdmin))) {
+      filteredUsers = filterUsersByCampaign(allUsers, effectiveCampaignId);
     }
 
     const scheduleUsers = filteredUsers
@@ -4868,7 +4875,7 @@ function resolveUnifiedManagedRoster(managerId) {
 
   const hasVisibleRoster = Array.from(rosterIdSet).some(id => id && id !== normalizedManagerId);
 
-  if (!hasVisibleRoster) {
+  if (!hasVisibleRoster && normalizedManagedIds.length) {
     const fallback = collectCampaignUsersForManager(normalizedManagerId, { allUsers: userLookup.users });
     if (Array.isArray(fallback.users) && fallback.users.length) {
       const filteredFallbackUsers = fallback.users.filter(user => {
@@ -4879,10 +4886,6 @@ function resolveUnifiedManagedRoster(managerId) {
         const id = normalizeUserIdValue(user.ID || user.UserID || user.id || user.userId);
         if (!id) {
           return false;
-        }
-
-        if (normalizedManagedIds.length === 0) {
-          return true;
         }
 
         return normalizedManagedIds.includes(id);
