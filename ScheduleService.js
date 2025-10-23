@@ -1439,21 +1439,6 @@ function buildManagedUserSet(managerId) {
     }
   });
 
-  if (!hasManagedUsers) {
-    try {
-      const fallback = collectCampaignUsersForManager(normalizedManagerId);
-      const fallbackLookup = buildScheduleUserLookupIndex();
-      const fallbackIds = extractUserIdsFromCandidates(fallback.users, fallbackLookup);
-      fallbackIds.forEach(id => {
-        if (id && id !== normalizedManagerId) {
-          managedUserIds.add(id);
-        }
-      });
-    } catch (fallbackError) {
-      console.warn('Unable to expand managed users via fallback campaign roster:', fallbackError);
-    }
-  }
-
   return managedUserIds;
 }
 
@@ -4847,22 +4832,46 @@ function resolveUnifiedManagedRoster(managerId) {
     }
   });
 
+  const normalizedManagedIds = Array.from(managedSet)
+    .map(id => normalizeUserIdValue(id))
+    .filter(id => id && id !== normalizedManagerId);
+
   const hasVisibleRoster = Array.from(rosterIdSet).some(id => id && id !== normalizedManagerId);
 
   if (!hasVisibleRoster) {
     const fallback = collectCampaignUsersForManager(normalizedManagerId, { allUsers: userLookup.users });
     if (Array.isArray(fallback.users) && fallback.users.length) {
-      fallback.users.forEach(user => {
+      const filteredFallbackUsers = fallback.users.filter(user => {
+        if (!user || typeof user !== 'object') {
+          return false;
+        }
+
+        const id = normalizeUserIdValue(user.ID || user.UserID || user.id || user.userId);
+        if (!id) {
+          return false;
+        }
+
+        if (normalizedManagedIds.length === 0) {
+          return true;
+        }
+
+        return normalizedManagedIds.includes(id);
+      });
+
+      filteredFallbackUsers.forEach(user => {
         const id = normalizeUserIdValue(user && (user.ID || user.UserID));
         if (id) {
           rosterIdSet.add(id);
         }
       });
-      response.source = response.source
-        ? `${response.source}+campaignRosterFallback`
-        : 'campaignRosterFallback';
-      response.warnings.push('Managed roster did not return agents; using campaign roster fallback.');
-      response.users = fallback.users;
+
+      if (filteredFallbackUsers.length) {
+        response.source = response.source
+          ? `${response.source}+campaignRosterFallback`
+          : 'campaignRosterFallback';
+        response.warnings.push('Managed roster did not return agents; using campaign roster fallback.');
+        response.users = filteredFallbackUsers;
+      }
     }
   }
 
@@ -4882,8 +4891,25 @@ function resolveUnifiedManagedRoster(managerId) {
     }
   });
 
-  response.users = Array.from(dedupedRoster.values());
-  response.managedUserIds = Array.from(new Set(Array.from(rosterIdSet).filter(Boolean)));
+  let filteredRoster = Array.from(dedupedRoster.values());
+  if (normalizedManagedIds.length) {
+    filteredRoster = filteredRoster.filter(user => {
+      const id = normalizeUserIdValue(user && (user.ID || user.UserID || user.id || user.userId));
+      return id && id !== normalizedManagerId && normalizedManagedIds.includes(id);
+    });
+  } else {
+    filteredRoster = filteredRoster.filter(user => {
+      const id = normalizeUserIdValue(user && (user.ID || user.UserID || user.id || user.userId));
+      return id && id !== normalizedManagerId;
+    });
+  }
+
+  response.users = filteredRoster;
+
+  const managedIdsSource = normalizedManagedIds.length
+    ? normalizedManagedIds
+    : Array.from(rosterIdSet).map(id => normalizeUserIdValue(id)).filter(id => id && id !== normalizedManagerId);
+  response.managedUserIds = Array.from(new Set(managedIdsSource));
 
   return response;
 }
