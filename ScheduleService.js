@@ -2813,16 +2813,25 @@ function clientGetCountryHolidays(countryCode, year) {
   try {
     console.log('🎉 Getting holidays for:', countryCode, year);
 
-    if (!SCHEDULE_SETTINGS.SUPPORTED_COUNTRIES.includes(countryCode)) {
+    const scheduleConfig = (typeof SCHEDULE_SETTINGS === 'object' && SCHEDULE_SETTINGS)
+      || (typeof getScheduleConfig === 'function' ? getScheduleConfig() : {});
+    const supportedCountries = Array.isArray(scheduleConfig.SUPPORTED_COUNTRIES) && scheduleConfig.SUPPORTED_COUNTRIES.length
+      ? scheduleConfig.SUPPORTED_COUNTRIES
+      : ['JM', 'US', 'DO', 'PH'];
+    const primaryCountry = typeof scheduleConfig.PRIMARY_COUNTRY === 'string' && scheduleConfig.PRIMARY_COUNTRY.trim()
+      ? scheduleConfig.PRIMARY_COUNTRY.trim()
+      : 'JM';
+
+    if (!supportedCountries.includes(countryCode)) {
       return {
         success: false,
-        error: `Country ${countryCode} not supported. Supported countries: ${SCHEDULE_SETTINGS.SUPPORTED_COUNTRIES.join(', ')}`,
+        error: `Country ${countryCode} not supported. Supported countries: ${supportedCountries.join(', ')}`,
         holidays: []
       };
     }
 
     const holidays = getUpdatedHolidays(countryCode, year);
-    const isPrimary = countryCode === SCHEDULE_SETTINGS.PRIMARY_COUNTRY;
+    const isPrimary = countryCode === primaryCountry;
 
     return {
       success: true,
