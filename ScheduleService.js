@@ -777,13 +777,48 @@ function normalizeScheduleUserRecord(user, lookup = null) {
 function clientGetAttendanceUsers(requestingUserId, campaignId = null) {
   try {
     console.log('📋 Getting attendance users');
-    
-    // Use the existing function but return just names for compatibility
-    const scheduleUsers = clientGetScheduleUsers(requestingUserId, campaignId);
-    const userNames = scheduleUsers
-      .map(user => user.UserName || user.FullName)
-      .filter(name => name && name.trim())
-      .sort();
+
+    const normalizedManagerId = normalizeUserIdValue(requestingUserId);
+    const scheduleUsers = clientGetScheduleUsers(requestingUserId, campaignId) || [];
+    const managedRoster = normalizedManagerId
+      ? clientGetManagedUsersList(normalizedManagerId)
+      : [];
+
+    const uniqueNames = new Map();
+    const appendCandidate = (candidate) => {
+      if (!candidate) {
+        return;
+      }
+
+      const name = typeof candidate === 'string'
+        ? candidate
+        : (candidate.UserName || candidate.FullName || candidate.Email || '');
+      const trimmedName = (name || '').toString().trim();
+
+      const normalizedName = normalizeUserKey(trimmedName);
+      if (!normalizedName) {
+        return;
+      }
+
+      if (!uniqueNames.has(normalizedName)) {
+        uniqueNames.set(normalizedName, trimmedName);
+      }
+    };
+
+    scheduleUsers.forEach(appendCandidate);
+    managedRoster.forEach(appendCandidate);
+
+    if (normalizedManagerId && !uniqueNames.size) {
+      const lookup = buildScheduleUserLookupIndex();
+      const managerRecord = Array.isArray(lookup.users)
+        ? lookup.users.find(user => normalizeUserIdValue(user && (user.ID || user.UserID)) === normalizedManagerId)
+        : null;
+      appendCandidate(managerRecord);
+    }
+
+    const userNames = Array.from(uniqueNames.values())
+      .filter(Boolean)
+      .sort((a, b) => a.localeCompare(b));
 
     console.log(`✅ Returning ${userNames.length} attendance users`);
     return userNames;
