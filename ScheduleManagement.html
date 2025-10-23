@@ -2563,6 +2563,10 @@
                 this.resolvedCampaignId = '';
                 this.managedUserIds = [];
                 this.managedUserIdSet = new Set();
+                this.managedRosterSource = '';
+                this.managedRosterUsers = [];
+                this.rosterManagedUserIds = [];
+                this.contextManagedUserIds = [];
                 this.identityResolved = false;
                 this.identitySummary = null;
                 this.contextLoadingPromise = null;
@@ -2586,6 +2590,18 @@
                     yearly: { label: '', entries: [] }
                 };
                 this.attendanceCalendarRecords = [];
+                this.unifiedState = null;
+                this.unifiedStateAppliedAt = null;
+                this.attendanceCalendarPrefetch = null;
+                this.attendanceDashboardPrefetch = null;
+                this.holidayPrefetch = null;
+                this.defaultHolidayCountries = ['JM', 'US', 'DO', 'PH'];
+                this.managedRosterWarnings = [];
+                this.schedulePrefetchRange = null;
+                this.additionalUserSources = {};
+                this.assignmentUserRecords = [];
+                this.attendanceUserRecords = [];
+                this.userSourceSummary = null;
                 this.attendanceContextMenu = null;
                 this.attendanceContextMenuTarget = null;
                 this.attendanceContextMenuOutsideHandler = null;
@@ -2735,6 +2751,48 @@
                         }
                     });
                 });
+
+                const fallbackParseDateValue = (input) => {
+                    if (!input) {
+                        return null;
+                    }
+
+                    if (input instanceof Date) {
+                        return isNaN(input.getTime()) ? null : new Date(input);
+                    }
+
+                    if (typeof input === 'number' && !Number.isNaN(input)) {
+                        const fromNumber = new Date(input);
+                        return isNaN(fromNumber.getTime()) ? null : fromNumber;
+                    }
+
+                    if (typeof input === 'object' && input.iso) {
+                        return fallbackParseDateValue(input.iso);
+                    }
+
+                    if (typeof input === 'string') {
+                        const normalized = input.trim();
+                        if (!normalized) {
+                            return null;
+                        }
+
+                        const fromString = new Date(normalized);
+                        return isNaN(fromString.getTime()) ? null : fromString;
+                    }
+
+                    return null;
+                };
+
+                if (typeof this.parseDateValue === 'function') {
+                    this.parseDateValue = this.parseDateValue.bind(this);
+                } else {
+                    this.parseDateValue = fallbackParseDateValue;
+                }
+
+                if (typeof this.resolveIsoDate === 'function') {
+                    this.resolveIsoDate = this.resolveIsoDate.bind(this);
+                }
+
                 this.updateStatusLegendCard();
                 this.init();
             }
@@ -2966,17 +3024,237 @@
                 updateBreakDuration();
             }
 
+            async fetchUnifiedState() {
+                const managerId = this.getCurrentUserId();
+                const campaignId = this.getCurrentCampaignId();
+
+                const scheduleStartCandidate = document.getElementById('filterStartDate')?.value
+                    || document.getElementById('scheduleStartDate')?.value
+                    || '';
+                const scheduleEndCandidate = document.getElementById('filterEndDate')?.value
+                    || document.getElementById('scheduleEndDate')?.value
+                    || '';
+
+                const monthInput = document.getElementById('attendanceMonth');
+                const yearInput = document.getElementById('attendanceYear');
+                const monthContext = this.resolveAttendanceMonthContext(
+                    monthInput ? monthInput.value : '',
+                    yearInput ? yearInput.value : ''
+                );
+
+                const holidayCountryInput = document.getElementById('holidayCountry');
+                const holidayYearInput = document.getElementById('holidayYear');
+                const resolvedHolidayCountry = this.resolveHolidayCountryCode(
+                    holidayCountryInput ? holidayCountryInput.value : ''
+                );
+                const resolvedHolidayYear = this.resolveHolidayYear(
+                    holidayYearInput ? holidayYearInput.value : ''
+                );
+
+                const payload = {
+                    managerId,
+                    campaignId,
+                    scheduleStart: this.resolveIsoDate(scheduleStartCandidate),
+                    scheduleEnd: this.resolveIsoDate(scheduleEndCandidate),
+                    attendanceMonth: monthContext.month,
+                    attendanceYear: monthContext.year,
+                    attendanceStart: monthContext.startDate,
+                    attendanceEnd: monthContext.endDate,
+                    holidayCountry: resolvedHolidayCountry,
+                    holidayYear: resolvedHolidayYear
+                };
+
+                return this.callServerFunction('clientGetScheduleUnifiedState', payload);
+            }
+
+            applyUnifiedState(state) {
+                if (!state || state.success !== true) {
+                    throw new Error(state && state.error ? state.error : 'Unified schedule state unavailable');
+                }
+
+                this.unifiedState = Object.assign({}, state);
+                this.unifiedStateAppliedAt = new Date();
+
+                if (state.context && state.context.success) {
+                    this.identityResolved = !!(state.context.authenticated
+                        || (state.context.identity && state.context.identity.authenticated));
+                    this.identitySummary = state.context.identity || null;
+
+                    const resolvedManagerId = this.normalizeUserIdValue(state.context.managerId)
+                        || this.normalizeUserIdValue(state.context.providedManagerId);
+                    if (resolvedManagerId) {
+                        this.resolvedManagerId = resolvedManagerId;
+                    }
+
+                    const resolvedCampaignId = this.normalizeCampaignIdValue(
+                        state.context.campaignId || state.context.providedCampaignId
+                    );
+                    if (resolvedCampaignId) {
+                        this.resolvedCampaignId = resolvedCampaignId;
+                    }
+
+                    if (state.context.user && typeof state.context.user === 'object') {
+                        this.currentUser = Object.assign({}, this.currentUser || {}, state.context.user);
+                    }
+
+                    const managedIdsFromContext = Array.isArray(state.context.managedUserIds)
+                        ? state.context.managedUserIds
+                        : [];
+                    this.managedUserIds = managedIdsFromContext.slice();
+                    this.managedUserIdSet = new Set(
+                        this.managedUserIds.map(id => this.normalizeUserIdValue(id)).filter(Boolean)
+                    );
+                    if (this.resolvedManagerId && this.managedUserIdSet.has(this.resolvedManagerId)) {
+                        this.managedUserIdSet.delete(this.resolvedManagerId);
+                    }
+                }
+
+                const scheduleUsers = state.users && Array.isArray(state.users.schedule)
+                    ? state.users.schedule
+                    : (state.users && Array.isArray(state.users.combined) ? state.users.combined : []);
+                const rosterUsers = state.users && Array.isArray(state.users.roster)
+                    ? state.users.roster
+                    : [];
+
+                const sourceUsers = {};
+                if (state.users && Array.isArray(state.users.assignments) && state.users.assignments.length) {
+                    sourceUsers.assignments = state.users.assignments;
+                }
+                if (state.users && Array.isArray(state.users.attendance) && state.users.attendance.length) {
+                    sourceUsers.attendance = state.users.attendance;
+                }
+
+                this.applyUsersFromSources(scheduleUsers, rosterUsers, {
+                    combinedUsers: state.users && Array.isArray(state.users.combined) ? state.users.combined : null,
+                    rosterSource: state.users?.rosterSource || '',
+                    warnings: state.users?.warnings || [],
+                    managedUserIds: state.users?.managedUserIds || this.managedUserIds,
+                    rosterManagedUserIds: state.users?.rosterManagedUserIds || [],
+                    contextManagedUserIds: state.users?.contextManagedUserIds || [],
+                    sourceUsers,
+                    sourceSummary: state.users?.sources || null
+                });
+
+                if (state.schedule) {
+                    this.schedulePrefetchRange = state.schedule.range || null;
+
+                    if (Array.isArray(state.schedule.shiftSlots)) {
+                        const { slots, metadata } = this.normalizeShiftSlotListResponse(state.schedule.shiftSlots);
+                        this.cachedShiftSlots = slots;
+                        this.updateShiftSlotSelectors(slots);
+                        this.displayShiftSlots(slots);
+                        if (this.manualShiftManager && typeof this.manualShiftManager.setShiftSlots === 'function') {
+                            this.manualShiftManager.setShiftSlots(slots);
+                        }
+                        const totalSlotsElement = document.getElementById('totalSlots');
+                        if (totalSlotsElement && metadata && typeof metadata.totalCount !== 'undefined') {
+                            totalSlotsElement.textContent = metadata.totalCount;
+                        }
+                    }
+
+                    if (state.schedule.assignments) {
+                        const parsedAssignments = this.parseSchedulesResponse(state.schedule.assignments);
+                        const schedules = Array.isArray(parsedAssignments.schedules) ? parsedAssignments.schedules : [];
+                        this.cachedSchedules = schedules;
+                        this.displaySchedules(schedules);
+                        const totalElement = document.getElementById('totalSchedules');
+                        if (totalElement) {
+                            const numericTotal = Number(parsedAssignments.total);
+                            totalElement.textContent = Number.isFinite(numericTotal) && numericTotal >= 0
+                                ? numericTotal
+                                : schedules.length;
+                        }
+                    }
+
+                    if (state.schedule.dashboard) {
+                        this.applyScheduleDashboard(state.schedule.dashboard);
+                    }
+                }
+
+                if (state.attendance) {
+                    this.attendanceCalendarPrefetch = {
+                        range: state.attendance.range ? Object.assign({}, state.attendance.range) : null,
+                        users: state.attendance.users || [],
+                        monthlyRecords: Array.isArray(state.attendance.monthlyRecords)
+                            ? state.attendance.monthlyRecords.slice()
+                            : [],
+                        yearlyRecords: Array.isArray(state.attendance.yearlyRecords)
+                            ? state.attendance.yearlyRecords.slice()
+                            : []
+                    };
+
+                    this.attendanceCalendarRecords = Array.isArray(this.attendanceCalendarPrefetch.monthlyRecords)
+                        ? this.attendanceCalendarPrefetch.monthlyRecords.slice()
+                        : [];
+
+                    this.attendanceDashboardPrefetch = {
+                        year: state.attendance.range ? state.attendance.range.year : null,
+                        records: Array.isArray(state.attendance.yearlyRecords)
+                            ? state.attendance.yearlyRecords.slice()
+                            : [],
+                        dashboard: state.attendance.dashboard || null
+                    };
+
+                    if (this.attendanceDashboardPrefetch.records.length && this.attendanceDashboardPrefetch.year) {
+                        this.mergeAttendanceDashboardRecords(
+                            this.attendanceDashboardPrefetch.records,
+                            this.attendanceDashboardPrefetch.year
+                        );
+                    }
+
+                    if (state.attendance.dashboard && state.attendance.dashboard.success) {
+                        const year = this.attendanceDashboardPrefetch.year || this.getSelectedAttendanceYear();
+                        this.attendanceDashboardYear = year;
+                        this.attendanceDashboardRecords = this.attendanceDashboardPrefetch.records.slice();
+                        const filteredRecords = this.filterAttendanceDashboardRecords(
+                            this.attendanceDashboardRecords,
+                            this.attendanceDashboardUserFilter
+                        );
+                        this.attendanceDashboardData = this.computeAttendanceDashboard(filteredRecords, year);
+                        this.destroyAttendanceDashboardCharts();
+                    }
+                }
+
+                if (state.holidays && state.holidays.success) {
+                    this.holidayPrefetch = state.holidays;
+                }
+            }
+
             async loadInitialData() {
+                let unifiedApplied = false;
+
                 try {
                     this.showToast('Loading system data...', 'info');
+                    const unifiedState = await this.fetchUnifiedState();
+                    if (unifiedState && unifiedState.success) {
+                        this.applyUnifiedState(unifiedState);
+                        unifiedApplied = true;
+                    } else {
+                        throw new Error(unifiedState?.error || 'Unified state unavailable');
+                    }
+                } catch (error) {
+                    console.warn('Unified state bootstrap failed. Falling back to legacy loaders.', error);
+                }
 
-                    // Resolve identity and manager context before loading data
+                if (unifiedApplied) {
+                    const activePane = document.querySelector('#mainTabContent .tab-pane.show.active');
+                    if (activePane?.id === 'attendance') {
+                        await this.loadAttendanceCalendar();
+                    }
+                    if (activePane?.id === 'attendance-dashboard') {
+                        await this.loadAttendanceDashboard(false);
+                    }
+                    await this.refreshHolidays();
+                    this.showToast('System ready! All data loaded successfully.', 'success');
+                    console.log('✅ Unified system state loaded successfully');
+                    return;
+                }
+
+                try {
                     await this.ensureScheduleContext();
 
-                    // Load users first as they're needed everywhere
                     await this.loadUsers();
 
-                    // Load other data concurrently
                     await Promise.allSettled([
                         this.loadCampaigns(),
                         this.loadShiftSlots(),
@@ -2992,8 +3270,10 @@
                         await this.loadAttendanceDashboard(true);
                     }
 
+                    await this.refreshHolidays();
+
                     this.showToast('System ready! All data loaded successfully.', 'success');
-                    console.log('✅ Initial data loaded successfully');
+                    console.log('✅ Initial data loaded successfully (legacy path)');
 
                 } catch (error) {
                     console.error('❌ Error loading initial data:', error);
@@ -3033,6 +3313,321 @@
                 }
             }
 
+            parseManagedRosterResponse(response) {
+                const result = {
+                    users: [],
+                    recognized: false,
+                    error: null
+                };
+
+                if (Array.isArray(response)) {
+                    result.users = response.slice();
+                    result.recognized = true;
+                    return result;
+                }
+
+                if (response && typeof response === 'object') {
+                    if (Array.isArray(response.users)) {
+                        result.users = response.users.slice();
+                        result.recognized = true;
+                        if (response.success === false && response.error) {
+                            result.error = response.error;
+                        }
+                        return result;
+                    }
+
+                    if (Array.isArray(response.managedUsers)) {
+                        result.users = response.managedUsers.slice();
+                        result.recognized = true;
+                        if (response.success === false && response.error) {
+                            result.error = response.error;
+                        }
+                        return result;
+                    }
+
+                    if (response.success === false && response.error) {
+                        result.recognized = true;
+                        result.error = response.error;
+                        return result;
+                    }
+                }
+
+                return result;
+            }
+
+            async fetchManagedRoster(managerId) {
+                if (!managerId) {
+                    console.warn('⚠️ Managed roster request skipped - missing manager identifier');
+                    return { users: [], source: null, error: 'Missing manager ID', managedUserIds: [] };
+                }
+
+                const attempts = [
+                    { functionName: 'clientGetManagedUsersList', label: 'ScheduleService roster endpoint' },
+                    { functionName: 'clientGetManagedUsers', label: 'UserService roster endpoint' }
+                ];
+
+                for (let index = 0; index < attempts.length; index++) {
+                    const attempt = attempts[index];
+                    const isLastAttempt = index === attempts.length - 1;
+
+                    try {
+                        const response = await this.callServerFunction(attempt.functionName, managerId);
+                        const parsed = this.parseManagedRosterResponse(response);
+
+                        if (!parsed.recognized) {
+                            continue;
+                        }
+
+                        if (parsed.error) {
+                            console.warn(`⚠️ ${attempt.label} responded with: ${parsed.error}`);
+                            if (!isLastAttempt && parsed.users.length === 0) {
+                                continue;
+                            }
+                        }
+
+                        return {
+                            users: Array.isArray(parsed.users) ? parsed.users : [],
+                            source: attempt.functionName,
+                            error: parsed.error || null,
+                            managedUserIds: Array.isArray(parsed.users)
+                                ? parsed.users
+                                    .map(user => this.normalizeUserIdValue(user && (user.ID || user.UserID || user.id || user.userId)))
+                                    .filter(Boolean)
+                                : []
+                        };
+                    } catch (error) {
+                        console.warn(`⚠️ ${attempt.label} failed:`, error);
+                        if (isLastAttempt) {
+                            return {
+                                users: [],
+                                source: attempt.functionName,
+                                error: error.message || String(error),
+                                managedUserIds: []
+                            };
+                        }
+                    }
+                }
+
+                return { users: [], source: null, error: null, managedUserIds: [] };
+            }
+
+            applyUsersFromSources(scheduleUsers, rosterUsers, options = {}) {
+                const scheduleList = Array.isArray(scheduleUsers) ? scheduleUsers : [];
+                const rosterList = Array.isArray(rosterUsers) ? rosterUsers : [];
+                const combinedList = Array.isArray(options.combinedUsers) ? options.combinedUsers : [];
+
+                if (Object.prototype.hasOwnProperty.call(options, 'rosterSource')) {
+                    this.managedRosterSource = options.rosterSource || '';
+                }
+
+                if (options && typeof options.sourceSummary === 'object' && options.sourceSummary !== null && !Array.isArray(options.sourceSummary)) {
+                    this.userSourceSummary = Object.assign({}, options.sourceSummary);
+                } else {
+                    this.userSourceSummary = null;
+                }
+
+                this.rosterManagedUserIds = Array.isArray(options.rosterManagedUserIds)
+                    ? options.rosterManagedUserIds.map(id => this.normalizeUserIdValue(id)).filter(Boolean)
+                    : [];
+                this.contextManagedUserIds = Array.isArray(options.contextManagedUserIds)
+                    ? options.contextManagedUserIds.map(id => this.normalizeUserIdValue(id)).filter(Boolean)
+                    : [];
+
+                this.managedRosterUsers = rosterList.slice();
+                this.managedRosterWarnings = Array.isArray(options.warnings) ? options.warnings.slice() : [];
+
+                if (Array.isArray(this.managedRosterWarnings) && this.managedRosterWarnings.length) {
+                    this.managedRosterWarnings.forEach(warning => {
+                        if (warning) {
+                            console.warn('⚠️ Managed roster warning:', warning);
+                        }
+                    });
+                }
+
+                this.additionalUserSources = {};
+                const extraCollections = [];
+                if (options && options.sourceUsers && typeof options.sourceUsers === 'object') {
+                    Object.entries(options.sourceUsers).forEach(([key, collection]) => {
+                        if (!Array.isArray(collection) || !collection.length) {
+                            return;
+                        }
+                        const sanitized = collection
+                            .filter(item => item && typeof item === 'object')
+                            .map(item => Object.assign({}, item));
+                        if (!sanitized.length) {
+                            return;
+                        }
+                        extraCollections.push(sanitized);
+                        this.additionalUserSources[key] = sanitized.slice();
+                    });
+                }
+
+                this.assignmentUserRecords = Array.isArray(this.additionalUserSources.assignments)
+                    ? this.additionalUserSources.assignments.slice()
+                    : [];
+                this.attendanceUserRecords = Array.isArray(this.additionalUserSources.attendance)
+                    ? this.additionalUserSources.attendance.slice()
+                    : [];
+
+                const userMap = new Map();
+                const pushUserRecord = (user) => {
+                    if (!user || typeof user !== 'object') {
+                        return;
+                    }
+
+                    const normalizedId = this.normalizeUserIdValue(user.ID || user.UserID || user.id || user.userId);
+                    const normalizedNameKey = this.normalizePersonKey(
+                        user.UserName || user.username || user.FullName || user.fullName || ''
+                    );
+                    const normalizedEmailKey = this.normalizePersonKey(user.Email || user.email || '');
+
+                    const key = normalizedId
+                        ? `id:${normalizedId}`
+                        : (normalizedNameKey ? `name:${normalizedNameKey}` : (normalizedEmailKey ? `email:${normalizedEmailKey}` : null));
+
+                    if (!key) {
+                        return;
+                    }
+
+                    const existing = userMap.get(key) || {};
+                    const resolvedId = normalizedId
+                        || existing.ID
+                        || (normalizedNameKey ? `name:${normalizedNameKey}` : (normalizedEmailKey ? `email:${normalizedEmailKey}` : key));
+
+                    const normalized = {
+                        ID: resolvedId,
+                        UserName: user.UserName || user.username || existing.UserName || existing.username || resolvedId,
+                        FullName: user.FullName || user.fullName || existing.FullName || existing.fullName || user.UserName || existing.UserName || resolvedId,
+                        Email: user.Email || user.email || existing.Email || '',
+                        CampaignID: user.CampaignID || user.campaignID || user.campaignId || existing.CampaignID || '',
+                        campaignName: user.campaignName || user.CampaignName || existing.campaignName || existing.CampaignName || '',
+                        EmploymentStatus: user.EmploymentStatus || existing.EmploymentStatus || 'Active',
+                        HireDate: user.HireDate || existing.HireDate || '',
+                        TerminationDate: user.TerminationDate || user.terminationDate || existing.TerminationDate || '',
+                        isActive: typeof user.isActive === 'boolean'
+                            ? user.isActive
+                            : (typeof existing.isActive === 'boolean' ? existing.isActive : true),
+                        roleNames: Array.isArray(user.roleNames)
+                            ? user.roleNames.slice()
+                            : (Array.isArray(existing.roleNames) ? existing.roleNames.slice() : []),
+                        syntheticId: normalizedId ? false : (existing.syntheticId === true || !normalizedId)
+                    };
+
+                    userMap.set(key, normalized);
+                };
+
+                const collections = [combinedList, scheduleList, rosterList].concat(extraCollections);
+                collections
+                    .filter(collection => Array.isArray(collection) && collection.length)
+                    .forEach(collection => collection.forEach(pushUserRecord));
+
+                this.availableUsers = Array.from(userMap.values())
+                    .filter(user => user && user.ID && (user.FullName || user.UserName))
+                    .sort((a, b) => {
+                        const nameA = (a.FullName || a.UserName || '').toLowerCase();
+                        const nameB = (b.FullName || b.UserName || '').toLowerCase();
+                        return nameA.localeCompare(nameB);
+                    });
+
+                if (this.attendanceDashboardUserFilter) {
+                    const normalizedFilterId = this.normalizeUserIdValue(this.attendanceDashboardUserFilter);
+                    const normalizedFilterName = this.normalizePersonKey(normalizedFilterId);
+                    const hasUser = this.availableUsers.some(user => {
+                        const userId = this.normalizeUserIdValue(user.ID || user.UserID || user.id || user.userId || user.username);
+                        if (userId && userId === normalizedFilterId) {
+                            return true;
+                        }
+                        const nameKey = this.normalizePersonKey(user.FullName || user.UserName || '');
+                        return normalizedFilterName && nameKey === normalizedFilterName;
+                    });
+
+                    if (!hasUser) {
+                        this.attendanceDashboardUserFilter = '';
+                    }
+                }
+
+                const manualManager = (this.manualShiftManager && typeof this.manualShiftManager.setUsers === 'function')
+                    ? this.manualShiftManager
+                    : (window.manualShiftManager && typeof window.manualShiftManager.setUsers === 'function'
+                        ? window.manualShiftManager
+                        : null);
+                if (manualManager) {
+                    const operationalUsers = this.availableUsers.filter(user => !user.syntheticId);
+                    manualManager.setUsers(operationalUsers);
+                }
+
+                const currentUserId = this.normalizeUserIdValue(this.getCurrentUserId());
+                const managedCandidateIds = Array.isArray(options.managedUserIds)
+                    ? options.managedUserIds
+                    : this.managedUserIds || [];
+
+                const managedSet = new Set(
+                    managedCandidateIds
+                        .map(id => this.normalizeUserIdValue(id))
+                        .filter(Boolean)
+                );
+
+                this.rosterManagedUserIds.forEach(id => {
+                    if (id && id !== currentUserId) {
+                        managedSet.add(id);
+                    }
+                });
+                this.contextManagedUserIds.forEach(id => {
+                    if (id && id !== currentUserId) {
+                        managedSet.add(id);
+                    }
+                });
+
+                const appendManagedFromUser = (user) => {
+                    const managedId = this.normalizeUserIdValue(user && (user.ID || user.UserID || user.id || user.userId));
+                    if (managedId && managedId !== currentUserId) {
+                        managedSet.add(managedId);
+                    }
+                };
+
+                rosterList.forEach(appendManagedFromUser);
+                extraCollections.forEach(collection => collection.forEach(appendManagedFromUser));
+
+                if (currentUserId && managedSet.has(currentUserId)) {
+                    managedSet.delete(currentUserId);
+                }
+
+                this.managedUserIdSet = managedSet;
+                this.managedUserIds = Array.from(managedSet);
+
+                if (managedSet.size) {
+                    const seen = new Set();
+                    this.availableUsers.forEach(user => {
+                        const userId = this.normalizeUserIdValue(user && (user.ID || user.UserID || user.id || user.userId));
+                        if (userId && managedSet.has(userId)) {
+                            seen.add(userId);
+                        }
+                    });
+                    this.visibleManagedCount = seen.size;
+                } else {
+                    this.visibleManagedCount = this.availableUsers.filter(user => {
+                        const userId = this.normalizeUserIdValue(user && (user.ID || user.UserID || user.id || user.userId));
+                        return userId && userId !== currentUserId;
+                    }).length || this.availableUsers.length;
+                }
+
+                this.updateUserDropdowns();
+                this.updateUsersList();
+
+                const totalUsersElement = document.getElementById('totalUsers');
+                if (totalUsersElement) {
+                    totalUsersElement.textContent = this.availableUsers.length;
+                }
+
+                const rosterSourceLabel = this.managedRosterSource
+                    ? ` via ${this.managedRosterSource}`
+                    : '';
+                console.log(`✅ Loaded ${this.availableUsers.length} users (including ${rosterList.length} managed roster entries${rosterSourceLabel})`);
+                if (this.userSourceSummary) {
+                    console.log('ℹ️ User source contribution summary:', this.userSourceSummary);
+                }
+            }
+
             async loadUsers() {
                 try {
                     console.log('👥 Loading users...');
@@ -3043,131 +3638,21 @@
                     console.log('🔐 Resolved manager context:', { managerId: currentUserId, campaignId: campaignId || '(all)' });
 
                     const scheduleUsers = await this.callServerFunction('clientGetScheduleUsers', currentUserId, campaignId || null);
-                    const rosterResponse = await this.callServerFunction('clientGetManagedUsers', currentUserId);
+                    const rosterResult = await this.fetchManagedRoster(currentUserId);
+                    const rosterUsers = Array.isArray(rosterResult.users) ? rosterResult.users : [];
 
-                    const rosterUsers = (() => {
-                        if (!rosterResponse) {
-                            return [];
-                        }
-                        if (Array.isArray(rosterResponse)) {
-                            return rosterResponse;
-                        }
-                        if (typeof rosterResponse === 'object' && rosterResponse.success === false) {
-                            console.warn('⚠️ Unable to load managed roster:', rosterResponse.error);
-                            return [];
-                        }
-                        if (typeof rosterResponse === 'object' && Array.isArray(rosterResponse.users)) {
-                            return rosterResponse.users;
-                        }
-                        return [];
-                    })();
-
-                    const byId = new Map();
-                    const pushUserRecord = (user) => {
-                        if (!user || typeof user !== 'object') {
-                            return;
-                        }
-
-                        const normalizedId = this.normalizeUserIdValue(user.ID || user.UserID || user.id || user.userId);
-                        if (!normalizedId) {
-                            return;
-                        }
-
-                        const existing = byId.get(normalizedId) || {};
-
-                        const normalized = {
-                            ID: normalizedId,
-                            UserName: user.UserName || user.username || existing.UserName || existing.username || normalizedId,
-                            FullName: user.FullName || user.fullName || existing.FullName || existing.fullName || user.UserName || existing.UserName || normalizedId,
-                            Email: user.Email || user.email || existing.Email || '',
-                            CampaignID: user.CampaignID || user.campaignID || user.campaignId || existing.CampaignID || '',
-                            campaignName: user.campaignName || existing.campaignName || '',
-                            EmploymentStatus: user.EmploymentStatus || existing.EmploymentStatus || 'Active',
-                            HireDate: user.HireDate || existing.HireDate || '',
-                            TerminationDate: user.TerminationDate || user.terminationDate || existing.TerminationDate || '',
-                            isActive: typeof user.isActive === 'boolean' ? user.isActive : (typeof existing.isActive === 'boolean' ? existing.isActive : true),
-                            roleNames: Array.isArray(user.roleNames) ? user.roleNames.slice() : (Array.isArray(existing.roleNames) ? existing.roleNames.slice() : [])
-                        };
-
-                        byId.set(normalizedId, normalized);
-                    };
-
-                    (Array.isArray(scheduleUsers) ? scheduleUsers : []).forEach(pushUserRecord);
-                    rosterUsers.forEach(pushUserRecord);
-
-                    this.availableUsers = Array.from(byId.values())
-                        .filter(user => user && user.ID && (user.FullName || user.UserName))
-                        .sort((a, b) => {
-                            const nameA = (a.FullName || a.UserName || '').toLowerCase();
-                            const nameB = (b.FullName || b.UserName || '').toLowerCase();
-                            return nameA.localeCompare(nameB);
-                        });
-
-                    if (this.attendanceDashboardUserFilter) {
-                        const normalizedFilterId = this.normalizeUserIdValue(this.attendanceDashboardUserFilter);
-                        const normalizedFilterName = this.normalizePersonKey(normalizedFilterId);
-                        const hasUser = this.availableUsers.some(user => {
-                            const userId = this.normalizeUserIdValue(user.ID || user.UserID || user.id || user.userId || user.username);
-                            if (userId && userId === normalizedFilterId) {
-                                return true;
-                            }
-                            const nameKey = this.normalizePersonKey(user.FullName || user.UserName || '');
-                            return normalizedFilterName && nameKey === normalizedFilterName;
-                        });
-
-                        if (!hasUser) {
-                            this.attendanceDashboardUserFilter = '';
-                        }
+                    if (rosterResult.error && rosterUsers.length === 0) {
+                        console.warn('⚠️ Managed roster fallback warning:', rosterResult.error);
                     }
 
-                    const manualManager = (this.manualShiftManager && typeof this.manualShiftManager.setUsers === 'function')
-                        ? this.manualShiftManager
-                        : (window.manualShiftManager && typeof window.manualShiftManager.setUsers === 'function'
-                            ? window.manualShiftManager
-                            : null);
-                    if (manualManager) {
-                        manualManager.setUsers(this.availableUsers);
-                    }
-
-                    if (!(this.managedUserIdSet instanceof Set)) {
-                        this.managedUserIdSet = new Set();
-                    }
-
-                    rosterUsers.forEach(user => {
-                        const managedId = this.normalizeUserIdValue(user && (user.ID || user.UserID));
-                        if (managedId && managedId !== currentUserId) {
-                            this.managedUserIdSet.add(managedId);
-                        }
+                    this.applyUsersFromSources(scheduleUsers, rosterUsers, {
+                        rosterSource: rosterResult.source || '',
+                        warnings: rosterResult.error ? [rosterResult.error] : [],
+                        managedUserIds: Array.isArray(rosterResult.managedUserIds) && rosterResult.managedUserIds.length
+                            ? rosterResult.managedUserIds
+                            : this.managedUserIds,
+                        combinedUsers: null
                     });
-
-                    if (this.resolvedManagerId) {
-                        const managerId = this.normalizeUserIdValue(this.resolvedManagerId);
-                        if (managerId && this.managedUserIdSet.has(managerId)) {
-                            this.managedUserIdSet.delete(managerId);
-                        }
-                    }
-
-                    const managedSet = this.managedUserIdSet instanceof Set ? this.managedUserIdSet : new Set();
-                    if (managedSet.size) {
-                        const seen = new Set();
-                        this.availableUsers.forEach(user => {
-                            const userId = this.normalizeUserIdValue(user && (user.ID || user.UserID));
-                            if (userId && managedSet.has(userId)) {
-                                seen.add(userId);
-                            }
-                        });
-                        this.visibleManagedCount = seen.size;
-                    } else {
-                        this.visibleManagedCount = this.availableUsers.filter(user => {
-                            const userId = this.normalizeUserIdValue(user && (user.ID || user.UserID));
-                            return userId && userId !== currentUserId;
-                        }).length || this.availableUsers.length;
-                    }
-
-                    console.log(`✅ Loaded ${this.availableUsers.length} users (including ${rosterUsers.length} managed roster entries)`);
-
-                    // Update user dropdowns
-                    this.updateUserDropdowns();
 
                     if (this.attendanceDashboardData && Number.isFinite(this.attendanceDashboardYear)) {
                         const filteredRecords = this.filterAttendanceDashboardRecords(this.attendanceDashboardRecords, this.attendanceDashboardUserFilter);
@@ -3176,11 +3661,6 @@
                             this.initializeAttendanceDashboard();
                         }
                     }
-
-                    this.updateUsersList();
-
-                    // Update metrics
-                    document.getElementById('totalUsers').textContent = this.availableUsers.length;
 
                 } catch (error) {
                     console.error('❌ Error loading users:', error);
@@ -3198,7 +3678,8 @@
                     if (!dropdown) return;
 
                     if (dropdownId === 'scheduleUsers') {
-                        dropdown.innerHTML = this.availableUsers.map(user => {
+                        const operationalUsers = this.availableUsers.filter(user => !user.syntheticId);
+                        dropdown.innerHTML = operationalUsers.map(user => {
                             const optionValue = user.UserName || user.FullName || user.ID || '';
                             const labelName = this.escapeHtml(user.FullName || user.UserName || 'Unnamed Agent');
                             const campaignLabel = this.escapeHtml(user.campaignName || 'No Campaign');
@@ -3262,9 +3743,13 @@
                     ? '<span class="badge bg-success">Lumina Identity</span>'
                     : '<span class="badge bg-secondary">Limited Identity</span>';
 
+                const syntheticCount = this.availableUsers.filter(user => user.syntheticId).length;
+                const syntheticBadge = syntheticCount
+                    ? `<span class="badge bg-warning text-dark ms-2">${syntheticCount} unlinked</span>`
+                    : '';
                 const summary = `
                     <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2 small text-muted">
-                        <span>Showing <strong>${this.availableUsers.length}</strong> assigned agents for ${managerName}</span>
+                        <span>Showing <strong>${this.availableUsers.length}</strong> assigned agents ${syntheticBadge} for ${managerName}</span>
                         ${identityBadge}
                     </div>
                 `;
@@ -3276,6 +3761,11 @@
                     const status = this.escapeHtml(user.EmploymentStatus || 'Active');
                     const badgeClass = user.isActive ? 'bg-success' : 'bg-secondary';
                     const badgeLabel = this.escapeHtml(user.isActive ? 'Active' : 'Inactive');
+                    const badges = [`<span class="badge ${badgeClass}">${badgeLabel}</span>`];
+                    if (user.syntheticId) {
+                        badges.push('<span class="badge bg-warning text-dark ms-2">Unlinked</span>');
+                    }
+                    const badgesHtml = badges.join('');
 
                     return `
                         <div class="d-flex justify-content-between align-items-center mb-3 p-3 border rounded interactive-item">
@@ -3285,7 +3775,7 @@
                                     ${email} • ${campaign} • ${status}
                                 </small>
                             </div>
-                            <span class="badge ${badgeClass}">${badgeLabel}</span>
+                            <span class="d-inline-flex align-items-center gap-2">${badgesHtml}</span>
                         </div>
                     `;
                 }).join('');
@@ -3297,13 +3787,14 @@
                 const container = document.getElementById('managerStats');
                 if (!container) return;
 
-                const activeUsers = this.availableUsers.filter(u => u.isActive).length;
-                const managedAgents = this.visibleManagedCount || this.availableUsers.length;
+                const operationalUsers = this.availableUsers.filter(u => !u.syntheticId);
+                const activeUsers = operationalUsers.filter(u => u.isActive).length;
+                const managedAgents = this.visibleManagedCount || operationalUsers.length;
                 const rosterAssignments = (this.managedUserIdSet instanceof Set && this.managedUserIdSet.size)
                     ? this.managedUserIdSet.size
                     : managedAgents;
                 const uniqueCampaigns = new Set(
-                    this.availableUsers
+                    operationalUsers
                         .map(user => (user.campaignName || '').trim())
                         .filter(Boolean)
                 ).size;
@@ -3712,6 +4203,19 @@
                 return parts.join(' ');
             }
 
+            applyScheduleDashboard(dashboard) {
+                if (!dashboard || dashboard.success !== true) {
+                    return false;
+                }
+
+                this.updateScheduleMetrics(dashboard);
+                this.renderCoverageChart(dashboard.coverage);
+                this.renderScheduleInsights(dashboard);
+                this.renderFairnessWatchlist(dashboard.fairness);
+                this.renderComplianceAlerts(dashboard.compliance);
+                return true;
+            }
+
             async refreshDashboard() {
                 try {
                     console.log('📊 Refreshing dashboard...');
@@ -3733,13 +4237,7 @@
 
                     const dashboard = await this.callServerFunction('clientGetScheduleDashboard', managerId, campaignId || null, options);
 
-                    if (dashboard && dashboard.success) {
-                        this.updateScheduleMetrics(dashboard);
-                        this.renderCoverageChart(dashboard.coverage);
-                        this.renderScheduleInsights(dashboard);
-                        this.renderFairnessWatchlist(dashboard.fairness);
-                        this.renderComplianceAlerts(dashboard.compliance);
-                    } else {
+                    if (!this.applyScheduleDashboard(dashboard)) {
                         throw new Error(dashboard && dashboard.error ? dashboard.error : 'Unknown dashboard error');
                     }
 
@@ -5609,6 +6107,19 @@
 
             async fetchAttendanceDashboardData(year) {
                 try {
+                    const prefetch = this.attendanceDashboardPrefetch;
+                    if (prefetch && prefetch.year === year && Array.isArray(prefetch.records)) {
+                        this.attendanceDashboardYear = year;
+                        this.attendanceDashboardRecords = prefetch.records.slice();
+                        const filteredPrefetchRecords = this.filterAttendanceDashboardRecords(
+                            this.attendanceDashboardRecords,
+                            this.attendanceDashboardUserFilter
+                        );
+                        this.attendanceDashboardData = this.computeAttendanceDashboard(filteredPrefetchRecords, year);
+                        this.destroyAttendanceDashboardCharts();
+                        return;
+                    }
+
                     const startDate = `${year}-01-01`;
                     const endDate = `${year}-12-31`;
                     const campaignId = this.getCurrentCampaignId ? this.getCurrentCampaignId() || null : null;
@@ -5619,6 +6130,11 @@
                     }
 
                     const records = Array.isArray(response.records) ? response.records : [];
+                    this.attendanceDashboardPrefetch = {
+                        year,
+                        records: records.slice(),
+                        dashboard: prefetch && prefetch.dashboard ? prefetch.dashboard : null
+                    };
                     this.attendanceDashboardRecords = records;
                     this.attendanceDashboardYear = year;
                     const filteredRecords = this.filterAttendanceDashboardRecords(records, this.attendanceDashboardUserFilter);
@@ -7126,14 +7642,64 @@
                     const managerId = this.getCurrentUserId();
                     const campaignId = this.getCurrentCampaignId() || null;
 
-                    const [attendanceUsersRaw, scheduleUsersRaw] = await Promise.all([
-                        this.callServerFunction('clientGetAttendanceUsers', managerId, campaignId),
-                        Array.isArray(this.availableUsers) && this.availableUsers.length
-                            ? Promise.resolve(this.availableUsers)
-                            : this.callServerFunction('clientGetScheduleUsers', managerId, campaignId)
-                    ]);
+                    let scheduleUsers = Array.isArray(this.availableUsers) ? this.availableUsers.slice() : [];
+                    let attendanceUsersRaw = [];
+                    let attendanceRecords = [];
+                    let attendanceYearRecords = [];
+                    const prefetch = this.attendanceCalendarPrefetch;
+                    if (
+                        prefetch
+                        && prefetch.range
+                        && prefetch.range.startDate === monthContext.startDate
+                        && prefetch.range.endDate === monthContext.endDate
+                    ) {
+                        console.log('📅 Using prefetched attendance data for %s', monthContext.label);
+                        attendanceUsersRaw = Array.isArray(prefetch.users) ? prefetch.users.slice() : [];
+                        attendanceRecords = Array.isArray(prefetch.monthlyRecords) ? prefetch.monthlyRecords.slice() : [];
+                        attendanceYearRecords = Array.isArray(prefetch.yearlyRecords)
+                            ? prefetch.yearlyRecords.slice()
+                            : attendanceRecords.slice();
+                    } else {
+                        const [attendanceUsersResponse, scheduleUsersResponse] = await Promise.all([
+                            this.callServerFunction('clientGetAttendanceUsers', managerId, campaignId),
+                            scheduleUsers.length
+                                ? Promise.resolve(scheduleUsers)
+                                : this.callServerFunction('clientGetScheduleUsers', managerId, campaignId)
+                        ]);
 
-                    const scheduleUsers = Array.isArray(scheduleUsersRaw) ? scheduleUsersRaw : [];
+                        attendanceUsersRaw = Array.isArray(attendanceUsersResponse) ? attendanceUsersResponse : [];
+                        scheduleUsers = Array.isArray(scheduleUsersResponse) ? scheduleUsersResponse : scheduleUsers;
+
+                        let attendanceResponse = null;
+                        try {
+                            attendanceResponse = await this.callServerFunction(
+                                'clientGetAttendanceDataRange',
+                                monthContext.startDate,
+                                monthContext.endDate,
+                                campaignId
+                            );
+                            if (attendanceResponse && attendanceResponse.success) {
+                                attendanceRecords = Array.isArray(attendanceResponse.records)
+                                    ? attendanceResponse.records
+                                    : [];
+                            } else if (attendanceResponse && attendanceResponse.error) {
+                                console.warn('Attendance data range request returned an error:', attendanceResponse.error);
+                            }
+                        } catch (attendanceError) {
+                            console.error('Unable to load attendance statuses for calendar:', attendanceError);
+                        }
+
+                        attendanceYearRecords = attendanceResponse && attendanceResponse.success
+                            ? (Array.isArray(attendanceResponse.records) ? attendanceResponse.records.slice() : [])
+                            : attendanceRecords.slice();
+
+                        this.attendanceCalendarPrefetch = {
+                            range: monthContext,
+                            users: attendanceUsersRaw.slice(),
+                            monthlyRecords: attendanceRecords.slice(),
+                            yearlyRecords: attendanceYearRecords.slice()
+                        };
+                    }
 
                     if (!Array.isArray(this.availableUsers) || !this.availableUsers.length) {
                         this.availableUsers = scheduleUsers.slice();
@@ -7193,25 +7759,11 @@
 
                     const userEntries = this.buildAttendanceUserEntries(combinedUsers, employedScheduleUsers);
 
-                    let attendanceRecords = [];
-                    try {
-                        const attendanceResponse = await this.callServerFunction(
-                            'clientGetAttendanceDataRange',
-                            monthContext.startDate,
-                            monthContext.endDate,
-                            campaignId
-                        );
-                        if (attendanceResponse && attendanceResponse.success) {
-                            attendanceRecords = Array.isArray(attendanceResponse.records) ? attendanceResponse.records : [];
-                        } else {
-                            console.warn('Attendance data range request returned an error:', attendanceResponse?.error);
-                        }
-                    } catch (attendanceError) {
-                        console.error('Unable to load attendance statuses for calendar:', attendanceError);
-                    }
-
                     this.attendanceCalendarRecords = attendanceRecords;
-                    this.mergeAttendanceDashboardRecords(attendanceRecords, monthContext.year);
+                    const mergeSource = attendanceYearRecords.length ? attendanceYearRecords : attendanceRecords;
+                    if (mergeSource.length) {
+                        this.mergeAttendanceDashboardRecords(mergeSource, monthContext.year);
+                    }
                     const attendanceMap = this.buildAttendanceRecordMap(attendanceRecords);
 
                     const calendar = this.generateAttendanceCalendarGrid(
@@ -9001,6 +9553,19 @@
                 return local.toISOString().split('T')[0];
             }
 
+            resolveIsoDate(value, fallback = null) {
+                const parsed = this.parseDateValue(value);
+                if (parsed) {
+                    return this.toIsoDateString(parsed);
+                }
+
+                if (fallback) {
+                    return this.resolveIsoDate(fallback);
+                }
+
+                return '';
+            }
+
             renderImportPreview(schedules, options = {}, summary = {}) {
                 const container = document.getElementById('importPreview');
                 if (!container) return;
@@ -9191,16 +9756,65 @@
                 return months[index] || '';
             }
 
+            buildHolidaySummaryMarkup(response) {
+                const countryNames = {
+                    'JM': 'Jamaica',
+                    'US': 'United States',
+                    'DO': 'Dominican Republic',
+                    'PH': 'Philippines'
+                };
+
+                const holidays = Array.isArray(response?.holidays) ? response.holidays : [];
+                const countryCode = response?.country || response?.countryCode || '';
+                const countryName = countryNames[countryCode] || countryCode || 'Selected Country';
+                const year = response?.year || new Date().getFullYear();
+                const isPrimary = !!response?.isPrimary;
+
+                if (!holidays.length) {
+                    return `
+                        <div class="alert alert-info-modern">
+                            <h6><i class="fas fa-info-circle me-2"></i>No holidays imported yet</h6>
+                            <p class="mb-0">Use the form above to import holidays for ${this.escapeHtml(countryName)} ${this.escapeHtml(String(year))}.</p>
+                        </div>
+                    `;
+                }
+
+                const rows = holidays.map(holiday => `
+                    <div class="col-md-6 mb-1">
+                        <small>
+                            <strong>${this.escapeHtml(holiday.name || holiday.Name || 'Holiday')}</strong> - ${this.formatDate(holiday.date || holiday.Date || '')}
+                        </small>
+                    </div>
+                `).join('');
+
+                return `
+                    <div class="alert ${isPrimary ? 'alert-success' : 'alert-info'}-modern">
+                        <h6>
+                            <i class="fas fa-calendar-day me-2"></i>
+                            ${this.escapeHtml(countryName)} Holidays ${this.escapeHtml(String(year))} ${isPrimary ? '(PRIMARY - Takes Precedence)' : ''}
+                        </h6>
+                        <div class="row">
+                            ${rows}
+                        </div>
+                    </div>
+                `;
+            }
+
             async importHolidays() {
                 try {
                     this.showLoading(true);
 
-                    const countryCode = document.getElementById('holidayCountry').value;
-                    const year = document.getElementById('holidayYear').value;
+                    const countrySelect = document.getElementById('holidayCountry');
+                    const yearSelect = document.getElementById('holidayYear');
+                    const countryCode = this.resolveHolidayCountryCode(countrySelect ? countrySelect.value : '');
+                    const year = this.resolveHolidayYear(yearSelect ? yearSelect.value : '');
 
                     if (!countryCode || !year) {
                         throw new Error('Please select both country and year');
                     }
+
+                    this.setSelectValueIfAvailable(countrySelect, countryCode);
+                    this.setSelectValueIfAvailable(yearSelect, year);
 
                     const result = await this.callServerFunction('clientGetCountryHolidays', countryCode, year);
 
@@ -9212,16 +9826,28 @@
                             'PH': 'Philippines'
                         };
 
-                        const countryName = countryNames[countryCode] || countryCode;
+                        const resolvedCountryCode = result.country || result.countryCode || countryCode;
+                        const countryName = countryNames[resolvedCountryCode] || resolvedCountryCode;
+                        const resolvedYear = result.year || year;
                         const priority = result.isPrimary ? ' (PRIMARY)' : '';
 
-                        this.showToast(
-                            `Successfully loaded ${result.holidays.length} holidays for ${countryName} ${year}${priority}`,
-                            'success'
-                        );
+                        if (countrySelect) {
+                            this.setSelectValueIfAvailable(countrySelect, resolvedCountryCode);
+                        }
+                        if (yearSelect) {
+                            this.setSelectValueIfAvailable(yearSelect, resolvedYear);
+                        }
+
+                        const successMessage = `Successfully loaded ${result.holidays.length} holidays for ${countryName} ${resolvedYear}${priority}`;
+                        if (result.fallbackApplied && result.note) {
+                            this.showToast(successMessage, 'success');
+                            this.showToast(result.note, 'warning');
+                        } else {
+                            this.showToast(successMessage, 'success');
+                        }
 
                         // Display holidays
-                        this.displayHolidayPreview(result.holidays, countryName, year, result.isPrimary);
+                        this.displayHolidayPreview(result.holidays, countryName, resolvedYear, result.isPrimary);
 
                     } else {
                         throw new Error(result?.error || 'Failed to load holidays');
@@ -9269,29 +9895,74 @@
                 await this.refreshHolidays();
             }
 
-            async refreshHolidays() {
+            async refreshHolidays(force = false) {
                 const container = document.getElementById('currentHolidays');
                 if (!container) return;
+
+                const countrySelect = document.getElementById('holidayCountry');
+                const yearSelect = document.getElementById('holidayYear');
+                const prefetchCountry = this.holidayPrefetch?.country || this.holidayPrefetch?.countryCode || '';
+                const prefetchYear = this.holidayPrefetch?.year || '';
+
+                const usePrefetch = !force && this.holidayPrefetch && this.holidayPrefetch.success;
+                if (usePrefetch) {
+                    if (countrySelect) {
+                        const resolvedPrefetchCountry = this.resolveHolidayCountryCode(prefetchCountry);
+                        this.setSelectValueIfAvailable(countrySelect, resolvedPrefetchCountry);
+                    }
+                    if (yearSelect) {
+                        const resolvedPrefetchYear = this.resolveHolidayYear(prefetchYear);
+                        this.setSelectValueIfAvailable(yearSelect, resolvedPrefetchYear);
+                    }
+                    container.innerHTML = this.buildHolidaySummaryMarkup(this.holidayPrefetch);
+                    return;
+                }
 
                 container.innerHTML = `
                         <div class="text-center py-4">
                             <div class="loading-spinner mx-auto mb-3"></div>
                             <p class="text-muted">Loading current holidays...</p>
                         </div>
-                    `;
+                `;
 
-                // Simulate loading current holidays
-                setTimeout(() => {
+                try {
+                    const resolvedCountry = this.resolveHolidayCountryCode(
+                        countrySelect ? countrySelect.value : prefetchCountry
+                    );
+                    const resolvedYear = this.resolveHolidayYear(
+                        yearSelect ? yearSelect.value : prefetchYear
+                    );
+
+                    this.setSelectValueIfAvailable(countrySelect, resolvedCountry);
+                    this.setSelectValueIfAvailable(yearSelect, resolvedYear);
+
+                    const response = await this.callServerFunction('clientGetCountryHolidays', resolvedCountry, resolvedYear);
+
+                    if (response && response.success) {
+                        this.holidayPrefetch = response;
+                        const resolvedResponseCountry = this.resolveHolidayCountryCode(
+                            response.country || response.countryCode || resolvedCountry
+                        );
+                        const resolvedResponseYear = this.resolveHolidayYear(response.year || resolvedYear);
+                        this.setSelectValueIfAvailable(countrySelect, resolvedResponseCountry);
+                        this.setSelectValueIfAvailable(yearSelect, resolvedResponseYear);
+                        container.innerHTML = this.buildHolidaySummaryMarkup(response);
+                        if (response.fallbackApplied && response.note) {
+                            this.showToast(response.note, 'warning');
+                        }
+                        return;
+                    }
+
+                    throw new Error(response?.error || 'Failed to load holidays');
+                } catch (error) {
+                    console.error('Unable to refresh holidays:', error);
                     container.innerHTML = `
-                            <div class="alert alert-info-modern">
-                                <h6><i class="fas fa-info-circle me-2"></i>Holiday System Ready</h6>
-                                <p class="mb-0">
-                                    The holiday system is configured for Jamaica (primary), United States, Dominican Republic, and Philippines. 
-                                    Import holidays using the form above to populate the system.
-                                </p>
-                            </div>
-                        `;
-                }, 1000);
+                        <div class="alert alert-info-modern">
+                            <h6><i class="fas fa-info-circle me-2"></i>Holiday System</h6>
+                            <p class="mb-0">Unable to load holiday data automatically. Use the import form above to configure holidays.</p>
+                        </div>
+                    `;
+                }
             }
 
             onTabChange(target) {
@@ -9484,6 +10155,171 @@
                 }
 
                 return text;
+            }
+
+            setSelectValueIfAvailable(selectElement, value) {
+                if (!selectElement) {
+                    return false;
+                }
+
+                if (value === null || typeof value === 'undefined') {
+                    return false;
+                }
+
+                const normalizedValue = typeof value === 'number'
+                    ? String(value)
+                    : String(value).trim();
+
+                if (!normalizedValue) {
+                    return false;
+                }
+
+                const options = Array.from(selectElement.options || []);
+                for (const option of options) {
+                    if (!option) {
+                        continue;
+                    }
+
+                    const optionValue = String(option.value);
+                    if (optionValue === normalizedValue) {
+                        selectElement.value = optionValue;
+                        return true;
+                    }
+
+                    if (optionValue.trim().toUpperCase() === normalizedValue.toUpperCase()) {
+                        selectElement.value = optionValue;
+                        return true;
+                    }
+
+                    const optionNumber = Number(optionValue);
+                    const candidateNumber = Number(normalizedValue);
+                    if (Number.isFinite(optionNumber) && Number.isFinite(candidateNumber) && optionNumber === candidateNumber) {
+                        selectElement.value = optionValue;
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+
+            resolveSupportedHolidayCountries() {
+                const resolved = [];
+                const appendList = (list) => {
+                    if (!Array.isArray(list)) {
+                        return;
+                    }
+                    for (const value of list) {
+                        const normalized = typeof value === 'string'
+                            ? value.trim().toUpperCase()
+                            : String(value || '').trim().toUpperCase();
+                        if (normalized && !resolved.includes(normalized)) {
+                            resolved.push(normalized);
+                        }
+                    }
+                };
+
+                appendList(this.holidayPrefetch?.supportedCountries);
+                appendList(this.holidayPrefetch?.SUPPORTED_COUNTRIES);
+                appendList(this.unifiedState?.holidays?.supportedCountries);
+                appendList(this.unifiedState?.holidays?.SUPPORTED_COUNTRIES);
+
+                const scheduleSettingsCandidates = [
+                    typeof window !== 'undefined' ? window.SCHEDULE_SETTINGS : null,
+                    typeof window !== 'undefined' ? window.scheduleSettings : null,
+                    typeof window !== 'undefined' ? window.__SCHEDULE_SETTINGS : null
+                ];
+
+                for (const settings of scheduleSettingsCandidates) {
+                    if (settings && typeof settings === 'object') {
+                        appendList(settings.supportedCountries);
+                        appendList(settings.SUPPORTED_COUNTRIES);
+                    }
+                }
+
+                appendList(this.defaultHolidayCountries);
+
+                return resolved.length ? resolved : ['JM', 'US', 'DO', 'PH'];
+            }
+
+            resolvePrimaryHolidayCountry() {
+                const supportedCountries = this.resolveSupportedHolidayCountries();
+                const candidates = [
+                    this.holidayPrefetch?.primaryCountry,
+                    this.holidayPrefetch?.PRIMARY_COUNTRY,
+                    this.unifiedState?.holidays?.primaryCountry,
+                    this.unifiedState?.holidays?.PRIMARY_COUNTRY,
+                    this.identitySummary?.country,
+                    this.currentUser?.country,
+                    this.currentUser?.Country,
+                    typeof window !== 'undefined' && window.SCHEDULE_SETTINGS ? window.SCHEDULE_SETTINGS.PRIMARY_COUNTRY : null,
+                    typeof window !== 'undefined' && window.scheduleSettings ? window.scheduleSettings.PRIMARY_COUNTRY : null,
+                    typeof window !== 'undefined' && window.__SCHEDULE_SETTINGS ? window.__SCHEDULE_SETTINGS.PRIMARY_COUNTRY : null
+                ];
+
+                for (const candidate of candidates) {
+                    if (!candidate) {
+                        continue;
+                    }
+                    const normalized = typeof candidate === 'string'
+                        ? candidate.trim().toUpperCase()
+                        : String(candidate || '').trim().toUpperCase();
+                    if (normalized && supportedCountries.includes(normalized)) {
+                        return normalized;
+                    }
+                }
+
+                return supportedCountries.length ? supportedCountries[0] : 'JM';
+            }
+
+            resolveHolidayCountryCode(rawValue) {
+                const supportedCountries = this.resolveSupportedHolidayCountries();
+                const fallbackCountry = this.resolvePrimaryHolidayCountry();
+                const candidates = Array.isArray(rawValue) ? rawValue : [rawValue];
+
+                candidates.push(
+                    this.holidayPrefetch?.country,
+                    this.holidayPrefetch?.countryCode,
+                    this.unifiedState?.holidays?.country,
+                    this.unifiedState?.holidays?.countryCode,
+                    this.identitySummary?.country,
+                    this.currentUser?.country,
+                    this.currentUser?.Country
+                );
+
+                for (const candidate of candidates) {
+                    if (!candidate && candidate !== 0) {
+                        continue;
+                    }
+                    const normalized = typeof candidate === 'string'
+                        ? candidate.trim().toUpperCase()
+                        : String(candidate || '').trim().toUpperCase();
+                    if (normalized && supportedCountries.includes(normalized)) {
+                        return normalized;
+                    }
+                }
+
+                return fallbackCountry || (supportedCountries[0] || 'JM');
+            }
+
+            resolveHolidayYear(rawValue) {
+                const candidates = Array.isArray(rawValue) ? rawValue : [rawValue];
+                candidates.push(
+                    this.holidayPrefetch?.year,
+                    this.unifiedState?.holidays?.year,
+                    new Date().getFullYear()
+                );
+
+                for (const candidate of candidates) {
+                    if (candidate === null || typeof candidate === 'undefined') {
+                        continue;
+                    }
+                    const parsed = parseInt(String(candidate), 10);
+                    if (Number.isFinite(parsed) && parsed > 1900 && parsed < 10000) {
+                        return parsed;
+                    }
+                }
+
+                return new Date().getFullYear();
             }
 
             normalizeUserIdValue(value) {
