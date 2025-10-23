@@ -729,27 +729,106 @@ function clientGetAttendanceUsers(requestingUserId, campaignId = null) {
 function clientGetManagedUsersList(managerId) {
   try {
     if (!managerId) return [];
-    
-    // Use MainUtilities function for managed campaigns
-    const managedCampaigns = getUserManagedCampaigns(managerId);
+
+    const normalizedManagerId = normalizeUserIdValue(managerId);
+    const userLookup = buildScheduleUserLookupIndex();
     const managedUsers = [];
-    
-    managedCampaigns.forEach(campaign => {
-      const campaignUsers = getUsersByCampaign(campaign.ID);
-      campaignUsers.forEach(user => {
-        if (String(user.ID) !== String(managerId)) { // Don't include self
-          managedUsers.push({
-            ID: user.ID,
-            UserName: user.UserName,
-            FullName: user.FullName,
-            Email: user.Email,
-            CampaignID: user.CampaignID,
-            campaignName: campaign.Name,
-            EmploymentStatus: user.EmploymentStatus
-          });
+    const seen = new Set();
+
+    const pushUser = (user, campaignInfo = {}) => {
+      if (!user || typeof user !== 'object') {
+        return;
+      }
+
+      const candidateIds = extractUserIdsFromCandidates([user], userLookup);
+      const normalizedId = candidateIds.length
+        ? normalizeUserIdValue(candidateIds[0])
+        : normalizeUserIdValue(user.ID || user.UserID || user.id || user.userId);
+
+      if (!normalizedId || normalizedId === normalizedManagerId || seen.has(normalizedId)) {
+        return;
+      }
+
+      seen.add(normalizedId);
+
+      const campaignId = normalizeCampaignIdValue(
+        campaignInfo.campaignId
+          || user.CampaignID
+          || user.campaignID
+          || user.CampaignId
+          || user.campaignId
+      );
+
+      let campaignName = campaignInfo.campaignName
+        || user.campaignName
+        || user.CampaignName
+        || user.campaign;
+
+      if (!campaignName && campaignId && typeof getCampaignById === 'function') {
+        try {
+          const campaignRecord = getCampaignById(campaignId);
+          if (campaignRecord) {
+            campaignName = campaignRecord.Name || campaignRecord.name || '';
+          }
+        } catch (campaignError) {
+          console.warn('Unable to resolve campaign details for roster entry', campaignId, campaignError);
         }
+      }
+
+      managedUsers.push({
+        ID: normalizedId,
+        UserName: user.UserName || user.Username || user.username || user.FullName || '',
+        FullName: user.FullName || user.fullName || user.UserName || user.Username || '',
+        Email: user.Email || user.email || '',
+        CampaignID: campaignId || '',
+        campaignName: campaignName || '',
+        EmploymentStatus: user.EmploymentStatus || 'Active'
       });
+    };
+
+    let managedCampaigns = [];
+    if (typeof getUserManagedCampaigns === 'function') {
+      try {
+        const rawManaged = getUserManagedCampaigns(normalizedManagerId) || [];
+        managedCampaigns = Array.isArray(rawManaged) ? rawManaged : [];
+      } catch (campaignError) {
+        console.warn('Unable to resolve managed campaigns for roster', normalizedManagerId, campaignError);
+      }
+    }
+
+    managedCampaigns.forEach(campaign => {
+      const campaignId = normalizeCampaignIdValue(
+        campaign && (campaign.ID || campaign.Id || campaign.id || campaign.CampaignID || campaign.CampaignId)
+      );
+
+      if (!campaignId) {
+        return;
+      }
+
+      let campaignUsers = [];
+      if (typeof getUsersByCampaign === 'function') {
+        try {
+          campaignUsers = getUsersByCampaign(campaignId) || [];
+        } catch (campaignError) {
+          console.warn('Unable to read campaign roster for manager', normalizedManagerId, campaignId, campaignError);
+        }
+      }
+
+      if ((!Array.isArray(campaignUsers) || !campaignUsers.length) && userLookup.users.length) {
+        campaignUsers = userLookup.users.filter(user => doesUserBelongToCampaign(user, campaignId));
+      }
+
+      const campaignName = campaign && (campaign.Name || campaign.name || '');
+      campaignUsers.forEach(user => pushUser(user, { campaignId, campaignName }));
     });
+
+    if (!managedUsers.length) {
+      const fallback = collectCampaignUsersForManager(normalizedManagerId, { allUsers: userLookup.users });
+      fallback.users.forEach(user => pushUser(user, {
+        campaignId: fallback.campaignId,
+        campaignName: fallback.campaignName
+      }));
+    }
 
     return managedUsers;
 
@@ -871,6 +950,271 @@ function clientCreateShiftSlot(slotData) {
   }
 }
 
+function buildScheduleUserLookupIndex() {
+  const lookup = {
+    users: [],
+    byId: new Map(),
+    byEmail: new Map(),
+    byUserName: new Map(),
+    byFullName: new Map()
+  };
+
+  try {
+    const users = readSheet(USERS_SHEET) || [];
+    lookup.users = users;
+
+    users.forEach(user => {
+      if (!user || typeof user !== 'object') {
+        return;
+      }
+
+      const normalizedId = normalizeUserIdValue(user.ID || user.UserID || user.id || user.userId);
+      const normalizedEmail = (user.Email || user.email || '').toString().trim().toLowerCase();
+      const normalizedUserName = (user.UserName || user.Username || user.username || '').toString().trim().toLowerCase();
+      const normalizedFullName = (user.FullName || user.fullName || '').toString().trim().toLowerCase();
+
+      if (normalizedId) {
+        lookup.byId.set(normalizedId, normalizedId);
+      }
+      if (normalizedEmail && !lookup.byEmail.has(normalizedEmail)) {
+        lookup.byEmail.set(normalizedEmail, normalizedId || normalizedEmail);
+      }
+      if (normalizedUserName && !lookup.byUserName.has(normalizedUserName)) {
+        lookup.byUserName.set(normalizedUserName, normalizedId || normalizedUserName);
+      }
+      if (normalizedFullName && !lookup.byFullName.has(normalizedFullName)) {
+        lookup.byFullName.set(normalizedFullName, normalizedId || normalizedFullName);
+      }
+    });
+  } catch (error) {
+    console.warn('Unable to build schedule user lookup index:', error && error.message ? error.message : error);
+  }
+
+  return lookup;
+}
+
+function resolveUserIdViaLookup(candidate, lookup) {
+  if (candidate === null || typeof candidate === 'undefined') {
+    return '';
+  }
+
+  if (Array.isArray(candidate)) {
+    for (let index = 0; index < candidate.length; index++) {
+      const resolved = resolveUserIdViaLookup(candidate[index], lookup);
+      if (resolved) {
+        return resolved;
+      }
+    }
+    return '';
+  }
+
+  if (typeof candidate === 'object') {
+    const objectCandidates = [
+      candidate.ID, candidate.Id, candidate.id,
+      candidate.UserID, candidate.UserId, candidate.userId,
+      candidate.ManagedUserID, candidate.ManagedUserId, candidate.managedUserId,
+      candidate.ManagerID, candidate.ManagerId, candidate.managerId,
+      candidate.Email, candidate.email,
+      candidate.UserEmail, candidate.userEmail,
+      candidate.ManagedEmail, candidate.managedEmail,
+      candidate.UserName, candidate.Username, candidate.username,
+      candidate.ManagedUserName, candidate.managedUserName, candidate.ManagedUsername, candidate.managedUsername,
+      candidate.FullName, candidate.fullName,
+      candidate.Name, candidate.name
+    ];
+
+    for (let index = 0; index < objectCandidates.length; index++) {
+      const resolved = resolveUserIdViaLookup(objectCandidates[index], lookup);
+      if (resolved) {
+        return resolved;
+      }
+    }
+
+    return '';
+  }
+
+  const raw = String(candidate).trim();
+  if (!raw) {
+    return '';
+  }
+
+  const normalizedId = normalizeUserIdValue(raw);
+  if (lookup && lookup.byId && lookup.byId.has(normalizedId)) {
+    return lookup.byId.get(normalizedId) || normalizedId;
+  }
+
+  const lower = raw.toLowerCase();
+  if (lookup && lookup.byEmail && lookup.byEmail.has(lower)) {
+    return lookup.byEmail.get(lower) || lower;
+  }
+  if (lookup && lookup.byUserName && lookup.byUserName.has(lower)) {
+    return lookup.byUserName.get(lower) || lower;
+  }
+  if (lookup && lookup.byFullName && lookup.byFullName.has(lower)) {
+    return lookup.byFullName.get(lower) || lower;
+  }
+
+  return normalizedId;
+}
+
+function extractUserIdsFromCandidates(candidates, lookup) {
+  const ids = [];
+
+  const visit = (value) => {
+    if (value === null || typeof value === 'undefined') {
+      return;
+    }
+
+    if (Array.isArray(value)) {
+      value.forEach(visit);
+      return;
+    }
+
+    if (typeof value === 'object') {
+      const objectCandidates = [
+        value.ID, value.Id, value.id,
+        value.UserID, value.UserId, value.userId,
+        value.ManagedUserID, value.ManagedUserId, value.managedUserId,
+        value.ManagerID, value.ManagerId, value.managerId,
+        value.Email, value.email,
+        value.UserEmail, value.userEmail,
+        value.ManagedEmail, value.managedEmail,
+        value.UserName, value.Username, value.username,
+        value.ManagedUserName, value.managedUserName, value.ManagedUsername, value.managedUsername,
+        value.FullName, value.fullName,
+        value.Name, value.name
+      ];
+
+      const objectLists = [
+        value.Users, value.users,
+        value.ManagedUsers, value.managedUsers,
+        value.UserIDs, value.UserIds, value.userIds,
+        value.ManagedIds, value.managedIds, value.ManagedIDs, value.managedIDs,
+        value.TeamMembers, value.teamMembers
+      ];
+
+      objectCandidates.forEach(visit);
+      objectLists.forEach(visit);
+      return;
+    }
+
+    const raw = String(value);
+    if (/[;,|]/.test(raw)) {
+      raw.split(/[;,|]/).forEach(part => visit(part));
+      return;
+    }
+
+    const resolved = resolveUserIdViaLookup(raw, lookup);
+    if (resolved) {
+      ids.push(resolved);
+    }
+  };
+
+  (Array.isArray(candidates) ? candidates : [candidates]).forEach(visit);
+
+  return Array.from(new Set(ids.filter(Boolean)));
+}
+
+function collectCampaignUsersForManager(managerId, options = {}) {
+  const normalizedManagerId = normalizeUserIdValue(managerId);
+  const result = {
+    users: [],
+    campaignId: '',
+    campaignName: ''
+  };
+
+  if (!normalizedManagerId) {
+    return result;
+  }
+
+  const providedUsers = Array.isArray(options.allUsers) ? options.allUsers : null;
+  let allUsers = providedUsers || [];
+
+  if (!allUsers.length) {
+    try {
+      allUsers = readSheet(USERS_SHEET) || [];
+    } catch (error) {
+      console.warn('Unable to read users for campaign roster fallback:', error && error.message ? error.message : error);
+      allUsers = [];
+    }
+  }
+
+  let managerRecord = null;
+  if (allUsers.length) {
+    managerRecord = allUsers.find(user => normalizeUserIdValue(user && user.ID) === normalizedManagerId) || null;
+  }
+
+  const candidateCampaignIds = [];
+  if (managerRecord) {
+    candidateCampaignIds.push(
+      managerRecord.CampaignID,
+      managerRecord.campaignID,
+      managerRecord.CampaignId,
+      managerRecord.campaignId,
+      managerRecord.DefaultCampaignID,
+      managerRecord.defaultCampaignId
+    );
+  }
+
+  if (typeof getUserCampaignsSafe === 'function') {
+    try {
+      const joinedCampaigns = getUserCampaignsSafe(normalizedManagerId) || [];
+      joinedCampaigns.forEach(entry => {
+        if (!entry) {
+          return;
+        }
+        candidateCampaignIds.push(
+          entry.campaignId,
+          entry.CampaignId,
+          entry.campaignID,
+          entry.CampaignID,
+          entry.id,
+          entry.Id,
+          entry.ID
+        );
+      });
+    } catch (error) {
+      console.warn('Unable to resolve campaign membership for manager', normalizedManagerId, error);
+    }
+  }
+
+  let resolvedCampaignId = '';
+  for (let index = 0; index < candidateCampaignIds.length; index++) {
+    const normalized = normalizeCampaignIdValue(candidateCampaignIds[index]);
+    if (normalized) {
+      resolvedCampaignId = normalized;
+      break;
+    }
+  }
+
+  if (!resolvedCampaignId) {
+    return result;
+  }
+
+  let campaignUsers = [];
+  if (typeof getUsersByCampaign === 'function') {
+    try {
+      campaignUsers = getUsersByCampaign(resolvedCampaignId) || [];
+    } catch (error) {
+      console.warn('Unable to read campaign users for roster fallback', resolvedCampaignId, error);
+    }
+  }
+
+  if ((!Array.isArray(campaignUsers) || !campaignUsers.length) && allUsers.length) {
+    campaignUsers = allUsers.filter(user => doesUserBelongToCampaign(user, resolvedCampaignId));
+  }
+
+  const campaignRecord = typeof getCampaignById === 'function'
+    ? getCampaignById(resolvedCampaignId)
+    : null;
+
+  result.users = Array.isArray(campaignUsers) ? campaignUsers.filter(Boolean) : [];
+  result.campaignId = resolvedCampaignId;
+  result.campaignName = campaignRecord ? (campaignRecord.Name || campaignRecord.name || '') : '';
+
+  return result;
+}
+
 function getDirectManagedUserIds(managerId) {
   const normalizedManagerId = normalizeUserIdValue(managerId);
   const managedUsers = new Set();
@@ -878,6 +1222,8 @@ function getDirectManagedUserIds(managerId) {
   if (!normalizedManagerId) {
     return managedUsers;
   }
+
+  const userLookup = buildScheduleUserLookupIndex();
 
   const appendFromRows = (rows) => {
     if (!Array.isArray(rows)) {
@@ -889,18 +1235,36 @@ function getDirectManagedUserIds(managerId) {
         return;
       }
 
-      const managerCandidates = [
+      const managerCandidates = extractUserIdsFromCandidates([
         row.ManagerUserID, row.ManagerUserId, row.managerUserId,
         row.ManagerID, row.ManagerId, row.managerId, row.manager_id,
-        row.UserManagerID, row.UserManagerId, row.userManagerId
-      ].map(normalizeUserIdValue).filter(Boolean);
+        row.UserManagerID, row.UserManagerId, row.userManagerId,
+        row.ManagerEmail, row.managerEmail, row.ManagerEmailAddress, row.managerEmailAddress,
+        row.ManagerUserName, row.managerUserName, row.ManagerUsername, row.managerUsername,
+        row.ManagerName, row.managerName,
+        row.Manager, row.manager,
+        row.SupervisorID, row.SupervisorId, row.supervisorId,
+        row.SupervisorEmail, row.supervisorEmail
+      ], userLookup);
 
-      const managedCandidates = [
+      const managedCandidates = extractUserIdsFromCandidates([
         row.UserID, row.UserId, row.userId,
         row.ManagedUserID, row.ManagedUserId, row.managedUserId,
         row.ManagedUserID, row.managed_user_id,
-        row.ManagedID, row.ManagedId
-      ].map(normalizeUserIdValue).filter(Boolean);
+        row.ManagedID, row.ManagedId, row.managedId,
+        row.ManagedUsers, row.managedUsers,
+        row.UserEmail, row.userEmail, row.Email, row.email,
+        row.ManagedEmail, row.managedEmail, row.ManagedEmailAddress, row.managedEmailAddress,
+        row.UserName, row.Username, row.username,
+        row.ManagedUserName, row.managedUserName, row.ManagedUsername, row.managedUsername,
+        row.ManagedName, row.managedName,
+        row.Name, row.name,
+        row.TeamMemberID, row.TeamMemberId, row.teamMemberId,
+        row.TeamMembers, row.teamMembers,
+        row.AgentID, row.AgentId, row.agentId,
+        row.AgentEmail, row.agentEmail,
+        row.AgentName, row.agentName
+      ], userLookup);
 
       const managerMatch = managerCandidates.find(candidate => candidate === normalizedManagerId);
 
@@ -950,6 +1314,23 @@ function getDirectManagedUserIds(managerId) {
     }
   });
 
+  let hasManagedUsers = false;
+  managedUsers.forEach(id => {
+    if (id && id !== normalizedManagerId) {
+      hasManagedUsers = true;
+    }
+  });
+
+  if (!hasManagedUsers) {
+    const fallback = collectCampaignUsersForManager(normalizedManagerId, { allUsers: userLookup.users });
+    const fallbackIds = extractUserIdsFromCandidates(fallback.users, userLookup);
+    fallbackIds.forEach(id => {
+      if (id && id !== normalizedManagerId) {
+        managedUsers.add(id);
+      }
+    });
+  }
+
   return managedUsers;
 }
 
@@ -984,6 +1365,28 @@ function buildManagedUserSet(managerId) {
     }
   } catch (error) {
     console.warn('Unable to expand managed users via campaigns:', error);
+  }
+
+  let hasManagedUsers = false;
+  managedUserIds.forEach(id => {
+    if (id && id !== normalizedManagerId) {
+      hasManagedUsers = true;
+    }
+  });
+
+  if (!hasManagedUsers) {
+    try {
+      const fallback = collectCampaignUsersForManager(normalizedManagerId);
+      const fallbackLookup = buildScheduleUserLookupIndex();
+      const fallbackIds = extractUserIdsFromCandidates(fallback.users, fallbackLookup);
+      fallbackIds.forEach(id => {
+        if (id && id !== normalizedManagerId) {
+          managedUserIds.add(id);
+        }
+      });
+    } catch (fallbackError) {
+      console.warn('Unable to expand managed users via fallback campaign roster:', fallbackError);
+    }
   }
 
   return managedUserIds;
@@ -4258,6 +4661,424 @@ function clientGetScheduleDashboard(managerIdCandidate, campaignIdCandidate, opt
     return {
       success: false,
       error: error.message
+    };
+  }
+}
+
+function normalizeManagedRosterPayload(payload) {
+  const result = {
+    recognized: false,
+    users: [],
+    error: null
+  };
+
+  if (payload == null) {
+    return result;
+  }
+
+  if (Array.isArray(payload)) {
+    result.recognized = true;
+    result.users = payload.filter(user => user && typeof user === 'object');
+    return result;
+  }
+
+  if (payload && typeof payload === 'object') {
+    if (Array.isArray(payload.users)) {
+      result.recognized = true;
+      result.users = payload.users.filter(user => user && typeof user === 'object');
+      if (payload.success === false && payload.error) {
+        result.error = String(payload.error);
+      }
+      return result;
+    }
+
+    if (Array.isArray(payload.managedUsers)) {
+      result.recognized = true;
+      result.users = payload.managedUsers.filter(user => user && typeof user === 'object');
+      if (payload.success === false && payload.error) {
+        result.error = String(payload.error);
+      }
+      return result;
+    }
+
+    if (payload.success === false && payload.error) {
+      result.recognized = true;
+      result.error = String(payload.error);
+    }
+  }
+
+  return result;
+}
+
+function resolveUnifiedManagedRoster(managerId) {
+  const normalizedManagerId = normalizeUserIdValue(managerId);
+  const response = {
+    users: [],
+    source: '',
+    warnings: [],
+    managedUserIds: []
+  };
+
+  if (!normalizedManagerId) {
+    response.warnings.push('Manager identifier unavailable for roster resolution.');
+    return response;
+  }
+
+  const attempts = [
+    { name: 'clientGetManagedUsersList', fn: () => clientGetManagedUsersList(normalizedManagerId) },
+    {
+      name: 'clientGetManagedUsers',
+      fn: () => (typeof clientGetManagedUsers === 'function' ? clientGetManagedUsers(normalizedManagerId) : null)
+    }
+  ];
+
+  for (let index = 0; index < attempts.length; index++) {
+    const attempt = attempts[index];
+    if (typeof attempt.fn !== 'function') {
+      continue;
+    }
+
+    try {
+      const raw = attempt.fn();
+      const parsed = normalizeManagedRosterPayload(raw);
+
+      if (!parsed.recognized) {
+        continue;
+      }
+
+      if (parsed.error) {
+        response.warnings.push(`${attempt.name}: ${parsed.error}`);
+      }
+
+      response.users = parsed.users;
+      response.source = attempt.name;
+      response.managedUserIds = parsed.users
+        .map(user => normalizeUserIdValue(user && (user.ID || user.UserID || user.id || user.userId)))
+        .filter(Boolean);
+      return response;
+    } catch (error) {
+      response.warnings.push(`${attempt.name}: ${error && error.message ? error.message : error}`);
+    }
+  }
+
+  return response;
+}
+
+function buildUnifiedUserCollection(...collections) {
+  const map = new Map();
+
+  const addUser = (user) => {
+    if (!user || typeof user !== 'object') {
+      return;
+    }
+
+    const normalizedId = normalizeUserIdValue(user.ID || user.UserID || user.id || user.userId);
+    const normalizedUserName = (user.UserName || user.username || '').toString().trim().toLowerCase();
+    const normalizedEmail = (user.Email || user.email || '').toString().trim().toLowerCase();
+
+    const key = normalizedId
+      ? `id:${normalizedId}`
+      : (normalizedUserName ? `username:${normalizedUserName}` : (normalizedEmail ? `email:${normalizedEmail}` : null));
+
+    if (!key) {
+      return;
+    }
+
+    const existing = map.get(key) || {};
+
+    const normalized = Object.assign({}, existing, user, {
+      ID: normalizedId || existing.ID || '',
+      UserName: user.UserName || user.username || existing.UserName || existing.username || '',
+      FullName: user.FullName || user.fullName || existing.FullName || existing.fullName || user.UserName || existing.UserName || '',
+      Email: user.Email || user.email || existing.Email || existing.email || '',
+      CampaignID: user.CampaignID || user.campaignID || existing.CampaignID || existing.campaignID || '',
+      campaignName: user.campaignName || user.CampaignName || existing.campaignName || existing.CampaignName || '',
+      EmploymentStatus: user.EmploymentStatus || existing.EmploymentStatus || 'Active',
+      HireDate: user.HireDate || existing.HireDate || '',
+      TerminationDate: user.TerminationDate || user.terminationDate || existing.TerminationDate || existing.terminationDate || '',
+      isActive: typeof user.isActive === 'boolean'
+        ? user.isActive
+        : (typeof existing.isActive === 'boolean' ? existing.isActive : isUserConsideredActive(user)),
+      roleNames: Array.isArray(user.roleNames)
+        ? user.roleNames.slice()
+        : (Array.isArray(existing.roleNames) ? existing.roleNames.slice() : [])
+    });
+
+    map.set(key, normalized);
+  };
+
+  collections
+    .filter(collection => Array.isArray(collection) && collection.length)
+    .forEach(collection => collection.forEach(addUser));
+
+  const merged = Array.from(map.values());
+  merged.sort((a, b) => {
+    const nameA = (a.FullName || a.UserName || '').toString().toLowerCase();
+    const nameB = (b.FullName || b.UserName || '').toString().toLowerCase();
+    return nameA.localeCompare(nameB);
+  });
+
+  return merged;
+}
+
+function resolveUnifiedScheduleRange(request = {}, timeZone = DEFAULT_SCHEDULE_TIME_ZONE) {
+  const now = new Date();
+  const fallbackStart = normalizeDateForSheet(new Date(now.getFullYear(), now.getMonth(), 1), timeZone);
+  const fallbackEnd = normalizeDateForSheet(new Date(now.getFullYear(), now.getMonth() + 1, 0), timeZone);
+
+  const candidateStart = request.scheduleStart || request.startDate || request.filterStartDate || request.schedulesStart;
+  const candidateEnd = request.scheduleEnd || request.endDate || request.filterEndDate || request.schedulesEnd;
+
+  const startDate = normalizeDateForSheet(candidateStart, timeZone) || fallbackStart;
+  const endDate = normalizeDateForSheet(candidateEnd, timeZone) || fallbackEnd;
+
+  return {
+    startDate,
+    endDate,
+    fallbackStart,
+    fallbackEnd
+  };
+}
+
+function resolveUnifiedAttendanceRange(request = {}, scheduleRange = {}, timeZone = DEFAULT_SCHEDULE_TIME_ZONE) {
+  const monthCandidate = Number(request.attendanceMonth || request.month);
+  const yearCandidate = Number(request.attendanceYear || request.year);
+
+  let resolvedYear = Number.isFinite(yearCandidate) && yearCandidate > 1900 ? yearCandidate : null;
+  let resolvedMonth = Number.isFinite(monthCandidate) && monthCandidate >= 1 && monthCandidate <= 12 ? monthCandidate : null;
+
+  if (!resolvedYear && scheduleRange.startDate) {
+    const parsed = new Date(scheduleRange.startDate);
+    if (!isNaN(parsed.getTime())) {
+      resolvedYear = parsed.getFullYear();
+    }
+  }
+
+  if (!resolvedMonth && scheduleRange.startDate) {
+    const parsed = new Date(scheduleRange.startDate);
+    if (!isNaN(parsed.getTime())) {
+      resolvedMonth = parsed.getMonth() + 1;
+    }
+  }
+
+  if (!resolvedYear) {
+    resolvedYear = new Date().getFullYear();
+  }
+
+  if (!resolvedMonth) {
+    resolvedMonth = new Date().getMonth() + 1;
+  }
+
+  const monthStart = new Date(resolvedYear, resolvedMonth - 1, 1);
+  const monthEnd = new Date(resolvedYear, resolvedMonth, 0);
+
+  const startDate = normalizeDateForSheet(request.attendanceStart || monthStart, timeZone)
+    || normalizeDateForSheet(monthStart, timeZone);
+  const endDate = normalizeDateForSheet(request.attendanceEnd || monthEnd, timeZone)
+    || normalizeDateForSheet(monthEnd, timeZone);
+
+  const yearStart = normalizeDateForSheet(`${resolvedYear}-01-01`, timeZone);
+  const yearEnd = normalizeDateForSheet(`${resolvedYear}-12-31`, timeZone);
+
+  return {
+    startDate,
+    endDate,
+    month: resolvedMonth,
+    year: resolvedYear,
+    yearRange: { start: yearStart, end: yearEnd }
+  };
+}
+
+function clientGetScheduleUnifiedState(request = {}) {
+  try {
+    const options = (request && typeof request === 'object') ? request : {};
+    const candidateManagerId = normalizeUserIdValue(
+      options.managerId || options.userId || options.requestingUserId || options.identityUserId
+    );
+    const candidateCampaignId = normalizeCampaignIdValue(
+      options.campaignId || options.teamId || options.programId || options.identityCampaignId
+    );
+
+    const context = clientGetScheduleContext(candidateManagerId || null, candidateCampaignId || null);
+    if (!context || !context.success) {
+      return {
+        success: false,
+        error: context && context.error ? context.error : 'Unable to resolve schedule context',
+        context
+      };
+    }
+
+    const resolvedManagerId = normalizeUserIdValue(
+      options.managerId
+      || context.managerId
+      || context.providedManagerId
+      || (context.user && (context.user.ID || context.user.UserID))
+      || candidateManagerId
+      || context.identity?.userId
+    );
+
+    const resolvedCampaignId = normalizeCampaignIdValue(
+      options.campaignId
+      || context.campaignId
+      || context.providedCampaignId
+      || candidateCampaignId
+    );
+
+    const scheduleRange = resolveUnifiedScheduleRange(options, DEFAULT_SCHEDULE_TIME_ZONE);
+    const attendanceRange = resolveUnifiedAttendanceRange(options, scheduleRange, DEFAULT_SCHEDULE_TIME_ZONE);
+
+    const scheduleUsers = clientGetScheduleUsers(resolvedManagerId || 'system', resolvedCampaignId || null) || [];
+    const roster = resolveUnifiedManagedRoster(resolvedManagerId || candidateManagerId || context.identity?.userId || '');
+
+    const scheduleFilters = {
+      startDate: scheduleRange.startDate,
+      endDate: scheduleRange.endDate,
+      campaign: resolvedCampaignId || undefined
+    };
+
+    const assignments = options.includeSchedules === false
+      ? { success: true, schedules: [], total: 0, filters: scheduleFilters }
+      : clientGetAllSchedules(scheduleFilters);
+
+    const assignmentUsers = (typeof collectUsersFromScheduleAssignments === 'function')
+      ? collectUsersFromScheduleAssignments(assignments, [scheduleUsers, roster.users])
+      : [];
+
+    const shiftSlots = options.includeShiftSlots === false ? [] : clientGetAllShiftSlots();
+
+    const dashboard = options.includeScheduleDashboard === false
+      ? null
+      : clientGetScheduleDashboard(resolvedManagerId || null, resolvedCampaignId || null, {
+          startDate: scheduleRange.startDate,
+          endDate: scheduleRange.endDate,
+          intervalMinutes: options.intervalMinutes || 30,
+          openingHour: options.openingHour || 8,
+          closingHour: options.closingHour || 21,
+          skipPersistence: options.skipDashboardPersistence === true
+        });
+
+    const attendanceUsers = options.includeAttendanceUsers === false
+      ? []
+      : clientGetAttendanceUsers(resolvedManagerId || null, resolvedCampaignId || null);
+
+    const attendanceUserRecords = (typeof buildUserRecordsFromNames === 'function')
+      ? buildUserRecordsFromNames(attendanceUsers)
+      : attendanceUsers.map(name => ({
+        ID: '',
+        UserID: '',
+        UserName: String(name || ''),
+        FullName: String(name || ''),
+        Email: '',
+        CampaignID: '',
+        campaignName: '',
+        EmploymentStatus: 'Active',
+        isActive: true
+      }));
+
+    const attendanceYearResponse = options.includeAttendance === false
+      ? { success: true, records: [] }
+      : clientGetAttendanceDataRange(attendanceRange.yearRange.start, attendanceRange.yearRange.end, resolvedCampaignId || null);
+
+    const yearlyAttendanceRecords = attendanceYearResponse && attendanceYearResponse.success
+      ? attendanceYearResponse.records || []
+      : [];
+
+    const monthlyAttendanceRecords = yearlyAttendanceRecords.filter(record => {
+      if (!record || !record.date) {
+        return false;
+      }
+      return (!attendanceRange.startDate || record.date >= attendanceRange.startDate)
+        && (!attendanceRange.endDate || record.date <= attendanceRange.endDate);
+    });
+
+    const attendanceDashboard = options.includeAttendanceDashboard === false
+      ? null
+      : clientGetAttendanceDashboard(attendanceRange.yearRange.start, attendanceRange.yearRange.end, resolvedCampaignId || null);
+
+    const holidayCountry = options.holidayCountry || context.identity?.country || SCHEDULE_SETTINGS.PRIMARY_COUNTRY;
+    const holidayYear = options.holidayYear
+      || (scheduleRange.startDate ? Number(String(scheduleRange.startDate).slice(0, 4)) : null)
+      || new Date().getFullYear();
+
+    const holidays = options.includeHolidays === false
+      ? null
+      : clientGetCountryHolidays(holidayCountry, holidayYear);
+
+    const combinedUsers = buildUnifiedUserCollection(
+      scheduleUsers,
+      roster.users,
+      options.combinedUsers,
+      assignmentUsers,
+      attendanceUserRecords
+    );
+
+    const managedUserIdSet = new Set();
+    const appendManagedUserId = (value) => {
+      const normalized = normalizeUserIdValue(value);
+      if (normalized) {
+        managedUserIdSet.add(normalized);
+      }
+    };
+
+    (Array.isArray(roster.managedUserIds) ? roster.managedUserIds : []).forEach(appendManagedUserId);
+    (Array.isArray(context.managedUserIds) ? context.managedUserIds : []).forEach(appendManagedUserId);
+    roster.users.forEach(user => appendManagedUserId(user && (user.ID || user.UserID || user.id || user.userId)));
+    scheduleUsers.forEach(user => appendManagedUserId(user && (user.ID || user.UserID || user.id || user.userId)));
+    assignmentUsers.forEach(user => appendManagedUserId(user && (user.ID || user.UserID || user.id || user.userId)));
+
+    if (resolvedManagerId) {
+      managedUserIdSet.delete(resolvedManagerId);
+    }
+
+    const managedUserIds = Array.from(managedUserIdSet);
+
+    const userSources = {
+      schedule: scheduleUsers.length,
+      roster: roster.users.length,
+      assignments: assignmentUsers.length,
+      attendance: attendanceUserRecords.length
+    };
+
+    return {
+      success: true,
+      generatedAt: new Date().toISOString(),
+      managerId: resolvedManagerId || '',
+      campaignId: resolvedCampaignId || '',
+      context,
+      users: {
+        combined: combinedUsers,
+        schedule: scheduleUsers,
+        roster: roster.users,
+        assignments: assignmentUsers,
+        attendance: attendanceUserRecords,
+        rosterSource: roster.source,
+        managedUserIds,
+        rosterManagedUserIds: Array.isArray(roster.managedUserIds) ? roster.managedUserIds.slice() : [],
+        contextManagedUserIds: Array.isArray(context.managedUserIds) ? context.managedUserIds.slice() : [],
+        warnings: roster.warnings,
+        sources: userSources
+      },
+      schedule: {
+        range: scheduleRange,
+        assignments,
+        shiftSlots,
+        dashboard
+      },
+      attendance: {
+        range: attendanceRange,
+        users: attendanceUsers,
+        monthlyRecords: monthlyAttendanceRecords,
+        yearlyRecords: yearlyAttendanceRecords,
+        dashboard: attendanceDashboard
+      },
+      holidays
+    };
+  } catch (error) {
+    console.error('Error building unified schedule state:', error);
+    safeWriteError && safeWriteError('clientGetScheduleUnifiedState', error);
+    return {
+      success: false,
+      error: error && error.message ? error.message : String(error || 'Unknown error')
     };
   }
 }
