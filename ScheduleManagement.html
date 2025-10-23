@@ -2595,6 +2595,7 @@
                 this.attendanceCalendarPrefetch = null;
                 this.attendanceDashboardPrefetch = null;
                 this.holidayPrefetch = null;
+                this.defaultHolidayCountries = ['JM', 'US', 'DO', 'PH'];
                 this.managedRosterWarnings = [];
                 this.schedulePrefetchRange = null;
                 this.additionalUserSources = {};
@@ -3041,6 +3042,15 @@
                     yearInput ? yearInput.value : ''
                 );
 
+                const holidayCountryInput = document.getElementById('holidayCountry');
+                const holidayYearInput = document.getElementById('holidayYear');
+                const resolvedHolidayCountry = this.resolveHolidayCountryCode(
+                    holidayCountryInput ? holidayCountryInput.value : ''
+                );
+                const resolvedHolidayYear = this.resolveHolidayYear(
+                    holidayYearInput ? holidayYearInput.value : ''
+                );
+
                 const payload = {
                     managerId,
                     campaignId,
@@ -3049,7 +3059,9 @@
                     attendanceMonth: monthContext.month,
                     attendanceYear: monthContext.year,
                     attendanceStart: monthContext.startDate,
-                    attendanceEnd: monthContext.endDate
+                    attendanceEnd: monthContext.endDate,
+                    holidayCountry: resolvedHolidayCountry,
+                    holidayYear: resolvedHolidayYear
                 };
 
                 return this.callServerFunction('clientGetScheduleUnifiedState', payload);
@@ -9792,12 +9804,17 @@
                 try {
                     this.showLoading(true);
 
-                    const countryCode = document.getElementById('holidayCountry').value;
-                    const year = document.getElementById('holidayYear').value;
+                    const countrySelect = document.getElementById('holidayCountry');
+                    const yearSelect = document.getElementById('holidayYear');
+                    const countryCode = this.resolveHolidayCountryCode(countrySelect ? countrySelect.value : '');
+                    const year = this.resolveHolidayYear(yearSelect ? yearSelect.value : '');
 
                     if (!countryCode || !year) {
                         throw new Error('Please select both country and year');
                     }
+
+                    this.setSelectValueIfAvailable(countrySelect, countryCode);
+                    this.setSelectValueIfAvailable(yearSelect, year);
 
                     const result = await this.callServerFunction('clientGetCountryHolidays', countryCode, year);
 
@@ -9809,16 +9826,28 @@
                             'PH': 'Philippines'
                         };
 
-                        const countryName = countryNames[countryCode] || countryCode;
+                        const resolvedCountryCode = result.country || result.countryCode || countryCode;
+                        const countryName = countryNames[resolvedCountryCode] || resolvedCountryCode;
+                        const resolvedYear = result.year || year;
                         const priority = result.isPrimary ? ' (PRIMARY)' : '';
 
-                        this.showToast(
-                            `Successfully loaded ${result.holidays.length} holidays for ${countryName} ${year}${priority}`,
-                            'success'
-                        );
+                        if (countrySelect) {
+                            this.setSelectValueIfAvailable(countrySelect, resolvedCountryCode);
+                        }
+                        if (yearSelect) {
+                            this.setSelectValueIfAvailable(yearSelect, resolvedYear);
+                        }
+
+                        const successMessage = `Successfully loaded ${result.holidays.length} holidays for ${countryName} ${resolvedYear}${priority}`;
+                        if (result.fallbackApplied && result.note) {
+                            this.showToast(successMessage, 'success');
+                            this.showToast(result.note, 'warning');
+                        } else {
+                            this.showToast(successMessage, 'success');
+                        }
 
                         // Display holidays
-                        this.displayHolidayPreview(result.holidays, countryName, year, result.isPrimary);
+                        this.displayHolidayPreview(result.holidays, countryName, resolvedYear, result.isPrimary);
 
                     } else {
                         throw new Error(result?.error || 'Failed to load holidays');
@@ -9870,8 +9899,21 @@
                 const container = document.getElementById('currentHolidays');
                 if (!container) return;
 
+                const countrySelect = document.getElementById('holidayCountry');
+                const yearSelect = document.getElementById('holidayYear');
+                const prefetchCountry = this.holidayPrefetch?.country || this.holidayPrefetch?.countryCode || '';
+                const prefetchYear = this.holidayPrefetch?.year || '';
+
                 const usePrefetch = !force && this.holidayPrefetch && this.holidayPrefetch.success;
                 if (usePrefetch) {
+                    if (countrySelect) {
+                        const resolvedPrefetchCountry = this.resolveHolidayCountryCode(prefetchCountry);
+                        this.setSelectValueIfAvailable(countrySelect, resolvedPrefetchCountry);
+                    }
+                    if (yearSelect) {
+                        const resolvedPrefetchYear = this.resolveHolidayYear(prefetchYear);
+                        this.setSelectValueIfAvailable(yearSelect, resolvedPrefetchYear);
+                    }
                     container.innerHTML = this.buildHolidaySummaryMarkup(this.holidayPrefetch);
                     return;
                 }
@@ -9881,19 +9923,33 @@
                             <div class="loading-spinner mx-auto mb-3"></div>
                             <p class="text-muted">Loading current holidays...</p>
                         </div>
-                    `;
+                `;
 
                 try {
-                    const countrySelect = document.getElementById('holidayCountry');
-                    const yearSelect = document.getElementById('holidayYear');
-                    const countryCode = countrySelect ? countrySelect.value : (this.holidayPrefetch?.country || 'JM');
-                    const yearValue = yearSelect ? yearSelect.value : (this.holidayPrefetch?.year || new Date().getFullYear());
+                    const resolvedCountry = this.resolveHolidayCountryCode(
+                        countrySelect ? countrySelect.value : prefetchCountry
+                    );
+                    const resolvedYear = this.resolveHolidayYear(
+                        yearSelect ? yearSelect.value : prefetchYear
+                    );
 
-                    const response = await this.callServerFunction('clientGetCountryHolidays', countryCode, yearValue);
+                    this.setSelectValueIfAvailable(countrySelect, resolvedCountry);
+                    this.setSelectValueIfAvailable(yearSelect, resolvedYear);
+
+                    const response = await this.callServerFunction('clientGetCountryHolidays', resolvedCountry, resolvedYear);
 
                     if (response && response.success) {
                         this.holidayPrefetch = response;
+                        const resolvedResponseCountry = this.resolveHolidayCountryCode(
+                            response.country || response.countryCode || resolvedCountry
+                        );
+                        const resolvedResponseYear = this.resolveHolidayYear(response.year || resolvedYear);
+                        this.setSelectValueIfAvailable(countrySelect, resolvedResponseCountry);
+                        this.setSelectValueIfAvailable(yearSelect, resolvedResponseYear);
                         container.innerHTML = this.buildHolidaySummaryMarkup(response);
+                        if (response.fallbackApplied && response.note) {
+                            this.showToast(response.note, 'warning');
+                        }
                         return;
                     }
 
@@ -10099,6 +10155,171 @@
                 }
 
                 return text;
+            }
+
+            setSelectValueIfAvailable(selectElement, value) {
+                if (!selectElement) {
+                    return false;
+                }
+
+                if (value === null || typeof value === 'undefined') {
+                    return false;
+                }
+
+                const normalizedValue = typeof value === 'number'
+                    ? String(value)
+                    : String(value).trim();
+
+                if (!normalizedValue) {
+                    return false;
+                }
+
+                const options = Array.from(selectElement.options || []);
+                for (const option of options) {
+                    if (!option) {
+                        continue;
+                    }
+
+                    const optionValue = String(option.value);
+                    if (optionValue === normalizedValue) {
+                        selectElement.value = optionValue;
+                        return true;
+                    }
+
+                    if (optionValue.trim().toUpperCase() === normalizedValue.toUpperCase()) {
+                        selectElement.value = optionValue;
+                        return true;
+                    }
+
+                    const optionNumber = Number(optionValue);
+                    const candidateNumber = Number(normalizedValue);
+                    if (Number.isFinite(optionNumber) && Number.isFinite(candidateNumber) && optionNumber === candidateNumber) {
+                        selectElement.value = optionValue;
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+
+            resolveSupportedHolidayCountries() {
+                const resolved = [];
+                const appendList = (list) => {
+                    if (!Array.isArray(list)) {
+                        return;
+                    }
+                    for (const value of list) {
+                        const normalized = typeof value === 'string'
+                            ? value.trim().toUpperCase()
+                            : String(value || '').trim().toUpperCase();
+                        if (normalized && !resolved.includes(normalized)) {
+                            resolved.push(normalized);
+                        }
+                    }
+                };
+
+                appendList(this.holidayPrefetch?.supportedCountries);
+                appendList(this.holidayPrefetch?.SUPPORTED_COUNTRIES);
+                appendList(this.unifiedState?.holidays?.supportedCountries);
+                appendList(this.unifiedState?.holidays?.SUPPORTED_COUNTRIES);
+
+                const scheduleSettingsCandidates = [
+                    typeof window !== 'undefined' ? window.SCHEDULE_SETTINGS : null,
+                    typeof window !== 'undefined' ? window.scheduleSettings : null,
+                    typeof window !== 'undefined' ? window.__SCHEDULE_SETTINGS : null
+                ];
+
+                for (const settings of scheduleSettingsCandidates) {
+                    if (settings && typeof settings === 'object') {
+                        appendList(settings.supportedCountries);
+                        appendList(settings.SUPPORTED_COUNTRIES);
+                    }
+                }
+
+                appendList(this.defaultHolidayCountries);
+
+                return resolved.length ? resolved : ['JM', 'US', 'DO', 'PH'];
+            }
+
+            resolvePrimaryHolidayCountry() {
+                const supportedCountries = this.resolveSupportedHolidayCountries();
+                const candidates = [
+                    this.holidayPrefetch?.primaryCountry,
+                    this.holidayPrefetch?.PRIMARY_COUNTRY,
+                    this.unifiedState?.holidays?.primaryCountry,
+                    this.unifiedState?.holidays?.PRIMARY_COUNTRY,
+                    this.identitySummary?.country,
+                    this.currentUser?.country,
+                    this.currentUser?.Country,
+                    typeof window !== 'undefined' && window.SCHEDULE_SETTINGS ? window.SCHEDULE_SETTINGS.PRIMARY_COUNTRY : null,
+                    typeof window !== 'undefined' && window.scheduleSettings ? window.scheduleSettings.PRIMARY_COUNTRY : null,
+                    typeof window !== 'undefined' && window.__SCHEDULE_SETTINGS ? window.__SCHEDULE_SETTINGS.PRIMARY_COUNTRY : null
+                ];
+
+                for (const candidate of candidates) {
+                    if (!candidate) {
+                        continue;
+                    }
+                    const normalized = typeof candidate === 'string'
+                        ? candidate.trim().toUpperCase()
+                        : String(candidate || '').trim().toUpperCase();
+                    if (normalized && supportedCountries.includes(normalized)) {
+                        return normalized;
+                    }
+                }
+
+                return supportedCountries.length ? supportedCountries[0] : 'JM';
+            }
+
+            resolveHolidayCountryCode(rawValue) {
+                const supportedCountries = this.resolveSupportedHolidayCountries();
+                const fallbackCountry = this.resolvePrimaryHolidayCountry();
+                const candidates = Array.isArray(rawValue) ? rawValue : [rawValue];
+
+                candidates.push(
+                    this.holidayPrefetch?.country,
+                    this.holidayPrefetch?.countryCode,
+                    this.unifiedState?.holidays?.country,
+                    this.unifiedState?.holidays?.countryCode,
+                    this.identitySummary?.country,
+                    this.currentUser?.country,
+                    this.currentUser?.Country
+                );
+
+                for (const candidate of candidates) {
+                    if (!candidate && candidate !== 0) {
+                        continue;
+                    }
+                    const normalized = typeof candidate === 'string'
+                        ? candidate.trim().toUpperCase()
+                        : String(candidate || '').trim().toUpperCase();
+                    if (normalized && supportedCountries.includes(normalized)) {
+                        return normalized;
+                    }
+                }
+
+                return fallbackCountry || (supportedCountries[0] || 'JM');
+            }
+
+            resolveHolidayYear(rawValue) {
+                const candidates = Array.isArray(rawValue) ? rawValue : [rawValue];
+                candidates.push(
+                    this.holidayPrefetch?.year,
+                    this.unifiedState?.holidays?.year,
+                    new Date().getFullYear()
+                );
+
+                for (const candidate of candidates) {
+                    if (candidate === null || typeof candidate === 'undefined') {
+                        continue;
+                    }
+                    const parsed = parseInt(String(candidate), 10);
+                    if (Number.isFinite(parsed) && parsed > 1900 && parsed < 10000) {
+                        return parsed;
+                    }
+                }
+
+                return new Date().getFullYear();
             }
 
             normalizeUserIdValue(value) {

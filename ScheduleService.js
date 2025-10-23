@@ -2865,31 +2865,61 @@ function clientGetCountryHolidays(countryCode, year) {
 
     const scheduleConfig = (typeof SCHEDULE_SETTINGS === 'object' && SCHEDULE_SETTINGS)
       || (typeof getScheduleConfig === 'function' ? getScheduleConfig() : {});
-    const supportedCountries = Array.isArray(scheduleConfig.SUPPORTED_COUNTRIES) && scheduleConfig.SUPPORTED_COUNTRIES.length
+    const supportedCountriesSource = Array.isArray(scheduleConfig.SUPPORTED_COUNTRIES) && scheduleConfig.SUPPORTED_COUNTRIES.length
       ? scheduleConfig.SUPPORTED_COUNTRIES
       : ['JM', 'US', 'DO', 'PH'];
-    const primaryCountry = typeof scheduleConfig.PRIMARY_COUNTRY === 'string' && scheduleConfig.PRIMARY_COUNTRY.trim()
-      ? scheduleConfig.PRIMARY_COUNTRY.trim()
+    const supportedCountries = supportedCountriesSource
+      .map(country => typeof country === 'string' ? country.trim().toUpperCase() : String(country || '').trim().toUpperCase())
+      .filter(country => country);
+
+    const primaryCountryCandidate = typeof scheduleConfig.PRIMARY_COUNTRY === 'string' && scheduleConfig.PRIMARY_COUNTRY.trim()
+      ? scheduleConfig.PRIMARY_COUNTRY.trim().toUpperCase()
       : 'JM';
+    const fallbackCountry = supportedCountries.includes(primaryCountryCandidate)
+      ? primaryCountryCandidate
+      : (supportedCountries[0] || 'JM');
 
-    if (!supportedCountries.includes(countryCode)) {
-      return {
-        success: false,
-        error: `Country ${countryCode} not supported. Supported countries: ${supportedCountries.join(', ')}`,
-        holidays: []
-      };
+    const requestedCountry = typeof countryCode === 'string'
+      ? countryCode.trim().toUpperCase()
+      : String(countryCode || '').trim().toUpperCase();
+    const normalizedCountry = supportedCountries.includes(requestedCountry)
+      ? requestedCountry
+      : fallbackCountry;
+    const fallbackApplied = !requestedCountry || normalizedCountry !== requestedCountry;
+
+    const parsedYear = parseInt(String(year), 10);
+    const normalizedYear = Number.isFinite(parsedYear) && parsedYear > 1900
+      ? parsedYear
+      : new Date().getFullYear();
+
+    const holidays = getUpdatedHolidays(normalizedCountry, normalizedYear);
+    const isPrimary = normalizedCountry === primaryCountryCandidate;
+
+    const noteParts = [
+      isPrimary
+        ? 'Primary country (Jamaica) - takes precedence'
+        : 'Secondary country'
+    ];
+
+    if (fallbackApplied) {
+      if (requestedCountry) {
+        noteParts.push(`Requested country ${requestedCountry} is not supported. Using ${normalizedCountry} instead.`);
+      } else {
+        noteParts.push(`No country provided. Defaulting to ${normalizedCountry}.`);
+      }
     }
-
-    const holidays = getUpdatedHolidays(countryCode, year);
-    const isPrimary = countryCode === primaryCountry;
 
     return {
       success: true,
       holidays: holidays,
-      country: countryCode,
-      year: year,
+      country: normalizedCountry,
+      requestedCountry: requestedCountry || '',
+      supportedCountries: supportedCountries,
+      primaryCountry: primaryCountryCandidate,
+      fallbackApplied: fallbackApplied,
+      year: normalizedYear,
       isPrimary: isPrimary,
-      note: isPrimary ? 'Primary country (Jamaica) - takes precedence' : 'Secondary country'
+      note: noteParts.join(' ')
     };
 
   } catch (error) {
