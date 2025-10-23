@@ -795,6 +795,176 @@ function filterUsersByCampaign(users, campaignId) {
   return filteredUsers.filter(user => doesUserBelongToCampaign(user, normalizedCampaignId));
 }
 
+function buildUserRecordFromScheduleAssignment(row) {
+  if (!row || typeof row !== 'object') {
+    return null;
+  }
+
+  const normalizedId = normalizeUserIdValue(
+    row.UserID
+      || row.UserId
+      || row.AgentID
+      || row.AgentId
+      || row.AssignedUserID
+      || row.AssignedUserId
+  );
+
+  const userName = row.UserName
+    || row.AgentName
+    || row.User
+    || row.Agent
+    || row.Employee
+    || '';
+
+  const fullName = row.FullName
+    || row.AgentFullName
+    || row.Name
+    || row.DisplayName
+    || userName;
+
+  const campaignId = normalizeCampaignIdValue(
+    row.CampaignID
+      || row.CampaignId
+      || row.Campaign
+      || row.Department
+      || row.TeamId
+      || row.Team
+  );
+
+  const campaignName = row.CampaignName
+    || row.campaignName
+    || row.Campaign
+    || row.Department
+    || row.Team
+    || '';
+
+  const email = row.Email || row.UserEmail || '';
+  const employmentStatus = row.EmploymentStatus || row.Status || 'Active';
+  const statusText = typeof row.Status === 'string' ? row.Status.trim().toLowerCase() : '';
+  const isActive = statusText ? !['inactive', 'terminated', 'disabled'].includes(statusText) : true;
+
+  const record = {
+    ID: normalizedId || '',
+    UserID: normalizedId || '',
+    UserName: userName || fullName || '',
+    FullName: fullName || userName || '',
+    Email: email,
+    CampaignID: campaignId || '',
+    campaignName: campaignName || '',
+    EmploymentStatus: employmentStatus || 'Active',
+    isActive
+  };
+
+  return record.UserName || record.FullName ? record : null;
+}
+
+function collectUsersFromScheduleAssignments(assignments, referenceCollections) {
+  const rows = [];
+
+  if (Array.isArray(assignments)) {
+    rows.push.apply(rows, assignments);
+  } else if (assignments && typeof assignments === 'object') {
+    if (Array.isArray(assignments.schedules)) {
+      rows.push.apply(rows, assignments.schedules);
+    }
+    if (Array.isArray(assignments.records)) {
+      rows.push.apply(rows, assignments.records);
+    }
+  }
+
+  if (!rows.length) {
+    return [];
+  }
+
+  const referenceMap = new Map();
+  const collections = Array.isArray(referenceCollections) ? referenceCollections : [];
+  collections
+    .filter(collection => Array.isArray(collection) && collection.length)
+    .forEach(collection => {
+      collection.forEach(user => {
+        if (!user || typeof user !== 'object') {
+          return;
+        }
+        const referenceId = normalizeUserIdValue(user.ID || user.UserID || user.id || user.userId);
+        if (!referenceId) {
+          return;
+        }
+        const existing = referenceMap.get(referenceId) || {};
+        referenceMap.set(referenceId, Object.assign({}, existing, user));
+      });
+    });
+
+  const resultMap = new Map();
+
+  rows.forEach(row => {
+    const baseRecord = buildUserRecordFromScheduleAssignment(row);
+    if (!baseRecord || (!baseRecord.ID && !baseRecord.UserID)) {
+      return;
+    }
+
+    const normalizedId = normalizeUserIdValue(baseRecord.ID || baseRecord.UserID);
+    if (!normalizedId) {
+      return;
+    }
+
+    const reference = referenceMap.get(normalizedId) || null;
+    const merged = Object.assign({}, reference || {}, baseRecord);
+    merged.ID = normalizedId;
+    merged.UserID = normalizedId;
+
+    resultMap.set(normalizedId, merged);
+  });
+
+  const mergedUsers = Array.from(resultMap.values());
+  mergedUsers.sort((a, b) => {
+    const nameA = (a.FullName || a.UserName || '').toString().toLowerCase();
+    const nameB = (b.FullName || b.UserName || '').toString().toLowerCase();
+    return nameA.localeCompare(nameB);
+  });
+
+  return mergedUsers;
+}
+
+function buildUserRecordsFromNames(names) {
+  if (!Array.isArray(names)) {
+    return [];
+  }
+
+  const seen = new Set();
+  const records = [];
+
+  names.forEach(name => {
+    if (name === null || typeof name === 'undefined') {
+      return;
+    }
+
+    const text = String(name).trim();
+    if (!text) {
+      return;
+    }
+
+    const key = text.toLowerCase();
+    if (seen.has(key)) {
+      return;
+    }
+
+    seen.add(key);
+    records.push({
+      ID: '',
+      UserID: '',
+      UserName: text,
+      FullName: text,
+      Email: '',
+      CampaignID: '',
+      campaignName: '',
+      EmploymentStatus: 'Active',
+      isActive: true
+    });
+  });
+
+  return records;
+}
+
 const SCHEDULE_STATUS = {
   PENDING: 'PENDING',
   APPROVED: 'APPROVED',
