@@ -918,48 +918,71 @@ function clientGetManagedUsersList(managerId) {
       });
     };
 
-    let managedCampaigns = [];
-    if (typeof getUserManagedCampaigns === 'function') {
+    let hasDirectAssignments = false;
+    if (typeof clientGetManagedUsers === 'function') {
       try {
-        const rawManaged = getUserManagedCampaigns(normalizedManagerId) || [];
-        managedCampaigns = Array.isArray(rawManaged) ? rawManaged : [];
-      } catch (campaignError) {
-        console.warn('Unable to resolve managed campaigns for roster', normalizedManagerId, campaignError);
+        const managedResponse = clientGetManagedUsers(normalizedManagerId);
+        if (managedResponse && managedResponse.success !== false) {
+          const assignedUsers = Array.isArray(managedResponse.users)
+            ? managedResponse.users
+            : [];
+          assignedUsers.forEach(user => {
+            hasDirectAssignments = true;
+            pushUser(user, {
+              campaignId: user && (user.CampaignID || user.campaignID || user.campaignId || user.CampaignId),
+              campaignName: user && (user.campaignName || user.CampaignName || user.campaign)
+            });
+          });
+        }
+      } catch (managedError) {
+        console.warn('Unable to load direct managed users for roster', normalizedManagerId, managedError);
       }
     }
 
-    managedCampaigns.forEach(campaign => {
-      const campaignId = normalizeCampaignIdValue(
-        campaign && (campaign.ID || campaign.Id || campaign.id || campaign.CampaignID || campaign.CampaignId)
-      );
-
-      if (!campaignId) {
-        return;
-      }
-
-      let campaignUsers = [];
-      if (typeof getUsersByCampaign === 'function') {
+    if (!hasDirectAssignments) {
+      let managedCampaigns = [];
+      if (typeof getUserManagedCampaigns === 'function') {
         try {
-          campaignUsers = getUsersByCampaign(campaignId) || [];
+          const rawManaged = getUserManagedCampaigns(normalizedManagerId) || [];
+          managedCampaigns = Array.isArray(rawManaged) ? rawManaged : [];
         } catch (campaignError) {
-          console.warn('Unable to read campaign roster for manager', normalizedManagerId, campaignId, campaignError);
+          console.warn('Unable to resolve managed campaigns for roster', normalizedManagerId, campaignError);
         }
       }
 
-      if ((!Array.isArray(campaignUsers) || !campaignUsers.length) && userLookup.users.length) {
-        campaignUsers = userLookup.users.filter(user => doesUserBelongToCampaign(user, campaignId));
+      managedCampaigns.forEach(campaign => {
+        const campaignId = normalizeCampaignIdValue(
+          campaign && (campaign.ID || campaign.Id || campaign.id || campaign.CampaignID || campaign.CampaignId)
+        );
+
+        if (!campaignId) {
+          return;
+        }
+
+        let campaignUsers = [];
+        if (typeof getUsersByCampaign === 'function') {
+          try {
+            campaignUsers = getUsersByCampaign(campaignId) || [];
+          } catch (campaignError) {
+            console.warn('Unable to read campaign roster for manager', normalizedManagerId, campaignId, campaignError);
+          }
+        }
+
+        if ((!Array.isArray(campaignUsers) || !campaignUsers.length) && userLookup.users.length) {
+          campaignUsers = userLookup.users.filter(user => doesUserBelongToCampaign(user, campaignId));
+        }
+
+        const campaignName = campaign && (campaign.Name || campaign.name || '');
+        campaignUsers.forEach(user => pushUser(user, { campaignId, campaignName }));
+      });
+
+      if (!managedUsers.length) {
+        const fallback = collectCampaignUsersForManager(normalizedManagerId, { allUsers: userLookup.users });
+        fallback.users.forEach(user => pushUser(user, {
+          campaignId: fallback.campaignId,
+          campaignName: fallback.campaignName
+        }));
       }
-
-      const campaignName = campaign && (campaign.Name || campaign.name || '');
-      campaignUsers.forEach(user => pushUser(user, { campaignId, campaignName }));
-    });
-
-    if (!managedUsers.length) {
-      const fallback = collectCampaignUsersForManager(normalizedManagerId, { allUsers: userLookup.users });
-      fallback.users.forEach(user => pushUser(user, {
-        campaignId: fallback.campaignId,
-        campaignName: fallback.campaignName
-      }));
     }
 
     return managedUsers;
