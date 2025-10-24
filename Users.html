@@ -120,7 +120,7 @@
     }
 
     /* Enhanced User Cards */
-    #usersContainer {
+    #usersContainer.card-view {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
         gap: 1.5rem;
@@ -132,8 +132,115 @@
     }
 
     @media (min-width: 1200px) {
-        #usersContainer {
+        #usersContainer.card-view {
             grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+    }
+
+    .users-view-toggle {
+        display: flex;
+        gap: 0.75rem;
+        align-items: center;
+        justify-content: flex-end;
+        flex-wrap: wrap;
+        margin-bottom: 1rem;
+    }
+
+    .users-view-toggle .view-toggle-btn {
+        border-radius: 999px;
+        border: 1px solid rgba(148, 163, 184, 0.4);
+        background: rgba(255, 255, 255, 0.85);
+        color: var(--gray-600);
+        padding: 0.35rem 0.9rem;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        transition: var(--transition-fast);
+        box-shadow: var(--shadow-sm);
+    }
+
+    .users-view-toggle .view-toggle-btn:hover,
+    .users-view-toggle .view-toggle-btn:focus {
+        border-color: var(--primary-400);
+        color: var(--primary-600);
+        box-shadow: var(--shadow-md);
+    }
+
+    .users-view-toggle .view-toggle-btn.active {
+        background: linear-gradient(135deg, var(--primary-500), var(--primary-600));
+        color: #fff;
+        border-color: transparent;
+        box-shadow: var(--shadow-md);
+    }
+
+    #usersContainer.list-view {
+        display: block;
+        padding: 0;
+    }
+
+    #usersContainer.list-view .users-list-card {
+        background: rgba(255, 255, 255, 0.95);
+        border-radius: var(--border-radius);
+        border: 1px solid rgba(226, 232, 240, 0.7);
+        box-shadow: var(--shadow-md);
+        overflow: hidden;
+        padding: 1.25rem;
+    }
+
+    #usersContainer.list-view .table {
+        margin-bottom: 0;
+    }
+
+    #usersContainer.list-view thead {
+        background: linear-gradient(135deg, rgba(14, 165, 233, 0.12), rgba(14, 165, 233, 0.2));
+        color: var(--gray-700);
+    }
+
+    #usersContainer.list-view tbody tr {
+        transition: var(--transition-fast);
+    }
+
+    #usersContainer.list-view tbody tr:hover {
+        background: rgba(14, 165, 233, 0.05);
+    }
+
+    .users-list-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.35rem;
+        justify-content: flex-end;
+    }
+
+    .user-avatar-sm {
+        width: 44px;
+        height: 44px;
+        border-radius: 12px;
+        background: linear-gradient(135deg, var(--primary-400), var(--primary-600));
+        color: white;
+        font-weight: 700;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1rem;
+        box-shadow: var(--shadow-sm);
+    }
+
+    @media (min-width: 992px) {
+        .users-list-actions {
+            justify-content: flex-start;
+        }
+    }
+
+    @media (max-width: 992px) {
+        #usersContainer.list-view .users-list-card {
+            border-radius: var(--border-radius-sm);
+        }
+    }
+
+    @media (max-width: 768px) {
+        .users-view-toggle {
+            justify-content: center;
         }
     }
 
@@ -1001,7 +1108,7 @@
             margin: 0 auto;
         }
 
-        #usersContainer {
+        #usersContainer.card-view {
             justify-content: center;
         }
 
@@ -1337,8 +1444,22 @@
     </div>
 </div>
 
+<!-- Users View Toggle -->
+<div class="px-3">
+    <div class="users-view-toggle" role="group" aria-label="Users view toggle">
+        <button type="button" class="view-toggle-btn active" id="usersCardViewBtn" aria-pressed="true">
+            <i class="fas fa-table-cells-large"></i>
+            Card View
+        </button>
+        <button type="button" class="view-toggle-btn" id="usersListViewBtn" aria-pressed="false">
+            <i class="fas fa-list"></i>
+            List View
+        </button>
+    </div>
+</div>
+
 <!-- Enhanced Users Container -->
-<div class="p-3" id="usersContainer">
+<div class="p-3 card-view" id="usersContainer">
     <div class="empty-state">
         <div class="loading-spinner mx-auto mb-3"></div>
         <p class="text-muted">Loading users...</p>
@@ -2372,6 +2493,7 @@
   let usersPage = 1;
   let usersPerPage = 12;
   let filteredUsers = [];
+  let usersViewMode = 'card';
   let userEquipmentItems = [];
   let currentEquipmentEntryId = null;
   let equipmentFormExistingPhotos = [];
@@ -2678,6 +2800,7 @@
   function initializeApp() {
     try {
       setupEventListeners();
+      updateUsersViewToggle();
       initializeEquipmentTab();
       updateEmploymentStatusLookup(employmentStatuses, employmentStatusAliases);
       populateEmploymentStatusOptions();
@@ -2719,6 +2842,13 @@
       usersPerPage = parseInt(this.value, 10) || 12;
       usersPage = 1;
       renderUsersPage();
+    });
+
+    $('#usersCardViewBtn').on('click', function () {
+      setUsersViewMode('card');
+    });
+    $('#usersListViewBtn').on('click', function () {
+      setUsersViewMode('list');
     });
 
     $('#userSearch').on('input', function () {
@@ -3006,6 +3136,7 @@
     const end = Math.min(start + usersPerPage, total);
     const pageSlice = filteredUsers.slice(start, end);
 
+    updateUsersViewToggle();
     renderUsersWithPages(pageSlice);
 
     const infoEl = document.getElementById('usersPageInfo');
@@ -3019,37 +3150,81 @@
     updateUsersPagination(totalPages);
   }
 
+  function setUsersViewMode(mode) {
+    const normalized = mode === 'list' ? 'list' : 'card';
+    if (usersViewMode === normalized) return;
+    usersViewMode = normalized;
+    updateUsersViewToggle();
+    renderUsersPage();
+  }
+
+  function updateUsersViewToggle() {
+    const cardBtn = document.getElementById('usersCardViewBtn');
+    const listBtn = document.getElementById('usersListViewBtn');
+    if (cardBtn) {
+      const isActive = usersViewMode !== 'list';
+      cardBtn.classList.toggle('active', isActive);
+      cardBtn.setAttribute('aria-pressed', String(isActive));
+    }
+    if (listBtn) {
+      const isActive = usersViewMode === 'list';
+      listBtn.classList.toggle('active', isActive);
+      listBtn.setAttribute('aria-pressed', String(isActive));
+    }
+  }
+
   function renderUsersWithPages(users) {
     const container = document.getElementById('usersContainer');
     if (!container) return;
 
+    container.classList.toggle('list-view', usersViewMode === 'list');
+    container.classList.toggle('card-view', usersViewMode !== 'list');
+
     if (!users || !users.length) {
-      container.innerHTML = `
+      const emptyHtml = `
       <div class="empty-state">
         <i class="fas fa-users"></i>
         <h5 class="text-muted fw-bold">No users found</h5>
         <p class="text-muted mb-4">Get started by adding your first user with employment tracking and auto page discovery</p>
         <button class="btn-modern btn-primary" onclick="showAddUserModal()"><i class="fas fa-plus"></i>Add New User</button>
       </div>`;
+      container.innerHTML = usersViewMode === 'list'
+        ? `<div class="users-list-card p-4">${emptyHtml}</div>`
+        : emptyHtml;
       return;
     }
 
-    container.innerHTML = users.map(renderUserCardWithPages).join('');
+    if (usersViewMode === 'list') {
+      const rows = users.map(renderUserListRow).join('');
+      container.innerHTML = `
+      <div class="users-list-card">
+        <div class="table-responsive">
+          <table class="table table-hover align-middle">
+            <thead>
+              <tr>
+                <th scope="col">User</th>
+                <th scope="col">Status</th>
+                <th scope="col">Contact</th>
+                <th scope="col">Campaign</th>
+                <th scope="col">Roles</th>
+                <th scope="col" class="text-end text-lg-start">Actions</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      </div>`;
+    } else {
+      container.innerHTML = users.map(renderUserCardWithPages).join('');
+    }
   }
 
   function renderUserCardWithPages(user) {
     const name = user.FullName || user.UserName || user.userName || user.username || user.Username || 'Unknown User';
     const username = user.UserName || user.userName || user.username || user.Username || 'unknown';
     const initials = getInitials(name);
-    const userId = user.ID || '';
-    const profileIdentifier = resolveUserProfileIdentifier(user);
-    const profileUrl = buildUserProfileUrl(profileIdentifier);
     const email = user.Email || user.email || 'No email';
     const phone = user.PhoneNumber || user.phoneNumber || user.Phone || user.PhoneNum || '';
-
-    const profileAction = profileUrl
-      ? `<a class="btn btn-outline-success btn-sm" href="${escapeHtml(profileUrl)}" title="View Profile" aria-label="View Profile"><i class="fas fa-id-badge"></i></a>`
-      : `<button class="btn btn-outline-success btn-sm" type="button" disabled title="Profile unavailable" aria-disabled="true"><i class="fas fa-id-badge"></i></button>`;
 
     return `
   <div class="user-card">
@@ -3079,14 +3254,59 @@
       </div>
     </div>
     <div class="user-card-actions" role="group" aria-label="User actions">
-      ${profileAction}
-      <button class="btn btn-outline-primary btn-sm" onclick="editUserWithPages('${escapeHtml(String(userId))}')" title="Edit User" aria-label="Edit User"><i class="fas fa-edit"></i></button>
-      <button class="btn btn-outline-secondary btn-sm" onclick="adminResetPassword('${escapeHtml(String(userId))}')" title="Reset Password" aria-label="Reset Password"><i class="fas fa-key"></i></button>
-      <button class="btn btn-outline-secondary btn-sm" onclick="resendFirstLogin('${escapeHtml(String(userId))}')" title="Resend First Login Email" aria-label="Resend First Login Email"><i class="fas fa-paper-plane"></i></button>
-      <button class="btn btn-outline-info btn-sm" onclick="manageUserEquipment('${escapeHtml(String(userId))}')" title="Manage Equipment" aria-label="Manage Equipment"><i class="fas fa-toolbox"></i></button>
-      <button class="btn btn-outline-danger btn-sm user-action-delete" onclick="deleteUser('${escapeHtml(String(userId))}')" title="Delete User" aria-label="Delete User"><i class="fas fa-trash"></i></button>
+      ${buildUserActionButtons(user)}
     </div>
   </div>`;
+  }
+
+  function renderUserListRow(user) {
+    const name = user.FullName || user.UserName || user.userName || user.username || user.Username || 'Unknown User';
+    const username = user.UserName || user.userName || user.username || user.Username || 'unknown';
+    const initials = getInitials(name);
+    const email = user.Email || user.email || 'No email';
+    const phone = user.PhoneNumber || user.phoneNumber || user.Phone || user.PhoneNum || '';
+    const rolesHtml = renderRolesBadges(user) || '<span class="text-muted small">No roles</span>';
+
+    return `
+    <tr>
+      <td>
+        <div class="d-flex align-items-center gap-3">
+          <div class="user-avatar-sm">${initials}</div>
+          <div>
+            <div class="fw-semibold">${escapeHtml(name)}</div>
+            <div class="text-muted small">@${escapeHtml(username)}</div>
+          </div>
+        </div>
+      </td>
+      <td>${renderStatusBadge(user)}</td>
+      <td>
+        <div class="small text-muted"><i class="fas fa-envelope me-1"></i>${escapeHtml(email)}</div>
+        ${phone ? `<div class="small text-muted"><i class="fas fa-phone me-1"></i>${escapeHtml(phone)}</div>` : ''}
+      </td>
+      <td>${renderCampaignBadges(user)}</td>
+      <td>${rolesHtml}</td>
+      <td class="text-end text-lg-start"><div class="users-list-actions">${buildUserActionButtons(user)}</div></td>
+    </tr>`;
+  }
+
+  function buildUserActionButtons(user) {
+    const userId = user.ID || '';
+    const safeUserId = escapeHtml(String(userId));
+    const profileIdentifier = resolveUserProfileIdentifier(user);
+    const profileUrl = buildUserProfileUrl(profileIdentifier);
+
+    const profileAction = profileUrl
+      ? `<a class="btn btn-outline-success btn-sm" href="${escapeHtml(profileUrl)}" title="View Profile" aria-label="View Profile"><i class="fas fa-id-badge"></i></a>`
+      : `<button class="btn btn-outline-success btn-sm" type="button" disabled title="Profile unavailable" aria-disabled="true"><i class="fas fa-id-badge"></i></button>`;
+
+    return [
+      profileAction,
+      `<button class="btn btn-outline-primary btn-sm" onclick="editUserWithPages('${safeUserId}')" title="Edit User" aria-label="Edit User"><i class="fas fa-edit"></i></button>`,
+      `<button class="btn btn-outline-secondary btn-sm" onclick="adminResetPassword('${safeUserId}')" title="Reset Password" aria-label="Reset Password"><i class="fas fa-key"></i></button>`,
+      `<button class="btn btn-outline-secondary btn-sm" onclick="resendFirstLogin('${safeUserId}')" title="Resend First Login Email" aria-label="Resend First Login Email"><i class="fas fa-paper-plane"></i></button>`,
+      `<button class="btn btn-outline-info btn-sm" onclick="manageUserEquipment('${safeUserId}')" title="Manage Equipment" aria-label="Manage Equipment"><i class="fas fa-toolbox"></i></button>`,
+      `<button class="btn btn-outline-danger btn-sm user-action-delete" onclick="deleteUser('${safeUserId}')" title="Delete User" aria-label="Delete User"><i class="fas fa-trash"></i></button>`
+    ].join('');
   }
 
   // ---------- Utilities for user card ----------
