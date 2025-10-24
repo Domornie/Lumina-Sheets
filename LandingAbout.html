@@ -5,16 +5,26 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>About LuminaHQ</title>
     <?!= includeOnce('LandingSharedStyles'); ?>
+    <?
+      var __landingBase = scriptUrl || baseUrl || '';
+      var landingHomeUrl = __landingBase ? __landingBase + '?page=landing' : 'Landing.html';
+      var landingAboutUrl = __landingBase ? __landingBase + '?page=landing-about' : 'LandingAbout.html';
+      var landingCapabilitiesUrl = __landingBase ? __landingBase + '?page=landing-capabilities' : 'LandingCapabilities.html';
+      var landingStoryUrl = __landingBase ? __landingBase + '?page=landing-story' : 'LandingStory.html';
+      var landingCapabilitiesDetailUrl = __landingBase ? __landingBase + '?page=landing-capabilities-detail' : 'LandingCapabilitiesDetail.html';
+      var loginUrl = buildLoginPageUrl({});
+    ?>
   </head>
   <body>
     <header class="site-header">
       <nav class="site-nav">
-        <a class="logo" href="Landing.html">LuminaHQ</a>
+        <a class="logo" href="<?!= landingHomeUrl ?>">LuminaHQ</a>
         <ul class="nav-links">
-          <li><a href="LandingCapabilities.html">Capabilities</a></li>
-          <li><a href="LandingAbout.html">About</a></li>
-          <li><a href="LandingStory.html">Stories</a></li>
-          <li><a class="nav-cta" href="LandingCapabilitiesDetail.html">Get Started</a></li>
+          <li><a href="<?!= landingCapabilitiesUrl ?>">Capabilities</a></li>
+          <li><a href="<?!= landingAboutUrl ?>">About</a></li>
+          <li><a href="<?!= landingStoryUrl ?>">Stories</a></li>
+          <li><a class="nav-cta" href="<?!= landingCapabilitiesDetailUrl ?>">Get Started</a></li>
+          <li><a class="nav-cta" href="<?!= loginUrl ?>">Login</a></li>
         </ul>
       </nav>
     </header>
@@ -31,8 +41,8 @@
               and schedule with intelligence.
             </p>
             <div class="cta-buttons">
-              <a class="btn btn-primary" href="Landing.html">Return to landing</a>
-              <a class="btn btn-ghost" href="LandingStory.html">Read customer stories</a>
+              <a class="btn btn-primary" href="<?!= landingHomeUrl ?>">Return to landing</a>
+              <a class="btn btn-ghost" href="<?!= landingStoryUrl ?>">Read customer stories</a>
             </div>
             <div class="hero-metrics">
               <div class="metric-card">
@@ -189,8 +199,8 @@
                 every new capability release.
               </p>
               <div class="navigation-cta" style="justify-content: flex-start; margin-top: 2rem">
-                <a class="btn btn-ghost" href="LandingCapabilities.html">See capabilities</a>
-                <a class="btn btn-ghost" href="LandingStory.html">Explore customer journey</a>
+                <a class="btn btn-ghost" href="<?!= landingCapabilitiesUrl ?>">See capabilities</a>
+                <a class="btn btn-ghost" href="<?!= landingStoryUrl ?>">Explore customer journey</a>
               </div>
             </div>
           </div>
@@ -206,9 +216,9 @@
           coaching, and workforce operations.
         </p>
         <div class="footer-links">
-          <a href="LandingCapabilities.html">Capabilities overview</a>
-          <a href="LandingCapabilitiesDetail.html">Detailed modules</a>
-          <a href="LandingStory.html">Customer wins</a>
+          <a href="<?!= landingCapabilitiesUrl ?>">Capabilities overview</a>
+          <a href="<?!= landingCapabilitiesDetailUrl ?>">Detailed modules</a>
+          <a href="<?!= landingStoryUrl ?>">Customer wins</a>
         </div>
       </div>
     </footer>
