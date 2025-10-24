@@ -2539,69 +2539,6 @@
       outline-offset: 2px;
     }
 
-    .lumina-banner__meta {
-      flex: 0 0 280px;
-      min-width: 240px;
-      display: grid;
-      gap: 1.1rem;
-      background:
-        radial-gradient(120% 90% at 0% 0%, rgba(59, 130, 246, 0.25) 0%, rgba(59, 130, 246, 0) 65%),
-        linear-gradient(160deg, rgba(15, 23, 42, 0.75) 0%, rgba(8, 47, 73, 0.85) 55%, rgba(15, 118, 110, 0.6) 100%);
-      border-radius: 28px;
-      padding: 1.5rem 1.7rem;
-      box-shadow: inset 0 0 0 1px rgba(165, 243, 252, 0.25), 0 18px 26px -28px rgba(2, 6, 23, 0.8);
-      backdrop-filter: blur(12px);
-      position: relative;
-      overflow: hidden;
-      isolation: isolate;
-    }
-
-    .lumina-banner__meta::before {
-      content: '';
-      position: absolute;
-      inset: -35% -25% auto -25%;
-      height: 160%;
-      background: radial-gradient(55% 55% at 20% 20%, rgba(94, 234, 212, 0.3) 0%, rgba(94, 234, 212, 0) 70%),
-        linear-gradient(135deg, rgba(14, 165, 233, 0.12) 0%, rgba(148, 197, 255, 0) 60%);
-      mix-blend-mode: screen;
-      pointer-events: none;
-      opacity: 0.9;
-      z-index: 0;
-    }
-
-    .lumina-banner__meta-item {
-      display: grid;
-      gap: 0.45rem;
-      position: relative;
-      z-index: 1;
-    }
-
-    .lumina-banner__meta-label {
-      font-size: 0.72rem;
-      letter-spacing: 0.16em;
-      text-transform: uppercase;
-      color: rgba(191, 219, 254, 0.75);
-      font-weight: 700;
-      display: inline-flex;
-      align-items: center;
-      gap: 0.4rem;
-    }
-
-    .lumina-banner__meta-value {
-      font-size: 1.05rem;
-      font-weight: 600;
-      color: #f8fafc;
-      line-height: 1.55;
-    }
-
-    .lumina-banner__meta-value[data-dst-active="true"] {
-      color: #34d399;
-    }
-
-    .lumina-banner__meta-value[data-dst-active="false"] {
-      color: #facc15;
-    }
-
     .lumina-banner__insights {
       margin-top: 1.75rem;
       display: grid;
@@ -2683,14 +2620,6 @@
       }
     }
 
-    @media (max-width: 1200px) {
-      .lumina-banner__meta {
-        flex: 1 1 100%;
-        width: 100%;
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      }
-    }
-
     @media (max-width: 900px) {
       .lumina-banner {
         padding: 1.75rem;
@@ -2713,22 +2642,8 @@
     }
 
     @media (max-width: 640px) {
-      .lumina-banner__meta {
-        padding: 1.1rem 1.25rem;
-      }
-
       .lumina-banner__title {
         font-size: clamp(1.75rem, 6vw, 2.35rem);
-      }
-    }
-
-    @media (max-width: 520px) {
-      .lumina-banner__meta-label {
-        font-size: 0.68rem;
-      }
-
-      .lumina-banner__meta-value {
-        font-size: 0.95rem;
       }
     }
 
@@ -2922,24 +2837,6 @@
           </div>
           <div class="lumina-banner__description" id="luminaBannerDescription"></div>
         </div>
-        <div class="lumina-banner__meta">
-          <div class="lumina-banner__meta-item" id="luminaBannerMetaDate">
-            <div class="lumina-banner__meta-label"><i class="fa-regular fa-calendar"></i> Today</div>
-            <div class="lumina-banner__meta-value" id="luminaBannerDate" aria-live="polite">—</div>
-          </div>
-          <div class="lumina-banner__meta-item" id="luminaBannerMetaDst">
-            <div class="lumina-banner__meta-label"><i class="fa-regular fa-clock"></i> Daylight Saving</div>
-            <div class="lumina-banner__meta-value" id="luminaBannerDst" aria-live="polite" data-dst-active="false">—</div>
-          </div>
-          <div class="lumina-banner__meta-item" id="luminaBannerMetaCampaign" data-empty="true">
-            <div class="lumina-banner__meta-label"><i class="fa-solid fa-bullseye"></i> Campaign</div>
-            <div class="lumina-banner__meta-value" id="luminaBannerCampaign" aria-live="polite">—</div>
-          </div>
-          <div class="lumina-banner__meta-item" id="luminaBannerMetaClient" data-empty="true">
-            <div class="lumina-banner__meta-label"><i class="fa-solid fa-building"></i> Client</div>
-            <div class="lumina-banner__meta-value" id="luminaBannerClient" aria-live="polite">—</div>
-          </div>
-        </div>
         <div class="lumina-banner__insights" id="luminaBannerInsights" role="list" aria-label="Workspace insights" data-empty="true"></div>
       </div>
     </section>
@@ -2947,51 +2844,6 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
     <script>
-        function formatBannerDateTime(date) {
-            try {
-                const dateFormatter = new Intl.DateTimeFormat(undefined, {
-                    weekday: 'long',
-                    month: 'long',
-                    day: 'numeric',
-                    year: 'numeric'
-                });
-                const timeFormatter = new Intl.DateTimeFormat(undefined, {
-                    hour: 'numeric',
-                    minute: '2-digit'
-                });
-                const tzFormatter = new Intl.DateTimeFormat(undefined, { timeZoneName: 'short' });
-                const tzPart = tzFormatter.formatToParts(date).find(part => part.type === 'timeZoneName');
-                const tzLabel = tzPart ? ` (${tzPart.value})` : '';
-                return `${dateFormatter.format(date)} • ${timeFormatter.format(date)}${tzLabel}`;
-            } catch (err) {
-                console.warn('Unable to format banner date/time', err);
-                return date.toLocaleString();
-            }
-        }
-
-        function computeBannerDst(date) {
-            try {
-                const options = Intl.DateTimeFormat().resolvedOptions();
-                const january = new Date(date.getFullYear(), 0, 1);
-                const july = new Date(date.getFullYear(), 6, 1);
-                const standardOffset = Math.max(january.getTimezoneOffset(), july.getTimezoneOffset());
-                const isDst = date.getTimezoneOffset() < standardOffset;
-                const timeZone = options.timeZone || '';
-                const statusText = isDst ? 'Daylight Saving Time is active' : 'Daylight Saving Time is not active';
-                return {
-                    isDst,
-                    timeZone,
-                    message: `${statusText}${timeZone ? ` (${timeZone})` : ''}`
-                };
-            } catch (err) {
-                console.warn('Unable to compute DST status', err);
-                return {
-                    isDst: false,
-                    timeZone: '',
-                    message: 'Daylight Saving Time status unavailable'
-                };
-            }
-        }
 
         const REMOVABLE_BANNER_BUTTON_CLASSES = [
             'btn',
@@ -3418,35 +3270,8 @@
             const descEl = document.getElementById('luminaBannerDescription');
             const eyebrowEl = document.getElementById('luminaBannerEyebrow');
             const eyebrowText = document.getElementById('luminaBannerEyebrowText');
-            const dateEl = document.getElementById('luminaBannerDate');
-            const dstEl = document.getElementById('luminaBannerDst');
-            const campaignMetaEl = document.getElementById('luminaBannerMetaCampaign');
-            const campaignValueEl = document.getElementById('luminaBannerCampaign');
-            const clientMetaEl = document.getElementById('luminaBannerMetaClient');
-            const clientValueEl = document.getElementById('luminaBannerClient');
             const actionsEl = document.getElementById('luminaBannerActions');
             const insightsEl = document.getElementById('luminaBannerInsights');
-
-            const assignMetaValue = (container, valueElement, value) => {
-                if (!valueElement) {
-                    return;
-                }
-
-                const text = String(value || '').trim();
-                if (text) {
-                    valueElement.textContent = text;
-                    if (container) {
-                        container.dataset.empty = 'false';
-                        container.style.display = '';
-                    }
-                } else {
-                    valueElement.textContent = '—';
-                    if (container) {
-                        container.dataset.empty = 'true';
-                        container.style.display = 'none';
-                    }
-                }
-            };
 
             const normalizeMetaValue = (value) => {
                 if (value === null || typeof value === 'undefined') {
@@ -3654,37 +3479,6 @@
                 resolvedEyebrowText = text;
             }
 
-            assignMetaValue(
-                campaignMetaEl,
-                campaignValueEl,
-                finalConfig.campaignName || stored.campaignName || __LAYOUT_CAMPAIGN_NAME
-            );
-
-            assignMetaValue(
-                clientMetaEl,
-                clientValueEl,
-                finalConfig.clientName || stored.clientName || __LAYOUT_CLIENT_NAME
-            );
-
-            const refreshMeta = () => {
-                const now = new Date();
-                if (dateEl) {
-                    dateEl.textContent = formatBannerDateTime(now);
-                }
-                if (dstEl) {
-                    const dstInfo = computeBannerDst(now);
-                    dstEl.textContent = dstInfo.message;
-                    dstEl.setAttribute('data-dst-active', String(dstInfo.isDst));
-                }
-            };
-
-            refreshMeta();
-            if (typeof window !== 'undefined') {
-                if (window.__luminaBannerInterval) {
-                    clearInterval(window.__luminaBannerInterval);
-                }
-                window.__luminaBannerInterval = setInterval(refreshMeta, 60000);
-            }
 
             renderInsights(finalConfig.insights, finalConfig.insightsMeta);
 
