@@ -610,7 +610,28 @@ function clientGetScheduleContext(managerIdCandidate, campaignIdCandidate) {
 function clientGetScheduleUsers(requestingUserId, campaignId = null) {
   try {
     const normalizedCampaignId = normalizeCampaignIdValue(campaignId);
-    console.log('🔍 Getting schedule users for:', requestingUserId, 'campaign:', normalizedCampaignId || '(not provided)');
+    let normalizedManagerId = normalizeUserIdValue(requestingUserId);
+    const originalManagerId = normalizedManagerId;
+    const systemManagerAliases = [
+      'system',
+      'systemuser',
+      'system-user',
+      'system_user',
+      'systemaccount',
+      'system-account'
+    ];
+
+    if (normalizedManagerId && systemManagerAliases.includes(normalizedManagerId.toLowerCase())) {
+      normalizedManagerId = '';
+      console.log('ℹ️ System-level schedule request detected. Applying global roster without manager filtering.');
+    }
+
+    console.log(
+      '🔍 Getting schedule users for:',
+      normalizedManagerId || originalManagerId || '(system)',
+      'campaign:',
+      normalizedCampaignId || '(not provided)'
+    );
 
     const userLookup = buildScheduleUserLookupIndex();
     const allUsers = Array.isArray(userLookup.users) ? userLookup.users : [];
@@ -619,7 +640,6 @@ function clientGetScheduleUsers(requestingUserId, campaignId = null) {
       return [];
     }
 
-    const normalizedManagerId = normalizeUserIdValue(requestingUserId);
     const rosterContext = normalizedManagerId
       ? resolveUnifiedManagedRoster(normalizedManagerId)
       : { users: [], managedUserIds: [] };
