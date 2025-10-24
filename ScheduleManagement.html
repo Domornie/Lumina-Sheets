@@ -7743,7 +7743,7 @@
                         if (!user) {
                             return;
                         }
-                        appendUserName(user.UserName || user.FullName || user.Email);
+                        appendUserName(user.FullName || user.UserName || user.Email);
                     });
 
                     if (Array.isArray(attendanceUsersRaw)) {

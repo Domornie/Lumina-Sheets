@@ -838,7 +838,7 @@ function clientGetAttendanceUsers(requestingUserId, campaignId = null) {
           return '';
         }
 
-        const name = candidate.UserName || candidate.FullName || candidate.Email || '';
+        const name = candidate.FullName || candidate.UserName || candidate.Email || '';
         return name ? name.toString().trim() : '';
       })
       .filter(Boolean)
