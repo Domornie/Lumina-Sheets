@@ -2089,86 +2089,6 @@
       font-size: 0.875rem;
     }
 
-    .topbar-insights {
-      display: flex;
-      align-items: stretch;
-      gap: 0.75rem;
-      margin-left: 2rem;
-      padding: 0.25rem 0;
-      max-width: 50vw;
-      overflow-x: auto;
-      scrollbar-width: thin;
-    }
-
-    .topbar-insights::-webkit-scrollbar {
-      height: 6px;
-    }
-
-    .topbar-insights::-webkit-scrollbar-thumb {
-      background: rgba(148, 163, 184, 0.35);
-      border-radius: 999px;
-    }
-
-    .topbar-insights::-webkit-scrollbar-track {
-      background: transparent;
-    }
-
-    .topbar-insight {
-      position: relative;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      padding: 0.85rem 1rem;
-      min-width: 110px;
-      min-height: 96px;
-      background: var(--topbar-icon-bg);
-      border: 1px solid var(--topbar-icon-border);
-      border-radius: var(--border-radius-sm);
-      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
-      transition: var(--transition-fast);
-      color: var(--topbar-text-strong);
-    }
-
-    .topbar-insight:hover {
-      box-shadow: 0 8px 18px rgba(15, 23, 42, 0.15);
-      transform: translateY(-2px);
-    }
-
-    .topbar-insight-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 0.35rem;
-      gap: 0.5rem;
-    }
-
-    .topbar-insight-icon {
-      font-size: 0.9rem;
-      color: var(--primary);
-    }
-
-    .topbar-insight-label {
-      font-size: 0.65rem;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      color: var(--topbar-text-muted);
-      font-weight: 600;
-    }
-
-    .topbar-insight-value {
-      font-size: 1.05rem;
-      font-weight: 700;
-      line-height: 1.2;
-      color: var(--topbar-text-strong);
-      word-break: break-word;
-    }
-
-    .topbar-insight-hint {
-      font-size: 0.7rem;
-      color: var(--topbar-text-muted);
-      margin-top: 0.25rem;
-      line-height: 1.3;
-    }
 
     .top-actions {
       margin-left: auto;
@@ -2195,12 +2115,6 @@
       background: var(--topbar-icon-bg);
       backdrop-filter: blur(8px);
       border: 1px solid var(--topbar-icon-border);
-    }
-
-    @media (max-width: 1400px) {
-      .topbar-insights {
-        display: none;
-      }
     }
 
     .notification-btn:hover {
@@ -2688,6 +2602,87 @@
       color: #facc15;
     }
 
+    .lumina-banner__insights {
+      margin-top: 1.75rem;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 1rem;
+      width: 100%;
+      padding: 0;
+      list-style: none;
+      transition: opacity 0.3s ease, transform 0.3s ease;
+    }
+
+    .lumina-banner__insights[data-empty="true"] {
+      display: none;
+    }
+
+    .lumina-banner__insight {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      gap: 0.45rem;
+      padding: 1rem 1.15rem;
+      border-radius: 20px;
+      background: linear-gradient(145deg, rgba(15, 118, 190, 0.24), rgba(56, 189, 248, 0.08));
+      border: 1px solid rgba(56, 189, 248, 0.28);
+      box-shadow: 0 18px 38px -28px rgba(14, 165, 233, 0.9);
+      backdrop-filter: blur(8px);
+      min-height: 110px;
+    }
+
+    .lumina-banner__insight:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 26px 48px -30px rgba(56, 189, 248, 0.95);
+    }
+
+    .lumina-banner__insight-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.65rem;
+      margin-bottom: 0.25rem;
+    }
+
+    .lumina-banner__insight-icon {
+      font-size: 1rem;
+      color: #38bdf8;
+    }
+
+    .lumina-banner__insight-label {
+      font-size: 0.7rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: rgba(226, 240, 254, 0.78);
+      font-weight: 600;
+    }
+
+    .lumina-banner__insight-value {
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: #f8fafc;
+      line-height: 1.25;
+      word-break: break-word;
+    }
+
+    .lumina-banner__insight-hint {
+      font-size: 0.75rem;
+      color: rgba(226, 240, 254, 0.76);
+      line-height: 1.35;
+    }
+
+    @media (max-width: 768px) {
+      .lumina-banner__insights {
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      }
+    }
+
+    @media (max-width: 576px) {
+      .lumina-banner__insights {
+        grid-template-columns: 1fr;
+      }
+    }
+
     @media (max-width: 1200px) {
       .lumina-banner__meta {
         flex: 1 1 100%;
@@ -2945,6 +2940,7 @@
             <div class="lumina-banner__meta-value" id="luminaBannerClient" aria-live="polite">—</div>
           </div>
         </div>
+        <div class="lumina-banner__insights" id="luminaBannerInsights" role="list" aria-label="Workspace insights" data-empty="true"></div>
       </div>
     </section>
 
@@ -3429,6 +3425,7 @@
             const clientMetaEl = document.getElementById('luminaBannerMetaClient');
             const clientValueEl = document.getElementById('luminaBannerClient');
             const actionsEl = document.getElementById('luminaBannerActions');
+            const insightsEl = document.getElementById('luminaBannerInsights');
 
             const assignMetaValue = (container, valueElement, value) => {
                 if (!valueElement) {
@@ -3458,6 +3455,109 @@
 
                 return String(value).trim();
             };
+
+            const normalizeInsights = (source) => {
+                if (!Array.isArray(source)) {
+                    return [];
+                }
+
+                return source.map(item => {
+                    if (!item || typeof item !== 'object') {
+                        return null;
+                    }
+
+                    const normalized = {
+                        label: item.label != null ? String(item.label).trim() : '',
+                        value: item.value != null ? String(item.value).trim() : '',
+                        hint: item.hint != null ? String(item.hint).trim() : '',
+                        icon: item.icon != null ? String(item.icon).trim() : ''
+                    };
+
+                    return (normalized.label || normalized.value || normalized.hint || normalized.icon)
+                        ? normalized
+                        : null;
+                }).filter(Boolean);
+            };
+
+            const renderInsights = (insights, meta) => {
+                if (!insightsEl) {
+                    return;
+                }
+
+                insightsEl.innerHTML = '';
+
+                if (!insights || !insights.length) {
+                    insightsEl.dataset.empty = 'true';
+                    insightsEl.removeAttribute('data-page');
+                    banner.removeAttribute('data-has-insights');
+                    return;
+                }
+
+                const pageKey = meta && meta.pageKey ? String(meta.pageKey).trim() : '';
+                if (pageKey) {
+                    insightsEl.setAttribute('data-page', pageKey);
+                } else {
+                    insightsEl.removeAttribute('data-page');
+                }
+
+                insights.forEach(insight => {
+                    const card = document.createElement('div');
+                    card.className = 'lumina-banner__insight';
+                    card.setAttribute('role', 'listitem');
+
+                    const header = document.createElement('div');
+                    header.className = 'lumina-banner__insight-header';
+
+                    if (insight.icon) {
+                        const iconEl = document.createElement('i');
+                        iconEl.classList.add('lumina-banner__insight-icon');
+                        String(insight.icon)
+                            .split(/\s+/)
+                            .filter(Boolean)
+                            .forEach(cls => iconEl.classList.add(cls));
+                        iconEl.setAttribute('aria-hidden', 'true');
+                        header.appendChild(iconEl);
+                    }
+
+                    if (insight.label) {
+                        const labelEl = document.createElement('span');
+                        labelEl.className = 'lumina-banner__insight-label';
+                        labelEl.textContent = insight.label;
+                        header.appendChild(labelEl);
+                    }
+
+                    if (header.childNodes.length) {
+                        card.appendChild(header);
+                    }
+
+                    const valueEl = document.createElement('span');
+                    valueEl.className = 'lumina-banner__insight-value';
+                    valueEl.textContent = insight.value || '—';
+                    card.appendChild(valueEl);
+
+                    if (insight.hint) {
+                        const hintEl = document.createElement('span');
+                        hintEl.className = 'lumina-banner__insight-hint';
+                        hintEl.textContent = insight.hint;
+                        card.appendChild(hintEl);
+                    }
+
+                    insightsEl.appendChild(card);
+                });
+
+                insightsEl.dataset.empty = 'false';
+                banner.setAttribute('data-has-insights', 'true');
+            };
+
+            const hasOwn = (obj, key) => Object.prototype.hasOwnProperty.call(obj || {}, key);
+
+            const incomingInsights = hasOwn(config, 'insights') ? config.insights : stored.insights;
+            finalConfig.insights = normalizeInsights(incomingInsights);
+
+            const incomingInsightsMeta = hasOwn(config, 'insightsMeta') ? config.insightsMeta : stored.insightsMeta;
+            finalConfig.insightsMeta = (incomingInsightsMeta && typeof incomingInsightsMeta === 'object')
+                ? incomingInsightsMeta
+                : {};
 
             finalConfig.campaignName = normalizeMetaValue(
                 (config && config.campaignName !== undefined) ? config.campaignName : stored.campaignName
@@ -3492,12 +3592,13 @@
                 }
             }
 
+            let resolvedDescription = '';
             if (descEl) {
                 const description = finalConfig.description !== undefined
                     ? String(finalConfig.description || '').trim()
                     : String(stored.descriptionText || '').trim();
 
-                let resolvedDescription = description;
+                resolvedDescription = description;
                 if (!resolvedDescription && (finalConfig.clientName || finalConfig.campaignName)) {
                     const summary = [];
                     if (finalConfig.clientName) {
@@ -3542,6 +3643,7 @@
                 }
             }
 
+            let resolvedEyebrowText = '';
             if (eyebrowEl && eyebrowText) {
                 const eyebrowValue = finalConfig.eyebrow || finalConfig.clientName || finalConfig.campaignName ||
                     stored.clientName || stored.campaignName || stored.eyebrowText || '';
@@ -3549,6 +3651,7 @@
                 const text = String(eyebrowValue || fallback).trim();
                 eyebrowText.textContent = text;
                 eyebrowEl.style.display = text ? 'inline-flex' : 'none';
+                resolvedEyebrowText = text;
             }
 
             assignMetaValue(
@@ -3582,6 +3685,8 @@
                 }
                 window.__luminaBannerInterval = setInterval(refreshMeta, 60000);
             }
+
+            renderInsights(finalConfig.insights, finalConfig.insightsMeta);
 
             if (actionsEl) {
                 actionsEl.innerHTML = '';
@@ -3697,6 +3802,20 @@
                     banner.removeAttribute('data-has-actions');
                 }
             }
+
+            window.__absorbedBannerData = Object.assign({}, stored, {
+                title: resolvedTitle,
+                titleText: resolvedTitle,
+                titleFragments: finalConfig.titleFragments,
+                descriptionText: resolvedDescription,
+                descriptionElements: finalConfig.descriptionElements,
+                eyebrowText: resolvedEyebrowText || finalConfig.eyebrow || stored.eyebrowText || '',
+                actions: finalConfig.actions,
+                campaignName: finalConfig.campaignName,
+                clientName: finalConfig.clientName,
+                insights: finalConfig.insights,
+                insightsMeta: finalConfig.insightsMeta
+            });
         }
 
         // ──────────────────────────────────────────────────────────────────────────────
@@ -4251,7 +4370,9 @@
                 eyebrow: absorbed.eyebrowText,
                 campaignName: absorbed.campaignName || <?!= JSON.stringify(__layoutCampaignName || '') ?>,
                 clientName: absorbed.clientName || <?!= JSON.stringify(__layoutClientName || '') ?>,
-                actions: absorbed.actions
+                actions: absorbed.actions,
+                insights: Array.isArray(absorbed.insights) ? absorbed.insights : [],
+                insightsMeta: (absorbed && typeof absorbed.insightsMeta === 'object') ? absorbed.insightsMeta : {}
             };
 
             window.__absorbedBannerData = Object.assign({}, absorbed, {
@@ -4262,7 +4383,9 @@
                 actions: absorbed.actions,
                 eyebrowText: initialConfig.eyebrow || absorbed.eyebrowText,
                 campaignName: initialConfig.campaignName || absorbed.campaignName || '',
-                clientName: initialConfig.clientName || absorbed.clientName || ''
+                clientName: initialConfig.clientName || absorbed.clientName || '',
+                insights: Array.isArray(initialConfig.insights) ? initialConfig.insights : [],
+                insightsMeta: (initialConfig && typeof initialConfig.insightsMeta === 'object') ? initialConfig.insightsMeta : {}
             });
 
             initializeGlobalBanner(initialConfig);
@@ -4273,6 +4396,345 @@
             } else if (__LAYOUT_CAMPAIGN_NAME) {
                 document.title = __LAYOUT_CAMPAIGN_NAME;
             }
+
+            const bannerInsightsLocale = navigator.language || 'en-US';
+
+            const safeBannerText = (value, fallback) => {
+                if (value === null || typeof value === 'undefined') {
+                    return fallback;
+                }
+
+                const trimmed = String(value).trim();
+                return trimmed || fallback;
+            };
+
+            const formatInsightDateLabel = (date) => {
+                try {
+                    return new Intl.DateTimeFormat(bannerInsightsLocale, {
+                        weekday: 'short',
+                        month: 'short',
+                        day: 'numeric'
+                    }).format(date);
+                } catch (error) {
+                    return date.toDateString();
+                }
+            };
+
+            const formatInsightTimeLabel = (date) => {
+                try {
+                    return new Intl.DateTimeFormat(bannerInsightsLocale, {
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    }).format(date);
+                } catch (error) {
+                    return date.toLocaleTimeString();
+                }
+            };
+
+            const isBannerDstActive = (date) => {
+                try {
+                    const januaryOffset = new Date(date.getFullYear(), 0, 1).getTimezoneOffset();
+                    const julyOffset = new Date(date.getFullYear(), 6, 1).getTimezoneOffset();
+                    return Math.min(januaryOffset, julyOffset) !== date.getTimezoneOffset();
+                } catch (error) {
+                    return false;
+                }
+            };
+
+            const minutesUntilQuarterHour = (date) => {
+                const minutes = date.getMinutes();
+                const remainder = minutes % 15;
+                if (remainder === 0) {
+                    return 'Refreshing now';
+                }
+                return `${15 - remainder}m to refresh`;
+            };
+
+            const addDays = (date, days) => {
+                const copy = new Date(date.getTime());
+                copy.setDate(copy.getDate() + days);
+                return copy;
+            };
+
+            const nextSprintDate = (date) => {
+                const day = date.getDay();
+                let offset = (8 - day) % 7;
+                if (offset === 0) {
+                    offset = 7;
+                }
+                return addDays(date, offset);
+            };
+
+            const formatInsightShortDate = (date) => {
+                try {
+                    return new Intl.DateTimeFormat(bannerInsightsLocale, {
+                        month: 'short',
+                        day: 'numeric'
+                    }).format(date);
+                } catch (error) {
+                    return date.toLocaleDateString();
+                }
+            };
+
+            const approximateInsightLatency = (date) => {
+                const base = 120;
+                const jitter = (date.getSeconds() % 30) * 3;
+                return `~${base + jitter}ms`;
+            };
+
+            const availabilityLabel = (date) => {
+                const day = date.getDay();
+                if (day === 0 || day === 6) {
+                    return 'Weekend';
+                }
+
+                const hour = date.getHours();
+                if (hour < 8 || hour >= 18) {
+                    return 'After hours';
+                }
+
+                return 'Open slots';
+            };
+
+            const normalizePageKey = (value) => {
+                return safeBannerText(value, 'home').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+            };
+
+            const ensureNumberString = (value, fallback) => {
+                const parsed = Number(value);
+                return Number.isFinite(parsed) ? String(parsed) : fallback;
+            };
+
+            const chatUnreadCount = () => ensureNumberString(window.__luminaChatUnread, '0');
+
+            const presenceLabel = () => {
+                const presence = safeBannerText(window.__luminaPresence, 'Auto');
+                return presence || 'Auto';
+            };
+
+            const bannerPageInsightsMap = {
+                'dashboard': (now) => ([
+                    {
+                        label: 'Pulse',
+                        value: 'Live KPIs',
+                        hint: 'Dashboard.html',
+                        icon: 'fas fa-wave-square'
+                    },
+                    {
+                        label: 'Next Sync',
+                        value: minutesUntilQuarterHour(now),
+                        hint: 'DashboardOKRService.js',
+                        icon: 'fas fa-sync'
+                    }
+                ]),
+                'campaign management': (now) => ([
+                    {
+                        label: 'Service',
+                        value: 'CampaignService.js',
+                        hint: 'Workflow orchestrator',
+                        icon: 'fas fa-bullseye'
+                    },
+                    {
+                        label: 'Next Review',
+                        value: formatInsightShortDate(addDays(now, 2)),
+                        hint: 'ScheduleUtilities.js',
+                        icon: 'fas fa-calendar-check'
+                    }
+                ]),
+                'search': (now) => ([
+                    {
+                        label: 'Indexer',
+                        value: 'SearchService.js',
+                        hint: 'Realtime ingestion',
+                        icon: 'fas fa-database'
+                    },
+                    {
+                        label: 'Latency',
+                        value: approximateInsightLatency(now),
+                        hint: 'SearchDeploymentService.js',
+                        icon: 'fas fa-tachometer-alt'
+                    }
+                ]),
+                'quality view': () => ([
+                    {
+                        label: 'QA Engine',
+                        value: 'QualityService.js',
+                        hint: 'Evaluation hooks',
+                        icon: 'fas fa-check-double'
+                    },
+                    {
+                        label: 'Cycle',
+                        value: 'Bi-weekly',
+                        hint: 'QualityCollabView.html',
+                        icon: 'fas fa-clipboard-list'
+                    }
+                ]),
+                'task board': (now) => ([
+                    {
+                        label: 'Workflow',
+                        value: 'Kanban',
+                        hint: 'TaskBoard.html',
+                        icon: 'fas fa-columns'
+                    },
+                    {
+                        label: 'Next Sprint',
+                        value: formatInsightShortDate(nextSprintDate(now)),
+                        hint: 'TaskService.js',
+                        icon: 'fas fa-flag-checkered'
+                    }
+                ]),
+                'calendar': (now) => ([
+                    {
+                        label: 'Sync',
+                        value: 'ScheduleService.js',
+                        hint: 'Auto-alignment',
+                        icon: 'fas fa-stream'
+                    },
+                    {
+                        label: 'Availability',
+                        value: availabilityLabel(now),
+                        hint: 'Calendar.html',
+                        icon: 'fas fa-clock'
+                    }
+                ]),
+                'chat': () => ([
+                    {
+                        label: 'Presence',
+                        value: presenceLabel(),
+                        hint: 'ChatService.js',
+                        icon: 'fas fa-signal'
+                    },
+                    {
+                        label: 'Unread',
+                        value: chatUnreadCount(),
+                        hint: 'Chat.html',
+                        icon: 'fas fa-envelope-open-text'
+                    }
+                ]),
+                'default': () => ([
+                    {
+                        label: 'Workspace',
+                        value: 'Lumina Sheets',
+                        hint: 'Unified operations',
+                        icon: 'fas fa-layer-group'
+                    }
+                ])
+            };
+
+            bannerPageInsightsMap['campaignmanagement'] = bannerPageInsightsMap['campaign management'];
+            bannerPageInsightsMap['qualityview'] = bannerPageInsightsMap['quality view'];
+            bannerPageInsightsMap['taskboard'] = bannerPageInsightsMap['task board'];
+
+            const computeBannerInsights = () => {
+                const now = new Date();
+                let timezone = 'UTC';
+                try {
+                    timezone = new Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+                } catch (error) {
+                    timezone = 'UTC';
+                }
+
+                const topbarCampaign = document.querySelector('.current-campaign');
+                const campaignDisplayValue = safeBannerText(
+                    window.__LAYOUT_CAMPAIGN_NAME ||
+                    (document.body ? document.body.getAttribute('data-campaign-name') : '') ||
+                    (topbarCampaign ? topbarCampaign.textContent : ''),
+                    ''
+                );
+
+                const dstActive = isBannerDstActive(now);
+
+                const baseInsights = [
+                    {
+                        label: 'Today',
+                        value: formatInsightDateLabel(now),
+                        hint: dstActive ? 'Daylight saving active' : 'Standard time',
+                        icon: 'fas fa-sun'
+                    },
+                    {
+                        label: 'Local Time',
+                        value: formatInsightTimeLabel(now),
+                        hint: timezone || 'Local time zone',
+                        icon: 'fas fa-clock'
+                    },
+                    {
+                        label: 'Campaign',
+                        value: safeBannerText(campaignDisplayValue, 'No campaign'),
+                        hint: 'CampaignService.js',
+                        icon: 'fas fa-bullhorn'
+                    }
+                ];
+
+                const pageLabelElement = document.querySelector('.current-page');
+                const currentPageValue = pageLabelElement ? safeBannerText(pageLabelElement.textContent, 'Home') : 'Home';
+                const normalizedPageKey = normalizePageKey(currentPageValue);
+
+                const builder = bannerPageInsightsMap[normalizedPageKey] || bannerPageInsightsMap.default;
+                let pageInsights = [];
+                try {
+                    pageInsights = builder(now) || [];
+                } catch (error) {
+                    pageInsights = bannerPageInsightsMap.default(now);
+                }
+
+                const combined = baseInsights.concat(pageInsights);
+                return {
+                    insights: combined,
+                    meta: { pageKey: normalizedPageKey || 'home' }
+                };
+            };
+
+            const refreshBannerInsights = () => {
+                try {
+                    const result = computeBannerInsights();
+                    initializeGlobalBanner({
+                        insights: result.insights,
+                        insightsMeta: result.meta
+                    });
+                } catch (error) {
+                    console.warn('Unable to refresh banner insights', error);
+                }
+            };
+
+            refreshBannerInsights();
+
+            if (typeof window !== 'undefined') {
+                if (window.__luminaBannerInsightsInterval) {
+                    clearInterval(window.__luminaBannerInsightsInterval);
+                }
+                window.__luminaBannerInsightsInterval = setInterval(refreshBannerInsights, 60000);
+            }
+
+            try {
+                const themeObserver = new MutationObserver(function () {
+                    refreshBannerInsights();
+                });
+                themeObserver.observe(document.documentElement, {
+                    attributes: true,
+                    attributeFilter: ['data-theme']
+                });
+            } catch (observerError) {
+                /* MutationObserver not supported */
+            }
+
+            const pageLabelElement = document.querySelector('.current-page');
+            if (pageLabelElement) {
+                try {
+                    const labelObserver = new MutationObserver(function () {
+                        refreshBannerInsights();
+                    });
+                    labelObserver.observe(pageLabelElement, {
+                        characterData: true,
+                        childList: true,
+                        subtree: true
+                    });
+                } catch (labelObserverError) {
+                    /* MutationObserver not supported */
+                }
+            }
+
+            window.addEventListener('hashchange', refreshBannerInsights);
+            window.addEventListener('lumina:navigation', refreshBannerInsights);
 
             // Initialize tooltips
             [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]')).forEach(function(tooltipTriggerEl) {
