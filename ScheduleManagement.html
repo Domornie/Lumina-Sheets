@@ -5269,6 +5269,44 @@
                 }
             }
 
+            async deleteShiftSlot(slot) {
+                const resolvedId = typeof slot === 'object'
+                    ? this.resolveShiftSlotId(slot)
+                    : (slot === null || slot === undefined ? '' : String(slot).trim());
+
+                if (!resolvedId) {
+                    this.showToast('Unable to delete shift slot: missing identifier.', 'warning');
+                    return false;
+                }
+
+                const confirmationMessage = 'Are you sure you want to delete this shift slot? This action cannot be undone.';
+                const shouldProceed = typeof window === 'undefined' ? true : window.confirm(confirmationMessage);
+
+                if (!shouldProceed) {
+                    return false;
+                }
+
+                try {
+                    this.showLoading(true);
+                    const result = await this.callServerFunction('clientDeleteShiftSlot', resolvedId);
+                    const normalized = this.normalizeShiftSlotDeletionResponse(result);
+
+                    if (!normalized.success) {
+                        throw new Error(normalized.error || 'Failed to delete shift slot');
+                    }
+
+                    this.showToast(normalized.message || 'Shift slot deleted successfully.', 'success');
+                    await this.loadShiftSlots();
+                    return true;
+                } catch (error) {
+                    console.error('❌ Error deleting shift slot:', error);
+                    this.showToast('Failed to delete shift slot: ' + (error.message || 'Unknown error'), 'danger');
+                    throw error;
+                } finally {
+                    this.showLoading(false);
+                }
+            }
+
             shouldFallbackToLegacySlotCreation(error) {
                 if (!error) {
                     return false;
@@ -5488,6 +5526,160 @@
                     error: 'Unexpected response type received from server',
                     data: rawResult,
                     needsLegacyFallback: true
+                };
+            }
+
+            normalizeShiftSlotDeletionResponse(rawResult) {
+                const coerceString = (value) => {
+                    if (value === null || value === undefined) {
+                        return '';
+                    }
+                    return String(value).trim();
+                };
+
+                const successTokens = ['success', 'deleted', 'removed', 'ok', 'done', 'completed'];
+                const indicatesSuccess = (text) => {
+                    if (!text) {
+                        return false;
+                    }
+                    const normalized = text.toLowerCase();
+                    return successTokens.some(token => normalized.includes(token));
+                };
+
+                if (rawResult && typeof rawResult === 'object') {
+                    if (rawResult.success === true || rawResult.result === true) {
+                        return {
+                            success: true,
+                            message: coerceString(rawResult.message) || coerceString(rawResult.status) || 'Shift slot deleted successfully',
+                            data: rawResult
+                        };
+                    }
+
+                    if (rawResult.success === false || rawResult.result === false) {
+                        const errorMessage = coerceString(rawResult.error) || coerceString(rawResult.message) || 'Server reported failure deleting shift slot';
+                        return {
+                            success: false,
+                            error: errorMessage,
+                            data: rawResult
+                        };
+                    }
+
+                    const candidateMessages = [
+                        rawResult.message,
+                        rawResult.status,
+                        rawResult.result,
+                        rawResult.state,
+                        rawResult.outcome,
+                        rawResult.statusText
+                    ].map(value => coerceString(value)).filter(Boolean);
+
+                    const successMessage = candidateMessages.find(indicatesSuccess);
+                    if (successMessage) {
+                        return {
+                            success: true,
+                            message: successMessage,
+                            data: Object.assign({ success: true }, rawResult, { message: successMessage })
+                        };
+                    }
+
+                    if (rawResult.data && typeof rawResult.data === 'object') {
+                        const dataSuccess = rawResult.data.success === true || rawResult.data.result === true;
+                        if (dataSuccess) {
+                            return {
+                                success: true,
+                                message: coerceString(rawResult.data.message) || coerceString(rawResult.message) || 'Shift slot deleted successfully',
+                                data: Object.assign({ success: true }, rawResult, rawResult.data)
+                            };
+                        }
+
+                        const dataMessage = coerceString(rawResult.data.message || rawResult.data.status);
+                        if (indicatesSuccess(dataMessage)) {
+                            return {
+                                success: true,
+                                message: dataMessage,
+                                data: Object.assign({ success: true }, rawResult, rawResult.data)
+                            };
+                        }
+
+                        if (rawResult.data.success === false || rawResult.data.result === false) {
+                            return {
+                                success: false,
+                                error: coerceString(rawResult.data.error) || dataMessage || 'Server reported failure deleting shift slot',
+                                data: Object.assign({}, rawResult, rawResult.data)
+                            };
+                        }
+                    }
+
+                    if (typeof rawResult.statusCode === 'number' && rawResult.statusCode >= 200 && rawResult.statusCode < 300) {
+                        return {
+                            success: true,
+                            message: coerceString(rawResult.message) || `Shift slot deleted (status ${rawResult.statusCode})`,
+                            data: Object.assign({ success: true }, rawResult)
+                        };
+                    }
+
+                    if (Object.keys(rawResult).length === 0) {
+                        return {
+                            success: false,
+                            error: 'Empty response received from server while deleting shift slot',
+                            data: rawResult
+                        };
+                    }
+                }
+
+                if (rawResult === true) {
+                    return {
+                        success: true,
+                        message: 'Shift slot deleted successfully',
+                        data: { success: true }
+                    };
+                }
+
+                if (rawResult === false) {
+                    return {
+                        success: false,
+                        error: 'Server indicated shift slot deletion failure',
+                        data: { success: false }
+                    };
+                }
+
+                if (typeof rawResult === 'string') {
+                    const trimmed = rawResult.trim();
+                    if (!trimmed) {
+                        return {
+                            success: false,
+                            error: 'Empty response received from server while deleting shift slot',
+                            data: rawResult
+                        };
+                    }
+
+                    if (indicatesSuccess(trimmed)) {
+                        return {
+                            success: true,
+                            message: trimmed,
+                            data: { success: true, message: trimmed }
+                        };
+                    }
+
+                    return {
+                        success: false,
+                        error: trimmed,
+                        data: rawResult
+                    };
+                }
+
+                if (rawResult === null || rawResult === undefined) {
+                    return {
+                        success: false,
+                        error: 'No response received from server while deleting shift slot',
+                        data: rawResult
+                    };
+                }
+
+                return {
+                    success: false,
+                    error: 'Unexpected response type received from server while deleting shift slot',
+                    data: rawResult
                 };
             }
 
@@ -10553,6 +10745,14 @@
         function refreshShiftSlots() {
             if (window.scheduleManager) {
                 window.scheduleManager.loadShiftSlots();
+            }
+        }
+
+        function deleteShiftSlot(slotId) {
+            if (window.scheduleManager) {
+                window.scheduleManager.deleteShiftSlot(slotId).catch(error => {
+                    console.error('❌ Failed to delete shift slot:', error);
+                });
             }
         }
 
