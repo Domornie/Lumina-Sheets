@@ -758,7 +758,6 @@
     .floating-docks {
       justify-content: center;
     }
-  }
 
   @media (max-width: 768px) {
     .module-grid {
@@ -1123,6 +1122,7 @@
         </div>
       </div>
     </section>
+  </div>
 
   <div class="floating-docks">
     <div class="floating-bar collapsed" id="campaignFloatingBar" aria-expanded="false">
@@ -1218,6 +1218,10 @@
         persona: 'Operations Hub',
         userName: 'Team member',
         campaignsText: 'No campaigns connected',
+        lastUpdatedText: 'Updated —',
+        insights: []
+      },
+      ai: { summary: '', report: [], suggestions: [], notes: [] },
         lastUpdatedText: 'Updated —',
         insights: [
           { key: 'quality', label: 'Quality pulse', value: '—', hint: 'QA average this cycle', icon: 'fa-solid fa-sparkles' },

@@ -1086,12 +1086,12 @@
                                         this.handleDataError(error, forceRefresh);
                                         reject(error);
                                     })
-                                    .clientGetOKRData(
-                                        this.filters.granularity,
-                                        this.filters.period,
-                                        this.filters.agent,
-                                        this.filters.campaign,
-                                        ''  // department not used in new version
+                                    .clientGetOKRDataEnhanced(
+                                            this.filters.granularity,
+                                            this.filters.period,
+                                            this.filters.agent,
+                                            this.filters.campaign,
+                                            ''  // department not used in new version
                                     );
                             } catch (callError) {
                                 clearTimeout(timeoutId);
@@ -1349,7 +1349,7 @@
                             </div>
 
                             <div class="metrics-list">
-                                ${this.createMetricsList(data, campaign.name)}
+                                ${this.createMetricsList(this.currentData, campaign.name, campaign)}
                             </div>
                         </div>
                     `;
@@ -1361,12 +1361,35 @@
                 }
             }
 
-            createMetricsList(data, campaignName) {
+            createMetricsList(data, campaignName, campaignData = null) {
                 try {
                     const categories = ['productivity', 'quality', 'efficiency', 'engagement', 'growth'];
-                    
+
+                    if (!data || typeof data !== 'object') {
+                        return categories.map(category => `
+                            <div class="metric-item">
+                                <div class="metric-header">
+                                    <span class="metric-name">${category.charAt(0).toUpperCase() + category.slice(1)}</span>
+                                    <span class="metric-status status-needs_improvement">No Data</span>
+                                </div>
+                                <div class="metric-values">
+                                    <span class="metric-current">--</span>
+                                    <span class="metric-target">/ --</span>
+                                </div>
+                                <div class="metric-progress">
+                                    <div class="metric-progress-bar progress-needs_improvement" style="width: 0%"></div>
+                                </div>
+                            </div>
+                        `).join('');
+                    }
+
                     return categories.map(category => {
-                        const categoryData = data[category];
+                        let categoryData = data[category];
+
+                        if (campaignData && campaignData.categoryMetrics && campaignData.categoryMetrics[category]) {
+                            categoryData = campaignData.categoryMetrics[category];
+                        }
+
                         if (!categoryData || !categoryData.metrics) {
                             return `
                                 <div class="metric-item">
@@ -1389,8 +1412,8 @@
                         const metrics = Object.values(categoryData.metrics);
                         const firstMetric = metrics[0] || { percentage: 0, status: 'needs_improvement' };
 
-                        const score = firstMetric.percentage || 0;
-                        const target = 100;
+                        const score = typeof firstMetric.percentage === 'number' ? firstMetric.percentage : 0;
+                        const target = typeof firstMetric.target === 'number' ? firstMetric.target : 100;
                         const status = firstMetric.status || 'needs_improvement';
 
                         return `
