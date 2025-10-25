@@ -12,13 +12,16 @@
       var landingCapabilitiesUrl = __landingBase ? __landingBase + '?page=landing-capabilities' : 'LandingCapabilities.html';
       var landingStoryUrl = __landingBase ? __landingBase + '?page=landing-story' : 'LandingStory.html';
       var landingCapabilitiesDetailUrl = __landingBase ? __landingBase + '?page=landing-capabilities-detail' : 'LandingCapabilitiesDetail.html';
+      var landingLogoUrl = 'https://res.cloudinary.com/dr8qd3xfc/image/upload/v1754763514/vlbpo/lumina/2_eb1h4a.png';
       var loginUrl = buildLoginPageUrl({});
     ?>
   </head>
   <body>
     <header class="site-header">
       <nav class="site-nav">
-        <a class="logo" href="<?!= landingHomeUrl ?>" target="_top">LuminaHQ</a>
+        <a class="logo" href="<?!= landingHomeUrl ?>" target="_top">
+          <img src="<?!= landingLogoUrl ?>" alt="LuminaHQ logo" loading="lazy" decoding="async" />
+        </a>
         <ul class="nav-links">
           <li><a href="<?!= landingCapabilitiesUrl ?>" target="_top">Capabilities</a></li>
           <li><a href="<?!= landingAboutUrl ?>" target="_top">About</a></li>
