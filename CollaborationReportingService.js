@@ -50,6 +50,7 @@ function clientGetCollaborationReportingData(options) {
     attendance: buildCollaborationAttendancePayload_(workspace),
     executive: buildCollaborationExecutivePayload_(userId, workspace),
     chat: buildCollaborationChatPayload_(workspace),
+    teams: buildCollaborationTeamsPayload_(workspace),
     campaigns: campaigns,
     generatedAt: new Date().toISOString()
   };
@@ -323,9 +324,19 @@ function mapCollaborationQaRecord_(row) {
     if (agentFeedback) collaborators.push(agentFeedback);
   }
 
+  var agentId = collabNormalizeUserId_(
+    row.AgentUserID || row.AgentUserId || row.AgentId ||
+    row.UserID || row.UserId || row.EmployeeID || row.EmployeeId
+  );
+  var agentEmail = collabNormalizeEmail_(
+    row.AgentEmail || row.Email || row.AgentWorkEmail || row.UserEmail
+  );
+
   return {
     id: id,
     agent: collabToStr_(row.AgentName || row.Agent || ''),
+    agentId: agentId,
+    agentEmail: agentEmail,
     campaignId: collabToStr_(row.CampaignId || row.CampaignID || row.ClientId || row.ClientID || ''),
     campaignName: collabToStr_(row.ClientName || row.Campaign || row.CampaignName || ''),
     reviewer: collabToStr_(row.AuditorName || row.Reviewer || row.ReviewedBy || ''),
@@ -587,7 +598,8 @@ function buildCollaborationExecutivePayload_(userId, workspace) {
     summary: null,
     campaigns: [],
     brief: [],
-    timeframeLabel: ''
+    timeframeLabel: '',
+    payPeriod: null
   };
 
   var analytics = null;
@@ -657,9 +669,439 @@ function buildCollaborationExecutivePayload_(userId, workspace) {
   }
 
   payload.brief = buildExecutiveBrief_(payload.campaigns);
-  payload.timeframeLabel = buildTimeframeLabel_();
+  var payPeriodDetails = collabGetCurrentPayPeriodDetails_();
+  if (payPeriodDetails) {
+    payload.payPeriod = payPeriodDetails;
+    payload.timeframeLabel = payPeriodDetails.label;
+  } else {
+    payload.timeframeLabel = buildIsoTimeframeLabel_();
+  }
 
   return payload;
+}
+
+function buildCollaborationTeamsPayload_(workspace) {
+  var payload = {
+    overview: {
+      totalTeams: 0,
+      totalAgents: 0,
+      qualityAverage: null,
+      attendanceAverage: null,
+      callVolume: 0,
+      csatAverage: null
+    },
+    managers: [],
+    guests: [],
+    managerTabs: []
+  };
+
+  var userDirectory = collabBuildUserDirectory_(workspace);
+  payload.guests = collabCollectGuestDirectory_(userDirectory);
+
+  var assignments = collabCollectManagerAssignments_();
+  if (!assignments.order.length) {
+    return payload;
+  }
+
+  var attendanceRows = (workspace && workspace.performance && workspace.performance.attendance && workspace.performance.attendance.rows) || [];
+  var attendanceIndex = collabBuildAttendanceMetricsIndex_(attendanceRows);
+  var callIndex = collabBuildCallMetricsIndex_();
+
+  var overallAgentSet = {};
+  var overallQuality = { sum: 0, count: 0 };
+  var overallAttendance = { sum: 0, count: 0 };
+  var overallCallVolume = 0;
+  var overallCsat = { yes: 0, total: 0 };
+
+  var managerIds = assignments.order.slice();
+  managerIds.sort(function (a, b) {
+    var nameA = (userDirectory[a] && userDirectory[a].name) ? userDirectory[a].name.toLowerCase() : a.toLowerCase();
+    var nameB = (userDirectory[b] && userDirectory[b].name) ? userDirectory[b].name.toLowerCase() : b.toLowerCase();
+    if (nameA < nameB) return -1;
+    if (nameA > nameB) return 1;
+    return 0;
+  });
+
+  managerIds.forEach(function (managerId) {
+    var assignment = assignments.map[managerId];
+    if (!assignment) return;
+    var managedIds = Object.keys(assignment.userIds);
+    if (!managedIds.length) return;
+
+    var managerInfo = userDirectory[managerId] || null;
+    var qaSummary = null;
+    if (typeof clientGetManagerTeamSummary === 'function') {
+      try {
+        qaSummary = clientGetManagerTeamSummary(managerId);
+      } catch (err) {
+        console.error('buildCollaborationTeamsPayload_.getManagerTeamSummary failed:', err);
+      }
+    }
+    var qaIndex = collabIndexManagerQaSummary_(qaSummary);
+
+    var teamUsers = [];
+    var teamQuality = { sum: 0, count: 0 };
+    var teamAttendance = { sum: 0, count: 0 };
+    var teamCallVolume = 0;
+    var teamCsat = { yes: 0, total: 0 };
+
+    managedIds.sort(function (a, b) {
+      var entryA = userDirectory[a];
+      var entryB = userDirectory[b];
+      var nameA = (entryA && entryA.name) ? entryA.name.toLowerCase() : a.toLowerCase();
+      var nameB = (entryB && entryB.name) ? entryB.name.toLowerCase() : b.toLowerCase();
+      if (nameA < nameB) return -1;
+      if (nameA > nameB) return 1;
+      return 0;
+    });
+
+    managedIds.forEach(function (userId) {
+      overallAgentSet[userId] = true;
+      var directoryEntry = userDirectory[userId] || {};
+      var qaEntry = collabLookupMetricForUser_(userId, directoryEntry.displayEmail, qaIndex);
+      var attendanceEntry = collabLookupMetricForUser_(userId, directoryEntry.displayEmail, attendanceIndex);
+      var callEntry = collabLookupMetricForUser_(userId, directoryEntry.displayEmail, callIndex);
+
+      var quality = (qaEntry && qaEntry.average != null && !isNaN(qaEntry.average)) ? Number(qaEntry.average) : null;
+      if (quality != null) {
+        teamQuality.sum += quality;
+        teamQuality.count += 1;
+        overallQuality.sum += quality;
+        overallQuality.count += 1;
+      }
+
+      var attendanceRate = null;
+      if (attendanceEntry && attendanceEntry.total > 0) {
+        var rate = ((attendanceEntry.present || 0) / Math.max(attendanceEntry.total, 1)) * 100;
+        attendanceRate = collabRound_(rate, 1);
+        teamAttendance.sum += attendanceRate;
+        teamAttendance.count += 1;
+        overallAttendance.sum += attendanceRate;
+        overallAttendance.count += 1;
+      }
+
+      var callCount = null;
+      var csatValue = null;
+      if (callEntry) {
+        callCount = callEntry.callCount != null ? Number(callEntry.callCount) : 0;
+        if (!isNaN(callCount)) {
+          teamCallVolume += callCount;
+          overallCallVolume += callCount;
+        }
+        if (callEntry.csatTotal > 0) {
+          var ratio = callEntry.csatYes / callEntry.csatTotal;
+          if (!isNaN(ratio)) {
+            csatValue = collabRound_(ratio * 100, 1);
+            teamCsat.yes += callEntry.csatYes;
+            teamCsat.total += callEntry.csatTotal;
+            overallCsat.yes += callEntry.csatYes;
+            overallCsat.total += callEntry.csatTotal;
+          }
+        }
+      }
+
+      var displayName = directoryEntry.name;
+      if (!displayName && qaEntry && qaEntry.name) displayName = qaEntry.name;
+      if (!displayName) displayName = 'Team Member';
+
+      var email = directoryEntry.displayEmail || (qaEntry && qaEntry.email) || '';
+
+      teamUsers.push({
+        id: userId,
+        name: displayName,
+        email: email,
+        roles: directoryEntry.roles || (qaEntry && qaEntry.roles) || [],
+        campaignName: directoryEntry.campaignName || '',
+        quality: quality,
+        attendance: attendanceRate,
+        callCount: callCount,
+        csat: csatValue
+      });
+    });
+
+    teamUsers.sort(function (a, b) {
+      var nameA = (a.name || '').toLowerCase();
+      var nameB = (b.name || '').toLowerCase();
+      if (nameA < nameB) return -1;
+      if (nameA > nameB) return 1;
+      return 0;
+    });
+
+    var managerName = managerInfo && managerInfo.name ? managerInfo.name : managerId;
+    var managerEmail = managerInfo && managerInfo.displayEmail ? managerInfo.displayEmail : '';
+
+    var qualityAverage = teamQuality.count ? collabRound_(teamQuality.sum / teamQuality.count, 1) : null;
+    var attendanceAverage = teamAttendance.count ? collabRound_(teamAttendance.sum / teamAttendance.count, 1) : null;
+    var csatAverage = teamCsat.total ? collabRound_((teamCsat.yes / teamCsat.total) * 100, 1) : null;
+
+    payload.managers.push({
+      id: managerId,
+      name: managerName,
+      email: managerEmail,
+      teamSize: managedIds.length,
+      qualityAverage: qualityAverage,
+      attendanceAverage: attendanceAverage,
+      callVolume: teamCallVolume,
+      csatAverage: csatAverage
+    });
+
+    payload.managerTabs.push({
+      managerId: managerId,
+      name: managerName,
+      email: managerEmail,
+      summary: {
+        teamSize: managedIds.length,
+        qualityAverage: qualityAverage,
+        attendanceAverage: attendanceAverage,
+        callVolume: teamCallVolume,
+        csatAverage: csatAverage
+      },
+      users: teamUsers
+    });
+  });
+
+  payload.managers.sort(function (a, b) {
+    var nameA = (a.name || '').toLowerCase();
+    var nameB = (b.name || '').toLowerCase();
+    if (nameA < nameB) return -1;
+    if (nameA > nameB) return 1;
+    return 0;
+  });
+
+  payload.managerTabs.sort(function (a, b) {
+    var nameA = (a.name || '').toLowerCase();
+    var nameB = (b.name || '').toLowerCase();
+    if (nameA < nameB) return -1;
+    if (nameA > nameB) return 1;
+    return 0;
+  });
+
+  payload.overview.totalTeams = payload.managerTabs.length;
+  payload.overview.totalAgents = Object.keys(overallAgentSet).length;
+  payload.overview.qualityAverage = overallQuality.count ? collabRound_(overallQuality.sum / overallQuality.count, 1) : null;
+  payload.overview.attendanceAverage = overallAttendance.count ? collabRound_(overallAttendance.sum / overallAttendance.count, 1) : null;
+  payload.overview.callVolume = overallCallVolume;
+  payload.overview.csatAverage = overallCsat.total ? collabRound_((overallCsat.yes / overallCsat.total) * 100, 1) : null;
+
+  return payload;
+}
+
+function collabBuildUserDirectory_(workspace) {
+  var directory = {};
+  if (!workspace || !workspace.users || !Array.isArray(workspace.users.records)) {
+    return directory;
+  }
+
+  workspace.users.records.forEach(function (record) {
+    if (!record) return;
+    var id = collabNormalizeUserId_(record.ID || record.Id || record.UserID || record.UserId || record.AgentId || record.AgentID);
+    if (!id) return;
+    var roles = Array.isArray(record.roleNames) ? record.roleNames.slice() : [];
+    var displayEmail = collabToStr_(record.Email || record.UserEmail || record.AgentEmail || '');
+    directory[id] = {
+      id: id,
+      name: collabToStr_(record.FullName || record.UserName || record.Name || displayEmail || ''),
+      displayEmail: displayEmail,
+      email: collabNormalizeEmail_(displayEmail),
+      roles: roles,
+      campaignId: collabToStr_(record.CampaignID || record.CampaignId || record.Campaign || record.campaignId || ''),
+      campaignName: collabToStr_(record.CampaignName || record.campaignName || record.Campaign || ''),
+      isGuest: roles.some(function (role) { return String(role || '').toLowerCase().indexOf('guest') >= 0; }),
+      isManager: roles.some(function (role) { return /manager/i.test(String(role || '')); })
+    };
+  });
+
+  return directory;
+}
+
+function collabCollectGuestDirectory_(directory) {
+  var guests = [];
+  for (var id in directory) {
+    if (!directory.hasOwnProperty(id)) continue;
+    var entry = directory[id];
+    if (!entry || !entry.isGuest) continue;
+    guests.push({
+      id: id,
+      name: entry.name || 'Guest User',
+      email: entry.displayEmail || '',
+      campaignName: entry.campaignName || '',
+      roles: entry.roles || []
+    });
+  }
+
+  guests.sort(function (a, b) {
+    var nameA = (a.name || '').toLowerCase();
+    var nameB = (b.name || '').toLowerCase();
+    if (nameA < nameB) return -1;
+    if (nameA > nameB) return 1;
+    return 0;
+  });
+
+  return guests;
+}
+
+function collabCollectManagerAssignments_() {
+  var result = { order: [], map: {} };
+  if (typeof readManagerAssignments_ !== 'function') {
+    return result;
+  }
+
+  var rows = [];
+  try {
+    rows = readManagerAssignments_() || [];
+  } catch (err) {
+    console.error('collabCollectManagerAssignments_ failed:', err);
+    rows = [];
+  }
+
+  rows.forEach(function (row) {
+    if (!row) return;
+    var managerId = collabNormalizeUserId_(row.ManagerUserID || row.ManagerId || row.ManagerID || row.managerId);
+    var userId = collabNormalizeUserId_(row.UserID || row.ManagedUserID || row.UserId || row.ManagedUserId || row.userId);
+    if (!managerId || !userId) return;
+    if (!result.map[managerId]) {
+      result.map[managerId] = { userIds: {}, campaigns: {} };
+      result.order.push(managerId);
+    }
+    result.map[managerId].userIds[userId] = true;
+    var campaignId = collabToStr_(row.CampaignID || row.CampaignId || row.Campaign || '');
+    if (campaignId) {
+      result.map[managerId].campaigns[campaignId] = true;
+    }
+  });
+
+  return result;
+}
+
+function collabBuildAttendanceMetricsIndex_(rows) {
+  var index = { byId: {}, byEmail: {} };
+  (rows || []).forEach(function (row) {
+    if (!row) return;
+    var id = collabNormalizeUserId_(row.UserID || row.UserId || row.AgentId || row.EmployeeID || row.EmployeeId);
+    var email = collabNormalizeEmail_(row.UserEmail || row.Email || row.AgentEmail || row.AgentWorkEmail);
+    var entry = collabEnsureMetricEntry_(index, id, email, { total: 0, present: 0, absent: 0 });
+    if (!entry) return;
+    entry.total += 1;
+    var status = collabToStr_(row.Status || row.State || row.Result || row.AttendanceStatus || row.Outcome || '');
+    if (/absent|no show|noshow|callout|absence/i.test(status)) {
+      entry.absent += 1;
+    } else {
+      entry.present += 1;
+    }
+  });
+  return index;
+}
+
+function collabBuildCallMetricsIndex_() {
+  var index = { byId: {}, byEmail: {} };
+  if (typeof readSheet !== 'function') {
+    return index;
+  }
+
+  var sheetName = null;
+  if (typeof G !== 'undefined' && G && typeof G.CALL_REPORT === 'string' && G.CALL_REPORT) {
+    sheetName = G.CALL_REPORT;
+  } else if (typeof CALL_REPORT_SHEET === 'string' && CALL_REPORT_SHEET) {
+    sheetName = CALL_REPORT_SHEET;
+  } else {
+    sheetName = 'CallReport';
+  }
+
+  var rows = [];
+  try {
+    rows = readSheet(sheetName) || [];
+  } catch (err) {
+    try { console.warn('collabBuildCallMetricsIndex_ unable to read sheet', err); } catch (_) {}
+    return index;
+  }
+
+  rows.forEach(function (row) {
+    if (!row) return;
+    var id = collabNormalizeUserId_(row.UserID || row.UserId || row.AgentId || row.AgentUserID);
+    var email = collabNormalizeEmail_(row.UserEmail || row.AgentEmail || row.AgentWorkEmail || row.ToSFUser);
+    var entry = collabEnsureMetricEntry_(index, id, email, { callCount: 0, csatYes: 0, csatTotal: 0 });
+    if (!entry) return;
+    entry.callCount += 1;
+    var csatRaw = collabToStr_(row.CSAT || row.Csat || row.Question1 || row.SurveyResult || '');
+    if (csatRaw) {
+      entry.csatTotal += 1;
+      var normalized = csatRaw.toLowerCase ? csatRaw.toLowerCase() : String(csatRaw).toLowerCase();
+      if (/^y(es)?$/.test(normalized) || /^1$/.test(normalized) || normalized === 'true' || normalized === 'positive' || normalized === 'pass') {
+        entry.csatYes += 1;
+      }
+    }
+  });
+
+  return index;
+}
+
+function collabEnsureMetricEntry_(index, id, email, defaults) {
+  if (!index) return null;
+  var keyId = collabNormalizeUserId_(id);
+  var keyEmail = collabNormalizeEmail_(email);
+  var entry = null;
+  if (keyId && index.byId[keyId]) entry = index.byId[keyId];
+  if (!entry && keyEmail && index.byEmail[keyEmail]) entry = index.byEmail[keyEmail];
+  if (!entry) {
+    entry = collabCreateMetricEntry_(defaults);
+  }
+  if (keyId) index.byId[keyId] = entry;
+  if (keyEmail) index.byEmail[keyEmail] = entry;
+  return entry;
+}
+
+function collabCreateMetricEntry_(template) {
+  var entry = {};
+  for (var key in template) {
+    if (template.hasOwnProperty(key)) entry[key] = template[key];
+  }
+  return entry;
+}
+
+function collabLookupMetricForUser_(userId, email, index) {
+  if (!index) return null;
+  var keyId = collabNormalizeUserId_(userId);
+  if (keyId && index.byId[keyId]) return index.byId[keyId];
+  var keyEmail = collabNormalizeEmail_(email);
+  if (keyEmail && index.byEmail[keyEmail]) return index.byEmail[keyEmail];
+  return null;
+}
+
+function collabIndexManagerQaSummary_(summary) {
+  var index = { byId: {}, byEmail: {} };
+  if (!summary || !Array.isArray(summary.users)) {
+    return index;
+  }
+
+  summary.users.forEach(function (user) {
+    if (!user) return;
+    var id = collabNormalizeUserId_(user.id || user.ID || user.UserID || user.UserId);
+    var email = collabNormalizeEmail_(user.email || user.Email || user.userEmail);
+    var entry = {
+      id: id,
+      name: collabToStr_(user.name || user.FullName || user.UserName || user.email || ''),
+      email: collabToStr_(user.email || user.Email || ''),
+      roles: Array.isArray(user.roles) ? user.roles.slice() : [],
+      average: (user.averageScore != null && !isNaN(user.averageScore)) ? Number(user.averageScore) : null,
+      evaluations: user.evaluations || 0
+    };
+    if (id) index.byId[id] = entry;
+    if (email) index.byEmail[email.toLowerCase()] = entry;
+  });
+
+  return index;
+}
+
+function collabNormalizeUserId_(value) {
+  if (value === null || value === undefined) return '';
+  if (value instanceof Date) return String(value.getTime());
+  var text = String(value);
+  return text ? text.trim() : '';
+}
+
+function collabNormalizeEmail_(value) {
+  var text = collabToStr_(value);
+  return text ? text.toLowerCase() : '';
 }
 
 function buildExecutiveNotes_(snapshot) {
@@ -707,11 +1149,199 @@ function buildExecutiveBrief_(campaigns) {
 }
 
 function buildTimeframeLabel_() {
+  var payPeriod = collabGetCurrentPayPeriodDetails_();
+  if (payPeriod && payPeriod.label) {
+    return payPeriod.label;
+  }
+  return buildIsoTimeframeLabel_();
+}
+
+function buildIsoTimeframeLabel_() {
   var now = new Date();
   var month = now.getMonth();
   var quarter = Math.floor(month / 3) + 1;
   var week = collabIsoWeek_(now).split('-W')[1];
   return 'Q' + quarter + ' · Week ' + week;
+}
+
+function collabGetCurrentPayPeriodDetails_() {
+  var periods = collabGetBiweeklyPayPeriods_();
+  if (!periods || !periods.length) {
+    return null;
+  }
+
+  var todayValue = collabDateValue_(new Date());
+  if (todayValue === null) {
+    return null;
+  }
+
+  var chosen = null;
+  for (var i = 0; i < periods.length; i++) {
+    var period = periods[i];
+    if (todayValue >= period.startValue && todayValue <= period.endValue) {
+      chosen = period;
+      break;
+    }
+  }
+
+  if (!chosen) {
+    if (todayValue < periods[0].startValue) {
+      chosen = periods[0];
+    } else {
+      chosen = periods[periods.length - 1];
+    }
+  }
+
+  return collabDecoratePayPeriod_(chosen);
+}
+
+function collabDecoratePayPeriod_(period) {
+  if (!period) {
+    return null;
+  }
+
+  var rangeLabel = collabFormatDateRange_(period.start, period.end);
+  var badgeLabel = 'Pay Period ' + period.number;
+  var payDateLabel = collabFormatFullDate_(period.payDate);
+
+  return {
+    number: period.number,
+    label: badgeLabel + (rangeLabel ? ' · ' + rangeLabel : ''),
+    badgeLabel: badgeLabel,
+    rangeLabel: rangeLabel,
+    payDateLabel: payDateLabel,
+    startIso: collabToIsoDateString_(period.start),
+    endIso: collabToIsoDateString_(period.end),
+    payDateIso: collabToIsoDateString_(period.payDate)
+  };
+}
+
+var collabBiweeklyPayPeriodsCache_ = null;
+
+function collabGetBiweeklyPayPeriods_() {
+  if (collabBiweeklyPayPeriodsCache_) {
+    return collabBiweeklyPayPeriodsCache_;
+  }
+
+  // WBPO 2025 biweekly pay calendar shared by operations.
+  var periods = [
+    collabCreatePayPeriod_(1, collabMakeDate_(2024, 12, 22), collabMakeDate_(2025, 1, 4), collabMakeDate_(2025, 1, 10)),
+    collabCreatePayPeriod_(2, collabMakeDate_(2025, 1, 5), collabMakeDate_(2025, 1, 18), collabMakeDate_(2025, 1, 24)),
+    collabCreatePayPeriod_(3, collabMakeDate_(2025, 1, 19), collabMakeDate_(2025, 2, 1), collabMakeDate_(2025, 2, 7)),
+    collabCreatePayPeriod_(4, collabMakeDate_(2025, 2, 2), collabMakeDate_(2025, 2, 15), collabMakeDate_(2025, 2, 21)),
+    collabCreatePayPeriod_(5, collabMakeDate_(2025, 2, 16), collabMakeDate_(2025, 3, 1), collabMakeDate_(2025, 3, 7)),
+    collabCreatePayPeriod_(6, collabMakeDate_(2025, 3, 2), collabMakeDate_(2025, 3, 15), collabMakeDate_(2025, 3, 21)),
+    collabCreatePayPeriod_(7, collabMakeDate_(2025, 3, 16), collabMakeDate_(2025, 3, 29), collabMakeDate_(2025, 4, 4)),
+    collabCreatePayPeriod_(8, collabMakeDate_(2025, 3, 30), collabMakeDate_(2025, 4, 12), collabMakeDate_(2025, 4, 18)),
+    collabCreatePayPeriod_(9, collabMakeDate_(2025, 4, 13), collabMakeDate_(2025, 4, 26), collabMakeDate_(2025, 5, 2)),
+    collabCreatePayPeriod_(10, collabMakeDate_(2025, 4, 27), collabMakeDate_(2025, 5, 10), collabMakeDate_(2025, 5, 16)),
+    collabCreatePayPeriod_(11, collabMakeDate_(2025, 5, 11), collabMakeDate_(2025, 5, 24), collabMakeDate_(2025, 5, 30)),
+    collabCreatePayPeriod_(12, collabMakeDate_(2025, 5, 25), collabMakeDate_(2025, 6, 7), collabMakeDate_(2025, 6, 13)),
+    collabCreatePayPeriod_(13, collabMakeDate_(2025, 6, 8), collabMakeDate_(2025, 6, 21), collabMakeDate_(2025, 6, 27)),
+    collabCreatePayPeriod_(14, collabMakeDate_(2025, 6, 22), collabMakeDate_(2025, 7, 5), collabMakeDate_(2025, 7, 11)),
+    collabCreatePayPeriod_(15, collabMakeDate_(2025, 7, 6), collabMakeDate_(2025, 7, 19), collabMakeDate_(2025, 7, 25)),
+    collabCreatePayPeriod_(16, collabMakeDate_(2025, 7, 20), collabMakeDate_(2025, 8, 2), collabMakeDate_(2025, 8, 8)),
+    collabCreatePayPeriod_(17, collabMakeDate_(2025, 8, 3), collabMakeDate_(2025, 8, 16), collabMakeDate_(2025, 8, 22)),
+    collabCreatePayPeriod_(18, collabMakeDate_(2025, 8, 17), collabMakeDate_(2025, 8, 30), collabMakeDate_(2025, 9, 5)),
+    collabCreatePayPeriod_(19, collabMakeDate_(2025, 8, 31), collabMakeDate_(2025, 9, 13), collabMakeDate_(2025, 9, 19)),
+    collabCreatePayPeriod_(20, collabMakeDate_(2025, 9, 14), collabMakeDate_(2025, 9, 27), collabMakeDate_(2025, 10, 3)),
+    collabCreatePayPeriod_(21, collabMakeDate_(2025, 9, 28), collabMakeDate_(2025, 10, 11), collabMakeDate_(2025, 10, 17)),
+    collabCreatePayPeriod_(22, collabMakeDate_(2025, 10, 12), collabMakeDate_(2025, 10, 25), collabMakeDate_(2025, 10, 31)),
+    collabCreatePayPeriod_(23, collabMakeDate_(2025, 10, 26), collabMakeDate_(2025, 11, 8), collabMakeDate_(2025, 11, 14)),
+    collabCreatePayPeriod_(24, collabMakeDate_(2025, 11, 9), collabMakeDate_(2025, 11, 22), collabMakeDate_(2025, 11, 28)),
+    collabCreatePayPeriod_(25, collabMakeDate_(2025, 11, 23), collabMakeDate_(2025, 12, 6), collabMakeDate_(2025, 12, 12)),
+    collabCreatePayPeriod_(26, collabMakeDate_(2025, 12, 7), collabMakeDate_(2025, 12, 20), collabMakeDate_(2025, 12, 26)),
+    collabCreatePayPeriod_(27, collabMakeDate_(2025, 12, 21), collabMakeDate_(2026, 1, 3), collabMakeDate_(2026, 1, 9))
+  ];
+
+  collabBiweeklyPayPeriodsCache_ = periods;
+  return periods;
+}
+
+function collabCreatePayPeriod_(number, start, end, payDate) {
+  return {
+    number: number,
+    start: start,
+    end: end,
+    payDate: payDate,
+    startValue: collabDateValue_(start),
+    endValue: collabDateValue_(end)
+  };
+}
+
+function collabMakeDate_(year, month, day) {
+  return new Date(Date.UTC(year, month - 1, day, 12));
+}
+
+function collabDateValue_(date) {
+  if (!(date instanceof Date)) {
+    return null;
+  }
+  return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+}
+
+function collabToIsoDateString_(date) {
+  if (!(date instanceof Date)) {
+    return '';
+  }
+  return date.getUTCFullYear() + '-' + collabPad2_(date.getUTCMonth() + 1) + '-' + collabPad2_(date.getUTCDate());
+}
+
+function collabPad2_(value) {
+  return value < 10 ? '0' + value : String(value);
+}
+
+function collabFormatDateRange_(start, end) {
+  var hasStart = start instanceof Date;
+  var hasEnd = end instanceof Date;
+  if (!hasStart && !hasEnd) {
+    return '';
+  }
+  if (!hasStart) {
+    return collabFormatFullDate_(end);
+  }
+  if (!hasEnd) {
+    return collabFormatFullDate_(start);
+  }
+
+  var startMonth = collabMonthName_(start);
+  var endMonth = collabMonthName_(end);
+  var startDay = start.getUTCDate();
+  var endDay = end.getUTCDate();
+  var startYear = start.getUTCFullYear();
+  var endYear = end.getUTCFullYear();
+
+  if (startYear === endYear) {
+    if (startMonth === endMonth) {
+      return startMonth + ' ' + startDay + '–' + endDay + ', ' + startYear;
+    }
+    return startMonth + ' ' + startDay + ' – ' + endMonth + ' ' + endDay + ', ' + startYear;
+  }
+
+  return startMonth + ' ' + startDay + ', ' + startYear + ' – ' + endMonth + ' ' + endDay + ', ' + endYear;
+}
+
+function collabFormatFullDate_(date) {
+  if (!(date instanceof Date)) {
+    return '';
+  }
+  var monthName = collabMonthName_(date);
+  if (!monthName) {
+    return '';
+  }
+  return monthName + ' ' + date.getUTCDate() + ', ' + date.getUTCFullYear();
+}
+
+function collabMonthName_(date) {
+  if (!(date instanceof Date)) {
+    return '';
+  }
+  var months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  var index = date.getUTCMonth();
+  if (index < 0 || index >= months.length) {
+    return '';
+  }
+  return months[index];
 }
 
 function buildCollaborationChatPayload_(workspace) {

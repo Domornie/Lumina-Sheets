@@ -410,6 +410,82 @@
   .connectivity-actions .btn i {
     font-size: 0.85rem;
   }
+
+  .team-nav {
+    gap: 0.5rem;
+  }
+
+  .team-nav .nav-link {
+    border-radius: 999px;
+    font-weight: 600;
+    color: #1d4ed8;
+    background: rgba(37, 99, 235, 0.08);
+    border: none;
+    padding: 0.5rem 1.2rem;
+    transition: background 0.2s ease, color 0.2s ease;
+  }
+
+  .team-nav .nav-link:hover {
+    color: #1e40af;
+    background: rgba(37, 99, 235, 0.16);
+  }
+
+  .team-nav .nav-link.active {
+    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+    color: #ffffff;
+  }
+
+  .team-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1rem;
+  }
+
+  .team-metric-card {
+    border-radius: 16px;
+    background: rgba(37, 99, 235, 0.08);
+    padding: 1.1rem 1.25rem;
+  }
+
+  .team-metric-card .label {
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    color: #1f2937;
+    opacity: 0.7;
+    margin-bottom: 0.25rem;
+  }
+
+  .team-metric-card .value {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #1d4ed8;
+  }
+
+  .team-metric-card .caption {
+    font-size: 0.8rem;
+    color: #475569;
+  }
+
+  .team-table th {
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.04em;
+    color: #475569;
+  }
+
+  .team-table td {
+    vertical-align: middle;
+  }
+
+  .team-member-name {
+    font-weight: 600;
+    color: #1f2937;
+  }
+
+  .team-member-meta {
+    font-size: 0.75rem;
+    color: #64748b;
+  }
 </style>
 
 <div class="collab-wrapper">
@@ -590,6 +666,8 @@
               </div>
               <div class="text-end">
                 <span class="badge bg-primary-subtle text-primary" id="execTimeframe">—</span>
+                <div class="small text-secondary mt-1" id="execPeriodRange">—</div>
+                <div class="small text-secondary" id="execPayDate">Pay date —</div>
               </div>
             </div>
             <canvas id="execBlendChart" height="180"></canvas>
@@ -691,6 +769,24 @@
       </div>
     </div>
   </div>
+
+  <div class="row g-4 mt-2">
+    <div class="col-12">
+      <div class="card section-card h-100">
+        <div class="card-header">
+          <div class="insight-pill"><i class="fas fa-users-gear"></i> Team Collaboration Intelligence</div>
+          <h2 class="mt-3">Managers, Clients, and Teams</h2>
+          <p class="mb-0">Review collaboration metrics by role, then dive into individual manager rosters for quality and attendance outcomes.</p>
+        </div>
+        <div class="card-body">
+          <div id="teamIntelligenceSection">
+            <ul class="nav nav-pills team-nav flex-wrap" id="teamTabs" role="tablist"></ul>
+            <div class="tab-content mt-4" id="teamTabContent"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -707,8 +803,9 @@
         trend: { labels: [], values: [] }
       },
       attendance: { campaigns: [], history: {}, summary: {} },
-      executive: { summary: null, campaigns: [], brief: [], timeframeLabel: '' },
+      executive: { summary: null, campaigns: [], brief: [], timeframeLabel: '', payPeriod: null },
       chat: { personas: [], threads: {} },
+      teams: { overview: null, managers: [], guests: [], managerTabs: [] },
       charts: { qaTrend: null, attendance: null, executive: null },
       campaigns: [],
       activePersona: null,
@@ -740,6 +837,8 @@
     const execCampaignBullets = document.getElementById('execCampaignBullets');
     const execBriefList = document.getElementById('executiveBrief');
     const execTimeframeEl = document.getElementById('execTimeframe');
+    const execPeriodRangeEl = document.getElementById('execPeriodRange');
+    const execPayDateEl = document.getElementById('execPayDate');
 
     const kpiQualityAverage = document.getElementById('kpiQualityAverage');
     const kpiQualityTrend = document.getElementById('kpiQualityTrend');
@@ -761,6 +860,10 @@
     const chatSubmitButton = chatComposer.querySelector('button[type="submit"]');
 
     const campaignConnectivityContainer = document.getElementById('campaignConnectivity');
+
+    const teamTabsNav = document.getElementById('teamTabs');
+    const teamTabContent = document.getElementById('teamTabContent');
+    const teamSection = document.getElementById('teamIntelligenceSection');
 
     const alertsContainer = document.getElementById('collabAlerts');
     const loadingMessage = '<div class="text-secondary py-4 text-center small">Loading…</div>';
@@ -1142,7 +1245,17 @@
         kpiAttendanceTrend.classList.remove('text-success', 'text-danger');
       }
 
-      execTimeframeEl.textContent = state.executive.timeframeLabel || '—';
+      const payPeriod = state.executive.payPeriod;
+      const timeframeLabel = state.executive.timeframeLabel || '—';
+      if (execTimeframeEl) {
+        execTimeframeEl.textContent = payPeriod && payPeriod.badgeLabel ? payPeriod.badgeLabel : timeframeLabel;
+      }
+      if (execPeriodRangeEl) {
+        execPeriodRangeEl.textContent = payPeriod && payPeriod.rangeLabel ? payPeriod.rangeLabel : timeframeLabel;
+      }
+      if (execPayDateEl) {
+        execPayDateEl.textContent = payPeriod && payPeriod.payDateLabel ? 'Pay date ' + payPeriod.payDateLabel : 'Pay date —';
+      }
 
       execCampaignBullets.innerHTML = '';
       const campaigns = state.executive.campaigns || [];
@@ -1480,6 +1593,7 @@
       state.executive.campaigns = data.campaigns || [];
       state.executive.brief = data.brief || [];
       state.executive.timeframeLabel = data.timeframeLabel || '';
+      state.executive.payPeriod = data.payPeriod || null;
       renderExecutiveSection();
     }
 
@@ -1489,6 +1603,287 @@
       state.activePersona = null;
       state.activeThreadId = null;
       refreshChatUI();
+    }
+
+    function applyTeamData(data) {
+      data = data || {};
+      state.teams.overview = data.overview || null;
+      state.teams.managers = Array.isArray(data.managers) ? data.managers : [];
+      state.teams.guests = Array.isArray(data.guests) ? data.guests : [];
+      state.teams.managerTabs = Array.isArray(data.managerTabs) ? data.managerTabs : [];
+      renderTeamTabs();
+    }
+
+    function renderTeamTabs() {
+      if (!teamTabsNav || !teamTabContent) return;
+      const hasManagers = Array.isArray(state.teams.managerTabs) && state.teams.managerTabs.length > 0;
+      const hasDirectory = (state.teams.managers && state.teams.managers.length) || (state.teams.guests && state.teams.guests.length);
+      teamTabsNav.innerHTML = '';
+      if (!hasManagers && !hasDirectory) {
+        teamTabContent.innerHTML = renderTeamEmptyState('No manager or guest collaboration data available yet.');
+        return;
+      }
+
+      const tabs = [
+        { id: 'overview', label: 'Teams', type: 'overview' },
+        { id: 'managers', label: 'Managers', type: 'managers' },
+        { id: 'guests', label: 'Guests', type: 'guests' }
+      ];
+
+      (state.teams.managerTabs || []).forEach(function (entry, index) {
+        const safeId = sanitizeId(entry && entry.managerId ? entry.managerId : ('manager-' + index));
+        tabs.push({ id: safeId || ('manager-' + index), label: entry && entry.name ? entry.name : 'Manager', type: 'manager', data: entry });
+      });
+
+      teamTabContent.innerHTML = '';
+
+      tabs.forEach(function (tab, index) {
+        const navId = 'team-tab-' + tab.id;
+        const paneId = 'team-pane-' + tab.id;
+
+        const li = document.createElement('li');
+        li.className = 'nav-item';
+
+        const button = document.createElement('button');
+        button.className = 'nav-link' + (index === 0 ? ' active' : '');
+        button.id = navId;
+        button.type = 'button';
+        button.role = 'tab';
+        button.setAttribute('data-bs-toggle', 'pill');
+        button.setAttribute('data-bs-target', '#' + paneId);
+        button.textContent = tab.label;
+
+        li.appendChild(button);
+        teamTabsNav.appendChild(li);
+
+        const pane = document.createElement('div');
+        pane.className = 'tab-pane fade' + (index === 0 ? ' show active' : '');
+        pane.id = paneId;
+        pane.role = 'tabpanel';
+        pane.setAttribute('aria-labelledby', navId);
+        pane.innerHTML = renderTeamTabContent(tab);
+        teamTabContent.appendChild(pane);
+      });
+    }
+
+    function renderTeamTabContent(tab) {
+      if (!tab) return renderTeamEmptyState('No data available.');
+      if (tab.type === 'overview') return renderTeamOverviewTab();
+      if (tab.type === 'managers') return renderTeamManagersTab();
+      if (tab.type === 'guests') return renderTeamGuestsTab();
+      if (tab.type === 'manager') return renderManagerTeamTab(tab.data);
+      return renderTeamEmptyState('No data available.');
+    }
+
+    function renderTeamOverviewTab() {
+      const overview = state.teams.overview || {};
+      const managers = state.teams.managers || [];
+      const hasTeams = Array.isArray(state.teams.managerTabs) && state.teams.managerTabs.length > 0;
+      if (!hasTeams && !managers.length) {
+        return renderTeamEmptyState('No manager assignments available yet.');
+      }
+      const metricsHtml = `
+        <div class="team-summary-grid">
+          ${renderTeamMetricCard('Total Teams', formatTeamNumber(overview.totalTeams), 'fa-diagram-project')}
+          ${renderTeamMetricCard('Team Members', formatTeamNumber(overview.totalAgents), 'fa-users')}
+          ${renderTeamMetricCard('Quality Average', formatTeamPercent(overview.qualityAverage), 'fa-star')}
+          ${renderTeamMetricCard('Attendance Average', formatTeamPercent(overview.attendanceAverage), 'fa-calendar-check')}
+          ${renderTeamMetricCard('Call Volume', formatTeamNumber(overview.callVolume), 'fa-phone')}
+          ${renderTeamMetricCard('CSAT Average', formatTeamPercent(overview.csatAverage), 'fa-face-smile')}
+        </div>
+      `;
+      return metricsHtml + renderManagerSummaryTable(managers);
+    }
+
+    function renderTeamManagersTab() {
+      const managers = state.teams.managers || [];
+      if (!managers.length) {
+        return renderTeamEmptyState('No managers currently have assigned team members.');
+      }
+      const intro = '<p class="text-secondary">Managers with assigned collaborators and their aggregated performance.</p>';
+      return intro + renderManagerSummaryTable(managers);
+    }
+
+    function renderTeamGuestsTab() {
+      const guests = state.teams.guests || [];
+      if (!guests.length) {
+        return renderTeamEmptyState('No guest clients have been onboarded yet.');
+      }
+      const rows = guests.map(function (guest) {
+        const name = escapeHtml(guest.name || 'Guest');
+        const email = guest.email ? `<div class="team-member-meta">${escapeHtml(guest.email)}</div>` : '';
+        const campaign = guest.campaignName ? escapeHtml(guest.campaignName) : '—';
+        const roles = Array.isArray(guest.roles) && guest.roles.length ? escapeHtml(guest.roles.join(', ')) : '—';
+        return `
+          <tr>
+            <td>
+              <div class="team-member-name">${name}</div>
+              ${email}
+            </td>
+            <td>${campaign}</td>
+            <td>${roles}</td>
+          </tr>
+        `;
+      }).join('');
+      return `
+        <div class="table-responsive">
+          <table class="table table-hover align-middle team-table">
+            <thead>
+              <tr>
+                <th>Guest</th>
+                <th>Campaign</th>
+                <th>Roles</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    function renderManagerTeamTab(managerTab) {
+      if (!managerTab || !Array.isArray(managerTab.users) || !managerTab.users.length) {
+        return renderTeamEmptyState('This manager does not have any assigned team members yet.');
+      }
+      const summary = managerTab.summary || {};
+      const metricsHtml = `
+        <div class="team-summary-grid">
+          ${renderTeamMetricCard('Team Members', formatTeamNumber(summary.teamSize), 'fa-users')}
+          ${renderTeamMetricCard('Quality Average', formatTeamPercent(summary.qualityAverage), 'fa-star')}
+          ${renderTeamMetricCard('Attendance Average', formatTeamPercent(summary.attendanceAverage), 'fa-calendar-check')}
+          ${renderTeamMetricCard('Call Volume', formatTeamNumber(summary.callVolume), 'fa-phone')}
+          ${renderTeamMetricCard('CSAT Average', formatTeamPercent(summary.csatAverage), 'fa-face-smile')}
+        </div>
+      `;
+      return metricsHtml + renderTeamMembersTable(managerTab.users);
+    }
+
+    function renderManagerSummaryTable(managers) {
+      if (!managers || !managers.length) {
+        return renderTeamEmptyState('No managers currently have assigned teams.');
+      }
+      const rows = managers.map(function (manager) {
+        const name = escapeHtml(manager.name || 'Manager');
+        const email = manager.email ? `<div class="team-member-meta">${escapeHtml(manager.email)}</div>` : '';
+        return `
+          <tr>
+            <td>
+              <div class="team-member-name">${name}</div>
+              ${email}
+            </td>
+            <td>${formatTeamNumber(manager.teamSize)}</td>
+            <td>${formatTeamPercent(manager.qualityAverage)}</td>
+            <td>${formatTeamPercent(manager.attendanceAverage)}</td>
+            <td>${formatTeamNumber(manager.callVolume)}</td>
+            <td>${formatTeamPercent(manager.csatAverage)}</td>
+          </tr>
+        `;
+      }).join('');
+      return `
+        <div class="table-responsive mt-4">
+          <table class="table table-hover align-middle team-table">
+            <thead>
+              <tr>
+                <th>Manager</th>
+                <th>Team Size</th>
+                <th>QA Avg</th>
+                <th>Attendance</th>
+                <th>Call Volume</th>
+                <th>CSAT</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    function renderTeamMembersTable(users) {
+      if (!users || !users.length) {
+        return renderTeamEmptyState('No team members assigned.');
+      }
+      const rows = users.map(function (user) {
+        const name = escapeHtml(user.name || 'Team Member');
+        const email = user.email ? `<div class="team-member-meta">${escapeHtml(user.email)}</div>` : '';
+        const campaign = user.campaignName ? `<div class="team-member-meta">${escapeHtml(user.campaignName)}</div>` : '';
+        return `
+          <tr>
+            <td>
+              <div class="team-member-name">${name}</div>
+              ${email}
+              ${campaign}
+            </td>
+            <td>${formatTeamPercent(user.quality)}</td>
+            <td>${formatTeamPercent(user.attendance)}</td>
+            <td>${formatTeamNumber(user.callCount)}</td>
+            <td>${formatTeamPercent(user.csat)}</td>
+          </tr>
+        `;
+      }).join('');
+      return `
+        <div class="table-responsive mt-4">
+          <table class="table table-hover align-middle team-table">
+            <thead>
+              <tr>
+                <th>Team Member</th>
+                <th>Quality</th>
+                <th>Attendance</th>
+                <th>Call Count</th>
+                <th>CSAT</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    function renderTeamMetricCard(label, value, icon, caption) {
+      return `
+        <div class="team-metric-card">
+          <div class="label"><i class="fas ${escapeHtml(icon)} me-2"></i>${escapeHtml(label)}</div>
+          <div class="value">${value}</div>
+          ${caption ? `<div class="caption">${escapeHtml(caption)}</div>` : ''}
+        </div>
+      `;
+    }
+
+    function formatTeamNumber(value, decimals) {
+      if (value === null || value === undefined || value === '') return '—';
+      const num = Number(value);
+      if (Number.isNaN(num)) return '—';
+      return formatNumber(num, decimals != null ? decimals : 0);
+    }
+
+    function formatTeamPercent(value) {
+      if (value === null || value === undefined || value === '') return '—';
+      const num = Number(value);
+      if (Number.isNaN(num)) return '—';
+      return formatPercent(num, 1);
+    }
+
+    function renderTeamEmptyState(message) {
+      return '<div class="text-secondary text-center py-4">' + escapeHtml(message || 'No data available.') + '</div>';
+    }
+
+    function sanitizeId(value) {
+      const text = value === null || value === undefined ? '' : String(value).toLowerCase();
+      const cleaned = text.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+      return cleaned || 'team';
+    }
+
+    function escapeHtml(value) {
+      if (value === null || value === undefined) return '';
+      return String(value).replace(/[&<>"']/g, function (ch) {
+        switch (ch) {
+          case '&': return '&amp;';
+          case '<': return '&lt;';
+          case '>': return '&gt;';
+          case '"': return '&quot;';
+          case "'": return '&#39;';
+          default: return ch;
+        }
+      });
     }
 
     function loadCollaborationData(force) {
@@ -1504,6 +1899,8 @@
         campaignConnectivityContainer.classList.remove('connectivity-grid', 'connectivity-empty');
         campaignConnectivityContainer.innerHTML = loadingMessage;
       }
+      if (teamTabsNav) teamTabsNav.innerHTML = '';
+      if (teamTabContent) teamTabContent.innerHTML = loadingMessage;
 
       google.script.run
         .withSuccessHandler(function (response) {
@@ -1515,6 +1912,7 @@
           if (response.attendance) applyAttendanceData(response.attendance);
           if (response.executive) applyExecutiveData(response.executive);
           if (response.chat) applyChatData(response.chat);
+          if (response.teams) applyTeamData(response.teams);
           renderQADirectory();
         })
         .withFailureHandler(function (err) {
