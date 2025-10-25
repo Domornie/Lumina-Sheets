@@ -22,6 +22,125 @@
     padding: 2.5rem 2rem 4rem;
   }
 
+  .collab-hero {
+    position: relative;
+    border-radius: 28px;
+    padding: 2.75rem 2.75rem 2.5rem;
+    background: radial-gradient(circle at top left, rgba(37, 99, 235, 0.55), rgba(37, 99, 235, 0)) no-repeat,
+      linear-gradient(135deg, #0f172a 0%, #1f3a8a 60%, #1d4ed8 100%);
+    color: #f8fafc;
+    box-shadow: 0 24px 60px rgba(15, 23, 42, 0.25);
+    overflow: hidden;
+    margin-bottom: 2.5rem;
+  }
+
+  .collab-hero::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at 80% 20%, rgba(14, 165, 233, 0.35), transparent 55%);
+    pointer-events: none;
+  }
+
+  .collab-hero__content {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  .collab-hero__content h1 {
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+
+  .collab-hero__metrics {
+    position: relative;
+    z-index: 1;
+    margin-top: 2rem;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.25rem;
+  }
+
+  .hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border-radius: 999px;
+    font-weight: 600;
+    background: rgba(148, 197, 253, 0.16);
+    color: #e0f2fe;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-size: 0.8rem;
+  }
+
+  .hero-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    font-size: 0.9rem;
+  }
+
+  .hero-meta span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.45rem 0.85rem;
+    border-radius: 999px;
+    background: rgba(15, 23, 42, 0.45);
+    box-shadow: inset 0 0 0 1px rgba(148, 197, 253, 0.25);
+  }
+
+  .hero-metric-card {
+    border-radius: 18px;
+    padding: 1.35rem 1.5rem;
+    background: rgba(15, 23, 42, 0.55);
+    box-shadow: 0 18px 40px rgba(15, 23, 42, 0.25);
+    backdrop-filter: blur(12px);
+  }
+
+  .hero-metric-card .label {
+    font-size: 0.8rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    opacity: 0.75;
+  }
+
+  .hero-metric-card .value {
+    font-size: 2.35rem;
+    font-weight: 700;
+    margin-top: 0.35rem;
+  }
+
+  .hero-metric-card .caption {
+    margin-top: 0.4rem;
+    font-size: 0.85rem;
+    opacity: 0.75;
+  }
+
+  .hero-highlights .muted-label {
+    color: rgba(255, 255, 255, 0.75);
+    letter-spacing: 0.08em;
+  }
+
+  .hero-highlights .display-6 {
+    color: #ffffff;
+  }
+
+  @media (max-width: 768px) {
+    .collab-hero {
+      padding: 2rem 1.5rem;
+    }
+
+    .collab-hero__metrics {
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    }
+  }
+
   .section-card {
     border-radius: 22px;
     border: none;
@@ -410,18 +529,130 @@
   .connectivity-actions .btn i {
     font-size: 0.85rem;
   }
+
+  .team-nav {
+    gap: 0.5rem;
+  }
+
+  .team-nav .nav-link {
+    border-radius: 999px;
+    font-weight: 600;
+    color: #1d4ed8;
+    background: rgba(37, 99, 235, 0.08);
+    border: none;
+    padding: 0.5rem 1.2rem;
+    transition: background 0.2s ease, color 0.2s ease;
+  }
+
+  .team-nav .nav-link:hover {
+    color: #1e40af;
+    background: rgba(37, 99, 235, 0.16);
+  }
+
+  .team-nav .nav-link.active {
+    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+    color: #ffffff;
+  }
+
+  .team-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1rem;
+  }
+
+  .team-metric-card {
+    border-radius: 16px;
+    background: rgba(37, 99, 235, 0.08);
+    padding: 1.1rem 1.25rem;
+  }
+
+  .team-metric-card .label {
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    color: #1f2937;
+    opacity: 0.7;
+    margin-bottom: 0.25rem;
+  }
+
+  .team-metric-card .value {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #1d4ed8;
+  }
+
+  .team-metric-card .caption {
+    font-size: 0.8rem;
+    color: #475569;
+  }
+
+  .team-table th {
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.04em;
+    color: #475569;
+  }
+
+  .team-table td {
+    vertical-align: middle;
+  }
+
+  .team-member-name {
+    font-weight: 600;
+    color: #1f2937;
+  }
+
+  .team-member-meta {
+    font-size: 0.75rem;
+    color: #64748b;
+  }
 </style>
 
 <div class="collab-wrapper">
+  <div class="collab-hero">
+    <div class="collab-hero__content">
+      <div>
+        <span class="hero-badge" id="heroPersona">Operations Hub</span>
+        <h1 class="display-5 fw-bold mt-3 mb-2">Collaboration Intelligence Hub</h1>
+        <p class="lead mb-0 text-white-50">Coordinate quality, attendance, and executive conversations with a sleek, modern command center.</p>
+      </div>
+      <div class="hero-meta">
+        <span><i class="fas fa-user-circle"></i><span id="heroUserName">Team member</span></span>
+        <span><i class="fas fa-layer-group"></i><span id="heroCampaignCount">No campaigns connected</span></span>
+        <span><i class="fas fa-clock"></i><span id="heroGeneratedAt">Updated —</span></span>
+      </div>
+    </div>
+    <div class="collab-hero__metrics">
+      <div class="hero-metric-card">
+        <div class="label text-uppercase">Quality pulse</div>
+        <div class="value" id="heroMetricQuality">—</div>
+        <div class="caption" id="heroMetricQualityCaption">QA average this cycle</div>
+      </div>
+      <div class="hero-metric-card">
+        <div class="label text-uppercase">Attendance</div>
+        <div class="value" id="heroMetricAttendance">—</div>
+        <div class="caption" id="heroMetricAttendanceCaption">Attendance this cycle</div>
+      </div>
+      <div class="hero-metric-card">
+        <div class="label text-uppercase">Active campaigns</div>
+        <div class="value" id="heroMetricCampaigns">—</div>
+        <div class="caption" id="heroMetricCampaignsCaption">Cycle —</div>
+      </div>
+    </div>
+  </div>
   <div id="collabAlerts" class="mb-3"></div>
-  <div class="row g-4 align-items-stretch">
-    <div class="col-xxl-8">
-      <div class="card section-card h-100">
+    <div class="row g-4 align-items-stretch">
+      <div class="col-xxl-8">
+        <div class="card section-card h-100">
         <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-3">
-            <div class="text-end">
-              <div class="muted-label">Rolling 30-day coverage</div>
-              <div class="display-6 fw-bold" id="qaCoverageRate">—</div>
-            </div>
+          <div>
+            <div class="insight-pill"><i class="fas fa-clipboard-check"></i> Quality Collaboration Control</div>
+            <h2 class="mt-3 mb-1">Orchestrate QA reviews and feedback</h2>
+            <p class="mb-0 text-white-50">Log audits, loop in stakeholders, and monitor performance lift with a streamlined workflow.</p>
+          </div>
+          <div class="text-end hero-highlights">
+            <div class="muted-label text-uppercase">Rolling 30-day coverage</div>
+            <div class="display-6 fw-bold" id="qaCoverageRate">—</div>
+          </div>
         </div>
         <div class="card-body">
           <div class="qa-grid">
@@ -557,8 +788,8 @@
         </div>
       </div>
     </div>
-    <div class="col-xxl-4">
-      <div class="card section-card h-100">
+      <div class="col-xxl-4">
+        <div class="card section-card h-100">
         <div class="card-header">
           <div class="insight-pill"><i class="fas fa-chart-line"></i> Executive KPI Pulse</div>
           <h2 class="mt-3">Multi-campaign Leadership Summary</h2>
@@ -590,6 +821,8 @@
               </div>
               <div class="text-end">
                 <span class="badge bg-primary-subtle text-primary" id="execTimeframe">—</span>
+                <div class="small text-secondary mt-1" id="execPeriodRange">—</div>
+                <div class="small text-secondary" id="execPayDate">Pay date —</div>
               </div>
             </div>
             <canvas id="execBlendChart" height="180"></canvas>
@@ -605,9 +838,9 @@
     </div>
   </div>
 
-  <div class="row g-4 mt-2">
-    <div class="col-12">
-      <div class="card section-card h-100">
+    <div class="row g-4 mt-2">
+      <div class="col-12">
+        <div class="card section-card h-100" id="campaignConnectivitySection">
         <div class="card-header">
           <div class="insight-pill"><i class="fas fa-network-wired"></i> Connected Campaign Workflows</div>
           <h2 class="mt-3">Navigate the web app by campaign</h2>
@@ -691,6 +924,24 @@
       </div>
     </div>
   </div>
+
+  <div class="row g-4 mt-2">
+    <div class="col-12">
+      <div class="card section-card h-100">
+        <div class="card-header">
+          <div class="insight-pill"><i class="fas fa-users-gear"></i> Team Collaboration Intelligence</div>
+          <h2 class="mt-3">Managers, Clients, and Teams</h2>
+          <p class="mb-0">Review collaboration metrics by role, then dive into individual manager rosters for quality and attendance outcomes.</p>
+        </div>
+        <div class="card-body">
+          <div id="teamIntelligenceSection">
+            <ul class="nav nav-pills team-nav flex-wrap" id="teamTabs" role="tablist"></ul>
+            <div class="tab-content mt-4" id="teamTabContent"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -707,14 +958,26 @@
         trend: { labels: [], values: [] }
       },
       attendance: { campaigns: [], history: {}, summary: {} },
-      executive: { summary: null, campaigns: [], brief: [], timeframeLabel: '' },
+      executive: { summary: null, campaigns: [], brief: [], timeframeLabel: '', payPeriod: null },
       chat: { personas: [], threads: {} },
+      teams: { overview: null, managers: [], guests: [], managerTabs: [] },
       charts: { qaTrend: null, attendance: null, executive: null },
       campaigns: [],
       activePersona: null,
       activeThreadId: null,
       isLoading: false
     };
+
+    const heroPersonaBadge = document.getElementById('heroPersona');
+    const heroUserNameEl = document.getElementById('heroUserName');
+    const heroCampaignCountEl = document.getElementById('heroCampaignCount');
+    const heroGeneratedAtEl = document.getElementById('heroGeneratedAt');
+    const heroMetricQualityEl = document.getElementById('heroMetricQuality');
+    const heroMetricQualityCaptionEl = document.getElementById('heroMetricQualityCaption');
+    const heroMetricAttendanceEl = document.getElementById('heroMetricAttendance');
+    const heroMetricAttendanceCaptionEl = document.getElementById('heroMetricAttendanceCaption');
+    const heroMetricCampaignsEl = document.getElementById('heroMetricCampaigns');
+    const heroMetricCampaignsCaptionEl = document.getElementById('heroMetricCampaignsCaption');
 
     const qaTableBody = document.querySelector('#qaReviewTable tbody');
     const qaAgentSelect = document.getElementById('qaAgent');
@@ -740,6 +1003,8 @@
     const execCampaignBullets = document.getElementById('execCampaignBullets');
     const execBriefList = document.getElementById('executiveBrief');
     const execTimeframeEl = document.getElementById('execTimeframe');
+    const execPeriodRangeEl = document.getElementById('execPeriodRange');
+    const execPayDateEl = document.getElementById('execPayDate');
 
     const kpiQualityAverage = document.getElementById('kpiQualityAverage');
     const kpiQualityTrend = document.getElementById('kpiQualityTrend');
@@ -760,7 +1025,12 @@
     const chatAudienceLabel = document.getElementById('chatAudienceLabel');
     const chatSubmitButton = chatComposer.querySelector('button[type="submit"]');
 
+    const campaignConnectivitySection = document.getElementById('campaignConnectivitySection');
     const campaignConnectivityContainer = document.getElementById('campaignConnectivity');
+
+    const teamTabsNav = document.getElementById('teamTabs');
+    const teamTabContent = document.getElementById('teamTabContent');
+    const teamSection = document.getElementById('teamIntelligenceSection');
 
     const alertsContainer = document.getElementById('collabAlerts');
     const loadingMessage = '<div class="text-secondary py-4 text-center small">Loading…</div>';
@@ -775,6 +1045,9 @@
     ];
 
     const navigationBaseUrl = computeNavigationBase();
+    const baseRoles = extractRoles(currentUser);
+    let activeUserRoles = baseRoles.slice();
+    let isGuestView = rolesIndicateGuest(activeUserRoles);
 
     function clearAlerts() {
       alertsContainer.innerHTML = '';
@@ -827,6 +1100,133 @@
       const diffDays = Math.round(diffHours / 24);
       if (diffDays < 7) return diffDays + 'd ago';
       return date.toLocaleDateString();
+    }
+
+    function extractRoles(user) {
+      if (!user) return [];
+      const sources = [user.roleNames, user.roles, user.Roles, user.RoleNames];
+      const roles = [];
+      sources.forEach(function (source) {
+        if (!source) return;
+        if (Array.isArray(source)) {
+          source.forEach(function (role) {
+            const value = (role || '').toString().trim();
+            if (value) roles.push(value);
+          });
+        } else {
+          const value = source.toString().trim();
+          if (value) roles.push(value);
+        }
+      });
+      const singleSources = [user.Role, user.RoleName, user.Title, user.PrimaryRole];
+      singleSources.forEach(function (value) {
+        if (!value) return;
+        const normalized = value.toString().trim();
+        if (normalized) roles.push(normalized);
+      });
+      const unique = {};
+      const cleaned = [];
+      roles.forEach(function (role) {
+        const lower = role.toLowerCase();
+        if (!unique[lower]) {
+          unique[lower] = true;
+          cleaned.push(role);
+        }
+      });
+      return cleaned;
+    }
+
+    function rolesIndicateGuest(roles) {
+      return roles.some(function (role) {
+        const text = (role || '').toString().toLowerCase();
+        return text.indexOf('guest') >= 0 || text.indexOf('client') >= 0 || text.indexOf('partner') >= 0;
+      });
+    }
+
+    function determinePersona(roles, guestFlag) {
+      if (guestFlag) return 'Client Guest';
+      const normalized = roles.map(function (role) { return role.toString().toLowerCase(); });
+      if (normalized.some(function (role) { return role.indexOf('executive') >= 0; })) return 'Executive Leader';
+      if (normalized.some(function (role) { return role.indexOf('manager') >= 0; })) return 'Team Manager';
+      if (normalized.some(function (role) { return role.indexOf('qa') >= 0 || role.indexOf('quality') >= 0; })) return 'Quality Leader';
+      return 'Operations Hub';
+    }
+
+    function formatHeroTimestamp(isoString) {
+      if (!isoString) return 'Updated —';
+      const date = new Date(isoString);
+      if (Number.isNaN(date.getTime())) return 'Updated —';
+      return 'Updated ' + date.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    }
+
+    function formatHeroCampaignCount(count, guestFlag) {
+      if (!count) {
+        return guestFlag ? 'No assigned campaigns yet' : 'No campaigns connected';
+      }
+      if (count === 1) {
+        return guestFlag ? '1 assigned campaign' : '1 campaign connected';
+      }
+      return guestFlag ? count + ' assigned campaigns' : count + ' campaigns connected';
+    }
+
+    function renderHeroMetrics() {
+      if (heroMetricQualityEl) {
+        heroMetricQualityEl.textContent = formatPercent(state.qa.metrics && state.qa.metrics.averageScore, 1);
+      }
+      if (heroMetricQualityCaptionEl) {
+        const delta = state.qa.metrics && state.qa.metrics.deltaVsTarget;
+        if (delta != null && !Number.isNaN(delta)) {
+          heroMetricQualityCaptionEl.textContent = (delta >= 0 ? '+' : '') + delta.toFixed(1) + ' pts vs target';
+        } else {
+          heroMetricQualityCaptionEl.textContent = 'QA average this cycle';
+        }
+      }
+      if (heroMetricAttendanceEl) {
+        heroMetricAttendanceEl.textContent = formatPercent(state.attendance.summary && state.attendance.summary.attendanceRate, 1);
+      }
+      if (heroMetricAttendanceCaptionEl) {
+        if (state.attendance.summary && state.attendance.summary.absenceRate != null) {
+          heroMetricAttendanceCaptionEl.textContent = 'Absence ' + formatPercent(state.attendance.summary.absenceRate, 1);
+        } else {
+          heroMetricAttendanceCaptionEl.textContent = 'Attendance this cycle';
+        }
+      }
+      if (heroMetricCampaignsEl) {
+        const count = state.campaigns.length;
+        heroMetricCampaignsEl.textContent = count ? String(count) : '0';
+      }
+      if (heroMetricCampaignsCaptionEl) {
+        heroMetricCampaignsCaptionEl.textContent = isGuestView
+          ? 'Assigned campaign access'
+          : (state.executive.timeframeLabel ? 'Cycle: ' + state.executive.timeframeLabel : 'Active campaigns linked');
+      }
+      if (heroCampaignCountEl) {
+        heroCampaignCountEl.textContent = formatHeroCampaignCount(state.campaigns.length, isGuestView);
+      }
+    }
+
+    function updateHeroFromResponse(response) {
+      response = response || {};
+      const userInfo = response.user || currentUser || {};
+      const resolvedRoles = extractRoles(userInfo);
+      if (resolvedRoles.length) {
+        activeUserRoles = resolvedRoles;
+      }
+      isGuestView = rolesIndicateGuest(activeUserRoles);
+      if (heroPersonaBadge) {
+        heroPersonaBadge.textContent = determinePersona(activeUserRoles, isGuestView);
+      }
+      if (heroUserNameEl) {
+        const displayName = userInfo.name || userInfo.displayName || userInfo.FullName || userInfo.UserName || userInfo.email || userInfo.Email || 'Lumina team member';
+        heroUserNameEl.textContent = displayName;
+      }
+      if (heroGeneratedAtEl) {
+        heroGeneratedAtEl.textContent = formatHeroTimestamp(response.generatedAt || new Date().toISOString());
+      }
+      if (heroCampaignCountEl) {
+        heroCampaignCountEl.textContent = formatHeroCampaignCount(state.campaigns.length, isGuestView);
+      }
+      renderHeroMetrics();
     }
 
     function statusClass(status) {
@@ -959,6 +1359,18 @@
 
     function renderCampaignConnectivity() {
       if (!campaignConnectivityContainer) return;
+      if (campaignConnectivitySection) {
+        if (isGuestView) {
+          campaignConnectivitySection.classList.add('d-none');
+        } else {
+          campaignConnectivitySection.classList.remove('d-none');
+        }
+      }
+      if (isGuestView) {
+        campaignConnectivityContainer.innerHTML = '';
+        campaignConnectivityContainer.classList.remove('connectivity-grid', 'connectivity-empty');
+        return;
+      }
       const campaigns = state.campaigns || [];
       campaignConnectivityContainer.innerHTML = '';
       campaignConnectivityContainer.classList.remove('connectivity-grid', 'connectivity-empty');
@@ -1142,7 +1554,17 @@
         kpiAttendanceTrend.classList.remove('text-success', 'text-danger');
       }
 
-      execTimeframeEl.textContent = state.executive.timeframeLabel || '—';
+      const payPeriod = state.executive.payPeriod;
+      const timeframeLabel = state.executive.timeframeLabel || '—';
+      if (execTimeframeEl) {
+        execTimeframeEl.textContent = payPeriod && payPeriod.badgeLabel ? payPeriod.badgeLabel : timeframeLabel;
+      }
+      if (execPeriodRangeEl) {
+        execPeriodRangeEl.textContent = payPeriod && payPeriod.rangeLabel ? payPeriod.rangeLabel : timeframeLabel;
+      }
+      if (execPayDateEl) {
+        execPayDateEl.textContent = payPeriod && payPeriod.payDateLabel ? 'Pay date ' + payPeriod.payDateLabel : 'Pay date —';
+      }
 
       execCampaignBullets.innerHTML = '';
       const campaigns = state.executive.campaigns || [];
@@ -1466,6 +1888,7 @@
       renderQATable();
       renderQAMetrics();
       renderQaTrendChart();
+      renderHeroMetrics();
     }
 
     function applyAttendanceData(data) {
@@ -1473,6 +1896,7 @@
       state.attendance.history = data.history || {};
       state.attendance.summary = data.summary || {};
       renderAttendanceSection();
+      renderHeroMetrics();
     }
 
     function applyExecutiveData(data) {
@@ -1480,7 +1904,9 @@
       state.executive.campaigns = data.campaigns || [];
       state.executive.brief = data.brief || [];
       state.executive.timeframeLabel = data.timeframeLabel || '';
+      state.executive.payPeriod = data.payPeriod || null;
       renderExecutiveSection();
+      renderHeroMetrics();
     }
 
     function applyChatData(data) {
@@ -1489,6 +1915,287 @@
       state.activePersona = null;
       state.activeThreadId = null;
       refreshChatUI();
+    }
+
+    function applyTeamData(data) {
+      data = data || {};
+      state.teams.overview = data.overview || null;
+      state.teams.managers = Array.isArray(data.managers) ? data.managers : [];
+      state.teams.guests = Array.isArray(data.guests) ? data.guests : [];
+      state.teams.managerTabs = Array.isArray(data.managerTabs) ? data.managerTabs : [];
+      renderTeamTabs();
+    }
+
+    function renderTeamTabs() {
+      if (!teamTabsNav || !teamTabContent) return;
+      const hasManagers = Array.isArray(state.teams.managerTabs) && state.teams.managerTabs.length > 0;
+      const hasDirectory = (state.teams.managers && state.teams.managers.length) || (state.teams.guests && state.teams.guests.length);
+      teamTabsNav.innerHTML = '';
+      if (!hasManagers && !hasDirectory) {
+        teamTabContent.innerHTML = renderTeamEmptyState('No manager or guest collaboration data available yet.');
+        return;
+      }
+
+      const tabs = [
+        { id: 'overview', label: 'Teams', type: 'overview' },
+        { id: 'managers', label: 'Managers', type: 'managers' },
+        { id: 'guests', label: 'Guests', type: 'guests' }
+      ];
+
+      (state.teams.managerTabs || []).forEach(function (entry, index) {
+        const safeId = sanitizeId(entry && entry.managerId ? entry.managerId : ('manager-' + index));
+        tabs.push({ id: safeId || ('manager-' + index), label: entry && entry.name ? entry.name : 'Manager', type: 'manager', data: entry });
+      });
+
+      teamTabContent.innerHTML = '';
+
+      tabs.forEach(function (tab, index) {
+        const navId = 'team-tab-' + tab.id;
+        const paneId = 'team-pane-' + tab.id;
+
+        const li = document.createElement('li');
+        li.className = 'nav-item';
+
+        const button = document.createElement('button');
+        button.className = 'nav-link' + (index === 0 ? ' active' : '');
+        button.id = navId;
+        button.type = 'button';
+        button.role = 'tab';
+        button.setAttribute('data-bs-toggle', 'pill');
+        button.setAttribute('data-bs-target', '#' + paneId);
+        button.textContent = tab.label;
+
+        li.appendChild(button);
+        teamTabsNav.appendChild(li);
+
+        const pane = document.createElement('div');
+        pane.className = 'tab-pane fade' + (index === 0 ? ' show active' : '');
+        pane.id = paneId;
+        pane.role = 'tabpanel';
+        pane.setAttribute('aria-labelledby', navId);
+        pane.innerHTML = renderTeamTabContent(tab);
+        teamTabContent.appendChild(pane);
+      });
+    }
+
+    function renderTeamTabContent(tab) {
+      if (!tab) return renderTeamEmptyState('No data available.');
+      if (tab.type === 'overview') return renderTeamOverviewTab();
+      if (tab.type === 'managers') return renderTeamManagersTab();
+      if (tab.type === 'guests') return renderTeamGuestsTab();
+      if (tab.type === 'manager') return renderManagerTeamTab(tab.data);
+      return renderTeamEmptyState('No data available.');
+    }
+
+    function renderTeamOverviewTab() {
+      const overview = state.teams.overview || {};
+      const managers = state.teams.managers || [];
+      const hasTeams = Array.isArray(state.teams.managerTabs) && state.teams.managerTabs.length > 0;
+      if (!hasTeams && !managers.length) {
+        return renderTeamEmptyState('No manager assignments available yet.');
+      }
+      const metricsHtml = `
+        <div class="team-summary-grid">
+          ${renderTeamMetricCard('Total Teams', formatTeamNumber(overview.totalTeams), 'fa-diagram-project')}
+          ${renderTeamMetricCard('Team Members', formatTeamNumber(overview.totalAgents), 'fa-users')}
+          ${renderTeamMetricCard('Quality Average', formatTeamPercent(overview.qualityAverage), 'fa-star')}
+          ${renderTeamMetricCard('Attendance Average', formatTeamPercent(overview.attendanceAverage), 'fa-calendar-check')}
+          ${renderTeamMetricCard('Call Volume', formatTeamNumber(overview.callVolume), 'fa-phone')}
+          ${renderTeamMetricCard('CSAT Average', formatTeamPercent(overview.csatAverage), 'fa-face-smile')}
+        </div>
+      `;
+      return metricsHtml + renderManagerSummaryTable(managers);
+    }
+
+    function renderTeamManagersTab() {
+      const managers = state.teams.managers || [];
+      if (!managers.length) {
+        return renderTeamEmptyState('No managers currently have assigned team members.');
+      }
+      const intro = '<p class="text-secondary">Managers with assigned collaborators and their aggregated performance.</p>';
+      return intro + renderManagerSummaryTable(managers);
+    }
+
+    function renderTeamGuestsTab() {
+      const guests = state.teams.guests || [];
+      if (!guests.length) {
+        return renderTeamEmptyState('No guest clients have been onboarded yet.');
+      }
+      const rows = guests.map(function (guest) {
+        const name = escapeHtml(guest.name || 'Guest');
+        const email = guest.email ? `<div class="team-member-meta">${escapeHtml(guest.email)}</div>` : '';
+        const campaign = guest.campaignName ? escapeHtml(guest.campaignName) : '—';
+        const roles = Array.isArray(guest.roles) && guest.roles.length ? escapeHtml(guest.roles.join(', ')) : '—';
+        return `
+          <tr>
+            <td>
+              <div class="team-member-name">${name}</div>
+              ${email}
+            </td>
+            <td>${campaign}</td>
+            <td>${roles}</td>
+          </tr>
+        `;
+      }).join('');
+      return `
+        <div class="table-responsive">
+          <table class="table table-hover align-middle team-table">
+            <thead>
+              <tr>
+                <th>Guest</th>
+                <th>Campaign</th>
+                <th>Roles</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    function renderManagerTeamTab(managerTab) {
+      if (!managerTab || !Array.isArray(managerTab.users) || !managerTab.users.length) {
+        return renderTeamEmptyState('This manager does not have any assigned team members yet.');
+      }
+      const summary = managerTab.summary || {};
+      const metricsHtml = `
+        <div class="team-summary-grid">
+          ${renderTeamMetricCard('Team Members', formatTeamNumber(summary.teamSize), 'fa-users')}
+          ${renderTeamMetricCard('Quality Average', formatTeamPercent(summary.qualityAverage), 'fa-star')}
+          ${renderTeamMetricCard('Attendance Average', formatTeamPercent(summary.attendanceAverage), 'fa-calendar-check')}
+          ${renderTeamMetricCard('Call Volume', formatTeamNumber(summary.callVolume), 'fa-phone')}
+          ${renderTeamMetricCard('CSAT Average', formatTeamPercent(summary.csatAverage), 'fa-face-smile')}
+        </div>
+      `;
+      return metricsHtml + renderTeamMembersTable(managerTab.users);
+    }
+
+    function renderManagerSummaryTable(managers) {
+      if (!managers || !managers.length) {
+        return renderTeamEmptyState('No managers currently have assigned teams.');
+      }
+      const rows = managers.map(function (manager) {
+        const name = escapeHtml(manager.name || 'Manager');
+        const email = manager.email ? `<div class="team-member-meta">${escapeHtml(manager.email)}</div>` : '';
+        return `
+          <tr>
+            <td>
+              <div class="team-member-name">${name}</div>
+              ${email}
+            </td>
+            <td>${formatTeamNumber(manager.teamSize)}</td>
+            <td>${formatTeamPercent(manager.qualityAverage)}</td>
+            <td>${formatTeamPercent(manager.attendanceAverage)}</td>
+            <td>${formatTeamNumber(manager.callVolume)}</td>
+            <td>${formatTeamPercent(manager.csatAverage)}</td>
+          </tr>
+        `;
+      }).join('');
+      return `
+        <div class="table-responsive mt-4">
+          <table class="table table-hover align-middle team-table">
+            <thead>
+              <tr>
+                <th>Manager</th>
+                <th>Team Size</th>
+                <th>QA Avg</th>
+                <th>Attendance</th>
+                <th>Call Volume</th>
+                <th>CSAT</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    function renderTeamMembersTable(users) {
+      if (!users || !users.length) {
+        return renderTeamEmptyState('No team members assigned.');
+      }
+      const rows = users.map(function (user) {
+        const name = escapeHtml(user.name || 'Team Member');
+        const email = user.email ? `<div class="team-member-meta">${escapeHtml(user.email)}</div>` : '';
+        const campaign = user.campaignName ? `<div class="team-member-meta">${escapeHtml(user.campaignName)}</div>` : '';
+        return `
+          <tr>
+            <td>
+              <div class="team-member-name">${name}</div>
+              ${email}
+              ${campaign}
+            </td>
+            <td>${formatTeamPercent(user.quality)}</td>
+            <td>${formatTeamPercent(user.attendance)}</td>
+            <td>${formatTeamNumber(user.callCount)}</td>
+            <td>${formatTeamPercent(user.csat)}</td>
+          </tr>
+        `;
+      }).join('');
+      return `
+        <div class="table-responsive mt-4">
+          <table class="table table-hover align-middle team-table">
+            <thead>
+              <tr>
+                <th>Team Member</th>
+                <th>Quality</th>
+                <th>Attendance</th>
+                <th>Call Count</th>
+                <th>CSAT</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    function renderTeamMetricCard(label, value, icon, caption) {
+      return `
+        <div class="team-metric-card">
+          <div class="label"><i class="fas ${escapeHtml(icon)} me-2"></i>${escapeHtml(label)}</div>
+          <div class="value">${value}</div>
+          ${caption ? `<div class="caption">${escapeHtml(caption)}</div>` : ''}
+        </div>
+      `;
+    }
+
+    function formatTeamNumber(value, decimals) {
+      if (value === null || value === undefined || value === '') return '—';
+      const num = Number(value);
+      if (Number.isNaN(num)) return '—';
+      return formatNumber(num, decimals != null ? decimals : 0);
+    }
+
+    function formatTeamPercent(value) {
+      if (value === null || value === undefined || value === '') return '—';
+      const num = Number(value);
+      if (Number.isNaN(num)) return '—';
+      return formatPercent(num, 1);
+    }
+
+    function renderTeamEmptyState(message) {
+      return '<div class="text-secondary text-center py-4">' + escapeHtml(message || 'No data available.') + '</div>';
+    }
+
+    function sanitizeId(value) {
+      const text = value === null || value === undefined ? '' : String(value).toLowerCase();
+      const cleaned = text.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+      return cleaned || 'team';
+    }
+
+    function escapeHtml(value) {
+      if (value === null || value === undefined) return '';
+      return String(value).replace(/[&<>"']/g, function (ch) {
+        switch (ch) {
+          case '&': return '&amp;';
+          case '<': return '&lt;';
+          case '>': return '&gt;';
+          case '"': return '&quot;';
+          case "'": return '&#39;';
+          default: return ch;
+        }
+      });
     }
 
     function loadCollaborationData(force) {
@@ -1504,18 +2211,23 @@
         campaignConnectivityContainer.classList.remove('connectivity-grid', 'connectivity-empty');
         campaignConnectivityContainer.innerHTML = loadingMessage;
       }
+      if (teamTabsNav) teamTabsNav.innerHTML = '';
+      if (teamTabContent) teamTabContent.innerHTML = loadingMessage;
 
       google.script.run
         .withSuccessHandler(function (response) {
           state.isLoading = false;
           response = response || {};
           state.campaigns = Array.isArray(response.campaigns) ? response.campaigns : [];
+          updateHeroFromResponse(response);
           renderCampaignConnectivity();
           if (response.qa) applyQaData(response.qa);
           if (response.attendance) applyAttendanceData(response.attendance);
           if (response.executive) applyExecutiveData(response.executive);
           if (response.chat) applyChatData(response.chat);
+          if (response.teams) applyTeamData(response.teams);
           renderQADirectory();
+          renderHeroMetrics();
         })
         .withFailureHandler(function (err) {
           state.isLoading = false;
