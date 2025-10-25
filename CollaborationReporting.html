@@ -9,1156 +9,964 @@
 }) ?>
 
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIpp0hKBR6hO2l4QmF0k0s1Xv1JQnF6YJ7N2drF6wW5w==" crossorigin="anonymous" referrerpolicy="no-referrer" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Sora:wght@500;600;700&display=swap" rel="stylesheet">
 
 <style>
   :root {
-    --collab-bg: linear-gradient(180deg, #f8faff 0%, #eef2ff 35%, #f8fafc 100%);
-    --collab-surface: #ffffff;
-    --collab-surface-soft: #f3f6ff;
-    --collab-surface-muted: #eef2ff;
-    --collab-border: rgba(148, 163, 184, 0.18);
-    --collab-border-strong: rgba(99, 102, 241, 0.28);
-    --collab-shadow: 0 28px 60px rgba(15, 23, 42, 0.08);
-    --collab-shadow-soft: 0 18px 45px rgba(15, 23, 42, 0.06);
-    --collab-radius-lg: 1.6rem;
-    --collab-radius-md: 1.1rem;
-    --collab-radius-sm: 0.85rem;
-    --collab-text: #0f172a;
-    --collab-text-muted: #64748b;
-    --collab-text-subtle: #94a3b8;
-    --collab-accent: #1d4ed8;
-    --collab-accent-soft: rgba(37, 99, 235, 0.12);
-    --collab-accent-strong: #2563eb;
-    --collab-success: #0ea5e9;
-    --collab-warning: #f59e0b;
-    --collab-danger: #ef4444;
-    --collab-spacing: clamp(1.5rem, 2.2vw, 2.75rem);
+    --page-background: #f5f7ff;
+    --page-gradient: linear-gradient(180deg, #f7f9ff 0%, #ffffff 65%);
+    --surface-card: #ffffff;
+    --surface-soft: #f1f5ff;
+    --surface-muted: #eef2fb;
+    --surface-pill: #ecf2ff;
+    --border-soft: #d8e3ff;
+    --border-strong: #b9cdf6;
+    --shadow-sm: 0 12px 24px rgba(15, 23, 42, 0.05);
+    --shadow-md: 0 20px 45px rgba(15, 23, 42, 0.08);
+    --shadow-lg: 0 32px 60px rgba(15, 23, 42, 0.12);
+    --text-primary: #1f2937;
+    --text-secondary: #4b5565;
+    --text-muted: #7b8ba6;
+    --accent-primary: #2563eb;
+    --accent-secondary: #0ea5e9;
+    --accent-success: #059669;
+    --accent-warning: #d97706;
+    --accent-danger: #dc2626;
+    --radius-xl: 28px;
+    --radius-lg: 20px;
+    --radius-md: 16px;
+    --radius-sm: 12px;
   }
 
   body {
-    background: var(--collab-bg);
-    font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
-    color: var(--collab-text);
+    min-height: 100vh;
+    background: var(--page-gradient);
+    color: var(--text-primary);
+    font-family: 'Plus Jakarta Sans', 'Inter', system-ui, -apple-system, sans-serif;
+    padding-bottom: 6rem;
   }
 
-  .collab-wrapper {
-    max-width: 1600px;
+  body::before {
+    content: none;
+  }
+
+  .collab-galaxy {
+    position: relative;
+    max-width: 1360px;
     margin: 0 auto;
-    padding: 2.75rem 2rem 6rem;
-  }
-
-  .collab-shell {
+    padding: clamp(2.5rem, 5vw, 4rem) clamp(1.5rem, 4vw, 3rem) clamp(4rem, 6vw, 5rem);
     display: flex;
     flex-direction: column;
-    gap: 3rem;
+    gap: clamp(2rem, 4vw, 3rem);
   }
 
-  .collab-section {
+  .alert-stack {
     display: grid;
-    gap: 2.4rem;
+    gap: 0.75rem;
   }
 
-  .collab-section.collab-section-grid {
-    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-    align-items: stretch;
+  .alert-stack .alert {
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-soft);
+    background: var(--surface-card);
+    color: var(--text-primary);
+    box-shadow: var(--shadow-sm);
   }
 
-  .collab-section + .collab-section {
-    margin-top: 0.5rem;
+  .observatory {
+    border-radius: var(--radius-xl);
+    background: var(--surface-card);
+    border: 1px solid var(--border-soft);
+    box-shadow: var(--shadow-md);
+    padding: clamp(2.3rem, 4vw, 3.2rem);
   }
 
-  .collab-topline {
+  .observatory__grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+    gap: clamp(1.6rem, 4vw, 3rem);
+    align-items: center;
+  }
+
+  .observatory__primary {
     display: grid;
     gap: 1.2rem;
-    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
   }
 
-  .summary-card {
-    position: relative;
-    border-radius: var(--collab-radius-md);
-    border: 1px solid var(--collab-border);
-    background: var(--collab-surface);
-    box-shadow: var(--collab-shadow-soft);
-    padding: 1.5rem 1.7rem;
-    overflow: hidden;
-  }
-
-  .summary-card::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: var(--summary-accent, linear-gradient(135deg, rgba(37, 99, 235, 0.35), rgba(14, 165, 233, 0.35)));
-    opacity: 0.12;
-    pointer-events: none;
-  }
-
-  .summary-card .summary-icon {
-    position: relative;
-    z-index: 1;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 44px;
-    height: 44px;
-    border-radius: 12px;
-    background: rgba(37, 99, 235, 0.12);
-    color: var(--collab-accent-strong);
-    font-size: 1.1rem;
-    margin-bottom: 1rem;
-  }
-
-  .summary-card .summary-label {
-    position: relative;
-    z-index: 1;
-    font-size: 0.85rem;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--collab-text-muted);
-    margin-bottom: 0.25rem;
-  }
-
-  .summary-card .summary-value {
-    position: relative;
-    z-index: 1;
-    font-size: clamp(1.8rem, 3vw, 2.8rem);
-    font-weight: 700;
-    color: var(--collab-text);
-  }
-
-  .summary-card .summary-trend {
-    position: relative;
-    z-index: 1;
-    margin-top: 0.35rem;
-    font-size: 0.9rem;
-    color: var(--collab-text-muted);
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-  }
-
-  .summary-card.is-quality {
-    --summary-accent: linear-gradient(135deg, rgba(37, 99, 235, 0.45), rgba(56, 189, 248, 0.45));
-  }
-
-  .summary-card.is-attendance {
-    --summary-accent: linear-gradient(135deg, rgba(16, 185, 129, 0.45), rgba(59, 130, 246, 0.4));
-  }
-
-  .summary-card.is-threads {
-    --summary-accent: linear-gradient(135deg, rgba(168, 85, 247, 0.4), rgba(244, 114, 182, 0.45));
-  }
-
-  .summary-card.is-actions {
-    --summary-accent: linear-gradient(135deg, rgba(245, 158, 11, 0.4), rgba(59, 130, 246, 0.35));
-  }
-
-  .summary-card.is-attendance .summary-icon {
-    background: rgba(16, 185, 129, 0.18);
-    color: #0f766e;
-  }
-
-  .summary-card.is-threads .summary-icon {
-    background: rgba(168, 85, 247, 0.18);
-    color: #7c3aed;
-  }
-
-  .summary-card.is-actions .summary-icon {
-    background: rgba(245, 158, 11, 0.2);
-    color: #b45309;
-  }
-
-  .collab-alerts {
-    margin-bottom: 1rem;
-  }
-
-  #collabAlerts > .alert {
-    border-radius: var(--collab-radius-sm);
-    border: 1px solid rgba(148, 163, 184, 0.24);
-    background: #ffffff;
-    color: var(--collab-text);
-    box-shadow: var(--collab-shadow-soft);
-  }
-
-  .section-card {
-    border-radius: var(--collab-radius-lg);
-    border: 1px solid var(--collab-border);
-    box-shadow: var(--collab-shadow);
-    background: var(--collab-surface);
-    overflow: hidden;
-  }
-
-  .section-card .card-header {
-    background: linear-gradient(135deg, rgba(15, 23, 42, 0.04), rgba(37, 99, 235, 0.1));
-    color: var(--collab-text);
-    padding: 1.85rem 2.1rem 1.6rem;
-    border-bottom: 1px solid rgba(148, 163, 184, 0.16);
-  }
-
-  .section-card .card-header h2 {
-    font-weight: 700;
-    margin-bottom: 0.45rem;
-    letter-spacing: -0.01em;
-    color: var(--collab-text);
-  }
-
-  .section-card .card-header p {
-    margin: 0;
-    color: var(--collab-text-muted);
-  }
-
-  .section-card .card-body {
-    padding: 2rem 2.1rem 2.4rem;
-  }
-
-  .insight-pill {
+  .observatory__eyebrow {
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
-    background: var(--collab-accent-soft);
-    color: var(--collab-accent-strong);
+    padding: 0.45rem 1.2rem;
     border-radius: 999px;
-    padding: 0.45rem 1rem;
+    border: 1px solid var(--border-soft);
+    background: var(--surface-pill);
+    color: var(--accent-primary);
+    font-size: 0.75rem;
     font-weight: 600;
-    font-size: 0.8rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .observatory__title {
+    font-family: 'Sora', 'Plus Jakarta Sans', sans-serif;
+    font-weight: 600;
+    font-size: clamp(2.2rem, 5vw, 3.4rem);
+    letter-spacing: -0.01em;
+    margin: 0;
+  }
+
+  .observatory__lead {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 1.05rem;
+    max-width: 640px;
+    line-height: 1.6;
+  }
+
+  .observatory__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+  }
+
+  .hero-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.55rem 1rem;
+    border-radius: 999px;
+    border: 1px solid var(--border-soft);
+    background: var(--surface-soft);
+    color: var(--accent-primary);
+    font-size: 0.85rem;
+    font-weight: 500;
+  }
+
+  .hero-chip i {
+    color: var(--accent-secondary);
+  }
+
+  .observatory__metrics {
+    width: 100%;
+  }
+
+  .summary-tiles {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: clamp(1rem, 2.5vw, 1.6rem);
+  }
+
+  .summary-tile {
+    position: relative;
+    border-radius: var(--radius-lg);
+    padding: 1.6rem 1.8rem;
+    background: var(--surface-card);
+    border: 1px solid var(--border-soft);
+    box-shadow: var(--shadow-sm);
+    display: grid;
+    gap: 0.55rem;
+    overflow: hidden;
+  }
+
+  .summary-tile::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at 80% 20%, rgba(37, 99, 235, 0.12), transparent 60%);
+    pointer-events: none;
+  }
+
+  .summary-tile .tile-icon {
+    position: relative;
+    z-index: 1;
+    width: 48px;
+    height: 48px;
+    border-radius: 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--surface-soft);
+    color: var(--accent-secondary);
+    font-size: 1.25rem;
+  }
+
+  .summary-tile .tile-label {
+    position: relative;
+    z-index: 1;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    font-weight: 600;
+  }
+
+  .summary-tile .tile-value {
+    position: relative;
+    z-index: 1;
+    font-size: clamp(1.9rem, 4vw, 2.6rem);
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .summary-tile .tile-subtext {
+    position: relative;
+    z-index: 1;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+  }
+
+  .module.panel {
+    border-radius: var(--radius-xl);
+    background: var(--surface-card);
+    border: 1px solid var(--border-soft);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+  }
+
+  .panel-header {
+    padding: clamp(1.6rem, 3vw, 2.2rem) clamp(1.6rem, 3vw, 2.4rem);
+    background: linear-gradient(180deg, #ffffff 0%, #f0f4ff 100%);
+    border-bottom: 1px solid var(--border-soft);
+  }
+
+  .panel-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.4rem 1.05rem;
+    border-radius: 999px;
+    background: var(--surface-pill);
+    color: var(--accent-primary);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .panel-header h2 {
+    margin: 1.1rem 0 0.5rem;
+    font-family: 'Sora', 'Plus Jakarta Sans', sans-serif;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  .panel-header p {
+    margin: 0;
+    color: var(--text-secondary);
+    max-width: 720px;
+  }
+
+  .panel-body {
+    padding: clamp(1.7rem, 3vw, 2.3rem);
+    display: grid;
+    gap: clamp(1.4rem, 3vw, 2rem);
+    background: var(--surface-card);
+  }
+
+  .module-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: clamp(1.4rem, 3vw, 2rem);
+  }
+
+  .ai-suite .panel-body {
+    gap: clamp(1.2rem, 3vw, 1.8rem);
+  }
+
+  .ai-summary {
+    border-radius: var(--radius-lg);
+    background: var(--surface-soft);
+    border: 1px solid var(--border-soft);
+    padding: clamp(1.4rem, 3vw, 1.8rem);
+  }
+
+  .ai-summary h3 {
+    margin-bottom: 0.6rem;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--accent-primary);
+  }
+
+  .ai-summary p {
+    margin: 0;
+    color: var(--text-secondary);
+    line-height: 1.6;
+  }
+
+  .ai-streams {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: clamp(1rem, 2.5vw, 1.5rem);
+  }
+
+  .ai-block {
+    border-radius: var(--radius-md);
+    background: var(--surface-card);
+    border: 1px solid var(--border-soft);
+    padding: 1.4rem 1.6rem;
+    box-shadow: var(--shadow-sm);
+  }
+
+  .ai-block h3 {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 0.75rem;
+  }
+
+  .ai-block ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    gap: 0.6rem;
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+  }
+
+  .ai-block li i {
+    color: var(--accent-secondary);
+    margin-right: 0.35rem;
+  }
+
+  .metric-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1rem;
+  }
+
+  .metric-card {
+    border-radius: var(--radius-md);
+    background: var(--surface-card);
+    border: 1px solid var(--border-soft);
+    padding: 1.2rem 1.35rem;
+    box-shadow: var(--shadow-sm);
+    display: grid;
+    gap: 0.45rem;
+  }
+
+  .metric-card .metric-label {
     text-transform: uppercase;
     letter-spacing: 0.08em;
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    font-weight: 600;
   }
 
-  .muted-label {
-    font-size: 0.9rem;
-    color: var(--collab-text-muted);
+  .metric-card .metric-value {
+    font-size: 1.7rem;
+    font-weight: 600;
+    color: var(--text-primary);
   }
 
-  .qa-grid {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 2.4rem;
+  .metric-card .metric-note {
+    font-size: 0.86rem;
+    color: var(--text-secondary);
   }
 
-  @media (min-width: 1200px) {
-    .qa-grid {
-      grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.85fr);
-      align-items: start;
-    }
+  .metric-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.35rem 0.8rem;
+    border-radius: 999px;
+    background: rgba(37, 99, 235, 0.12);
+    color: var(--accent-primary);
+    font-size: 0.78rem;
+    font-weight: 600;
   }
 
-  .qa-metrics-group {
-    display: grid;
-    gap: 1.5rem;
+  .metric-badge.bg-success {
+    background: rgba(5, 150, 105, 0.12) !important;
+    color: var(--accent-success) !important;
   }
 
-  .qa-metrics-group .qa-metric-card {
-    margin-bottom: 0;
+  .metric-badge.bg-danger {
+    background: rgba(220, 38, 38, 0.12) !important;
+    color: var(--accent-danger) !important;
   }
 
-  .qa-insight-pair {
-    display: grid;
-    gap: 1.5rem;
+  .chart-shell {
+    border-radius: var(--radius-md);
+    background: var(--surface-soft);
+    border: 1px solid var(--border-soft);
+    padding: 1.5rem;
+    box-shadow: var(--shadow-sm);
   }
 
-  @media (min-width: 768px) {
-    .qa-insight-pair {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
+  .chart-title {
+    font-size: 1.05rem;
+    font-weight: 600;
+    margin-bottom: 0.4rem;
   }
 
-  .kpi-mini-grid {
-    display: grid;
-    gap: 1.2rem;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  .chart-empty {
+    border-radius: var(--radius-sm);
+    background: var(--surface-muted);
+    padding: 2rem 1rem;
+    color: var(--text-muted);
+    margin-top: 1rem;
+    text-align: center;
   }
 
   .qa-form {
-    background: var(--collab-surface-soft);
-    border: 1px solid var(--collab-border);
-    border-radius: var(--collab-radius-md);
-    padding: 1.6rem;
-    box-shadow: var(--collab-shadow-soft);
-  }
-
-  .qa-form .form-section-label {
-    display: block;
-    font-size: 0.78rem;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--collab-text-muted);
-    margin-bottom: 0.65rem;
+    border-radius: var(--radius-md);
+    background: var(--surface-card);
+    border: 1px solid var(--border-soft);
+    padding: clamp(1.6rem, 3vw, 2rem);
+    box-shadow: var(--shadow-sm);
   }
 
   .qa-form label {
     font-weight: 600;
-    color: var(--collab-text);
+    color: var(--text-secondary);
+  }
+
+  .qa-form .form-section-label {
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    font-size: 0.74rem;
   }
 
   .qa-form .form-control,
   .qa-form .form-select {
-    border-radius: var(--collab-radius-sm);
-    border: 1px solid rgba(148, 163, 184, 0.3);
-    padding: 0.75rem 1rem;
-    font-size: 0.95rem;
-    box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.04);
+    background: #ffffff;
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
   }
 
-  .qa-form textarea.form-control {
-    min-height: 110px;
+  .qa-form .form-control:focus,
+  .qa-form .form-select:focus {
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 0.2rem rgba(37, 99, 235, 0.16);
   }
 
   .qa-form .btn-primary {
     border-radius: 999px;
-    padding: 0.85rem 1.8rem;
-    background: linear-gradient(135deg, var(--collab-accent-strong) 0%, var(--collab-success) 100%);
+    background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
     border: none;
+    box-shadow: 0 12px 24px rgba(14, 165, 233, 0.25);
     font-weight: 600;
-    box-shadow: 0 12px 28px rgba(37, 99, 235, 0.25);
+    padding: 0.85rem 2.1rem;
   }
 
   .qa-form .btn-outline-secondary {
     border-radius: 999px;
-    padding: 0.85rem 1.6rem;
-    border: 1px solid rgba(148, 163, 184, 0.5);
+    border: 1px solid var(--border-soft);
+    color: var(--text-secondary);
+    padding: 0.85rem 1.8rem;
   }
 
-  .qa-metric-card {
-    background: var(--collab-surface);
-    border: 1px solid var(--collab-border);
-    border-radius: var(--collab-radius-md);
-    padding: 1.45rem 1.6rem;
-    margin-bottom: 1.2rem;
-    box-shadow: var(--collab-shadow-soft);
-  }
-
-  .qa-metric-card .value {
-    font-size: 2.1rem;
-    font-weight: 700;
-    color: var(--collab-accent-strong);
-  }
-
-  .qa-metric-card .label {
-    font-size: 0.85rem;
-    color: var(--collab-text-muted);
+  .qa-table thead th {
+    border: none;
     text-transform: uppercase;
     letter-spacing: 0.08em;
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    background: var(--surface-soft);
   }
 
-  .qa-table thead {
-    background: var(--collab-surface-soft);
-    color: var(--collab-text);
+  .qa-table tbody tr {
+    background: var(--surface-card);
   }
 
-  .qa-table tbody tr td {
-    vertical-align: middle;
+  .qa-table tbody tr + tr td {
+    border-top: 1px solid var(--border-soft);
   }
 
-  .qa-table .collaborator {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    padding: 0.25rem 0.6rem;
-    border-radius: 999px;
-    font-size: 0.75rem;
-    background: rgba(37, 99, 235, 0.12);
-    color: var(--collab-accent-strong);
-    margin-right: 0.25rem;
-  }
-
-  .qa-table .status-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.3rem;
-    border-radius: 999px;
-    padding: 0.4rem 0.85rem;
-    font-size: 0.75rem;
-    font-weight: 600;
-  }
-
-  .status-published {
-    background: rgba(14, 165, 233, 0.18);
-    color: #0c4a6e;
-  }
-
-  .status-draft {
-    background: rgba(245, 158, 11, 0.2);
-    color: #b45309;
-  }
-
-  .status-followup {
-    background: rgba(239, 68, 68, 0.18);
-    color: #b91c1c;
-  }
-
-  .attendance-grid {
+  .attendance-metrics {
     display: grid;
-    grid-template-columns: minmax(380px, 1.3fr) minmax(280px, 1fr);
-    gap: 2rem;
+    gap: 1rem;
   }
 
-  @media (max-width: 1200px) {
-    .attendance-grid {
-      grid-template-columns: 1fr;
-    }
+  .attendance-metrics .metric-card {
+    background: var(--surface-card);
   }
 
-  .attendance-table tbody tr td {
-    vertical-align: middle;
+  .attendance-table thead th {
+    border: none;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    background: var(--surface-soft);
+  }
+
+  .attendance-table tbody tr {
+    background: var(--surface-card);
+  }
+
+  .progress {
+    background-color: var(--surface-muted);
+    border-radius: 999px;
   }
 
   .progress-bar {
     border-radius: 999px;
+    background-color: var(--accent-primary);
   }
 
-  .exec-kpi-card {
-    background: var(--collab-surface);
-    border-radius: var(--collab-radius-md);
-    padding: 1.6rem 1.8rem;
-    border: 1px solid rgba(148, 163, 184, 0.25);
-    box-shadow: var(--collab-shadow-soft);
-    height: 100%;
-  }
-
-  .exec-kpi-card h3 {
-    font-size: 1.15rem;
-    font-weight: 700;
-    margin-bottom: 0.6rem;
-  }
-
-  .exec-kpi-card .headline {
-    font-size: 2rem;
-    font-weight: 700;
-    color: var(--collab-text);
-  }
-
-  .exec-kpi-card small {
-    color: var(--collab-text-muted);
-  }
-
-  .persona-chip {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    border-radius: 999px;
-    padding: 0.65rem 1.05rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    border: 1px solid transparent;
-    color: var(--collab-text);
-    background: rgba(148, 163, 184, 0.12);
-  }
-
-  .persona-chip.active {
-    background: linear-gradient(135deg, var(--collab-accent-strong) 0%, var(--collab-success) 100%);
-    color: #ffffff;
-    border-color: rgba(255, 255, 255, 0.35);
-    box-shadow: 0 12px 28px rgba(37, 99, 235, 0.25);
-  }
-
-  .thread-card {
-    border-radius: var(--collab-radius-sm);
-    padding: 1rem 1.1rem;
-    border: 1px solid rgba(148, 163, 184, 0.24);
-    background: rgba(255, 255, 255, 0.9);
-    margin-bottom: 0.85rem;
-    cursor: pointer;
-    transition: transform 0.18s ease, box-shadow 0.18s ease;
-  }
-
-  .thread-card:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 18px 40px rgba(15, 23, 42, 0.12);
-  }
-
-  .thread-card.active {
-    border-color: rgba(37, 99, 235, 0.6);
-    box-shadow: 0 22px 45px rgba(37, 99, 235, 0.18);
-  }
-
-  .thread-card .title {
-    font-weight: 600;
-    color: var(--collab-text);
-  }
-
-  .thread-meta {
-    font-size: 0.75rem;
-    color: var(--collab-text-subtle);
-    display: flex;
-    align-items: center;
-    gap: 0.6rem;
-  }
-
-  .chat-stream {
-    background: var(--collab-surface-soft);
-    border-radius: var(--collab-radius-md);
-    padding: 1.25rem 1.45rem;
-    border: 1px solid rgba(148, 163, 184, 0.18);
-    flex: 1 1 auto;
-    overflow-y: auto;
-    min-height: 280px;
-  }
-
-  .chat-message {
-    margin-bottom: 1rem;
-    display: flex;
-    gap: 0.9rem;
-  }
-
-  .chat-message .avatar {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, var(--collab-accent-strong) 0%, var(--collab-success) 100%);
-    color: #ffffff;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 600;
-  }
-
-  .chat-message .bubble {
-    background: #ffffff;
-    border-radius: 1rem;
-    padding: 0.85rem 1rem;
-    box-shadow: 0 12px 32px rgba(15, 23, 42, 0.1);
-    flex: 1;
-  }
-
-  .chat-message .bubble .author {
-    font-weight: 600;
-    color: var(--collab-text);
-  }
-
-  .chat-message .bubble .timestamp {
-    font-size: 0.75rem;
-    color: var(--collab-text-subtle);
-  }
-
-  .chat-message .bubble .tags {
-    margin-top: 0.5rem;
-  }
-
-  .chat-tag {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.3rem;
-    padding: 0.25rem 0.6rem;
-    border-radius: 999px;
-    background: rgba(148, 163, 184, 0.18);
-    color: var(--collab-text-muted);
-    font-size: 0.7rem;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
-
-  .chat-thread-list {
-    border-radius: var(--collab-radius-md);
-    border: 1px solid rgba(148, 163, 184, 0.18);
-    background: rgba(255, 255, 255, 0.92);
-    padding: 1rem 1.1rem;
-    overflow-y: auto;
-    flex: 1 1 auto;
-    min-height: 280px;
-  }
-
-  .chat-popup-grid {
-    display: grid;
-    grid-template-columns: 0.9fr 1fr 1.4fr;
-    gap: 1.2rem;
-    height: 100%;
-  }
-
-  .chat-popup-column {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-  }
-
-  .chat-popup-column.personas #chatPersonaFilters {
-    flex: 1 1 auto;
-    overflow-y: auto;
-    background: rgba(255, 255, 255, 0.92);
-    border-radius: var(--collab-radius-md);
-    border: 1px solid rgba(148, 163, 184, 0.18);
-    padding: 1rem 1.1rem;
-  }
-
-  .chat-popup-column.threads .chat-thread-list {
-    flex: 1 1 auto;
-  }
-
-  .chat-popup-column.conversation {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-  }
-
-  .chat-popup-column.conversation .chat-stream {
-    margin-bottom: 0;
-  }
-
-  .chat-popup-column.conversation .chat-composer {
-    margin-top: auto;
-  }
-
-  .connectivity-container {
-    display: grid;
-    gap: 1rem;
-  }
-
-  .connectivity-grid {
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  }
-
-  .connectivity-card {
-    border-radius: var(--collab-radius-md);
-    border: 1px solid var(--collab-border);
-    background: var(--collab-surface);
-    padding: 1.2rem 1.4rem;
-    box-shadow: var(--collab-shadow-soft);
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-  }
-
-  .connectivity-card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 26px 45px rgba(15, 23, 42, 0.14);
-  }
-
-  .connectivity-actions {
+  .floating-docks {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.45rem;
+    gap: 1.4rem;
+    justify-content: flex-end;
   }
 
-  .connectivity-actions .btn {
-    border-radius: 999px;
-    font-weight: 600;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    border: none;
-    background: rgba(37, 99, 235, 0.12);
-    color: var(--collab-accent-strong);
-    padding: 0.45rem 1.1rem;
-    transition: background 0.2s ease, transform 0.2s ease;
+  .floating-bar {
+    flex: 1 1 360px;
+    max-width: 520px;
+    transition: transform 0.35s ease, opacity 0.35s ease;
   }
 
-  .connectivity-actions .btn:hover {
-    background: rgba(37, 99, 235, 0.2);
-    transform: translateY(-1px);
+  .floating-bar.is-hidden {
+    display: none !important;
   }
 
-  .connectivity-empty {
-    border-radius: var(--collab-radius-md);
-    background: rgba(148, 163, 184, 0.12);
-    padding: 1.6rem;
-  }
-
-  .team-nav {
-    gap: 0.6rem;
-  }
-
-  .team-nav .nav-link {
-    border-radius: 999px;
-    font-weight: 600;
-    color: var(--collab-accent-strong);
-    background: rgba(37, 99, 235, 0.1);
-    border: none;
-    padding: 0.55rem 1.25rem;
-    transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
-  }
-
-  .team-nav .nav-link:hover {
-    color: #1e40af;
-    background: rgba(37, 99, 235, 0.18);
-    transform: translateY(-1px);
-  }
-
-  .team-nav .nav-link.active {
-    background: linear-gradient(135deg, var(--collab-accent-strong) 0%, var(--collab-success) 100%);
-    color: #ffffff;
-  }
-
-  .kpi-trend-card {
-    border-radius: var(--collab-radius-md);
-    border: 1px solid var(--collab-border);
-    background: var(--collab-surface-soft);
-    padding: 1.5rem 1.7rem;
-    box-shadow: var(--collab-shadow-soft);
-  }
-
-  .kpi-bullet {
+  .floating-toggle {
+    width: 100%;
     display: flex;
-    align-items: center;
-    gap: 0.6rem;
-    font-size: 0.85rem;
-    color: var(--collab-text-muted);
-    margin-bottom: 0.35rem;
-  }
-
-  .kpi-dot {
-    width: 10px;
-    height: 10px;
-    border-radius: 999px;
-    background: var(--collab-accent-strong);
-    display: inline-block;
-  }
-
-  .team-summary-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: 1.2rem;
-  }
-
-  .team-metric-card {
-    border-radius: var(--collab-radius-sm);
-    background: rgba(37, 99, 235, 0.08);
-    padding: 1.15rem 1.3rem;
-    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
-  }
-
-  .team-metric-card .label {
-    font-size: 0.8rem;
-    text-transform: uppercase;
-    color: var(--collab-text-muted);
-    letter-spacing: 0.06em;
-    margin-bottom: 0.25rem;
-  }
-
-  .team-metric-card .value {
-    font-size: 1.75rem;
-    font-weight: 700;
-    color: var(--collab-accent-strong);
-  }
-
-  .team-metric-card .caption {
-    font-size: 0.75rem;
-    color: var(--collab-text-subtle);
-  }
-
-  .team-table th {
-    text-transform: uppercase;
-    font-size: 0.75rem;
-    letter-spacing: 0.04em;
-    color: var(--collab-text-muted);
-    border: none;
-  }
-
-  .team-table td {
-    vertical-align: middle;
-  }
-
-  .team-member-name {
-    font-weight: 600;
-    color: var(--collab-text);
-  }
-
-  .team-member-meta {
-    font-size: 0.75rem;
-    color: var(--collab-text-subtle);
-  }
-
-  .team-pagination-bar {
-    margin-top: 1rem;
-    border-radius: var(--collab-radius-sm);
-    border: 1px solid var(--collab-border);
-    background: var(--collab-surface);
-    padding: 0.75rem 1rem;
-    box-shadow: var(--collab-shadow-soft);
-  }
-
-  .team-pagination-bar .btn {
-    min-width: 2.5rem;
-  }
-
-  .team-pagination-bar .btn i {
-    pointer-events: none;
-  }
-
-  .floating-launchers {
-    position: fixed;
-    bottom: 2rem;
-    right: 2rem;
-    display: flex;
-    flex-direction: column;
-    gap: 1.2rem;
-    align-items: flex-end;
-    z-index: 1040;
-  }
-
-  .floating-campaign-bar {
-    position: relative;
-    width: min(420px, calc(100vw - 4rem));
-    display: flex;
-    flex-direction: column;
-    gap: 0.8rem;
-    transition: opacity 0.3s ease, transform 0.3s ease;
-  }
-
-  .floating-campaign-bar.is-hidden {
-    display: none;
-  }
-
-  .floating-campaign-bar .floating-toggle {
-    display: inline-flex;
     align-items: center;
     justify-content: space-between;
-    gap: 0.9rem;
+    gap: 1rem;
     border-radius: 999px;
-    padding: 0.8rem 1.3rem;
-    background: rgba(15, 23, 42, 0.82);
-    color: #fff;
-    border: none;
+    padding: 1rem 1.4rem;
+    border: 1px solid var(--border-soft);
+    background: var(--surface-card);
+    color: var(--text-primary);
     font-weight: 600;
-    box-shadow: 0 20px 45px rgba(15, 23, 42, 0.3);
-    cursor: pointer;
+    box-shadow: var(--shadow-sm);
   }
 
-  .floating-campaign-bar .floating-toggle .toggle-icon {
+  .floating-toggle .toggle-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    background: var(--surface-soft);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--accent-secondary);
+  }
+
+  .floating-toggle .toggle-caret {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     width: 36px;
     height: 36px;
     border-radius: 50%;
-    background: rgba(255, 255, 255, 0.14);
+    background: var(--surface-soft);
+    color: var(--accent-primary);
   }
 
-  .floating-campaign-bar .floating-toggle .toggle-caret {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 28px;
-    height: 28px;
-    border-radius: 50%;
-    background: rgba(255, 255, 255, 0.18);
-  }
-
-  .floating-campaign-bar .floating-panel {
-    background: var(--collab-surface);
-    border-radius: var(--collab-radius-lg);
-    border: 1px solid var(--collab-border);
-    box-shadow: var(--collab-shadow);
+  .floating-panel {
+    margin-top: 0.9rem;
+    border-radius: var(--radius-lg);
+    background: var(--surface-card);
+    border: 1px solid var(--border-soft);
+    box-shadow: var(--shadow-lg);
     overflow: hidden;
-    transition: max-height 0.35s ease, opacity 0.35s ease, transform 0.35s ease;
-    max-height: 540px;
+    transition: max-height 0.35s ease, opacity 0.35s ease;
   }
 
-  .floating-campaign-bar.collapsed .floating-panel {
+  .floating-panel.collapsed,
+  .floating-bar.collapsed .floating-panel {
     max-height: 0;
     opacity: 0;
-    transform: translateY(12px);
     pointer-events: none;
   }
 
   .floating-panel-header {
-    padding: 1.5rem 1.5rem 0.5rem;
-  }
-
-  .floating-panel-header h3 {
-    font-size: 1.1rem;
-    margin-top: 1rem;
-    margin-bottom: 0.35rem;
-  }
-
-  .floating-panel-header p {
-    margin-bottom: 0;
-    color: var(--collab-text-muted);
-    font-size: 0.95rem;
+    padding: 1.6rem 1.8rem 1.2rem;
+    border-bottom: 1px solid var(--border-soft);
+    background: linear-gradient(180deg, #ffffff 0%, #f0f4ff 100%);
   }
 
   .floating-panel-body {
-    padding: 0 1.5rem 1.5rem;
-    max-height: 340px;
+    padding: 1.8rem;
+    max-height: 540px;
+    overflow: hidden;
+  }
+
+  .floating-panel-body:hover {
     overflow-y: auto;
   }
 
   .floating-panel-body::-webkit-scrollbar {
-    width: 6px;
+    width: 8px;
   }
 
   .floating-panel-body::-webkit-scrollbar-thumb {
-    background: rgba(148, 163, 184, 0.45);
+    background: var(--border-soft);
     border-radius: 999px;
   }
 
-  .floating-campaign-bar .connectivity-card {
-    border: 1px solid rgba(148, 163, 184, 0.25);
-    box-shadow: none;
-  }
-
-  .floating-chat-bar {
-    position: relative;
-    width: min(520px, calc(100vw - 4rem));
-    display: flex;
-    flex-direction: column;
-    gap: 0.8rem;
-    transition: opacity 0.3s ease, transform 0.3s ease;
-  }
-
-  .floating-chat-bar.is-hidden {
-    display: none;
-  }
-
-  .floating-chat-bar .floating-toggle {
-    display: inline-flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.9rem;
-    border-radius: 999px;
-    padding: 0.85rem 1.4rem;
-    border: none;
-    background: linear-gradient(135deg, rgba(37, 99, 235, 0.92), rgba(14, 165, 233, 0.92));
-    color: #ffffff;
+  .persona-chip {
+    width: 100%;
+    text-align: left;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-soft);
+    background: var(--surface-card);
+    color: var(--text-secondary);
     font-weight: 600;
-    box-shadow: 0 20px 45px rgba(37, 99, 235, 0.35);
+    padding: 0.85rem 1.05rem;
+    transition: transform 0.2s ease, border 0.2s ease, background 0.2s ease;
+  }
+
+  .persona-chip.active,
+  .persona-chip:hover {
+    background: var(--surface-soft);
+    color: var(--text-primary);
+    border-color: var(--accent-primary);
+    transform: translateY(-2px);
+  }
+
+  .chat-thread-list {
+    border-radius: var(--radius-md);
+    background: var(--surface-soft);
+    border: 1px solid var(--border-soft);
+    padding: 1.1rem;
+    max-height: 360px;
+    overflow-y: auto;
+  }
+
+  .thread-card {
+    border-radius: var(--radius-sm);
+    padding: 1rem 1.1rem;
+    margin-bottom: 0.7rem;
+    border: 1px solid var(--border-soft);
+    background: var(--surface-card);
     cursor: pointer;
+    transition: transform 0.2s ease, border 0.2s ease, background 0.2s ease;
   }
 
-  .floating-chat-bar .floating-toggle .toggle-icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 38px;
-    height: 38px;
-    border-radius: 50%;
-    background: rgba(255, 255, 255, 0.18);
+  .thread-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--accent-primary);
   }
 
-  .floating-chat-bar .floating-toggle .toggle-text {
+  .thread-card.active {
+    background: rgba(37, 99, 235, 0.08);
+    border-color: var(--accent-primary);
+  }
+
+  .thread-card .title {
+    font-weight: 600;
+    margin-bottom: 0.35rem;
+    color: var(--text-primary);
+  }
+
+  .thread-card .thread-meta {
     display: flex;
-    flex-direction: column;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    font-size: 0.76rem;
+    color: var(--text-muted);
+  }
+
+  .chat-stream {
+    display: grid;
+    gap: 1rem;
+    max-height: 380px;
+    overflow-y: auto;
+    padding-right: 0.4rem;
+  }
+
+  .chat-message {
+    display: flex;
     align-items: flex-start;
-    gap: 0.2rem;
+    gap: 0.9rem;
   }
 
-  .floating-chat-bar .floating-toggle .toggle-meta {
-    font-size: 0.75rem;
-    opacity: 0.9;
-  }
-
-  .floating-chat-bar .floating-toggle .toggle-caret {
+  .chat-message .avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 28px;
-    height: 28px;
-    border-radius: 50%;
-    background: rgba(255, 255, 255, 0.2);
+    background: var(--surface-soft);
+    color: var(--accent-primary);
+    font-weight: 600;
   }
 
-  .floating-chat-panel {
-    background: var(--collab-surface);
-    border-radius: var(--collab-radius-lg);
-    border: 1px solid var(--collab-border);
-    box-shadow: var(--collab-shadow);
-    overflow: hidden;
-    transition: max-height 0.35s ease, opacity 0.35s ease, transform 0.35s ease;
-    max-height: min(80vh, 680px);
-    display: flex;
-    flex-direction: column;
+  .chat-message .bubble {
+    flex: 1;
+    border-radius: 20px;
+    background: var(--surface-card);
+    border: 1px solid var(--border-soft);
+    padding: 1rem 1.2rem;
+    box-shadow: var(--shadow-sm);
   }
 
-  .floating-chat-bar.collapsed .floating-chat-panel {
-    max-height: 0;
-    opacity: 0;
-    transform: translateY(12px);
-    pointer-events: none;
+  .chat-message .author {
+    font-weight: 600;
+    color: var(--text-primary);
   }
 
-  .floating-chat-panel .floating-panel-body {
-    flex: 1 1 auto;
-    max-height: none;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    padding-bottom: 1.5rem;
+  .chat-message .timestamp {
+    font-size: 0.75rem;
+    color: var(--text-muted);
   }
 
-  .floating-chat-panel .chat-popup-grid {
-    flex: 1 1 auto;
+  .chat-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    border-radius: 999px;
+    background: var(--surface-soft);
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    padding: 0.25rem 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
   }
 
-  .floating-chat-panel .floating-panel-header .btn {
-    border-color: rgba(148, 163, 184, 0.35);
+  .chat-composer .form-control {
+    background: #ffffff;
+    border: 1px solid var(--border-soft);
+    color: var(--text-primary);
   }
 
-  @media (max-width: 992px) {
-    .chat-popup-grid {
+  .chat-composer .form-control:focus {
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 0.2rem rgba(37, 99, 235, 0.16);
+  }
+
+  .team-pagination-bar {
+    margin-top: 1.1rem;
+    padding-top: 1.1rem;
+    border-top: 1px solid var(--border-soft);
+  }
+
+  .team-member-name {
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .team-member-meta {
+    color: var(--text-muted);
+    font-size: 0.78rem;
+  }
+
+  @media (max-width: 1200px) {
+    .observatory__grid {
       grid-template-columns: 1fr;
     }
 
-    .chat-popup-column.personas #chatPersonaFilters {
-      max-height: 200px;
+    .observatory__metrics {
+      order: -1;
     }
   }
 
   @media (max-width: 992px) {
-    .floating-launchers {
-      right: 1.5rem;
-      gap: 1rem;
+    .collab-galaxy {
+      padding: 2.4rem 1.5rem 5rem;
+    }
+
+    .floating-docks {
+      justify-content: center;
     }
   }
 
   @media (max-width: 768px) {
-    .floating-launchers {
-      right: 1rem;
-      left: 1rem;
-      bottom: 1.5rem;
+    .observatory {
+      padding: 2rem;
+    }
+
+    .module-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .floating-docks {
+      flex-direction: column;
       align-items: stretch;
     }
-
-    .floating-campaign-bar,
-    .floating-chat-bar {
-      width: 100%;
-    }
   }
+</style></style>
 
-  .chart-empty {
-    border-radius: var(--collab-radius-sm);
-    background: rgba(148, 163, 184, 0.14);
-  }
-</style>
+<div class="collab-galaxy">
+  <div id="collabAlerts" class="alert-stack"></div>
 
-<div class="collab-wrapper">
-  <div class="collab-shell">
-    <div id="collabAlerts" class="collab-alerts"></div>
-    <div class="collab-topline">
-      <div class="summary-card is-quality">
-        <div class="summary-icon"><i class="fa-solid fa-star"></i></div>
-        <div class="summary-label">Quality average</div>
-        <div class="summary-value" id="summaryQaAverage">—</div>
-        <div class="summary-trend" id="summaryQaTrend">
-          <i class="fa-solid fa-arrow-trend-up"></i>
-          <span>Awaiting quality insights</span>
+  <header class="observatory">
+    <div class="observatory__grid">
+      <div class="observatory__primary">
+        <span class="observatory__eyebrow"><i class="fa-solid fa-microchip"></i> Lumina Collaboration Sphere</span>
+        <h1 class="observatory__title">Collaboration &amp; Reporting Hub</h1>
+        <p class="observatory__lead">Orchestrate quality, attendance, and executive workflows from a luminous control center designed for hybrid teams.</p>
+        <div class="observatory__chips" id="heroMeta">
+          <span class="hero-chip"><i class="fa-solid fa-user-astronaut"></i><span id="heroPersonaLabel">Persona syncing…</span></span>
+          <span class="hero-chip"><i class="fa-solid fa-diagram-project"></i><span id="heroCampaignLabel">Campaigns calibrating…</span></span>
+          <span class="hero-chip"><i class="fa-solid fa-clock"></i><span id="heroUpdatedLabel">Awaiting timestamp…</span></span>
         </div>
       </div>
-      <div class="summary-card is-attendance">
-        <div class="summary-icon"><i class="fa-solid fa-calendar-check"></i></div>
-        <div class="summary-label">Attendance health</div>
-        <div class="summary-value" id="summaryAttendanceRate">—</div>
-        <div class="summary-trend" id="summaryAttendanceTrend">
-          <i class="fa-solid fa-chart-line"></i>
-          <span>Attendance variance unavailable</span>
-        </div>
-      </div>
-      <div class="summary-card is-threads">
-        <div class="summary-icon"><i class="fa-solid fa-comments"></i></div>
-        <div class="summary-label">Collaboration threads</div>
-        <div class="summary-value" id="summaryThreads">0</div>
-        <div class="summary-trend" id="summaryThreadsHint">
-          <i class="fa-solid fa-user-group"></i>
-          <span>Invite teams to collaborate</span>
-        </div>
-      </div>
-      <div class="summary-card is-actions">
-        <div class="summary-icon"><i class="fa-solid fa-list-check"></i></div>
-        <div class="summary-label">Action items</div>
-        <div class="summary-value" id="summaryFollowUps">0</div>
-        <div class="summary-trend" id="summaryFollowUpsHint">
-          <i class="fa-solid fa-diagram-project"></i>
-          <span>No action items yet</span>
+      <div class="observatory__metrics">
+        <div class="summary-tiles">
+          <article class="summary-tile is-quality">
+            <div class="tile-icon"><i class="fa-solid fa-sparkles"></i></div>
+            <div class="tile-label">Quality average</div>
+            <div class="tile-value" id="summaryQaAverage">—</div>
+            <div class="tile-subtext" id="summaryQaTrend">
+              <i class="fa-solid fa-arrow-trend-up"></i>
+              <span>Awaiting quality insights</span>
+            </div>
+          </article>
+          <article class="summary-tile is-attendance">
+            <div class="tile-icon"><i class="fa-solid fa-calendar-check"></i></div>
+            <div class="tile-label">Attendance health</div>
+            <div class="tile-value" id="summaryAttendanceRate">—</div>
+            <div class="tile-subtext" id="summaryAttendanceTrend">
+              <i class="fa-solid fa-chart-line"></i>
+              <span>Attendance variance unavailable</span>
+            </div>
+          </article>
+          <article class="summary-tile is-threads">
+            <div class="tile-icon"><i class="fa-solid fa-comments"></i></div>
+            <div class="tile-label">Collaboration threads</div>
+            <div class="tile-value" id="summaryThreads">0</div>
+            <div class="tile-subtext" id="summaryThreadsHint">
+              <i class="fa-solid fa-user-group"></i>
+              <span>Invite teams to collaborate</span>
+            </div>
+          </article>
+          <article class="summary-tile is-actions">
+            <div class="tile-icon"><i class="fa-solid fa-list-check"></i></div>
+            <div class="tile-label">Action items</div>
+            <div class="tile-value" id="summaryFollowUps">0</div>
+            <div class="tile-subtext" id="summaryFollowUpsHint">
+              <i class="fa-solid fa-bolt"></i>
+              <span>No action items yet</span>
+            </div>
+          </article>
         </div>
       </div>
     </div>
-    <section class="collab-section">
-      <div class="card section-card" id="teamIntelligenceCard">
-        <div class="card-header">
-          <div class="insight-pill"><i class="fas fa-users-gear"></i> Team Collaboration Intelligence</div>
-          <h2 class="mt-3">Managers, Clients, and Teams</h2>
-          <p class="mb-0">Review collaboration metrics by role, then dive into individual manager rosters for quality and attendance outcomes.</p>
+  </header>
+
+  <section class="module panel ai-suite">
+    <div class="panel-header">
+      <span class="panel-eyebrow"><i class="fa-solid fa-robot"></i> AI Collaboration Co-Pilot</span>
+      <h2>Intelligence generated for every stakeholder</h2>
+      <p>Let Lumina AI distill momentum, risks, and suggested moves across quality, attendance, and live collaboration threads.</p>
+    </div>
+    <div class="panel-body">
+      <div class="ai-summary">
+        <h3><i class="fa-solid fa-bolt"></i> AI Pulse</h3>
+        <p id="aiPulseSummary">AI summary will populate after data sync.</p>
+      </div>
+      <div class="ai-streams">
+        <div class="ai-block">
+          <h3><i class="fa-solid fa-chart-pie"></i> AI Report</h3>
+          <ul id="aiReportList">
+            <li><i class="fa-solid fa-spinner fa-spin"></i>Calibrating executive snapshot…</li>
+          </ul>
         </div>
-        <div class="card-body">
-          <div id="teamIntelligenceSection">
-            <ul class="nav nav-pills team-nav flex-wrap" id="teamTabs" role="tablist"></ul>
-            <div class="tab-content mt-4" id="teamTabContent"></div>
-          </div>
+        <div class="ai-block">
+          <h3><i class="fa-solid fa-lightbulb"></i> AI Suggestions</h3>
+          <ul id="aiSuggestionList">
+            <li><i class="fa-solid fa-spinner fa-spin"></i>Generating suggestions…</li>
+          </ul>
+        </div>
+        <div class="ai-block">
+          <h3><i class="fa-solid fa-handshake-angle"></i> AI Collaboration Notes</h3>
+          <ul id="aiCollaborationNotes">
+            <li><i class="fa-solid fa-spinner fa-spin"></i>Mapping collaboration notes…</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="module panel" id="teamIntelligenceCard">
+      <div class="panel-header">
+        <span class="panel-eyebrow"><i class="fa-solid fa-users-gear"></i> Team Collaboration Intelligence</span>
+        <h2>Managers, clients, and cross-functional squads</h2>
+        <p>Navigate workstreams by persona to monitor quality and attendance outcomes while staying aligned with executive initiatives.</p>
+      </div>
+      <div class="panel-body">
+        <div id="teamIntelligenceSection" class="team-intelligence">
+          <ul class="nav nav-pills" id="teamTabs" role="tablist"></ul>
+          <div class="tab-content mt-4" id="teamTabContent"></div>
         </div>
       </div>
     </section>
-    <section class="collab-section collab-section-grid">
-      <article class="card section-card h-100">
-        <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-3">
-          <div>
-            <div class="insight-pill"><i class="fas fa-clipboard-check"></i> Quality Collaboration Control</div>
-            <h2 class="mt-3 mb-1">Orchestrate QA reviews and feedback</h2>
-            <p class="mb-0 text-secondary">Log audits, loop in stakeholders, and monitor performance lift with a streamlined workflow.</p>
+
+  <div class="module-grid">
+    <section class="module panel">
+          <div class="panel-header">
+            <span class="panel-eyebrow"><i class="fa-solid fa-sparkles"></i> Quality Collaboration Workspace</span>
+            <h2>QA outcomes &amp; coaching actions</h2>
+            <p>Track QA trends, capture follow-ups, and log collaboration threads without breaking focus.</p>
           </div>
-          <div class="text-end">
-            <div class="muted-label text-uppercase">Rolling 30-day coverage</div>
-            <div class="display-6 fw-bold" id="qaCoverageRate">—</div>
-          </div>
-        </div>
-        <div class="card-body">
-          <div class="qa-grid">
-            <div class="qa-metrics-group">
-              <div class="qa-metric-card">
-                <div class="d-flex justify-content-between align-items-center">
-                  <div>
-                    <div class="label text-uppercase">Average QA Score</div>
-                    <div class="value" id="qaAverageScore">—</div>
-                  </div>
-                  <div class="text-end">
-                    <div class="muted-label">vs target 92%</div>
-                    <div class="badge bg-success rounded-pill" id="qaScoreTrend">—</div>
-                  </div>
-                </div>
-                <div class="mt-3">
-                  <canvas id="qaTrendChart" height="160"></canvas>
-                </div>
+          <div class="panel-body">
+            <div class="metric-grid">
+              <div class="metric-card">
+                <div class="metric-label">Average QA</div>
+                <div class="metric-value" id="qaAverageScore">—</div>
+                <div class="metric-note">Delta vs target <span id="qaScoreTrend" class="metric-badge">—</span></div>
               </div>
-              <div class="qa-insight-pair mt-1">
-                <div class="qa-metric-card">
-                  <div class="label text-uppercase">Actionable Items</div>
-                  <div class="value" id="qaFollowUps">—</div>
-                  <div class="muted-label">Follow-ups scheduled this week</div>
-                </div>
-                <div class="qa-metric-card">
-                  <div class="label text-uppercase">Collaboration Threads</div>
-                  <div class="value" id="qaThreads">—</div>
-                  <div class="muted-label">Audits with multi-role feedback</div>
-                </div>
+              <div class="metric-card">
+                <div class="metric-label">Follow ups</div>
+                <div class="metric-value" id="qaFollowUps">0</div>
+                <div class="metric-note">Collaboration backlog</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">Threads engaged</div>
+                <div class="metric-value" id="qaThreads">0</div>
+                <div class="metric-note">Cross-team conversations</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">Coverage</div>
+                <div class="metric-value" id="qaCoverageRate">—</div>
+                <div class="metric-note">QA coverage this cycle</div>
               </div>
             </div>
-            <form class="qa-form" id="qaCollaborationForm">
-              <div class="row g-3 g-xl-4">
-                <div class="col-12">
-                  <span class="form-section-label">Review details</span>
+            <div class="chart-shell">
+              <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+                <div>
+                  <div class="chart-title">QA score trend</div>
+                  <div class="text-secondary">Six-week quality trajectory</div>
                 </div>
-                <div class="col-sm-6">
+                <span class="badge bg-light text-dark opacity-75">Auto-refreshing</span>
+              </div>
+              <canvas id="qaTrendChart" height="220"></canvas>
+            </div>
+            <form id="qaCollaborationForm" class="qa-form" novalidate>
+              <div class="row g-3">
+                <div class="col-md-6">
                   <label for="qaAgent" class="form-label">Agent</label>
-                  <select class="form-select" id="qaAgent" name="qaAgent" required>
-                    <option value="">Select an agent</option>
-                  </select>
+                  <select class="form-select" id="qaAgent" name="qaAgent" required></select>
                 </div>
-                <div class="col-sm-6">
+                <div class="col-md-6">
                   <label for="qaCampaign" class="form-label">Campaign</label>
-                  <select class="form-select" id="qaCampaign" name="qaCampaign" required>
-                    <option value="">Choose campaign</option>
-                  </select>
+                  <select class="form-select" id="qaCampaign" name="qaCampaign" required></select>
                 </div>
-                <div class="col-sm-6">
+                <div class="col-md-6">
                   <label for="qaReviewer" class="form-label">Reviewer</label>
-                  <select class="form-select" id="qaReviewer" name="qaReviewer" required>
-                    <option value="">Assign reviewer</option>
-                  </select>
+                  <select class="form-select" id="qaReviewer" name="qaReviewer" required></select>
                 </div>
-                <div class="col-sm-6">
-                  <label for="qaCollaborators" class="form-label">Collaborators</label>
-                  <select class="form-select" id="qaCollaborators" name="qaCollaborators" multiple>
-                  </select>
-                  <div class="form-text">Loop in managers, QA leads, or executives who need visibility.</div>
-                </div>
-                <div class="col-12 pt-1">
-                  <span class="form-section-label">Scorecard insights</span>
+                <div class="col-md-6">
+                  <label for="qaCollaborators" class="form-label">QA collaborators</label>
+                  <select class="form-select" id="qaCollaborators" name="qaCollaborators" multiple title="Select QA leads"></select>
                 </div>
                 <div class="col-sm-4">
                   <label for="qaScore" class="form-label">Score</label>
-                  <input type="number" class="form-control" id="qaScore" name="qaScore" min="0" max="100" step="0.5" value="92" required>
+                  <input type="number" class="form-control" id="qaScore" name="qaScore" min="0" max="100" step="0.1" placeholder="92.5">
                 </div>
                 <div class="col-sm-4">
-                  <label for="qaFocusArea" class="form-label">Focus Area</label>
+                  <label for="qaFocusArea" class="form-label">Focus area</label>
                   <select class="form-select" id="qaFocusArea" name="qaFocusArea" required>
                     <option value="">Select focus</option>
                     <option>Call Control</option>
@@ -1177,10 +985,10 @@
                   </select>
                 </div>
                 <div class="col-12">
-                  <label for="qaHighlights" class="form-label">Highlights &amp; Coaching Actions</label>
+                  <label for="qaHighlights" class="form-label">Highlights &amp; coaching actions</label>
                   <textarea class="form-control" id="qaHighlights" name="qaHighlights" placeholder="Document key wins, risks, and next steps" required></textarea>
                 </div>
-                <div class="col-12 pt-1">
+                <div class="col-12 pt-2">
                   <span class="form-section-label">Next touch planning</span>
                 </div>
                 <div class="col-md-6">
@@ -1196,104 +1004,100 @@
                     <option>Social</option>
                   </select>
                 </div>
-                <div class="col-12 d-flex gap-3 mt-2">
-                  <button type="submit" class="btn btn-primary">
-                    <i class="fas fa-paper-plane me-2"></i>Log QA Collaboration
-                  </button>
-                  <button type="reset" class="btn btn-outline-secondary" id="qaResetBtn">
-                    <i class="fas fa-rotate-left me-1"></i>Reset
-                  </button>
+                <div class="col-12 d-flex gap-3 flex-wrap">
+                  <button type="submit" class="btn btn-primary"><i class="fas fa-paper-plane me-2"></i>Log QA Collaboration</button>
+                  <button type="reset" class="btn btn-outline-secondary" id="qaResetBtn"><i class="fas fa-rotate-left me-1"></i>Reset</button>
                 </div>
               </div>
             </form>
-          </div>
-
-          <div class="table-responsive mt-4">
-            <table class="table table-hover align-middle qa-table" id="qaReviewTable">
-              <thead>
-                <tr>
-                  <th>Audit ID</th>
-                  <th>Agent</th>
-                  <th>Campaign</th>
-                  <th>Score</th>
-                  <th>Focus</th>
-                  <th>Collaborators</th>
-                  <th>Status</th>
-                  <th>Updated</th>
-                </tr>
-              </thead>
-              <tbody></tbody>
-            </table>
-          </div>
-        </div>
-      </article>
-      <article class="card section-card h-100">
-        <div class="card-header">
-          <div class="insight-pill"><i class="fas fa-chart-line"></i> Executive KPI Pulse</div>
-          <h2 class="mt-3">Multi-campaign Leadership Summary</h2>
-          <p class="mb-0">Blended KPIs across every managed campaign, with proactive signals for strategic decision making.</p>
-        </div>
-        <div class="card-body d-flex flex-column gap-3">
-          <div class="kpi-mini-grid">
-            <div class="exec-kpi-card text-center">
-              <small>Average QA score</small>
-              <div class="headline" id="kpiQualityAverage">—</div>
-              <div class="text-success fw-semibold" id="kpiQualityTrend">Awaiting data</div>
-            </div>
-            <div class="exec-kpi-card text-center">
-              <small>Attendance rate</small>
-              <div class="headline" id="kpiAttendanceRate">—</div>
-              <div class="text-success fw-semibold" id="kpiAttendanceTrend">Awaiting data</div>
+            <div class="table-responsive">
+              <table class="table table-hover align-middle qa-table" id="qaReviewTable">
+                <thead>
+                  <tr>
+                    <th>Audit ID</th>
+                    <th>Agent</th>
+                    <th>Campaign</th>
+                    <th>Score</th>
+                    <th>Focus</th>
+                    <th>Collaborators</th>
+                    <th>Status</th>
+                    <th>Updated</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
             </div>
           </div>
-          <div class="kpi-trend-card">
-            <div class="d-flex justify-content-between align-items-start mb-3">
-              <div>
-                <h3 class="h5 mb-1">Campaign Health Mix</h3>
-                <p class="mb-0 text-secondary">Distribution of KPI attainment vs executive targets.</p>
+        </section>
+    <section class="module panel">
+          <div class="panel-header">
+            <span class="panel-eyebrow"><i class="fa-solid fa-chart-line"></i> Executive KPI Pulse</span>
+            <h2>Multi-campaign leadership summary</h2>
+            <p>Blended KPIs across managed campaigns with proactive signal for strategy conversations.</p>
+          </div>
+          <div class="panel-body">
+            <div class="metric-grid">
+              <div class="metric-card text-center">
+                <div class="metric-label">Average QA score</div>
+                <div class="metric-value" id="kpiQualityAverage">—</div>
+                <div class="metric-note" id="kpiQualityTrend">Awaiting data</div>
               </div>
-              <div class="text-end">
-                <span class="badge bg-primary-subtle text-primary" id="execTimeframe">—</span>
-                <div class="small text-secondary mt-1" id="execPeriodRange">—</div>
-                <div class="small text-secondary" id="execPayDate">Pay date —</div>
+              <div class="metric-card text-center">
+                <div class="metric-label">Attendance rate</div>
+                <div class="metric-value" id="kpiAttendanceRate">—</div>
+                <div class="metric-note" id="kpiAttendanceTrend">Awaiting data</div>
               </div>
             </div>
-            <canvas id="execBlendChart" height="180"></canvas>
-            <div class="mt-3" id="execCampaignBullets"></div>
-          </div>
-          <div class="exec-kpi-card">
-            <h3>Executive Brief</h3>
-            <ul class="list-unstyled mb-0" id="executiveBrief"></ul>
-          </div>
-        </div>
-      </article>
-    </section>
-
-    <section class="collab-section">
-      <article class="card section-card h-100">
-        <div class="card-header">
-          <div class="insight-pill"><i class="fas fa-user-check"></i> Attendance &amp; Adherence</div>
-          <h2 class="mt-3">Shift coverage &amp; schedule fidelity</h2>
-          <p class="mb-0">Track live adherence, shrinkage trends, and campaign-level coverage gaps.</p>
-        </div>
-        <div class="card-body">
-          <div class="attendance-grid">
-            <div>
-              <div class="d-flex justify-content-between align-items-center mb-3">
+            <div class="chart-shell">
+              <div class="d-flex justify-content-between flex-wrap align-items-start gap-3 mb-3">
                 <div>
-                  <h3 class="h5 mb-0">Adherence trend</h3>
-                  <small class="text-secondary">Rolling six weeks</small>
+                  <div class="chart-title">Campaign health mix</div>
+                  <div class="text-secondary">Distribution of KPI attainment vs executive targets.</div>
                 </div>
-                <select class="form-select form-select-sm" style="width:auto" id="attendanceCampaignFilter"></select>
+                <div class="text-end">
+                  <span class="badge bg-info-subtle text-info" id="execTimeframe">—</span>
+                  <div class="small text-secondary mt-1" id="execPeriodRange">—</div>
+                  <div class="small text-secondary" id="execPayDate">Pay date —</div>
+                </div>
               </div>
+              <canvas id="execBlendChart" height="200"></canvas>
+              <div class="mt-3" id="execCampaignBullets"></div>
+            </div>
+            <div class="ai-block">
+              <h3><i class="fa-solid fa-briefcase"></i> Executive brief</h3>
+              <ul class="mb-0" id="executiveBrief"></ul>
+            </div>
+          </div>
+        </section>
+  </div>
+
+  <section class="module panel">
+      <div class="panel-header">
+        <span class="panel-eyebrow"><i class="fa-solid fa-user-check"></i> Attendance &amp; Adherence</span>
+        <h2>Shift coverage &amp; schedule fidelity</h2>
+        <p>Track adherence trends and shrinkage across campaigns to keep customer experience on pace.</p>
+      </div>
+      <div class="panel-body">
+        <div class="d-flex flex-column flex-lg-row gap-3">
+          <div class="flex-grow-1">
+            <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+              <div>
+                <div class="chart-title mb-0">Adherence trend</div>
+                <div class="text-secondary">Rolling six weeks</div>
+              </div>
+              <select class="form-select form-select-sm w-auto" id="attendanceCampaignFilter"></select>
+            </div>
+            <div class="chart-shell">
               <canvas id="attendanceTrendChart" height="220"></canvas>
             </div>
-            <div>
-              <div class="qa-metric-card">
-                <div class="label text-uppercase">Average adherence</div>
-                <div class="value" id="attendanceAverage">—</div>
-                <div class="muted-label">Across all campaigns this month</div>
-              </div>
+          </div>
+          <div class="attendance-metrics" style="min-width: 280px;">
+            <div class="metric-card">
+              <div class="metric-label">Average adherence</div>
+              <div class="metric-value" id="attendanceAverage">—</div>
+              <div class="metric-note">Across all campaigns this month</div>
+            </div>
+            <div class="table-responsive">
               <table class="table table-sm align-middle attendance-table">
                 <thead>
                   <tr>
@@ -1307,65 +1111,65 @@
             </div>
           </div>
         </div>
-      </article>
+      </div>
     </section>
 
-    <div class="floating-launchers">
-      <div class="floating-campaign-bar collapsed" id="campaignFloatingBar" aria-expanded="false">
-        <button type="button" class="floating-toggle" id="campaignFloatingToggle" aria-expanded="false" aria-controls="campaignConnectivitySection">
-          <span class="toggle-icon"><i class="fas fa-network-wired"></i></span>
-          <span class="toggle-label">Connected Campaign Workflows</span>
-          <span class="toggle-caret"><i class="fas fa-chevron-up"></i></span>
-        </button>
-        <div class="floating-panel" id="campaignConnectivitySection">
-          <div class="floating-panel-header">
-            <div class="insight-pill"><i class="fas fa-network-wired"></i> Connected Campaign Workflows</div>
-            <h3>Navigate the workspace by campaign</h3>
-            <p>Jump into quality, coaching, attendance, and collaboration views that run on the same campaign data fabric.</p>
-          </div>
-          <div class="floating-panel-body">
-            <div id="campaignConnectivity" class="connectivity-container"></div>
-          </div>
+  <div class="floating-docks">
+    <div class="floating-bar collapsed" id="campaignFloatingBar" aria-expanded="false">
+      <button type="button" class="floating-toggle" id="campaignFloatingToggle" aria-expanded="false" aria-controls="campaignConnectivitySection">
+        <span class="toggle-icon"><i class="fas fa-network-wired"></i></span>
+        <span class="toggle-label">Connected campaign workflows</span>
+        <span class="toggle-caret"><i class="fas fa-chevron-up"></i></span>
+      </button>
+      <div class="floating-panel" id="campaignConnectivitySection">
+        <div class="floating-panel-header">
+          <div class="panel-eyebrow"><i class="fas fa-network-wired"></i> Connected campaign workflows</div>
+          <h3 class="mt-3">Navigate the workspace by campaign</h3>
+          <p class="text-secondary">Jump into quality, coaching, attendance, and collaboration views powered by the same data fabric.</p>
+        </div>
+        <div class="floating-panel-body">
+          <div id="campaignConnectivity"></div>
         </div>
       </div>
-      <div class="floating-chat-bar collapsed" id="leadershipChatBar" aria-expanded="false">
-        <button type="button" class="floating-toggle" id="leadershipChatToggle" aria-expanded="false" aria-controls="leadershipChatPanel">
-          <span class="toggle-icon"><i class="fas fa-headset"></i></span>
-          <span class="toggle-text">
-            <span class="toggle-label" id="leadershipChatToggleLabel">Precision chat for leadership huddles</span>
-            <span class="toggle-meta" id="leadershipChatToggleMeta">Loading…</span>
-          </span>
-          <span class="toggle-caret"><i class="fas fa-chevron-up"></i></span>
-        </button>
-        <div class="floating-panel floating-chat-panel" id="leadershipChatPanel" role="dialog" aria-modal="false" aria-labelledby="leadershipChatTitle" aria-hidden="true">
-          <div class="floating-panel-header d-flex justify-content-between align-items-start">
-            <div>
-              <div class="insight-pill"><i class="fas fa-headset"></i> Targeted Collaboration Threads</div>
-              <h3 class="mb-1" id="leadershipChatTitle">Precision chat for leadership huddles</h3>
-              <p class="mb-0">Spin up focused conversations for managers, agents, and executives to address outcomes faster.</p>
-            </div>
-            <button type="button" class="btn btn-outline-secondary btn-sm rounded-circle" id="leadershipChatClose" aria-label="Collapse leadership chat">
-              <i class="fas fa-xmark"></i>
-            </button>
+    </div>
+
+    <div class="floating-bar collapsed" id="leadershipChatBar" aria-expanded="false">
+      <button type="button" class="floating-toggle" id="leadershipChatToggle" aria-expanded="false" aria-controls="leadershipChatPanel">
+        <span class="toggle-icon"><i class="fas fa-headset"></i></span>
+        <span class="toggle-text">
+          <span class="toggle-label" id="leadershipChatToggleLabel">Precision chat for leadership huddles</span>
+          <span class="text-secondary small" id="leadershipChatToggleMeta">Loading…</span>
+        </span>
+        <span class="toggle-caret"><i class="fas fa-chevron-up"></i></span>
+      </button>
+      <div class="floating-panel" id="leadershipChatPanel" role="dialog" aria-modal="false" aria-labelledby="leadershipChatTitle" aria-hidden="true">
+        <div class="floating-panel-header d-flex justify-content-between align-items-start">
+          <div>
+            <div class="panel-eyebrow"><i class="fas fa-headset"></i> Targeted collaboration threads</div>
+            <h3 class="mt-3 mb-2" id="leadershipChatTitle">Precision chat for leadership huddles</h3>
+            <p class="text-secondary mb-0">Spin up focused conversations for managers, agents, and executives to accelerate outcomes.</p>
           </div>
-          <div class="floating-panel-body chat-panel-body">
-            <div class="chat-popup-grid">
-              <div class="chat-popup-column personas">
-                <div class="d-flex flex-column gap-2" id="chatPersonaFilters"></div>
-              </div>
-              <div class="chat-popup-column threads">
-                <div id="chatThreadList" class="chat-thread-list"></div>
-              </div>
-              <div class="chat-popup-column conversation">
-                <div class="chat-stream" id="chatMessageStream"></div>
-                <form id="chatComposer" class="chat-composer mt-3">
-                  <div class="input-group">
-                    <input type="text" id="chatMessageInput" class="form-control" placeholder="Share an update" required>
-                    <button class="btn btn-primary" type="submit"><i class="fas fa-paper-plane"></i></button>
-                  </div>
-                  <div class="form-text mt-1">Visible to <span id="chatAudienceLabel" class="fw-semibold">all participants</span></div>
-                </form>
-              </div>
+          <button type="button" class="btn btn-outline-secondary btn-sm rounded-circle" id="leadershipChatClose" aria-label="Collapse leadership chat">
+            <i class="fas fa-xmark"></i>
+          </button>
+        </div>
+        <div class="floating-panel-body">
+          <div class="row g-3">
+            <div class="col-12 col-lg-3">
+              <div class="d-flex flex-column gap-2" id="chatPersonaFilters"></div>
+            </div>
+            <div class="col-12 col-lg-4">
+              <div id="chatThreadList" class="chat-thread-list"></div>
+            </div>
+            <div class="col-12 col-lg-5 d-flex flex-column gap-3">
+              <div class="chat-stream" id="chatMessageStream"></div>
+              <form id="chatComposer" class="chat-composer">
+                <div class="input-group">
+                  <input type="text" id="chatMessageInput" class="form-control" placeholder="Share an update" required>
+                  <button class="btn btn-primary" type="submit"><i class="fas fa-paper-plane"></i></button>
+                </div>
+                <div class="form-text text-secondary">Visible to <span id="chatAudienceLabel" class="fw-semibold text-primary">all participants</span></div>
+              </form>
             </div>
           </div>
         </div>
@@ -1374,8 +1178,10 @@
   </div>
 </div>
 
+
 <script>
-  const currentUser = <?!= JSON.stringify(user || {}) ?>;
+  window.CURRENT_USER = window.CURRENT_USER || <?!= currentUserJson || '{}' ?>;
+  const currentUser = window.CURRENT_USER || {};
 </script>
 
 <script>
@@ -1402,6 +1208,7 @@
           { key: 'campaigns', label: 'Active campaigns', value: '0', hint: 'Workspace connections', icon: 'fa-solid fa-diagram-project' }
         ]
       },
+      ai: { summary: '', report: [], suggestions: [], notes: [] },
       charts: { qaTrend: null, attendance: null, executive: null },
       campaigns: [],
       activePersona: null,
@@ -1445,6 +1252,13 @@
     const qaThreadsEl = document.getElementById('qaThreads');
     const qaCoverageEl = document.getElementById('qaCoverageRate');
     const qaScoreTrendEl = document.getElementById('qaScoreTrend');
+    const aiPulseSummaryEl = document.getElementById('aiPulseSummary');
+    const aiReportList = document.getElementById('aiReportList');
+    const aiSuggestionList = document.getElementById('aiSuggestionList');
+    const aiCollaborationNotes = document.getElementById('aiCollaborationNotes');
+    const heroPersonaLabel = document.getElementById('heroPersonaLabel');
+    const heroCampaignLabel = document.getElementById('heroCampaignLabel');
+    const heroUpdatedLabel = document.getElementById('heroUpdatedLabel');
     const attendanceAverageEl = document.getElementById('attendanceAverage');
 
     const summaryQaAverageEl = document.getElementById('summaryQaAverage');
@@ -1742,6 +1556,168 @@
       }
     }
 
+    function syncHeroChips() {
+      if (heroPersonaLabel) {
+        heroPersonaLabel.textContent = state.banner.persona || 'Persona syncing…';
+      }
+      if (heroCampaignLabel) {
+        heroCampaignLabel.textContent = state.banner.campaignsText || 'Campaigns calibrating…';
+      }
+      if (heroUpdatedLabel) {
+        heroUpdatedLabel.textContent = state.banner.lastUpdatedText || 'Awaiting timestamp…';
+      }
+    }
+
+    function renderAiList(container, items, emptyText, iconClass) {
+      if (!container) return;
+      container.innerHTML = '';
+      const list = Array.isArray(items) ? items.filter(Boolean) : [];
+      if (!list.length) {
+        const li = document.createElement('li');
+        const icon = document.createElement('i');
+        icon.className = 'fa-solid fa-circle-info';
+        li.appendChild(icon);
+        const span = document.createElement('span');
+        span.textContent = emptyText || 'Insights will display when data is available.';
+        li.appendChild(span);
+        container.appendChild(li);
+        return;
+      }
+      list.forEach(function (entry) {
+        const li = document.createElement('li');
+        const icon = document.createElement('i');
+        icon.className = 'fa-solid ' + (iconClass || 'fa-circle-check');
+        li.appendChild(icon);
+        const span = document.createElement('span');
+        span.textContent = entry;
+        li.appendChild(span);
+        container.appendChild(li);
+      });
+    }
+
+    function buildAiNarrative() {
+      const qaMetrics = state.qa && state.qa.metrics ? state.qa.metrics : {};
+      const attendanceSummary = state.attendance && state.attendance.summary ? state.attendance.summary : {};
+      const execSummary = state.executive && state.executive.summary ? state.executive.summary : {};
+      const persona = state.banner && state.banner.persona ? state.banner.persona : 'Operations Hub';
+      const qaAverage = qaMetrics.averageScore != null ? Number(qaMetrics.averageScore) : null;
+      const qaDelta = qaMetrics.deltaVsTarget != null ? Number(qaMetrics.deltaVsTarget) : null;
+      const attendanceRate = attendanceSummary.attendanceRate != null
+        ? Number(attendanceSummary.attendanceRate)
+        : (attendanceSummary.averageAdherence != null ? Number(attendanceSummary.averageAdherence) : null);
+      const absenceRate = attendanceSummary.absenceRate != null ? Number(attendanceSummary.absenceRate) : null;
+      const coverageRate = qaMetrics.coverageRate != null ? Number(qaMetrics.coverageRate) : null;
+      const followUps = qaMetrics.followUps != null ? Number(qaMetrics.followUps) : 0;
+      const campaigns = Array.isArray(state.campaigns) ? state.campaigns.length : 0;
+      const threadStats = computeThreadStats();
+
+      function listJoin(items) {
+        if (!items || !items.length) return '';
+        if (items.length === 1) return items[0];
+        if (items.length === 2) return items[0] + ' and ' + items[1];
+        return items.slice(0, -1).join(', ') + ', and ' + items[items.length - 1];
+      }
+
+      const summaryPieces = [];
+      if (qaAverage != null && !Number.isNaN(qaAverage)) {
+        summaryPieces.push('quality at ' + formatPercent(qaAverage, 1));
+      }
+      if (attendanceRate != null && !Number.isNaN(attendanceRate)) {
+        summaryPieces.push('attendance at ' + formatPercent(attendanceRate, 1));
+      }
+      if (threadStats.total) {
+        summaryPieces.push(threadStats.total + ' collaboration thread' + (threadStats.total === 1 ? '' : 's'));
+      }
+      const summary = summaryPieces.length
+        ? 'AI sees ' + listJoin(summaryPieces) + ' for the ' + persona + ' workspace.'
+        : '';
+
+      const report = [];
+      if (qaAverage != null && !Number.isNaN(qaAverage)) {
+        let text = 'Quality average ' + formatPercent(qaAverage, 1);
+        if (qaDelta != null && !Number.isNaN(qaDelta)) {
+          text += ' (' + (qaDelta >= 0 ? '+' : '') + qaDelta.toFixed(1) + ' pts vs target)';
+        }
+        report.push(text);
+      }
+      if (attendanceRate != null && !Number.isNaN(attendanceRate)) {
+        let text = 'Attendance rate ' + formatPercent(attendanceRate, 1);
+        if (absenceRate != null && !Number.isNaN(absenceRate)) {
+          text += ', absence ' + formatPercent(absenceRate, 1);
+        }
+        report.push(text);
+      }
+      if (coverageRate != null && !Number.isNaN(coverageRate)) {
+        report.push('QA coverage ' + formatPercent(coverageRate, 1));
+      }
+      if (execSummary && execSummary.campaignsAchievingTarget != null) {
+        const achieving = Number(execSummary.campaignsAchievingTarget);
+        if (!Number.isNaN(achieving)) {
+          report.push(achieving + ' campaign' + (achieving === 1 ? '' : 's') + ' hitting targets');
+        }
+      }
+      if (campaigns) {
+        report.push(campaigns + ' connected campaign' + (campaigns === 1 ? '' : 's'));
+      }
+
+      const suggestions = [];
+      if (qaDelta != null && !Number.isNaN(qaDelta)) {
+        if (qaDelta < 0) {
+          suggestions.push('Deploy a coaching sprint to recover ' + Math.abs(qaDelta).toFixed(1) + ' pts toward the quality target.');
+        } else if (qaDelta > 1) {
+          suggestions.push('Highlight quality gains with leadership to reinforce winning behaviors.');
+        }
+      }
+      if (attendanceRate != null && !Number.isNaN(attendanceRate)) {
+        if (attendanceRate < 95) {
+          suggestions.push('Audit schedule adherence for the lowest-performing campaign to protect coverage.');
+        } else if (attendanceRate >= 97) {
+          suggestions.push('Leverage attendance strength to back upcoming volume spikes.');
+        }
+      }
+      if (followUps > 0) {
+        suggestions.push('Work through ' + followUps + ' open follow-up action' + (followUps === 1 ? '' : 's') + ' with QA leads.');
+      }
+      if (!threadStats.total) {
+        suggestions.push('Launch the first collaboration thread to activate cross-team problem solving.');
+      } else if (threadStats.active === 0) {
+        suggestions.push('Nudge participants in dormant threads to keep momentum in the last 24 hours.');
+      }
+
+      const notes = [];
+      if (threadStats.total) {
+        notes.push(threadStats.total + ' thread' + (threadStats.total === 1 ? '' : 's') + ' live, ' + threadStats.active + ' active in 24h.');
+      }
+      const personaCount = state.chat && Array.isArray(state.chat.personas) ? state.chat.personas.length : 0;
+      if (personaCount) {
+        notes.push(personaCount + ' collaboration audience' + (personaCount === 1 ? '' : 's') + ' configured.');
+      }
+      if (coverageRate != null && !Number.isNaN(coverageRate) && coverageRate < 75) {
+        notes.push('QA coverage below 75% — prioritize sampling to stabilize insight quality.');
+      }
+      if (execSummary && execSummary.alert) {
+        notes.push(execSummary.alert);
+      }
+
+      return {
+        summary: summary,
+        report: report,
+        suggestions: suggestions,
+        notes: notes
+      };
+    }
+
+    function renderAiAssistant() {
+      const narrative = buildAiNarrative();
+      state.ai = narrative;
+      if (aiPulseSummaryEl) {
+        aiPulseSummaryEl.textContent = narrative.summary || 'AI summary will populate after data sync.';
+      }
+      renderAiList(aiReportList, narrative.report, 'Waiting for campaign metrics…', 'fa-chart-line');
+      renderAiList(aiSuggestionList, narrative.suggestions, 'Suggestions will surface after data sync.', 'fa-lightbulb');
+      renderAiList(aiCollaborationNotes, narrative.notes, 'Collaboration notes appear once chat threads load.', 'fa-handshake-angle');
+    }
+
     function buildBannerDescription() {
       const descriptionParts = [];
       if (typeof bannerDescriptionLead === 'string' && bannerDescriptionLead.trim()) {
@@ -1789,7 +1765,7 @@
       } else {
         window.__pendingBannerData = Object.assign({}, config);
       }
-      return parts.join(' ');
+      return config;
     }
 
     function updateBannerMetrics() {
@@ -1830,8 +1806,10 @@
 
       state.banner.campaignsText = formatHeroCampaignCount(state.campaigns.length, isGuestView);
       state.banner.insights = insights;
+      syncHeroChips();
       syncBanner();
       syncToplineCards();
+      renderAiAssistant();
     }
 
     function updateBannerFromResponse(response) {
@@ -1850,6 +1828,7 @@
       state.banner.lastUpdatedText = formatHeroTimestamp(response.generatedAt || new Date().toISOString());
       state.banner.campaignsText = formatHeroCampaignCount(state.campaigns.length, isGuestView);
 
+      syncHeroChips();
       updateBannerMetrics();
     }
 
@@ -2103,7 +2082,7 @@
           campaignConnectivitySection.classList.remove('d-none');
         }
         setCampaignFloatingExpanded(false);
-        syncToplineCards();
+        updateBannerMetrics();
         return;
       }
 
@@ -2129,7 +2108,7 @@
         campaignConnectivityContainer.classList.add('connectivity-empty');
         campaignConnectivityContainer.innerHTML = '<div class="text-secondary small text-center py-3">No campaign access detected yet.</div>';
         setCampaignFloatingExpanded(false);
-        syncToplineCards();
+        updateBannerMetrics();
         return;
       }
 
@@ -2164,7 +2143,7 @@
       });
 
       campaignConnectivityContainer.appendChild(fragment);
-      syncToplineCards();
+      updateBannerMetrics();
     }
 
     function buildLeadCollaboratorOptions() {
@@ -2698,7 +2677,7 @@
       renderActiveThread();
       updateChatFloatingVisibility();
       updateChatFloatingMeta();
-      syncToplineCards();
+      updateBannerMetrics();
     }
 
     function applyQaData(data) {
