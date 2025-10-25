@@ -1518,6 +1518,71 @@
     return Math.min(100, Math.round((assigned / total) * 100));
   }
 
+  function handleCampaignSearch(event){
+    campaignSearchTerm = String(event.target.value || '').toLowerCase();
+    renderCampaignsList();
+  }
+
+  function handleCampaignFilterClick(event){
+    const chip = event.target.closest('[data-filter]');
+    if (!chip) return;
+    campaignStatusFilter = chip.dataset.filter || 'all';
+    document.querySelectorAll('#campaignFilters .filter-chip').forEach(btn=>{
+      btn.classList.toggle('active', btn.dataset.filter === campaignStatusFilter);
+    });
+    renderCampaignsList();
+  }
+
+  function getCampaignStatus(campaign){
+    if (!campaign) return 'active';
+    if (campaign.isArchived || campaign.archived) return 'archived';
+    if (typeof campaign.isActive === 'boolean') return campaign.isActive ? 'active' : 'paused';
+    const statusFields = ['status', 'Status', 'state', 'State', 'lifecycleState'];
+    for (const field of statusFields) {
+      if (campaign[field]) {
+        const value = String(campaign[field]).toLowerCase();
+        if (value.includes('archive')) return 'archived';
+        if (value.includes('pause') || value.includes('hold')) return 'paused';
+        if (value.includes('draft') || value.includes('plan')) return 'draft';
+        if (value.includes('inactive')) return 'inactive';
+        if (value.includes('active') || value.includes('live') || value.includes('launch')) return 'active';
+        return value.split(/\s+/)[0];
+      }
+    }
+    return 'active';
+  }
+
+  function getStatusLabel(status){
+    const labels = {active:'Active', paused:'Paused', archived:'Archived', draft:'Draft', inactive:'Inactive'};
+    if (labels[status]) return labels[status];
+    return status.charAt(0).toUpperCase() + status.slice(1);
+  }
+
+  function getStatusClass(status){
+    switch (status) {
+      case 'paused': return 'status-paused';
+      case 'archived': return 'status-archived';
+      case 'draft': return 'status-draft';
+      case 'inactive': return 'status-inactive';
+      default: return 'status-active';
+    }
+  }
+
+  function getCampaignIcon(campaign){
+    const possibleFields = ['iconClass', 'icon', 'campaignIcon'];
+    for (const field of possibleFields) {
+      if (campaign[field]) return campaign[field];
+    }
+    return 'fas fa-bullhorn';
+  }
+
+  function getCampaignProgress(stat){
+    const assigned = stat.pageCount || 0;
+    const total = availablePages.length || assigned;
+    if (!total) return 0;
+    return Math.min(100, Math.round((assigned / total) * 100));
+  }
+
   function renderCampaignsList(){
     const container = document.getElementById('campaignsList');
     if (!campaigns.length) {
@@ -1594,6 +1659,7 @@
             <div class="progress-track">
               <div class="progress-value" style="width:${progress}%;"></div>
             </div>
+            <span class="status-badge ${statusClass}"><i class="fas fa-circle"></i> ${statusLabel}</span>
           </div>
           <div class="campaign-card__actions">
             <button class="btn btn-sm btn-primary" onclick="manageCampaignPages('${jsq(c.id)}','${jsq(c.name||'')}')"><i class="fas fa-cogs"></i> Manage</button>

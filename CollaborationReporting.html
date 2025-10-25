@@ -54,7 +54,21 @@
   .collab-shell {
     display: flex;
     flex-direction: column;
-    gap: 2.5rem;
+    gap: 3rem;
+  }
+
+  .collab-section {
+    display: grid;
+    gap: 2.4rem;
+  }
+
+  .collab-section.collab-section-grid {
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    align-items: stretch;
+  }
+
+  .collab-section + .collab-section {
+    margin-top: 0.5rem;
   }
 
   .collab-topline {
@@ -221,14 +235,41 @@
 
   .qa-grid {
     display: grid;
-    grid-template-columns: minmax(320px, 1.2fr) minmax(320px, 1fr);
-    gap: 2rem;
+    grid-template-columns: 1fr;
+    gap: 2.4rem;
   }
 
-  @media (max-width: 1200px) {
+  @media (min-width: 1200px) {
     .qa-grid {
-      grid-template-columns: 1fr;
+      grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.85fr);
+      align-items: start;
     }
+  }
+
+  .qa-metrics-group {
+    display: grid;
+    gap: 1.5rem;
+  }
+
+  .qa-metrics-group .qa-metric-card {
+    margin-bottom: 0;
+  }
+
+  .qa-insight-pair {
+    display: grid;
+    gap: 1.5rem;
+  }
+
+  @media (min-width: 768px) {
+    .qa-insight-pair {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  .kpi-mini-grid {
+    display: grid;
+    gap: 1.2rem;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   }
 
   .qa-form {
@@ -452,11 +493,10 @@
     background: var(--collab-surface-soft);
     border-radius: var(--collab-radius-md);
     padding: 1.25rem 1.45rem;
-    height: 100%;
-    overflow-y: auto;
-    min-height: 420px;
-    max-height: 520px;
     border: 1px solid rgba(148, 163, 184, 0.18);
+    flex: 1 1 auto;
+    overflow-y: auto;
+    min-height: 280px;
   }
 
   .chat-message {
@@ -510,6 +550,56 @@
     font-size: 0.7rem;
     text-transform: uppercase;
     letter-spacing: 0.05em;
+  }
+
+  .chat-thread-list {
+    border-radius: var(--collab-radius-md);
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    background: rgba(255, 255, 255, 0.92);
+    padding: 1rem 1.1rem;
+    overflow-y: auto;
+    flex: 1 1 auto;
+    min-height: 280px;
+  }
+
+  .chat-popup-grid {
+    display: grid;
+    grid-template-columns: 0.9fr 1fr 1.4fr;
+    gap: 1.2rem;
+    height: 100%;
+  }
+
+  .chat-popup-column {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .chat-popup-column.personas #chatPersonaFilters {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    background: rgba(255, 255, 255, 0.92);
+    border-radius: var(--collab-radius-md);
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    padding: 1rem 1.1rem;
+  }
+
+  .chat-popup-column.threads .chat-thread-list {
+    flex: 1 1 auto;
+  }
+
+  .chat-popup-column.conversation {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .chat-popup-column.conversation .chat-stream {
+    margin-bottom: 0;
+  }
+
+  .chat-popup-column.conversation .chat-composer {
+    margin-top: auto;
   }
 
   .connectivity-container {
@@ -669,12 +759,37 @@
     color: var(--collab-text-subtle);
   }
 
-  .floating-campaign-bar {
+  .team-pagination-bar {
+    margin-top: 1rem;
+    border-radius: var(--collab-radius-sm);
+    border: 1px solid var(--collab-border);
+    background: var(--collab-surface);
+    padding: 0.75rem 1rem;
+    box-shadow: var(--collab-shadow-soft);
+  }
+
+  .team-pagination-bar .btn {
+    min-width: 2.5rem;
+  }
+
+  .team-pagination-bar .btn i {
+    pointer-events: none;
+  }
+
+  .floating-launchers {
     position: fixed;
     bottom: 2rem;
     right: 2rem;
-    width: min(420px, calc(100vw - 3rem));
+    display: flex;
+    flex-direction: column;
+    gap: 1.2rem;
+    align-items: flex-end;
     z-index: 1040;
+  }
+
+  .floating-campaign-bar {
+    position: relative;
+    width: min(420px, calc(100vw - 4rem));
     display: flex;
     flex-direction: column;
     gap: 0.8rem;
@@ -773,11 +888,130 @@
     box-shadow: none;
   }
 
+  .floating-chat-bar {
+    position: relative;
+    width: min(520px, calc(100vw - 4rem));
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+  }
+
+  .floating-chat-bar.is-hidden {
+    display: none;
+  }
+
+  .floating-chat-bar .floating-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.9rem;
+    border-radius: 999px;
+    padding: 0.85rem 1.4rem;
+    border: none;
+    background: linear-gradient(135deg, rgba(37, 99, 235, 0.92), rgba(14, 165, 233, 0.92));
+    color: #ffffff;
+    font-weight: 600;
+    box-shadow: 0 20px 45px rgba(37, 99, 235, 0.35);
+    cursor: pointer;
+  }
+
+  .floating-chat-bar .floating-toggle .toggle-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.18);
+  }
+
+  .floating-chat-bar .floating-toggle .toggle-text {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.2rem;
+  }
+
+  .floating-chat-bar .floating-toggle .toggle-meta {
+    font-size: 0.75rem;
+    opacity: 0.9;
+  }
+
+  .floating-chat-bar .floating-toggle .toggle-caret {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.2);
+  }
+
+  .floating-chat-panel {
+    background: var(--collab-surface);
+    border-radius: var(--collab-radius-lg);
+    border: 1px solid var(--collab-border);
+    box-shadow: var(--collab-shadow);
+    overflow: hidden;
+    transition: max-height 0.35s ease, opacity 0.35s ease, transform 0.35s ease;
+    max-height: min(80vh, 680px);
+    display: flex;
+    flex-direction: column;
+  }
+
+  .floating-chat-bar.collapsed .floating-chat-panel {
+    max-height: 0;
+    opacity: 0;
+    transform: translateY(12px);
+    pointer-events: none;
+  }
+
+  .floating-chat-panel .floating-panel-body {
+    flex: 1 1 auto;
+    max-height: none;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    padding-bottom: 1.5rem;
+  }
+
+  .floating-chat-panel .chat-popup-grid {
+    flex: 1 1 auto;
+  }
+
+  .floating-chat-panel .floating-panel-header .btn {
+    border-color: rgba(148, 163, 184, 0.35);
+  }
+
+  @media (max-width: 992px) {
+    .chat-popup-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .chat-popup-column.personas #chatPersonaFilters {
+      max-height: 200px;
+    }
+  }
+
+  @media (max-width: 992px) {
+    .floating-launchers {
+      right: 1.5rem;
+      gap: 1rem;
+    }
+  }
+
   @media (max-width: 768px) {
-    .floating-campaign-bar {
+    .floating-launchers {
       right: 1rem;
       left: 1rem;
-      width: auto;
+      bottom: 1.5rem;
+      align-items: stretch;
+    }
+
+    .floating-campaign-bar,
+    .floating-chat-bar {
+      width: 100%;
     }
   }
 
@@ -828,26 +1062,23 @@
         </div>
       </div>
     </div>
-    <div class="row g-4 mt-1">
-      <div class="col-12">
-        <div class="card section-card h-100" id="teamIntelligenceCard">
-          <div class="card-header">
-            <div class="insight-pill"><i class="fas fa-users-gear"></i> Team Collaboration Intelligence</div>
-            <h2 class="mt-3">Managers, Clients, and Teams</h2>
-            <p class="mb-0">Review collaboration metrics by role, then dive into individual manager rosters for quality and attendance outcomes.</p>
-          </div>
-          <div class="card-body">
-            <div id="teamIntelligenceSection">
-              <ul class="nav nav-pills team-nav flex-wrap" id="teamTabs" role="tablist"></ul>
-              <div class="tab-content mt-4" id="teamTabContent"></div>
-            </div>
+    <section class="collab-section">
+      <div class="card section-card" id="teamIntelligenceCard">
+        <div class="card-header">
+          <div class="insight-pill"><i class="fas fa-users-gear"></i> Team Collaboration Intelligence</div>
+          <h2 class="mt-3">Managers, Clients, and Teams</h2>
+          <p class="mb-0">Review collaboration metrics by role, then dive into individual manager rosters for quality and attendance outcomes.</p>
+        </div>
+        <div class="card-body">
+          <div id="teamIntelligenceSection">
+            <ul class="nav nav-pills team-nav flex-wrap" id="teamTabs" role="tablist"></ul>
+            <div class="tab-content mt-4" id="teamTabContent"></div>
           </div>
         </div>
       </div>
-    </div>
-    <div class="row g-4 align-items-stretch">
-      <div class="col-xxl-8">
-        <div class="card section-card h-100">
+    </section>
+    <section class="collab-section collab-section-grid">
+      <article class="card section-card h-100">
         <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-3">
           <div>
             <div class="insight-pill"><i class="fas fa-clipboard-check"></i> Quality Collaboration Control</div>
@@ -861,8 +1092,37 @@
         </div>
         <div class="card-body">
           <div class="qa-grid">
+            <div class="qa-metrics-group">
+              <div class="qa-metric-card">
+                <div class="d-flex justify-content-between align-items-center">
+                  <div>
+                    <div class="label text-uppercase">Average QA Score</div>
+                    <div class="value" id="qaAverageScore">—</div>
+                  </div>
+                  <div class="text-end">
+                    <div class="muted-label">vs target 92%</div>
+                    <div class="badge bg-success rounded-pill" id="qaScoreTrend">—</div>
+                  </div>
+                </div>
+                <div class="mt-3">
+                  <canvas id="qaTrendChart" height="160"></canvas>
+                </div>
+              </div>
+              <div class="qa-insight-pair mt-1">
+                <div class="qa-metric-card">
+                  <div class="label text-uppercase">Actionable Items</div>
+                  <div class="value" id="qaFollowUps">—</div>
+                  <div class="muted-label">Follow-ups scheduled this week</div>
+                </div>
+                <div class="qa-metric-card">
+                  <div class="label text-uppercase">Collaboration Threads</div>
+                  <div class="value" id="qaThreads">—</div>
+                  <div class="muted-label">Audits with multi-role feedback</div>
+                </div>
+              </div>
+            </div>
             <form class="qa-form" id="qaCollaborationForm">
-              <div class="row g-3">
+              <div class="row g-3 g-xl-4">
                 <div class="col-12">
                   <span class="form-section-label">Review details</span>
                 </div>
@@ -946,40 +1206,6 @@
                 </div>
               </div>
             </form>
-            <div>
-              <div class="qa-metric-card">
-                <div class="d-flex justify-content-between align-items-center">
-                  <div>
-                    <div class="label text-uppercase">Average QA Score</div>
-                    <div class="value" id="qaAverageScore">—</div>
-                  </div>
-                  <div class="text-end">
-                    <div class="muted-label">vs target 92%</div>
-                    <div class="badge bg-success rounded-pill" id="qaScoreTrend">—</div>
-                  </div>
-                </div>
-                <div class="mt-3">
-                  <canvas id="qaTrendChart" height="160"></canvas>
-                </div>
-              </div>
-              <div class="row g-3">
-                <div class="col-md-6">
-                  <div class="qa-metric-card">
-                    <div class="label text-uppercase">Actionable Items</div>
-                    <div class="value" id="qaFollowUps">—</div>
-
-                    <div class="muted-label">Follow-ups scheduled this week</div>
-                  </div>
-                </div>
-                <div class="col-md-6">
-                  <div class="qa-metric-card">
-                    <div class="label text-uppercase">Collaboration Threads</div>
-                    <div class="value" id="qaThreads">—</div>
-                    <div class="muted-label">Audits with multi-role feedback</div>
-                  </div>
-                </div>
-              </div>
-            </div>
           </div>
 
           <div class="table-responsive mt-4">
@@ -1000,31 +1226,24 @@
             </table>
           </div>
         </div>
-      </div>
-    </div>
-      <div class="col-xxl-4">
-        <div class="card section-card h-100">
+      </article>
+      <article class="card section-card h-100">
         <div class="card-header">
           <div class="insight-pill"><i class="fas fa-chart-line"></i> Executive KPI Pulse</div>
           <h2 class="mt-3">Multi-campaign Leadership Summary</h2>
           <p class="mb-0">Blended KPIs across every managed campaign, with proactive signals for strategic decision making.</p>
         </div>
         <div class="card-body d-flex flex-column gap-3">
-          <div class="row g-3">
-            <div class="col-sm-6">
-              <div class="exec-kpi-card text-center">
-                <small>Average QA score</small>
-                <div class="headline" id="kpiQualityAverage">—</div>
-                <div class="text-success fw-semibold" id="kpiQualityTrend">Awaiting data</div>
-              </div>
+          <div class="kpi-mini-grid">
+            <div class="exec-kpi-card text-center">
+              <small>Average QA score</small>
+              <div class="headline" id="kpiQualityAverage">—</div>
+              <div class="text-success fw-semibold" id="kpiQualityTrend">Awaiting data</div>
             </div>
-            <div class="col-sm-6">
-              <div class="exec-kpi-card text-center">
-                <small>Attendance rate</small>
-                <div class="headline" id="kpiAttendanceRate">—</div>
-                <div class="text-success fw-semibold" id="kpiAttendanceTrend">Awaiting data</div>
-
-              </div>
+            <div class="exec-kpi-card text-center">
+              <small>Attendance rate</small>
+              <div class="headline" id="kpiAttendanceRate">—</div>
+              <div class="text-success fw-semibold" id="kpiAttendanceTrend">Awaiting data</div>
             </div>
           </div>
           <div class="kpi-trend-card">
@@ -1044,17 +1263,14 @@
           </div>
           <div class="exec-kpi-card">
             <h3>Executive Brief</h3>
-            <ul class="list-unstyled mb-0" id="executiveBrief">
-            </ul>
+            <ul class="list-unstyled mb-0" id="executiveBrief"></ul>
           </div>
         </div>
-      </div>
-    </div>
-  </div>
+      </article>
+    </section>
 
-  <div class="row g-4 mt-2 align-items-stretch">
-    <div class="col-xl-7">
-      <div class="card section-card h-100">
+    <section class="collab-section">
+      <article class="card section-card h-100">
         <div class="card-header">
           <div class="insight-pill"><i class="fas fa-user-check"></i> Attendance &amp; Adherence</div>
           <h2 class="mt-3">Shift coverage &amp; schedule fidelity</h2>
@@ -1091,57 +1307,70 @@
             </div>
           </div>
         </div>
-      </div>
-    </div>
-    <div class="col-xl-5">
-      <div class="card section-card h-100">
-        <div class="card-header">
-          <div class="insight-pill"><i class="fas fa-headset"></i> Targeted Collaboration Threads</div>
-          <h2 class="mt-3">Precision chat for leadership huddles</h2>
-          <p class="mb-0">Spin up focused conversations for managers, agents, and executives to address outcomes faster.</p>
+      </article>
+    </section>
+
+    <div class="floating-launchers">
+      <div class="floating-campaign-bar collapsed" id="campaignFloatingBar" aria-expanded="false">
+        <button type="button" class="floating-toggle" id="campaignFloatingToggle" aria-expanded="false" aria-controls="campaignConnectivitySection">
+          <span class="toggle-icon"><i class="fas fa-network-wired"></i></span>
+          <span class="toggle-label">Connected Campaign Workflows</span>
+          <span class="toggle-caret"><i class="fas fa-chevron-up"></i></span>
+        </button>
+        <div class="floating-panel" id="campaignConnectivitySection">
+          <div class="floating-panel-header">
+            <div class="insight-pill"><i class="fas fa-network-wired"></i> Connected Campaign Workflows</div>
+            <h3>Navigate the workspace by campaign</h3>
+            <p>Jump into quality, coaching, attendance, and collaboration views that run on the same campaign data fabric.</p>
+          </div>
+          <div class="floating-panel-body">
+            <div id="campaignConnectivity" class="connectivity-container"></div>
+          </div>
         </div>
-        <div class="card-body">
-          <div class="row g-3 align-items-stretch">
-            <div class="col-lg-4">
-              <div class="d-flex flex-column gap-2" id="chatPersonaFilters"></div>
+      </div>
+      <div class="floating-chat-bar collapsed" id="leadershipChatBar" aria-expanded="false">
+        <button type="button" class="floating-toggle" id="leadershipChatToggle" aria-expanded="false" aria-controls="leadershipChatPanel">
+          <span class="toggle-icon"><i class="fas fa-headset"></i></span>
+          <span class="toggle-text">
+            <span class="toggle-label" id="leadershipChatToggleLabel">Precision chat for leadership huddles</span>
+            <span class="toggle-meta" id="leadershipChatToggleMeta">Loading…</span>
+          </span>
+          <span class="toggle-caret"><i class="fas fa-chevron-up"></i></span>
+        </button>
+        <div class="floating-panel floating-chat-panel" id="leadershipChatPanel" role="dialog" aria-modal="false" aria-labelledby="leadershipChatTitle" aria-hidden="true">
+          <div class="floating-panel-header d-flex justify-content-between align-items-start">
+            <div>
+              <div class="insight-pill"><i class="fas fa-headset"></i> Targeted Collaboration Threads</div>
+              <h3 class="mb-1" id="leadershipChatTitle">Precision chat for leadership huddles</h3>
+              <p class="mb-0">Spin up focused conversations for managers, agents, and executives to address outcomes faster.</p>
             </div>
-            <div class="col-lg-4">
-              <div id="chatThreadList" class="overflow-auto" style="max-height:460px;"></div>
-            </div>
-            <div class="col-lg-4 d-flex flex-column">
-              <div class="chat-stream mb-3" id="chatMessageStream"></div>
-              <form id="chatComposer" class="chat-composer">
-                <div class="input-group">
-                  <input type="text" id="chatMessageInput" class="form-control" placeholder="Share an update" required>
-                  <button class="btn btn-primary" type="submit"><i class="fas fa-paper-plane"></i></button>
-                </div>
-                <div class="form-text mt-1">Visible to <span id="chatAudienceLabel" class="fw-semibold">all participants</span></div>
-              </form>
+            <button type="button" class="btn btn-outline-secondary btn-sm rounded-circle" id="leadershipChatClose" aria-label="Collapse leadership chat">
+              <i class="fas fa-xmark"></i>
+            </button>
+          </div>
+          <div class="floating-panel-body chat-panel-body">
+            <div class="chat-popup-grid">
+              <div class="chat-popup-column personas">
+                <div class="d-flex flex-column gap-2" id="chatPersonaFilters"></div>
+              </div>
+              <div class="chat-popup-column threads">
+                <div id="chatThreadList" class="chat-thread-list"></div>
+              </div>
+              <div class="chat-popup-column conversation">
+                <div class="chat-stream" id="chatMessageStream"></div>
+                <form id="chatComposer" class="chat-composer mt-3">
+                  <div class="input-group">
+                    <input type="text" id="chatMessageInput" class="form-control" placeholder="Share an update" required>
+                    <button class="btn btn-primary" type="submit"><i class="fas fa-paper-plane"></i></button>
+                  </div>
+                  <div class="form-text mt-1">Visible to <span id="chatAudienceLabel" class="fw-semibold">all participants</span></div>
+                </form>
+              </div>
             </div>
           </div>
         </div>
       </div>
     </div>
-  </div>
-
-  <div class="floating-campaign-bar collapsed" id="campaignFloatingBar" aria-expanded="false">
-    <button type="button" class="floating-toggle" id="campaignFloatingToggle" aria-expanded="false" aria-controls="campaignConnectivitySection">
-      <span class="toggle-icon"><i class="fas fa-network-wired"></i></span>
-      <span class="toggle-label">Connected Campaign Workflows</span>
-      <span class="toggle-caret"><i class="fas fa-chevron-up"></i></span>
-    </button>
-    <div class="floating-panel" id="campaignConnectivitySection">
-      <div class="floating-panel-header">
-        <div class="insight-pill"><i class="fas fa-network-wired"></i> Connected Campaign Workflows</div>
-        <h3>Navigate the workspace by campaign</h3>
-        <p>Jump into quality, coaching, attendance, and collaboration views that run on the same campaign data fabric.</p>
-      </div>
-      <div class="floating-panel-body">
-        <div id="campaignConnectivity" class="connectivity-container"></div>
-      </div>
-    </div>
-  </div>
-
   </div>
 </div>
 
@@ -1161,7 +1390,7 @@
       attendance: { campaigns: [], history: {}, summary: {} },
       executive: { summary: null, campaigns: [], brief: [], timeframeLabel: '', payPeriod: null },
       chat: { personas: [], threads: {} },
-      teams: { overview: null, managers: [], guests: [], managerTabs: [] },
+      teams: { overview: null, managers: [], guests: [], managerTabs: [], pagination: { pageSize: 8, scopes: {} } },
       banner: {
         persona: 'Operations Hub',
         userName: 'Team member',
@@ -1234,6 +1463,11 @@
     const chatMessageInput = document.getElementById('chatMessageInput');
     const chatAudienceLabel = document.getElementById('chatAudienceLabel');
     const chatSubmitButton = chatComposer.querySelector('button[type="submit"]');
+    const chatFloatingBar = document.getElementById('leadershipChatBar');
+    const chatFloatingToggle = document.getElementById('leadershipChatToggle');
+    const chatFloatingPanel = document.getElementById('leadershipChatPanel');
+    const chatFloatingClose = document.getElementById('leadershipChatClose');
+    const chatToggleMeta = document.getElementById('leadershipChatToggleMeta');
 
     const campaignConnectivitySection = document.getElementById('campaignConnectivitySection');
     const campaignConnectivityContainer = document.getElementById('campaignConnectivity');
@@ -1244,9 +1478,23 @@
     const teamTabContent = document.getElementById('teamTabContent');
     const teamSection = document.getElementById('teamIntelligenceSection');
 
+    if (teamTabContent) {
+      teamTabContent.addEventListener('click', function (event) {
+        const trigger = event.target.closest('[data-team-page-key]');
+        if (!trigger) return;
+        const scope = trigger.getAttribute('data-team-page-key');
+        const direction = trigger.getAttribute('data-team-page-direction');
+        if (!scope || !direction) return;
+        event.preventDefault();
+        adjustTeamPagination(scope, direction === 'next' ? 1 : -1);
+        rerenderAllTeamPanes();
+      });
+    }
+
     const alertsContainer = document.getElementById('collabAlerts');
     const loadingMessage = '<div class="text-secondary py-4 text-center small">Loading…</div>';
     const chartColors = ['#38bdf8', '#34d399', '#facc15', '#f97316', '#8b5cf6', '#f472b6'];
+    const TEAM_TABLE_PAGE_SIZE = 8;
 
     const campaignActions = [
       { key: 'dashboard', label: 'Dashboard', icon: 'fas fa-chart-line' },
@@ -1495,7 +1743,11 @@
     }
 
     function buildBannerDescription() {
-      const parts = [bannerDescriptionLead];
+      const descriptionParts = [];
+      if (typeof bannerDescriptionLead === 'string' && bannerDescriptionLead.trim()) {
+        descriptionParts.push(bannerDescriptionLead);
+      }
+
       const meta = [];
       if (state.banner.userName) {
         meta.push('Workspace lead: ' + state.banner.userName);
@@ -1506,10 +1758,12 @@
       if (state.banner.lastUpdatedText) {
         meta.push(state.banner.lastUpdatedText);
       }
+
       if (meta.length) {
-        parts.push(meta.join(' • '));
+        descriptionParts.push(meta.join(' • '));
       }
-      return parts.join(' ');
+
+      return descriptionParts.join(' ').trim();
     }
 
     function syncBanner() {
@@ -1535,6 +1789,7 @@
       } else {
         window.__pendingBannerData = Object.assign({}, config);
       }
+      return parts.join(' ');
     }
 
     function updateBannerMetrics() {
@@ -1687,6 +1942,87 @@
     function setChatComposerEnabled(enabled) {
       chatMessageInput.disabled = !enabled;
       chatSubmitButton.disabled = !enabled;
+    }
+
+    function setChatFloatingExpanded(expanded) {
+      if (!chatFloatingBar || !chatFloatingToggle) return;
+      if (expanded) {
+        chatFloatingBar.classList.remove('collapsed');
+      } else {
+        chatFloatingBar.classList.add('collapsed');
+      }
+      const expandedAttr = expanded ? 'true' : 'false';
+      chatFloatingBar.setAttribute('aria-expanded', expandedAttr);
+      chatFloatingToggle.setAttribute('aria-expanded', expandedAttr);
+      if (chatFloatingPanel) {
+        chatFloatingPanel.setAttribute('aria-hidden', expanded ? 'false' : 'true');
+        chatFloatingPanel.setAttribute('aria-modal', expanded ? 'true' : 'false');
+      }
+      const caretIcon = chatFloatingToggle.querySelector('.toggle-caret i');
+      if (caretIcon) {
+        caretIcon.className = expanded ? 'fas fa-chevron-down' : 'fas fa-chevron-up';
+      }
+      if (expanded && chatMessageInput && !chatMessageInput.disabled) {
+        setTimeout(function () { chatMessageInput.focus(); }, 140);
+      }
+    }
+
+    function updateChatFloatingVisibility() {
+      if (!chatFloatingBar) return;
+      const hasPersonas = Array.isArray(state.chat.personas) && state.chat.personas.length > 0;
+      if (!hasPersonas) {
+        chatFloatingBar.classList.add('is-hidden');
+        chatFloatingBar.setAttribute('aria-hidden', 'true');
+        setChatFloatingExpanded(false);
+        if (chatFloatingPanel) {
+          chatFloatingPanel.setAttribute('aria-hidden', 'true');
+          chatFloatingPanel.setAttribute('aria-modal', 'false');
+        }
+      } else {
+        chatFloatingBar.classList.remove('is-hidden');
+        chatFloatingBar.removeAttribute('aria-hidden');
+      }
+    }
+
+    function updateChatFloatingMeta() {
+      if (!chatToggleMeta) return;
+      const personas = state.chat.personas || [];
+      if (!personas.length) {
+        chatToggleMeta.textContent = 'No audiences available';
+        return;
+      }
+      const threadsMap = state.chat.threads || {};
+      const totalThreads = personas.reduce(function (total, persona) {
+        const key = persona && persona.key ? persona.key : persona;
+        const list = threadsMap[key] || [];
+        return total + (Array.isArray(list) ? list.length : 0);
+      }, 0);
+      chatToggleMeta.textContent = totalThreads
+        ? totalThreads + ' active thread' + (totalThreads === 1 ? '' : 's')
+        : 'No active threads';
+    }
+
+    function initializeChatFloatingBar() {
+      if (!chatFloatingBar || !chatFloatingToggle) return;
+      setChatFloatingExpanded(false);
+      chatFloatingToggle.addEventListener('click', function () {
+        const shouldExpand = chatFloatingBar.classList.contains('collapsed');
+        setChatFloatingExpanded(shouldExpand);
+      });
+      if (chatFloatingClose) {
+        chatFloatingClose.addEventListener('click', function () {
+          setChatFloatingExpanded(false);
+          chatFloatingToggle.focus();
+        });
+      }
+      document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape' && chatFloatingBar && !chatFloatingBar.classList.contains('collapsed')) {
+          setChatFloatingExpanded(false);
+          if (chatFloatingToggle) {
+            chatFloatingToggle.focus();
+          }
+        }
+      });
     }
 
     function setCampaignFloatingExpanded(expanded) {
@@ -2272,6 +2608,7 @@
         button.className = 'persona-chip btn btn-link text-start ' + (state.activePersona === persona.key ? 'active' : '');
         button.innerHTML = `<i class="fas ${persona.icon || 'fa-comments'}"></i> ${persona.label || persona.key}`;
         button.addEventListener('click', function () {
+          setChatFloatingExpanded(true);
           state.activePersona = persona.key;
           const threads = state.chat.threads[state.activePersona] || [];
           state.activeThreadId = threads.length ? threads[0].id : null;
@@ -2301,6 +2638,7 @@
           </div>
         `;
         card.addEventListener('click', function () {
+          setChatFloatingExpanded(true);
           state.activeThreadId = thread.id;
           renderChatThreads();
           renderActiveThread();
@@ -2358,6 +2696,8 @@
       renderChatPersonaFilters();
       renderChatThreads();
       renderActiveThread();
+      updateChatFloatingVisibility();
+      updateChatFloatingMeta();
       syncToplineCards();
     }
 
@@ -2405,6 +2745,7 @@
       state.teams.managers = Array.isArray(data.managers) ? data.managers : [];
       state.teams.guests = Array.isArray(data.guests) ? data.guests : [];
       state.teams.managerTabs = Array.isArray(data.managerTabs) ? data.managerTabs : [];
+      state.teams.pagination = { pageSize: TEAM_TABLE_PAGE_SIZE, scopes: {} };
       renderTeamTabs();
       renderQADirectory();
     }
@@ -2456,6 +2797,15 @@
         pane.id = paneId;
         pane.role = 'tabpanel';
         pane.setAttribute('aria-labelledby', navId);
+        pane.dataset.tabType = tab.type || '';
+        if (tab.type === 'manager') {
+          if (tab.id) {
+            pane.dataset.managerKey = tab.id;
+          }
+          if (tab.data && tab.data.managerId !== undefined && tab.data.managerId !== null) {
+            pane.dataset.managerId = String(tab.data.managerId);
+          }
+        }
         pane.innerHTML = renderTeamTabContent(tab);
         teamTabContent.appendChild(pane);
       });
@@ -2466,8 +2816,106 @@
       if (tab.type === 'overview') return renderTeamOverviewTab();
       if (tab.type === 'managers') return renderTeamManagersTab();
       if (tab.type === 'guests') return renderTeamGuestsTab();
-      if (tab.type === 'manager') return renderManagerTeamTab(tab.data);
+      if (tab.type === 'manager') return renderManagerTeamTab(tab.data, tab.id);
       return renderTeamEmptyState('No data available.');
+    }
+
+    function ensureTeamPagination() {
+      if (!state.teams.pagination) {
+        state.teams.pagination = { pageSize: TEAM_TABLE_PAGE_SIZE, scopes: {} };
+      }
+      if (!state.teams.pagination.scopes) {
+        state.teams.pagination.scopes = {};
+      }
+      if (!state.teams.pagination.pageSize) {
+        state.teams.pagination.pageSize = TEAM_TABLE_PAGE_SIZE;
+      }
+    }
+
+    function getTeamPage(scope) {
+      ensureTeamPagination();
+      const page = state.teams.pagination.scopes[scope];
+      return page && page > 0 ? page : 1;
+    }
+
+    function setTeamPage(scope, page) {
+      ensureTeamPagination();
+      state.teams.pagination.scopes[scope] = page;
+    }
+
+    function clampTeamPage(scope, totalPages) {
+      const maxPages = totalPages && totalPages > 0 ? totalPages : 1;
+      const current = getTeamPage(scope);
+      const clamped = Math.min(Math.max(current, 1), maxPages);
+      setTeamPage(scope, clamped);
+      return clamped;
+    }
+
+    function adjustTeamPagination(scope, delta) {
+      ensureTeamPagination();
+      const change = Number(delta) || 0;
+      const next = getTeamPage(scope) + change;
+      state.teams.pagination.scopes[scope] = next > 0 ? next : 1;
+    }
+
+    function renderTeamPaginationControls(scope, current, totalPages, rangeStart, rangeEnd, totalCount) {
+      if (!totalPages || totalPages <= 1) return '';
+      const safeStart = rangeStart || 1;
+      const safeEnd = rangeEnd || safeStart;
+      const safeTotal = totalCount || safeEnd;
+      return `
+        <div class="team-pagination-bar">
+          <div class="d-flex flex-column flex-sm-row align-items-start align-items-sm-center justify-content-between gap-2">
+            <div class="text-secondary small">Showing ${safeStart}&ndash;${safeEnd} of ${safeTotal}</div>
+            <div class="d-flex align-items-center gap-2">
+              <button type="button" class="btn btn-outline-primary btn-sm" data-team-page-key="${scope}" data-team-page-direction="prev" ${current <= 1 ? 'disabled' : ''}>
+                <i class="fas fa-chevron-left"></i>
+              </button>
+              <span class="small fw-semibold">Page ${current} of ${totalPages}</span>
+              <button type="button" class="btn btn-outline-primary btn-sm" data-team-page-key="${scope}" data-team-page-direction="next" ${current >= totalPages ? 'disabled' : ''}>
+                <i class="fas fa-chevron-right"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function rerenderTeamPane(pane) {
+      if (!pane) return;
+      const tabType = pane.getAttribute('data-tab-type');
+      if (!tabType) return;
+      if (tabType === 'overview') {
+        pane.innerHTML = renderTeamOverviewTab();
+        return;
+      }
+      if (tabType === 'managers') {
+        pane.innerHTML = renderTeamManagersTab();
+        return;
+      }
+      if (tabType === 'guests') {
+        pane.innerHTML = renderTeamGuestsTab();
+        return;
+      }
+      if (tabType === 'manager') {
+        const managerKey = pane.getAttribute('data-manager-key') || '';
+        const managerId = pane.getAttribute('data-manager-id') || '';
+        const managerTab = (state.teams.managerTabs || []).find(function (entry, index) {
+          if (!entry) return false;
+          if (managerId && String(entry.managerId) === managerId) return true;
+          const safeId = sanitizeId(entry && entry.managerId ? entry.managerId : ('manager-' + index));
+          return safeId === managerKey;
+        });
+        pane.innerHTML = renderManagerTeamTab(managerTab, managerKey);
+      }
+    }
+
+    function rerenderAllTeamPanes() {
+      if (!teamTabContent) return;
+      const panes = teamTabContent.querySelectorAll('.tab-pane');
+      panes.forEach(function (pane) {
+        rerenderTeamPane(pane);
+      });
     }
 
     function renderTeamOverviewTab() {
@@ -2536,11 +2984,22 @@
       `;
     }
 
-    function renderManagerTeamTab(managerTab) {
+    function renderManagerTeamTab(managerTab, paneKey) {
       if (!managerTab || !Array.isArray(managerTab.users) || !managerTab.users.length) {
         return renderTeamEmptyState('This manager does not have any assigned team members yet.');
       }
       const summary = managerTab.summary || {};
+      let managerKey = paneKey || '';
+      if (!managerKey && managerTab && managerTab.managerId !== undefined && managerTab.managerId !== null) {
+        managerKey = sanitizeId(managerTab.managerId);
+      }
+      if (!managerKey && managerTab && managerTab.name) {
+        managerKey = sanitizeId(managerTab.name);
+      }
+      if (!managerKey) {
+        managerKey = 'manager';
+      }
+      const scope = managerKey ? 'managerMembers:' + managerKey : 'managerMembers';
       const metricsHtml = `
         <div class="team-summary-grid">
           ${renderTeamMetricCard('Team Members', formatTeamNumber(summary.teamSize), 'fa-users')}
@@ -2550,14 +3009,21 @@
           ${renderTeamMetricCard('CSAT Average', formatTeamPercent(summary.csatAverage), 'fa-face-smile')}
         </div>
       `;
-      return metricsHtml + renderTeamMembersTable(managerTab.users);
+      return metricsHtml + renderTeamMembersTable(managerTab.users, scope);
     }
 
     function renderManagerSummaryTable(managers) {
       if (!managers || !managers.length) {
         return renderTeamEmptyState('No managers currently have assigned teams.');
       }
-      const rows = managers.map(function (manager) {
+      const scope = 'managerSummary';
+      const pageSize = (state.teams.pagination && state.teams.pagination.pageSize) || TEAM_TABLE_PAGE_SIZE;
+      const total = managers.length;
+      const totalPages = Math.max(1, Math.ceil(total / pageSize));
+      const current = clampTeamPage(scope, totalPages);
+      const startIndex = (current - 1) * pageSize;
+      const pageManagers = managers.slice(startIndex, startIndex + pageSize);
+      const rows = pageManagers.map(function (manager) {
         const name = escapeHtml(manager.name || 'Manager');
         const email = manager.email ? `<div class="team-member-meta">${escapeHtml(manager.email)}</div>` : '';
         return `
@@ -2574,6 +3040,9 @@
           </tr>
         `;
       }).join('');
+      const rangeStart = startIndex + 1;
+      const rangeEnd = Math.min(startIndex + pageSize, total);
+      const paginationHtml = renderTeamPaginationControls(scope, current, totalPages, rangeStart, rangeEnd, total);
       return `
         <div class="table-responsive mt-4">
           <table class="table table-hover align-middle team-table">
@@ -2590,14 +3059,22 @@
             <tbody>${rows}</tbody>
           </table>
         </div>
+        ${paginationHtml}
       `;
     }
 
-    function renderTeamMembersTable(users) {
+    function renderTeamMembersTable(users, scopeKey) {
       if (!users || !users.length) {
         return renderTeamEmptyState('No team members assigned.');
       }
-      const rows = users.map(function (user) {
+      const scope = scopeKey || 'managerMembers';
+      const pageSize = (state.teams.pagination && state.teams.pagination.pageSize) || TEAM_TABLE_PAGE_SIZE;
+      const total = users.length;
+      const totalPages = Math.max(1, Math.ceil(total / pageSize));
+      const current = clampTeamPage(scope, totalPages);
+      const startIndex = (current - 1) * pageSize;
+      const pageUsers = users.slice(startIndex, startIndex + pageSize);
+      const rows = pageUsers.map(function (user) {
         const name = escapeHtml(user.name || 'Team Member');
         const email = user.email ? `<div class="team-member-meta">${escapeHtml(user.email)}</div>` : '';
         const campaign = user.campaignName ? `<div class="team-member-meta">${escapeHtml(user.campaignName)}</div>` : '';
@@ -2615,6 +3092,9 @@
           </tr>
         `;
       }).join('');
+      const rangeStart = startIndex + 1;
+      const rangeEnd = Math.min(startIndex + pageSize, total);
+      const paginationHtml = renderTeamPaginationControls(scope, current, totalPages, rangeStart, rangeEnd, total);
       return `
         <div class="table-responsive mt-4">
           <table class="table table-hover align-middle team-table">
@@ -2630,6 +3110,7 @@
             <tbody>${rows}</tbody>
           </table>
         </div>
+        ${paginationHtml}
       `;
     }
 
@@ -2690,6 +3171,9 @@
       chatThreadList.innerHTML = loadingMessage;
       chatStream.innerHTML = loadingMessage;
       setChatComposerEnabled(false);
+      if (chatToggleMeta) {
+        chatToggleMeta.textContent = 'Loading…';
+      }
       if (campaignConnectivityContainer) {
         campaignConnectivityContainer.classList.remove('connectivity-grid', 'connectivity-empty');
         campaignConnectivityContainer.innerHTML = loadingMessage;
@@ -2791,6 +3275,7 @@
             tags: ['Update']
           });
           thread.updated = nowIso;
+          setChatFloatingExpanded(true);
           renderChatThreads();
           renderActiveThread();
           setTimeout(function () { loadCollaborationData(true); }, 500);
@@ -2807,6 +3292,7 @@
         });
     });
 
+    initializeChatFloatingBar();
     initializeCampaignFloatingBar();
     syncToplineCards();
     loadCollaborationData(false);
