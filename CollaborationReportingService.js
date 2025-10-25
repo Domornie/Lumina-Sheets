@@ -50,6 +50,7 @@ function clientGetCollaborationReportingData(options) {
     attendance: buildCollaborationAttendancePayload_(workspace),
     executive: buildCollaborationExecutivePayload_(userId, workspace),
     chat: buildCollaborationChatPayload_(workspace),
+    teams: buildCollaborationTeamsPayload_(workspace),
     campaigns: campaigns,
     generatedAt: new Date().toISOString()
   };
@@ -323,9 +324,19 @@ function mapCollaborationQaRecord_(row) {
     if (agentFeedback) collaborators.push(agentFeedback);
   }
 
+  var agentId = collabNormalizeUserId_(
+    row.AgentUserID || row.AgentUserId || row.AgentId ||
+    row.UserID || row.UserId || row.EmployeeID || row.EmployeeId
+  );
+  var agentEmail = collabNormalizeEmail_(
+    row.AgentEmail || row.Email || row.AgentWorkEmail || row.UserEmail
+  );
+
   return {
     id: id,
     agent: collabToStr_(row.AgentName || row.Agent || ''),
+    agentId: agentId,
+    agentEmail: agentEmail,
     campaignId: collabToStr_(row.CampaignId || row.CampaignID || row.ClientId || row.ClientID || ''),
     campaignName: collabToStr_(row.ClientName || row.Campaign || row.CampaignName || ''),
     reviewer: collabToStr_(row.AuditorName || row.Reviewer || row.ReviewedBy || ''),
@@ -660,6 +671,430 @@ function buildCollaborationExecutivePayload_(userId, workspace) {
   payload.timeframeLabel = buildTimeframeLabel_();
 
   return payload;
+}
+
+function buildCollaborationTeamsPayload_(workspace) {
+  var payload = {
+    overview: {
+      totalTeams: 0,
+      totalAgents: 0,
+      qualityAverage: null,
+      attendanceAverage: null,
+      callVolume: 0,
+      csatAverage: null
+    },
+    managers: [],
+    guests: [],
+    managerTabs: []
+  };
+
+  var userDirectory = collabBuildUserDirectory_(workspace);
+  payload.guests = collabCollectGuestDirectory_(userDirectory);
+
+  var assignments = collabCollectManagerAssignments_();
+  if (!assignments.order.length) {
+    return payload;
+  }
+
+  var attendanceRows = (workspace && workspace.performance && workspace.performance.attendance && workspace.performance.attendance.rows) || [];
+  var attendanceIndex = collabBuildAttendanceMetricsIndex_(attendanceRows);
+  var callIndex = collabBuildCallMetricsIndex_();
+
+  var overallAgentSet = {};
+  var overallQuality = { sum: 0, count: 0 };
+  var overallAttendance = { sum: 0, count: 0 };
+  var overallCallVolume = 0;
+  var overallCsat = { yes: 0, total: 0 };
+
+  var managerIds = assignments.order.slice();
+  managerIds.sort(function (a, b) {
+    var nameA = (userDirectory[a] && userDirectory[a].name) ? userDirectory[a].name.toLowerCase() : a.toLowerCase();
+    var nameB = (userDirectory[b] && userDirectory[b].name) ? userDirectory[b].name.toLowerCase() : b.toLowerCase();
+    if (nameA < nameB) return -1;
+    if (nameA > nameB) return 1;
+    return 0;
+  });
+
+  managerIds.forEach(function (managerId) {
+    var assignment = assignments.map[managerId];
+    if (!assignment) return;
+    var managedIds = Object.keys(assignment.userIds);
+    if (!managedIds.length) return;
+
+    var managerInfo = userDirectory[managerId] || null;
+    var qaSummary = null;
+    if (typeof clientGetManagerTeamSummary === 'function') {
+      try {
+        qaSummary = clientGetManagerTeamSummary(managerId);
+      } catch (err) {
+        console.error('buildCollaborationTeamsPayload_.getManagerTeamSummary failed:', err);
+      }
+    }
+    var qaIndex = collabIndexManagerQaSummary_(qaSummary);
+
+    var teamUsers = [];
+    var teamQuality = { sum: 0, count: 0 };
+    var teamAttendance = { sum: 0, count: 0 };
+    var teamCallVolume = 0;
+    var teamCsat = { yes: 0, total: 0 };
+
+    managedIds.sort(function (a, b) {
+      var entryA = userDirectory[a];
+      var entryB = userDirectory[b];
+      var nameA = (entryA && entryA.name) ? entryA.name.toLowerCase() : a.toLowerCase();
+      var nameB = (entryB && entryB.name) ? entryB.name.toLowerCase() : b.toLowerCase();
+      if (nameA < nameB) return -1;
+      if (nameA > nameB) return 1;
+      return 0;
+    });
+
+    managedIds.forEach(function (userId) {
+      overallAgentSet[userId] = true;
+      var directoryEntry = userDirectory[userId] || {};
+      var qaEntry = collabLookupMetricForUser_(userId, directoryEntry.displayEmail, qaIndex);
+      var attendanceEntry = collabLookupMetricForUser_(userId, directoryEntry.displayEmail, attendanceIndex);
+      var callEntry = collabLookupMetricForUser_(userId, directoryEntry.displayEmail, callIndex);
+
+      var quality = (qaEntry && qaEntry.average != null && !isNaN(qaEntry.average)) ? Number(qaEntry.average) : null;
+      if (quality != null) {
+        teamQuality.sum += quality;
+        teamQuality.count += 1;
+        overallQuality.sum += quality;
+        overallQuality.count += 1;
+      }
+
+      var attendanceRate = null;
+      if (attendanceEntry && attendanceEntry.total > 0) {
+        var rate = ((attendanceEntry.present || 0) / Math.max(attendanceEntry.total, 1)) * 100;
+        attendanceRate = collabRound_(rate, 1);
+        teamAttendance.sum += attendanceRate;
+        teamAttendance.count += 1;
+        overallAttendance.sum += attendanceRate;
+        overallAttendance.count += 1;
+      }
+
+      var callCount = null;
+      var csatValue = null;
+      if (callEntry) {
+        callCount = callEntry.callCount != null ? Number(callEntry.callCount) : 0;
+        if (!isNaN(callCount)) {
+          teamCallVolume += callCount;
+          overallCallVolume += callCount;
+        }
+        if (callEntry.csatTotal > 0) {
+          var ratio = callEntry.csatYes / callEntry.csatTotal;
+          if (!isNaN(ratio)) {
+            csatValue = collabRound_(ratio * 100, 1);
+            teamCsat.yes += callEntry.csatYes;
+            teamCsat.total += callEntry.csatTotal;
+            overallCsat.yes += callEntry.csatYes;
+            overallCsat.total += callEntry.csatTotal;
+          }
+        }
+      }
+
+      var displayName = directoryEntry.name;
+      if (!displayName && qaEntry && qaEntry.name) displayName = qaEntry.name;
+      if (!displayName) displayName = 'Team Member';
+
+      var email = directoryEntry.displayEmail || (qaEntry && qaEntry.email) || '';
+
+      teamUsers.push({
+        id: userId,
+        name: displayName,
+        email: email,
+        roles: directoryEntry.roles || (qaEntry && qaEntry.roles) || [],
+        campaignName: directoryEntry.campaignName || '',
+        quality: quality,
+        attendance: attendanceRate,
+        callCount: callCount,
+        csat: csatValue
+      });
+    });
+
+    teamUsers.sort(function (a, b) {
+      var nameA = (a.name || '').toLowerCase();
+      var nameB = (b.name || '').toLowerCase();
+      if (nameA < nameB) return -1;
+      if (nameA > nameB) return 1;
+      return 0;
+    });
+
+    var managerName = managerInfo && managerInfo.name ? managerInfo.name : managerId;
+    var managerEmail = managerInfo && managerInfo.displayEmail ? managerInfo.displayEmail : '';
+
+    var qualityAverage = teamQuality.count ? collabRound_(teamQuality.sum / teamQuality.count, 1) : null;
+    var attendanceAverage = teamAttendance.count ? collabRound_(teamAttendance.sum / teamAttendance.count, 1) : null;
+    var csatAverage = teamCsat.total ? collabRound_((teamCsat.yes / teamCsat.total) * 100, 1) : null;
+
+    payload.managers.push({
+      id: managerId,
+      name: managerName,
+      email: managerEmail,
+      teamSize: managedIds.length,
+      qualityAverage: qualityAverage,
+      attendanceAverage: attendanceAverage,
+      callVolume: teamCallVolume,
+      csatAverage: csatAverage
+    });
+
+    payload.managerTabs.push({
+      managerId: managerId,
+      name: managerName,
+      email: managerEmail,
+      summary: {
+        teamSize: managedIds.length,
+        qualityAverage: qualityAverage,
+        attendanceAverage: attendanceAverage,
+        callVolume: teamCallVolume,
+        csatAverage: csatAverage
+      },
+      users: teamUsers
+    });
+  });
+
+  payload.managers.sort(function (a, b) {
+    var nameA = (a.name || '').toLowerCase();
+    var nameB = (b.name || '').toLowerCase();
+    if (nameA < nameB) return -1;
+    if (nameA > nameB) return 1;
+    return 0;
+  });
+
+  payload.managerTabs.sort(function (a, b) {
+    var nameA = (a.name || '').toLowerCase();
+    var nameB = (b.name || '').toLowerCase();
+    if (nameA < nameB) return -1;
+    if (nameA > nameB) return 1;
+    return 0;
+  });
+
+  payload.overview.totalTeams = payload.managerTabs.length;
+  payload.overview.totalAgents = Object.keys(overallAgentSet).length;
+  payload.overview.qualityAverage = overallQuality.count ? collabRound_(overallQuality.sum / overallQuality.count, 1) : null;
+  payload.overview.attendanceAverage = overallAttendance.count ? collabRound_(overallAttendance.sum / overallAttendance.count, 1) : null;
+  payload.overview.callVolume = overallCallVolume;
+  payload.overview.csatAverage = overallCsat.total ? collabRound_((overallCsat.yes / overallCsat.total) * 100, 1) : null;
+
+  return payload;
+}
+
+function collabBuildUserDirectory_(workspace) {
+  var directory = {};
+  if (!workspace || !workspace.users || !Array.isArray(workspace.users.records)) {
+    return directory;
+  }
+
+  workspace.users.records.forEach(function (record) {
+    if (!record) return;
+    var id = collabNormalizeUserId_(record.ID || record.Id || record.UserID || record.UserId || record.AgentId || record.AgentID);
+    if (!id) return;
+    var roles = Array.isArray(record.roleNames) ? record.roleNames.slice() : [];
+    var displayEmail = collabToStr_(record.Email || record.UserEmail || record.AgentEmail || '');
+    directory[id] = {
+      id: id,
+      name: collabToStr_(record.FullName || record.UserName || record.Name || displayEmail || ''),
+      displayEmail: displayEmail,
+      email: collabNormalizeEmail_(displayEmail),
+      roles: roles,
+      campaignId: collabToStr_(record.CampaignID || record.CampaignId || record.Campaign || record.campaignId || ''),
+      campaignName: collabToStr_(record.CampaignName || record.campaignName || record.Campaign || ''),
+      isGuest: roles.some(function (role) { return String(role || '').toLowerCase().indexOf('guest') >= 0; }),
+      isManager: roles.some(function (role) { return /manager/i.test(String(role || '')); })
+    };
+  });
+
+  return directory;
+}
+
+function collabCollectGuestDirectory_(directory) {
+  var guests = [];
+  for (var id in directory) {
+    if (!directory.hasOwnProperty(id)) continue;
+    var entry = directory[id];
+    if (!entry || !entry.isGuest) continue;
+    guests.push({
+      id: id,
+      name: entry.name || 'Guest User',
+      email: entry.displayEmail || '',
+      campaignName: entry.campaignName || '',
+      roles: entry.roles || []
+    });
+  }
+
+  guests.sort(function (a, b) {
+    var nameA = (a.name || '').toLowerCase();
+    var nameB = (b.name || '').toLowerCase();
+    if (nameA < nameB) return -1;
+    if (nameA > nameB) return 1;
+    return 0;
+  });
+
+  return guests;
+}
+
+function collabCollectManagerAssignments_() {
+  var result = { order: [], map: {} };
+  if (typeof readManagerAssignments_ !== 'function') {
+    return result;
+  }
+
+  var rows = [];
+  try {
+    rows = readManagerAssignments_() || [];
+  } catch (err) {
+    console.error('collabCollectManagerAssignments_ failed:', err);
+    rows = [];
+  }
+
+  rows.forEach(function (row) {
+    if (!row) return;
+    var managerId = collabNormalizeUserId_(row.ManagerUserID || row.ManagerId || row.ManagerID || row.managerId);
+    var userId = collabNormalizeUserId_(row.UserID || row.ManagedUserID || row.UserId || row.ManagedUserId || row.userId);
+    if (!managerId || !userId) return;
+    if (!result.map[managerId]) {
+      result.map[managerId] = { userIds: {}, campaigns: {} };
+      result.order.push(managerId);
+    }
+    result.map[managerId].userIds[userId] = true;
+    var campaignId = collabToStr_(row.CampaignID || row.CampaignId || row.Campaign || '');
+    if (campaignId) {
+      result.map[managerId].campaigns[campaignId] = true;
+    }
+  });
+
+  return result;
+}
+
+function collabBuildAttendanceMetricsIndex_(rows) {
+  var index = { byId: {}, byEmail: {} };
+  (rows || []).forEach(function (row) {
+    if (!row) return;
+    var id = collabNormalizeUserId_(row.UserID || row.UserId || row.AgentId || row.EmployeeID || row.EmployeeId);
+    var email = collabNormalizeEmail_(row.UserEmail || row.Email || row.AgentEmail || row.AgentWorkEmail);
+    var entry = collabEnsureMetricEntry_(index, id, email, { total: 0, present: 0, absent: 0 });
+    if (!entry) return;
+    entry.total += 1;
+    var status = collabToStr_(row.Status || row.State || row.Result || row.AttendanceStatus || row.Outcome || '');
+    if (/absent|no show|noshow|callout|absence/i.test(status)) {
+      entry.absent += 1;
+    } else {
+      entry.present += 1;
+    }
+  });
+  return index;
+}
+
+function collabBuildCallMetricsIndex_() {
+  var index = { byId: {}, byEmail: {} };
+  if (typeof readSheet !== 'function') {
+    return index;
+  }
+
+  var sheetName = null;
+  if (typeof G !== 'undefined' && G && typeof G.CALL_REPORT === 'string' && G.CALL_REPORT) {
+    sheetName = G.CALL_REPORT;
+  } else if (typeof CALL_REPORT_SHEET === 'string' && CALL_REPORT_SHEET) {
+    sheetName = CALL_REPORT_SHEET;
+  } else {
+    sheetName = 'CallReport';
+  }
+
+  var rows = [];
+  try {
+    rows = readSheet(sheetName) || [];
+  } catch (err) {
+    try { console.warn('collabBuildCallMetricsIndex_ unable to read sheet', err); } catch (_) {}
+    return index;
+  }
+
+  rows.forEach(function (row) {
+    if (!row) return;
+    var id = collabNormalizeUserId_(row.UserID || row.UserId || row.AgentId || row.AgentUserID);
+    var email = collabNormalizeEmail_(row.UserEmail || row.AgentEmail || row.AgentWorkEmail || row.ToSFUser);
+    var entry = collabEnsureMetricEntry_(index, id, email, { callCount: 0, csatYes: 0, csatTotal: 0 });
+    if (!entry) return;
+    entry.callCount += 1;
+    var csatRaw = collabToStr_(row.CSAT || row.Csat || row.Question1 || row.SurveyResult || '');
+    if (csatRaw) {
+      entry.csatTotal += 1;
+      var normalized = csatRaw.toLowerCase ? csatRaw.toLowerCase() : String(csatRaw).toLowerCase();
+      if (/^y(es)?$/.test(normalized) || /^1$/.test(normalized) || normalized === 'true' || normalized === 'positive' || normalized === 'pass') {
+        entry.csatYes += 1;
+      }
+    }
+  });
+
+  return index;
+}
+
+function collabEnsureMetricEntry_(index, id, email, defaults) {
+  if (!index) return null;
+  var keyId = collabNormalizeUserId_(id);
+  var keyEmail = collabNormalizeEmail_(email);
+  var entry = null;
+  if (keyId && index.byId[keyId]) entry = index.byId[keyId];
+  if (!entry && keyEmail && index.byEmail[keyEmail]) entry = index.byEmail[keyEmail];
+  if (!entry) {
+    entry = collabCreateMetricEntry_(defaults);
+  }
+  if (keyId) index.byId[keyId] = entry;
+  if (keyEmail) index.byEmail[keyEmail] = entry;
+  return entry;
+}
+
+function collabCreateMetricEntry_(template) {
+  var entry = {};
+  for (var key in template) {
+    if (template.hasOwnProperty(key)) entry[key] = template[key];
+  }
+  return entry;
+}
+
+function collabLookupMetricForUser_(userId, email, index) {
+  if (!index) return null;
+  var keyId = collabNormalizeUserId_(userId);
+  if (keyId && index.byId[keyId]) return index.byId[keyId];
+  var keyEmail = collabNormalizeEmail_(email);
+  if (keyEmail && index.byEmail[keyEmail]) return index.byEmail[keyEmail];
+  return null;
+}
+
+function collabIndexManagerQaSummary_(summary) {
+  var index = { byId: {}, byEmail: {} };
+  if (!summary || !Array.isArray(summary.users)) {
+    return index;
+  }
+
+  summary.users.forEach(function (user) {
+    if (!user) return;
+    var id = collabNormalizeUserId_(user.id || user.ID || user.UserID || user.UserId);
+    var email = collabNormalizeEmail_(user.email || user.Email || user.userEmail);
+    var entry = {
+      id: id,
+      name: collabToStr_(user.name || user.FullName || user.UserName || user.email || ''),
+      email: collabToStr_(user.email || user.Email || ''),
+      roles: Array.isArray(user.roles) ? user.roles.slice() : [],
+      average: (user.averageScore != null && !isNaN(user.averageScore)) ? Number(user.averageScore) : null,
+      evaluations: user.evaluations || 0
+    };
+    if (id) index.byId[id] = entry;
+    if (email) index.byEmail[email.toLowerCase()] = entry;
+  });
+
+  return index;
+}
+
+function collabNormalizeUserId_(value) {
+  if (value === null || value === undefined) return '';
+  if (value instanceof Date) return String(value.getTime());
+  var text = String(value);
+  return text ? text.trim() : '';
+}
+
+function collabNormalizeEmail_(value) {
+  var text = collabToStr_(value);
+  return text ? text.toLowerCase() : '';
 }
 
 function buildExecutiveNotes_(snapshot) {
