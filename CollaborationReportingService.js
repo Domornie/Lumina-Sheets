@@ -36,7 +36,20 @@ function clientGetCollaborationReportingData(options) {
     }
   }
 
-  var campaigns = sanitizeWorkspaceCampaigns_(workspace);
+  var userRoles = collabExtractUserRoles_(currentUser);
+  var isGuestUser = collabIsGuestUser_(currentUser, userRoles);
+  var campaignPermissions = collabResolveAllowedCampaignMeta_(workspace, currentUser);
+  var campaigns = sanitizeWorkspaceCampaigns_(workspace, {
+    allowedIds: campaignPermissions.ids,
+    allowedNames: campaignPermissions.names,
+    restrict: isGuestUser
+  });
+  var campaignOptions = {
+    restrictCampaigns: isGuestUser,
+    campaigns: campaigns,
+    allowedCampaignIds: campaignPermissions.ids,
+    allowedCampaignNames: campaignPermissions.names
+  };
 
   return {
     user: {
@@ -44,11 +57,13 @@ function clientGetCollaborationReportingData(options) {
       name: currentUser.FullName || currentUser.UserName || '',
       email: currentUser.Email || '',
       campaignId: currentUser.CampaignID || currentUser.CampaignId || '',
-      roles: currentUser.roleNames || []
+      roles: userRoles,
+      isGuest: isGuestUser,
+      allowedCampaignIds: campaignPermissions.ids
     },
-    qa: buildCollaborationQaPayload_(qaRecords, workspace, campaigns),
-    attendance: buildCollaborationAttendancePayload_(workspace),
-    executive: buildCollaborationExecutivePayload_(userId, workspace),
+    qa: buildCollaborationQaPayload_(qaRecords, workspace, campaigns, campaignOptions),
+    attendance: buildCollaborationAttendancePayload_(workspace, campaignOptions),
+    executive: buildCollaborationExecutivePayload_(userId, workspace, campaignOptions),
     chat: buildCollaborationChatPayload_(workspace),
     teams: buildCollaborationTeamsPayload_(workspace),
     campaigns: campaigns,
@@ -132,7 +147,7 @@ function clientPostCollaborationThreadMessage(request) {
   };
 }
 
-function buildCollaborationQaPayload_(records, workspace, campaigns) {
+function buildCollaborationQaPayload_(records, workspace, campaigns, options) {
   var sorted = Array.isArray(records) ? records.slice() : [];
   sorted.sort(function (a, b) {
     var da = collabToDate_(a && (a.AuditDate || a.Timestamp || a.UpdatedAt || a.CreatedAt));
@@ -142,8 +157,17 @@ function buildCollaborationQaPayload_(records, workspace, campaigns) {
     return tb - ta;
   });
 
+  var gate = collabBuildCampaignGate_(campaigns, options);
+  if (gate) {
+    sorted = sorted.filter(function (row) {
+      return collabCampaignGateAllows_(gate, row);
+    });
+  }
+
   var limited = sorted.slice(0, 50);
-  var normalizedCampaigns = Array.isArray(campaigns) ? campaigns : sanitizeWorkspaceCampaigns_(workspace);
+  var normalizedCampaigns = Array.isArray(campaigns) && campaigns.length
+    ? campaigns
+    : sanitizeWorkspaceCampaigns_(workspace, options);
   var campaignById = {};
   var campaignByName = {};
   normalizedCampaigns.forEach(function (campaign) {
@@ -445,7 +469,7 @@ function buildCollaborationQaTrend_(records) {
   };
 }
 
-function buildCollaborationAttendancePayload_(workspace) {
+function buildCollaborationAttendancePayload_(workspace, options) {
   var payload = {
     summary: {
       attendanceRate: null,
@@ -460,33 +484,20 @@ function buildCollaborationAttendancePayload_(workspace) {
     return payload;
   }
 
+  options = options || {};
+  var gate = collabBuildCampaignGate_((options && options.campaigns) || null, options);
   var attendance = workspace.performance.attendance;
-  var summary = attendance.summary || {};
-
-  if (summary.attendanceRate != null) {
-    var rate = summary.attendanceRate;
-    if (rate <= 1) rate = rate * 100;
-    payload.summary.attendanceRate = collabRound_(rate, 1);
-  }
-
-  if (summary.statusCounts) {
-    var total = 0;
-    var absent = 0;
-    Object.keys(summary.statusCounts).forEach(function (key) {
-      var count = summary.statusCounts[key] || 0;
-      total += count;
-      if (/absent|no show|callout/i.test(key)) absent += count;
-    });
-    if (total > 0) {
-      payload.summary.absenceRate = collabRound_((absent / total) * 100, 1);
-    }
-  }
-
+  var baseSummary = attendance.summary || {};
   var rows = Array.isArray(attendance.rows) ? attendance.rows : [];
   var campaigns = {};
+  var summaryAccumulator = { present: 0, absent: 0, total: 0, adherenceSum: 0, adherenceCount: 0 };
 
   rows.forEach(function (row) {
-    var campaign = collabToStr_(row.Campaign || row.CampaignName || row.Client || row.Team || 'All Campaigns');
+    var identifiers = collabExtractCampaignIdentifiers_(row);
+    if (gate && !collabCampaignGateAllows_(gate, identifiers)) {
+      return;
+    }
+    var campaign = identifiers.name || identifiers.id || 'All Campaigns';
     var date = collabToDate_(row.Date || row.EventDate || row.Timestamp || row.CreatedAt);
     if (!date) return;
     var weekKey = collabIsoWeek_(date);
@@ -504,17 +515,22 @@ function buildCollaborationAttendancePayload_(workspace) {
     }
     var bucket = campaigns[campaign][weekKey];
     bucket.total += 1;
+    summaryAccumulator.total += 1;
     var status = collabToStr_(row.Status || row.State || row.Result);
     if (/absent|no show|callout/i.test(status)) {
       bucket.absent += 1;
+      summaryAccumulator.absent += 1;
     } else {
       bucket.present += 1;
+      summaryAccumulator.present += 1;
     }
     var adherence = collabToNumber_(row.AdherenceScore || row.Adherence || row.Score || row.Percent || row.Percentage);
     if (adherence !== null) {
       if (adherence <= 1) adherence = adherence * 100;
       bucket.adherenceSum += adherence;
       bucket.adherenceCount += 1;
+      summaryAccumulator.adherenceSum += adherence;
+      summaryAccumulator.adherenceCount += 1;
     }
   });
 
@@ -549,6 +565,34 @@ function buildCollaborationAttendancePayload_(workspace) {
       if (entry.adherence != null) adherenceTotals.push(entry.adherence);
     });
   });
+
+  if (gate && summaryAccumulator.total > 0) {
+    payload.summary.attendanceRate = collabRound_((summaryAccumulator.present / summaryAccumulator.total) * 100, 1);
+    payload.summary.absenceRate = collabRound_((summaryAccumulator.absent / summaryAccumulator.total) * 100, 1);
+    if (summaryAccumulator.adherenceCount > 0) {
+      payload.summary.averageAdherence = collabRound_(summaryAccumulator.adherenceSum / summaryAccumulator.adherenceCount, 1);
+    }
+  } else {
+    if (baseSummary.attendanceRate != null) {
+      var rate = baseSummary.attendanceRate;
+      if (rate <= 1) rate = rate * 100;
+      payload.summary.attendanceRate = collabRound_(rate, 1);
+    }
+
+    if (baseSummary.statusCounts) {
+      var total = 0;
+      var absent = 0;
+      Object.keys(baseSummary.statusCounts).forEach(function (key) {
+        var count = baseSummary.statusCounts[key] || 0;
+        total += count;
+        if (/absent|no show|callout/i.test(key)) absent += count;
+      });
+      if (total > 0) {
+        payload.summary.absenceRate = collabRound_((absent / total) * 100, 1);
+      }
+    }
+  }
+
   if (adherenceTotals.length) {
     var sum = adherenceTotals.reduce(function (acc, val) { return acc + val; }, 0);
     payload.summary.averageAdherence = collabRound_(sum / adherenceTotals.length, 1);
@@ -557,7 +601,7 @@ function buildCollaborationAttendancePayload_(workspace) {
   return payload;
 }
 
-function sanitizeWorkspaceCampaigns_(workspace) {
+function sanitizeWorkspaceCampaigns_(workspace, options) {
   if (!workspace || !Array.isArray(workspace.campaigns)) {
     return [];
   }
@@ -590,10 +634,17 @@ function sanitizeWorkspaceCampaigns_(workspace) {
     return 0;
   });
 
+  var gate = collabBuildCampaignGate_(list, options);
+  if (gate) {
+    list = list.filter(function (campaign) {
+      return collabCampaignGateAllows_(gate, campaign);
+    });
+  }
+
   return list;
 }
 
-function buildCollaborationExecutivePayload_(userId, workspace) {
+function buildCollaborationExecutivePayload_(userId, workspace, options) {
   var payload = {
     summary: null,
     campaigns: [],
@@ -624,6 +675,9 @@ function buildCollaborationExecutivePayload_(userId, workspace) {
     };
   }
 
+  options = options || {};
+  var gate = collabBuildCampaignGate_((options && options.campaigns) || null, options);
+
   if (analytics && analytics.summary) {
     var qaValue = analytics.summary.averageQaScore;
     if (qaValue != null && qaValue <= 1) qaValue = qaValue * 100;
@@ -640,6 +694,9 @@ function buildCollaborationExecutivePayload_(userId, workspace) {
   if (analytics && Array.isArray(analytics.campaigns)) {
     analytics.campaigns.forEach(function (entry) {
       if (!entry || !entry.campaign || !entry.snapshot) return;
+      if (gate && !collabCampaignGateAllows_(gate, entry.campaign)) {
+        return;
+      }
       var snapshot = entry.snapshot;
       var qaSummary = snapshot.performance && snapshot.performance.qa && snapshot.performance.qa.summary;
       var attendanceSummary = snapshot.performance && snapshot.performance.attendance && snapshot.performance.attendance.summary;
@@ -666,6 +723,28 @@ function buildCollaborationExecutivePayload_(userId, workspace) {
       qaAverage: qaMetric ? collabRound_(qaMetric.value <= 1 ? qaMetric.value * 100 : qaMetric.value, 1) : null,
       attendanceAverage: attMetric ? collabRound_(attMetric.value <= 1 ? attMetric.value * 100 : attMetric.value, 1) : null
     };
+  }
+
+  if (gate && payload.campaigns.length) {
+    if (!payload.summary) payload.summary = {};
+    payload.summary.campaigns = payload.campaigns.length;
+    if (payload.summary) {
+      payload.summary.agents = null;
+    }
+    var qaTotals = [];
+    var attendanceTotals = [];
+    payload.campaigns.forEach(function (campaign) {
+      if (campaign.qa != null) qaTotals.push(campaign.qa);
+      if (campaign.attendance != null) attendanceTotals.push(campaign.attendance);
+    });
+    if (qaTotals.length) {
+      var qaSum = qaTotals.reduce(function (acc, value) { return acc + value; }, 0);
+      payload.summary.qaAverage = collabRound_(qaSum / qaTotals.length, 1);
+    }
+    if (attendanceTotals.length) {
+      var attSum = attendanceTotals.reduce(function (acc, value) { return acc + value; }, 0);
+      payload.summary.attendanceAverage = collabRound_(attSum / attendanceTotals.length, 1);
+    }
   }
 
   payload.brief = buildExecutiveBrief_(payload.campaigns);
@@ -1090,6 +1169,151 @@ function collabIndexManagerQaSummary_(summary) {
   });
 
   return index;
+}
+
+function collabExtractUserRoles_(user) {
+  if (!user) return [];
+  var roles = [];
+  var sources = [user.roleNames, user.roles, user.Roles, user.RoleNames];
+  sources.forEach(function (source) {
+    if (!source) return;
+    if (Array.isArray(source)) {
+      source.forEach(function (role) {
+        var text = collabToStr_(role);
+        if (text) roles.push(text);
+      });
+    } else {
+      collabToStr_(source).split(/[;,]/).forEach(function (part) {
+        var trimmed = part.trim();
+        if (trimmed) roles.push(trimmed);
+      });
+    }
+  });
+  var singleSources = [user.Role, user.RoleName, user.Title, user.PrimaryRole];
+  singleSources.forEach(function (value) {
+    var text = collabToStr_(value);
+    if (text) roles.push(text);
+  });
+  return collabUniqueStrings_(roles);
+}
+
+function collabIsGuestUser_(user, roles) {
+  var list = Array.isArray(roles) && roles.length ? roles : collabExtractUserRoles_(user);
+  return list.some(function (role) {
+    var text = collabToStr_(role).toLowerCase();
+    return text.indexOf('guest') >= 0 || text.indexOf('client') >= 0 || text.indexOf('partner') >= 0;
+  });
+}
+
+function collabResolveAllowedCampaignMeta_(workspace, user) {
+  var ids = [];
+  var names = [];
+  if (workspace && workspace.profile) {
+    var profile = workspace.profile;
+    ids = ids.concat(collabUniqueStrings_(profile.allowedCampaignIds || []));
+    ids = ids.concat(collabUniqueStrings_(profile.managedCampaignIds || []));
+    ids = ids.concat(collabUniqueStrings_(profile.adminCampaignIds || []));
+    if (profile.defaultCampaignId) ids.push(collabToStr_(profile.defaultCampaignId));
+  }
+  if (workspace && Array.isArray(workspace.campaigns)) {
+    workspace.campaigns.forEach(function (campaign) {
+      var identifiers = collabExtractCampaignIdentifiers_(campaign);
+      if (identifiers.id) ids.push(identifiers.id);
+      if (identifiers.name) names.push(identifiers.name);
+    });
+  }
+  if (user) {
+    var userCampaignId = collabToStr_(user.CampaignID || user.CampaignId || user.campaignId || user.AllowedCampaignId);
+    if (userCampaignId) ids.push(userCampaignId);
+    var userCampaignName = collabToStr_(user.CampaignName || user.ClientName || user.campaignName);
+    if (userCampaignName) names.push(userCampaignName);
+  }
+  return {
+    ids: collabUniqueStrings_(ids),
+    names: collabUniqueStrings_(names)
+  };
+}
+
+function collabUniqueStrings_(values) {
+  var seen = {};
+  var list = [];
+  (values || []).forEach(function (value) {
+    var text = collabToStr_(value);
+    if (!text) return;
+    var key = text.toLowerCase();
+    if (seen[key]) return;
+    seen[key] = true;
+    list.push(text);
+  });
+  return list;
+}
+
+function collabBuildCampaignGate_(campaigns, options) {
+  options = options || {};
+  var restrict = !!(options.restrictCampaigns || options.restrict);
+  if (!restrict) {
+    return null;
+  }
+  var gate = { ids: {}, names: {}, hasIds: false, hasNames: false };
+  var pushId = function (value) {
+    var text = collabToStr_(value).toLowerCase();
+    if (!text) return;
+    gate.ids[text] = true;
+    gate.hasIds = true;
+  };
+  var pushName = function (value) {
+    var text = collabToStr_(value).toLowerCase();
+    if (!text) return;
+    gate.names[text] = true;
+    gate.hasNames = true;
+  };
+
+  (campaigns || []).forEach(function (campaign) {
+    var identifiers = collabExtractCampaignIdentifiers_(campaign);
+    if (identifiers.id) pushId(identifiers.id);
+    if (identifiers.name) pushName(identifiers.name);
+  });
+
+  [].concat(options.allowedCampaignIds || [], options.allowedIds || []).forEach(pushId);
+  [].concat(options.allowedCampaignNames || [], options.allowedNames || []).forEach(pushName);
+
+  if (!gate.hasIds && !gate.hasNames) {
+    return null;
+  }
+  return gate;
+}
+
+function collabCampaignGateAllows_(gate, source) {
+  if (!gate) return true;
+  var identifiers = collabExtractCampaignIdentifiers_(source);
+  var idKey = collabToStr_(identifiers.id).toLowerCase();
+  if (idKey && gate.ids[idKey]) {
+    return true;
+  }
+  var nameKey = collabToStr_(identifiers.name).toLowerCase();
+  if (nameKey && gate.names[nameKey]) {
+    return true;
+  }
+  return !(gate.hasIds || gate.hasNames);
+}
+
+function collabExtractCampaignIdentifiers_(source) {
+  if (!source) {
+    return { id: '', name: '' };
+  }
+  if (typeof source === 'string') {
+    return { id: collabToStr_(source), name: collabToStr_(source) };
+  }
+  if (source.id || source.name) {
+    return {
+      id: collabToStr_(source.id),
+      name: collabToStr_(source.name)
+    };
+  }
+  return {
+    id: collabToStr_(source.CampaignId || source.CampaignID || source.ClientId || source.ClientID || source.TeamId || source.TeamID || ''),
+    name: collabToStr_(source.Campaign || source.CampaignName || source.Client || source.ClientName || source.Team || source.TeamName || source.TeamFullName || '')
+  };
 }
 
 function collabNormalizeUserId_(value) {
