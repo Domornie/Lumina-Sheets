@@ -1343,7 +1343,7 @@
                         <div class="campaign-body">
                             <div class="metrics-header">
                                 <h4 class="metrics-title">OKR Metrics</h4>
-                                <button class="view-details-btn" onclick="event.stopPropagation(); window.open('?page=dashboard', '_blank')">
+                                <button class="view-details-btn" data-campaign="${this.escapeAttribute(campaign.name)}">
                                     <i class="fas fa-external-link-alt"></i> View Details
                                 </button>
                             </div>
@@ -1354,11 +1354,28 @@
                         </div>
                     `;
 
+                    const detailsButton = card.querySelector('.view-details-btn');
+                    if (detailsButton) {
+                        detailsButton.addEventListener('click', (event) => {
+                            event.stopPropagation();
+                            const campaignName = campaign.name || '';
+                            this.openCampaignDetails(campaignName, true);
+                        });
+                    }
+
                     return card;
                 } catch (error) {
                     console.error('Error creating campaign card:', error);
                     return document.createElement('div');
                 }
+            }
+
+            escapeAttribute(value) {
+                return String(value || '')
+                    .replace(/&/g, '&amp;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;');
             }
 
             createMetricsList(data, campaignName, campaignData = null) {
@@ -1850,9 +1867,29 @@
             }
 
             navigateToCampaign(campaignName) {
+                this.openCampaignDetails(campaignName, false);
+            }
+
+            openCampaignDetails(campaignName, openInNewTab = false) {
                 try {
-                    const url = `?page=dashboard`;
-                    window.open(url, '_blank');
+                    const safeCampaign = String(campaignName || '');
+                    const params = new URLSearchParams();
+                    params.set('page', 'dashboard-detail');
+                    if (safeCampaign) {
+                        params.set('campaign', safeCampaign);
+                    }
+                    if (this.filters && this.filters.granularity) {
+                        params.set('granularity', this.filters.granularity);
+                    }
+                    if (this.filters && this.filters.period) {
+                        params.set('period', this.filters.period);
+                    }
+                    const url = `?${params.toString()}`;
+                    if (openInNewTab) {
+                        window.open(url, '_blank');
+                    } else {
+                        window.location.href = url;
+                    }
                 } catch (error) {
                     console.error('Error navigating to campaign:', error);
                 }
