@@ -2317,6 +2317,10 @@ function routeToPage(page, e, baseUrl, user, campaignIdFromCaller) {
       return serveGlobalPage('BookmarkManager', e, baseUrl, user);
     }
 
+    if (page === 'dashboard-detail' || page === 'dashboarddetail' || page === 'dashboard-details') {
+      return serveGlobalPage('DashboardCampaignDetail', e, baseUrl, user);
+    }
+
     // Administration (Default Pages)
     if (page === 'manager-executive-experience') {
       return serveAdminPage('ManagerExecutiveExperience', e, baseUrl, user, {

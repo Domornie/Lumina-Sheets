@@ -1086,12 +1086,12 @@
                                         this.handleDataError(error, forceRefresh);
                                         reject(error);
                                     })
-                                    .clientGetOKRData(
-                                        this.filters.granularity,
-                                        this.filters.period,
-                                        this.filters.agent,
-                                        this.filters.campaign,
-                                        ''  // department not used in new version
+                                    .clientGetOKRDataEnhanced(
+                                            this.filters.granularity,
+                                            this.filters.period,
+                                            this.filters.agent,
+                                            this.filters.campaign,
+                                            ''  // department not used in new version
                                     );
                             } catch (callError) {
                                 clearTimeout(timeoutId);
@@ -1343,16 +1343,25 @@
                         <div class="campaign-body">
                             <div class="metrics-header">
                                 <h4 class="metrics-title">OKR Metrics</h4>
-                                <button class="view-details-btn" onclick="event.stopPropagation(); window.open('?page=dashboard', '_blank')">
+                                <button class="view-details-btn" data-campaign="${this.escapeAttribute(campaign.name)}">
                                     <i class="fas fa-external-link-alt"></i> View Details
                                 </button>
                             </div>
 
                             <div class="metrics-list">
-                                ${this.createMetricsList(data, campaign.name)}
+                                ${this.createMetricsList(this.currentData, campaign.name, campaign)}
                             </div>
                         </div>
                     `;
+
+                    const detailsButton = card.querySelector('.view-details-btn');
+                    if (detailsButton) {
+                        detailsButton.addEventListener('click', (event) => {
+                            event.stopPropagation();
+                            const campaignName = campaign.name || '';
+                            this.openCampaignDetails(campaignName, true);
+                        });
+                    }
 
                     return card;
                 } catch (error) {
@@ -1361,12 +1370,43 @@
                 }
             }
 
-            createMetricsList(data, campaignName) {
+            escapeAttribute(value) {
+                return String(value || '')
+                    .replace(/&/g, '&amp;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;');
+            }
+
+            createMetricsList(data, campaignName, campaignData = null) {
                 try {
                     const categories = ['productivity', 'quality', 'efficiency', 'engagement', 'growth'];
-                    
+
+                    if (!data || typeof data !== 'object') {
+                        return categories.map(category => `
+                            <div class="metric-item">
+                                <div class="metric-header">
+                                    <span class="metric-name">${category.charAt(0).toUpperCase() + category.slice(1)}</span>
+                                    <span class="metric-status status-needs_improvement">No Data</span>
+                                </div>
+                                <div class="metric-values">
+                                    <span class="metric-current">--</span>
+                                    <span class="metric-target">/ --</span>
+                                </div>
+                                <div class="metric-progress">
+                                    <div class="metric-progress-bar progress-needs_improvement" style="width: 0%"></div>
+                                </div>
+                            </div>
+                        `).join('');
+                    }
+
                     return categories.map(category => {
-                        const categoryData = data[category];
+                        let categoryData = data[category];
+
+                        if (campaignData && campaignData.categoryMetrics && campaignData.categoryMetrics[category]) {
+                            categoryData = campaignData.categoryMetrics[category];
+                        }
+
                         if (!categoryData || !categoryData.metrics) {
                             return `
                                 <div class="metric-item">
@@ -1389,8 +1429,8 @@
                         const metrics = Object.values(categoryData.metrics);
                         const firstMetric = metrics[0] || { percentage: 0, status: 'needs_improvement' };
 
-                        const score = firstMetric.percentage || 0;
-                        const target = 100;
+                        const score = typeof firstMetric.percentage === 'number' ? firstMetric.percentage : 0;
+                        const target = typeof firstMetric.target === 'number' ? firstMetric.target : 100;
                         const status = firstMetric.status || 'needs_improvement';
 
                         return `
@@ -1827,9 +1867,29 @@
             }
 
             navigateToCampaign(campaignName) {
+                this.openCampaignDetails(campaignName, false);
+            }
+
+            openCampaignDetails(campaignName, openInNewTab = false) {
                 try {
-                    const url = `?page=dashboard`;
-                    window.open(url, '_blank');
+                    const safeCampaign = String(campaignName || '');
+                    const params = new URLSearchParams();
+                    params.set('page', 'dashboard-detail');
+                    if (safeCampaign) {
+                        params.set('campaign', safeCampaign);
+                    }
+                    if (this.filters && this.filters.granularity) {
+                        params.set('granularity', this.filters.granularity);
+                    }
+                    if (this.filters && this.filters.period) {
+                        params.set('period', this.filters.period);
+                    }
+                    const url = `?${params.toString()}`;
+                    if (openInNewTab) {
+                        window.open(url, '_blank');
+                    } else {
+                        window.location.href = url;
+                    }
                 } catch (error) {
                     console.error('Error navigating to campaign:', error);
                 }
