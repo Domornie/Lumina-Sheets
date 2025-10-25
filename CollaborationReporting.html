@@ -756,7 +756,6 @@
     .floating-docks {
       justify-content: center;
     }
-  }
 
   @media (max-width: 768px) {
     .module-grid {
@@ -783,6 +782,7 @@
     gap: 1.2rem;
     margin-bottom: clamp(1.4rem, 3vw, 2rem);
   }
+</style></style>
 
   .hero-summary__title {
     font-family: 'Sora', 'Plus Jakarta Sans', sans-serif;
@@ -1121,6 +1121,7 @@
         </div>
       </div>
     </section>
+  </div>
 
   <div class="floating-docks">
     <div class="floating-bar collapsed" id="campaignFloatingBar" aria-expanded="false">
@@ -1209,6 +1210,10 @@
         persona: 'Operations Hub',
         userName: 'Team member',
         campaignsText: 'No campaigns connected',
+        lastUpdatedText: 'Updated —',
+        insights: []
+      },
+      ai: { summary: '', report: [], suggestions: [], notes: [] },
         lastUpdatedText: 'Updated —',
         insights: [
           { key: 'quality', label: 'Quality pulse', value: '—', hint: 'QA average this cycle', icon: 'fa-solid fa-sparkles' },
