@@ -598,7 +598,8 @@ function buildCollaborationExecutivePayload_(userId, workspace) {
     summary: null,
     campaigns: [],
     brief: [],
-    timeframeLabel: ''
+    timeframeLabel: '',
+    payPeriod: null
   };
 
   var analytics = null;
@@ -668,7 +669,13 @@ function buildCollaborationExecutivePayload_(userId, workspace) {
   }
 
   payload.brief = buildExecutiveBrief_(payload.campaigns);
-  payload.timeframeLabel = buildTimeframeLabel_();
+  var payPeriodDetails = collabGetCurrentPayPeriodDetails_();
+  if (payPeriodDetails) {
+    payload.payPeriod = payPeriodDetails;
+    payload.timeframeLabel = payPeriodDetails.label;
+  } else {
+    payload.timeframeLabel = buildIsoTimeframeLabel_();
+  }
 
   return payload;
 }
@@ -1142,11 +1149,199 @@ function buildExecutiveBrief_(campaigns) {
 }
 
 function buildTimeframeLabel_() {
+  var payPeriod = collabGetCurrentPayPeriodDetails_();
+  if (payPeriod && payPeriod.label) {
+    return payPeriod.label;
+  }
+  return buildIsoTimeframeLabel_();
+}
+
+function buildIsoTimeframeLabel_() {
   var now = new Date();
   var month = now.getMonth();
   var quarter = Math.floor(month / 3) + 1;
   var week = collabIsoWeek_(now).split('-W')[1];
   return 'Q' + quarter + ' · Week ' + week;
+}
+
+function collabGetCurrentPayPeriodDetails_() {
+  var periods = collabGetBiweeklyPayPeriods_();
+  if (!periods || !periods.length) {
+    return null;
+  }
+
+  var todayValue = collabDateValue_(new Date());
+  if (todayValue === null) {
+    return null;
+  }
+
+  var chosen = null;
+  for (var i = 0; i < periods.length; i++) {
+    var period = periods[i];
+    if (todayValue >= period.startValue && todayValue <= period.endValue) {
+      chosen = period;
+      break;
+    }
+  }
+
+  if (!chosen) {
+    if (todayValue < periods[0].startValue) {
+      chosen = periods[0];
+    } else {
+      chosen = periods[periods.length - 1];
+    }
+  }
+
+  return collabDecoratePayPeriod_(chosen);
+}
+
+function collabDecoratePayPeriod_(period) {
+  if (!period) {
+    return null;
+  }
+
+  var rangeLabel = collabFormatDateRange_(period.start, period.end);
+  var badgeLabel = 'Pay Period ' + period.number;
+  var payDateLabel = collabFormatFullDate_(period.payDate);
+
+  return {
+    number: period.number,
+    label: badgeLabel + (rangeLabel ? ' · ' + rangeLabel : ''),
+    badgeLabel: badgeLabel,
+    rangeLabel: rangeLabel,
+    payDateLabel: payDateLabel,
+    startIso: collabToIsoDateString_(period.start),
+    endIso: collabToIsoDateString_(period.end),
+    payDateIso: collabToIsoDateString_(period.payDate)
+  };
+}
+
+var collabBiweeklyPayPeriodsCache_ = null;
+
+function collabGetBiweeklyPayPeriods_() {
+  if (collabBiweeklyPayPeriodsCache_) {
+    return collabBiweeklyPayPeriodsCache_;
+  }
+
+  // WBPO 2025 biweekly pay calendar shared by operations.
+  var periods = [
+    collabCreatePayPeriod_(1, collabMakeDate_(2024, 12, 22), collabMakeDate_(2025, 1, 4), collabMakeDate_(2025, 1, 10)),
+    collabCreatePayPeriod_(2, collabMakeDate_(2025, 1, 5), collabMakeDate_(2025, 1, 18), collabMakeDate_(2025, 1, 24)),
+    collabCreatePayPeriod_(3, collabMakeDate_(2025, 1, 19), collabMakeDate_(2025, 2, 1), collabMakeDate_(2025, 2, 7)),
+    collabCreatePayPeriod_(4, collabMakeDate_(2025, 2, 2), collabMakeDate_(2025, 2, 15), collabMakeDate_(2025, 2, 21)),
+    collabCreatePayPeriod_(5, collabMakeDate_(2025, 2, 16), collabMakeDate_(2025, 3, 1), collabMakeDate_(2025, 3, 7)),
+    collabCreatePayPeriod_(6, collabMakeDate_(2025, 3, 2), collabMakeDate_(2025, 3, 15), collabMakeDate_(2025, 3, 21)),
+    collabCreatePayPeriod_(7, collabMakeDate_(2025, 3, 16), collabMakeDate_(2025, 3, 29), collabMakeDate_(2025, 4, 4)),
+    collabCreatePayPeriod_(8, collabMakeDate_(2025, 3, 30), collabMakeDate_(2025, 4, 12), collabMakeDate_(2025, 4, 18)),
+    collabCreatePayPeriod_(9, collabMakeDate_(2025, 4, 13), collabMakeDate_(2025, 4, 26), collabMakeDate_(2025, 5, 2)),
+    collabCreatePayPeriod_(10, collabMakeDate_(2025, 4, 27), collabMakeDate_(2025, 5, 10), collabMakeDate_(2025, 5, 16)),
+    collabCreatePayPeriod_(11, collabMakeDate_(2025, 5, 11), collabMakeDate_(2025, 5, 24), collabMakeDate_(2025, 5, 30)),
+    collabCreatePayPeriod_(12, collabMakeDate_(2025, 5, 25), collabMakeDate_(2025, 6, 7), collabMakeDate_(2025, 6, 13)),
+    collabCreatePayPeriod_(13, collabMakeDate_(2025, 6, 8), collabMakeDate_(2025, 6, 21), collabMakeDate_(2025, 6, 27)),
+    collabCreatePayPeriod_(14, collabMakeDate_(2025, 6, 22), collabMakeDate_(2025, 7, 5), collabMakeDate_(2025, 7, 11)),
+    collabCreatePayPeriod_(15, collabMakeDate_(2025, 7, 6), collabMakeDate_(2025, 7, 19), collabMakeDate_(2025, 7, 25)),
+    collabCreatePayPeriod_(16, collabMakeDate_(2025, 7, 20), collabMakeDate_(2025, 8, 2), collabMakeDate_(2025, 8, 8)),
+    collabCreatePayPeriod_(17, collabMakeDate_(2025, 8, 3), collabMakeDate_(2025, 8, 16), collabMakeDate_(2025, 8, 22)),
+    collabCreatePayPeriod_(18, collabMakeDate_(2025, 8, 17), collabMakeDate_(2025, 8, 30), collabMakeDate_(2025, 9, 5)),
+    collabCreatePayPeriod_(19, collabMakeDate_(2025, 8, 31), collabMakeDate_(2025, 9, 13), collabMakeDate_(2025, 9, 19)),
+    collabCreatePayPeriod_(20, collabMakeDate_(2025, 9, 14), collabMakeDate_(2025, 9, 27), collabMakeDate_(2025, 10, 3)),
+    collabCreatePayPeriod_(21, collabMakeDate_(2025, 9, 28), collabMakeDate_(2025, 10, 11), collabMakeDate_(2025, 10, 17)),
+    collabCreatePayPeriod_(22, collabMakeDate_(2025, 10, 12), collabMakeDate_(2025, 10, 25), collabMakeDate_(2025, 10, 31)),
+    collabCreatePayPeriod_(23, collabMakeDate_(2025, 10, 26), collabMakeDate_(2025, 11, 8), collabMakeDate_(2025, 11, 14)),
+    collabCreatePayPeriod_(24, collabMakeDate_(2025, 11, 9), collabMakeDate_(2025, 11, 22), collabMakeDate_(2025, 11, 28)),
+    collabCreatePayPeriod_(25, collabMakeDate_(2025, 11, 23), collabMakeDate_(2025, 12, 6), collabMakeDate_(2025, 12, 12)),
+    collabCreatePayPeriod_(26, collabMakeDate_(2025, 12, 7), collabMakeDate_(2025, 12, 20), collabMakeDate_(2025, 12, 26)),
+    collabCreatePayPeriod_(27, collabMakeDate_(2025, 12, 21), collabMakeDate_(2026, 1, 3), collabMakeDate_(2026, 1, 9))
+  ];
+
+  collabBiweeklyPayPeriodsCache_ = periods;
+  return periods;
+}
+
+function collabCreatePayPeriod_(number, start, end, payDate) {
+  return {
+    number: number,
+    start: start,
+    end: end,
+    payDate: payDate,
+    startValue: collabDateValue_(start),
+    endValue: collabDateValue_(end)
+  };
+}
+
+function collabMakeDate_(year, month, day) {
+  return new Date(Date.UTC(year, month - 1, day, 12));
+}
+
+function collabDateValue_(date) {
+  if (!(date instanceof Date)) {
+    return null;
+  }
+  return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+}
+
+function collabToIsoDateString_(date) {
+  if (!(date instanceof Date)) {
+    return '';
+  }
+  return date.getUTCFullYear() + '-' + collabPad2_(date.getUTCMonth() + 1) + '-' + collabPad2_(date.getUTCDate());
+}
+
+function collabPad2_(value) {
+  return value < 10 ? '0' + value : String(value);
+}
+
+function collabFormatDateRange_(start, end) {
+  var hasStart = start instanceof Date;
+  var hasEnd = end instanceof Date;
+  if (!hasStart && !hasEnd) {
+    return '';
+  }
+  if (!hasStart) {
+    return collabFormatFullDate_(end);
+  }
+  if (!hasEnd) {
+    return collabFormatFullDate_(start);
+  }
+
+  var startMonth = collabMonthName_(start);
+  var endMonth = collabMonthName_(end);
+  var startDay = start.getUTCDate();
+  var endDay = end.getUTCDate();
+  var startYear = start.getUTCFullYear();
+  var endYear = end.getUTCFullYear();
+
+  if (startYear === endYear) {
+    if (startMonth === endMonth) {
+      return startMonth + ' ' + startDay + '–' + endDay + ', ' + startYear;
+    }
+    return startMonth + ' ' + startDay + ' – ' + endMonth + ' ' + endDay + ', ' + startYear;
+  }
+
+  return startMonth + ' ' + startDay + ', ' + startYear + ' – ' + endMonth + ' ' + endDay + ', ' + endYear;
+}
+
+function collabFormatFullDate_(date) {
+  if (!(date instanceof Date)) {
+    return '';
+  }
+  var monthName = collabMonthName_(date);
+  if (!monthName) {
+    return '';
+  }
+  return monthName + ' ' + date.getUTCDate() + ', ' + date.getUTCFullYear();
+}
+
+function collabMonthName_(date) {
+  if (!(date instanceof Date)) {
+    return '';
+  }
+  var months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  var index = date.getUTCMonth();
+  if (index < 0 || index >= months.length) {
+    return '';
+  }
+  return months[index];
 }
 
 function buildCollaborationChatPayload_(workspace) {

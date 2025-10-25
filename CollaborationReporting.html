@@ -666,6 +666,8 @@
               </div>
               <div class="text-end">
                 <span class="badge bg-primary-subtle text-primary" id="execTimeframe">—</span>
+                <div class="small text-secondary mt-1" id="execPeriodRange">—</div>
+                <div class="small text-secondary" id="execPayDate">Pay date —</div>
               </div>
             </div>
             <canvas id="execBlendChart" height="180"></canvas>
@@ -801,7 +803,7 @@
         trend: { labels: [], values: [] }
       },
       attendance: { campaigns: [], history: {}, summary: {} },
-      executive: { summary: null, campaigns: [], brief: [], timeframeLabel: '' },
+      executive: { summary: null, campaigns: [], brief: [], timeframeLabel: '', payPeriod: null },
       chat: { personas: [], threads: {} },
       teams: { overview: null, managers: [], guests: [], managerTabs: [] },
       charts: { qaTrend: null, attendance: null, executive: null },
@@ -835,6 +837,8 @@
     const execCampaignBullets = document.getElementById('execCampaignBullets');
     const execBriefList = document.getElementById('executiveBrief');
     const execTimeframeEl = document.getElementById('execTimeframe');
+    const execPeriodRangeEl = document.getElementById('execPeriodRange');
+    const execPayDateEl = document.getElementById('execPayDate');
 
     const kpiQualityAverage = document.getElementById('kpiQualityAverage');
     const kpiQualityTrend = document.getElementById('kpiQualityTrend');
@@ -1241,7 +1245,17 @@
         kpiAttendanceTrend.classList.remove('text-success', 'text-danger');
       }
 
-      execTimeframeEl.textContent = state.executive.timeframeLabel || '—';
+      const payPeriod = state.executive.payPeriod;
+      const timeframeLabel = state.executive.timeframeLabel || '—';
+      if (execTimeframeEl) {
+        execTimeframeEl.textContent = payPeriod && payPeriod.badgeLabel ? payPeriod.badgeLabel : timeframeLabel;
+      }
+      if (execPeriodRangeEl) {
+        execPeriodRangeEl.textContent = payPeriod && payPeriod.rangeLabel ? payPeriod.rangeLabel : timeframeLabel;
+      }
+      if (execPayDateEl) {
+        execPayDateEl.textContent = payPeriod && payPeriod.payDateLabel ? 'Pay date ' + payPeriod.payDateLabel : 'Pay date —';
+      }
 
       execCampaignBullets.innerHTML = '';
       const campaigns = state.executive.campaigns || [];
@@ -1579,6 +1593,7 @@
       state.executive.campaigns = data.campaigns || [];
       state.executive.brief = data.brief || [];
       state.executive.timeframeLabel = data.timeframeLabel || '';
+      state.executive.payPeriod = data.payPeriod || null;
       renderExecutiveSection();
     }
 
