@@ -1,8 +1,16 @@
-    <?!= includeOnce('ResponsiveStyles') ?>
 <!DOCTYPE html>
 <html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Campaign Management</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <?!= includeOnce('ResponsiveStyles') ?>
 
-  <style>
+    <style>
     :root {
       --primary: #2563eb;
       --primary-dark: #1e40af;
@@ -971,18 +979,20 @@
       }
     }
 
-  </style>
+    </style>
+  </head>
+  <body>
 
-  <?!= include("layout", {
-        baseUrl: baseUrl,
-        scriptUrl: scriptUrl,
-        user: user,
-        currentPage: currentPage || 'managecampaign',
-        pageTitle: 'Campaign Management',
-        pageDescription: 'Manage campaigns, organize pages, and control access permissions.'
-      }) ?>
+    <?!= include('layout', {
+          baseUrl: baseUrl || '',
+          scriptUrl: scriptUrl,
+          user: user || {},
+          currentPage: currentPage || 'managecampaign',
+          pageTitle: 'Campaign Management',
+          pageDescription: 'Manage campaigns, organize pages, and control access permissions.'
+        }) ?>
 
-  <div class="container">
+    <div class="container">
     <div id="alertContainer" aria-live="polite" aria-atomic="true"></div>
     <div class="page-hero">
       <div>
@@ -1958,6 +1968,6 @@
   window.addEventListener('click', (e)=>{ if (e.target.classList.contains('modal')) e.target.classList.remove('show'); });
   console.log('🎉 Campaign Management V2.0 with Font Awesome Guide (Production) Loaded');
   </script>
-</body>
-
+  </body>
 </html>
+
