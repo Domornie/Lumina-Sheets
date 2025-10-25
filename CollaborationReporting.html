@@ -77,23 +77,13 @@
   }
 
   .observatory {
-    border-radius: var(--radius-xl);
-    background: var(--surface-card);
-    border: 1px solid var(--border-soft);
-    box-shadow: var(--shadow-md);
-    padding: clamp(2.3rem, 4vw, 3.2rem);
-  }
-
-  .observatory__grid {
     display: grid;
-    grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
-    gap: clamp(1.6rem, 4vw, 3rem);
-    align-items: center;
-  }
-
-  .observatory__primary {
-    display: grid;
-    gap: 1.2rem;
+    gap: 1.4rem;
+    padding: 0;
+    margin: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
   }
 
   .observatory__eyebrow {
@@ -148,10 +138,6 @@
 
   .hero-chip i {
     color: var(--accent-secondary);
-  }
-
-  .observatory__metrics {
-    width: 100%;
   }
 
   .summary-tiles {
@@ -762,15 +748,6 @@
     font-size: 0.78rem;
   }
 
-  @media (max-width: 1200px) {
-    .observatory__grid {
-      grid-template-columns: 1fr;
-    }
-
-    .observatory__metrics {
-      order: -1;
-    }
-
   @media (max-width: 992px) {
     .collab-galaxy {
       padding: 2.4rem 1.5rem 5rem;
@@ -779,13 +756,8 @@
     .floating-docks {
       justify-content: center;
     }
-  }
 
   @media (max-width: 768px) {
-    .observatory {
-      padding: 2rem;
-    }
-
     .module-grid {
       grid-template-columns: 1fr;
     }
@@ -795,65 +767,101 @@
       align-items: stretch;
     }
   }
+  .hero-summary {
+    border-radius: var(--radius-xl);
+    background: var(--surface-card);
+    border: 1px solid var(--border-soft);
+    box-shadow: var(--shadow-md);
+    padding: clamp(2.3rem, 4vw, 3.2rem);
+  }
+
+  .hero-summary__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.2rem;
+    margin-bottom: clamp(1.4rem, 3vw, 2rem);
+  }
 </style></style>
+
+  .hero-summary__title {
+    font-family: 'Sora', 'Plus Jakarta Sans', sans-serif;
+    font-size: 1.35rem;
+    font-weight: 600;
+    margin: 0;
+  }
+
+  .hero-summary__meta {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+  }
+
+  @media (max-width: 768px) {
+    .hero-summary__header {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+  }
+</style>
 
 <div class="collab-galaxy">
   <div id="collabAlerts" class="alert-stack"></div>
 
-  <header class="observatory">
-    <div class="observatory__grid">
-      <div class="observatory__primary">
-        <span class="observatory__eyebrow"><i class="fa-solid fa-microchip"></i> Lumina Collaboration Sphere</span>
-        <h1 class="observatory__title">Collaboration &amp; Reporting Hub</h1>
-        <p class="observatory__lead">Orchestrate quality, attendance, and executive workflows from a luminous control center designed for hybrid teams.</p>
-        <div class="observatory__chips" id="heroMeta">
-          <span class="hero-chip"><i class="fa-solid fa-user-astronaut"></i><span id="heroPersonaLabel">Persona syncing…</span></span>
-          <span class="hero-chip"><i class="fa-solid fa-diagram-project"></i><span id="heroCampaignLabel">Campaigns calibrating…</span></span>
-          <span class="hero-chip"><i class="fa-solid fa-clock"></i><span id="heroUpdatedLabel">Awaiting timestamp…</span></span>
-        </div>
-      </div>
-      <div class="observatory__metrics">
-        <div class="summary-tiles">
-          <article class="summary-tile is-quality">
-            <div class="tile-icon"><i class="fa-solid fa-sparkles"></i></div>
-            <div class="tile-label">Quality average</div>
-            <div class="tile-value" id="summaryQaAverage">—</div>
-            <div class="tile-subtext" id="summaryQaTrend">
-              <i class="fa-solid fa-arrow-trend-up"></i>
-              <span>Awaiting quality insights</span>
-            </div>
-          </article>
-          <article class="summary-tile is-attendance">
-            <div class="tile-icon"><i class="fa-solid fa-calendar-check"></i></div>
-            <div class="tile-label">Attendance health</div>
-            <div class="tile-value" id="summaryAttendanceRate">—</div>
-            <div class="tile-subtext" id="summaryAttendanceTrend">
-              <i class="fa-solid fa-chart-line"></i>
-              <span>Attendance variance unavailable</span>
-            </div>
-          </article>
-          <article class="summary-tile is-threads">
-            <div class="tile-icon"><i class="fa-solid fa-comments"></i></div>
-            <div class="tile-label">Collaboration threads</div>
-            <div class="tile-value" id="summaryThreads">0</div>
-            <div class="tile-subtext" id="summaryThreadsHint">
-              <i class="fa-solid fa-user-group"></i>
-              <span>Invite teams to collaborate</span>
-            </div>
-          </article>
-          <article class="summary-tile is-actions">
-            <div class="tile-icon"><i class="fa-solid fa-list-check"></i></div>
-            <div class="tile-label">Action items</div>
-            <div class="tile-value" id="summaryFollowUps">0</div>
-            <div class="tile-subtext" id="summaryFollowUpsHint">
-              <i class="fa-solid fa-bolt"></i>
-              <span>No action items yet</span>
-            </div>
-          </article>
-        </div>
-      </div>
+  <header class="observatory" data-banner-source>
+    <span class="observatory__eyebrow" data-banner-eyebrow><i class="fa-solid fa-microchip"></i> Lumina Collaboration Sphere</span>
+    <h1 class="observatory__title" data-banner-title>Collaboration &amp; Reporting Hub</h1>
+    <p class="observatory__lead" data-banner-description>Orchestrate quality, attendance, and executive workflows from a luminous control center designed for hybrid teams.</p>
+    <div class="observatory__chips" id="heroMeta">
+      <span class="hero-chip"><i class="fa-solid fa-user-astronaut"></i><span id="heroPersonaLabel">Persona syncing…</span></span>
+      <span class="hero-chip"><i class="fa-solid fa-diagram-project"></i><span id="heroCampaignLabel">Campaigns calibrating…</span></span>
+      <span class="hero-chip"><i class="fa-solid fa-clock"></i><span id="heroUpdatedLabel">Awaiting timestamp…</span></span>
     </div>
   </header>
+
+  <section class="hero-summary" aria-labelledby="heroSummaryTitle">
+    <div class="hero-summary__header">
+      <h2 class="hero-summary__title" id="heroSummaryTitle">Operational pulse</h2>
+      <p class="hero-summary__meta" id="heroSummaryMeta">Refreshed from quality, attendance, and collaboration activity.</p>
+    </div>
+    <div class="summary-tiles">
+      <article class="summary-tile is-quality">
+        <div class="tile-icon"><i class="fa-solid fa-sparkles"></i></div>
+        <div class="tile-label">Quality average</div>
+        <div class="tile-value" id="summaryQaAverage">—</div>
+        <div class="tile-subtext" id="summaryQaTrend">
+          <i class="fa-solid fa-arrow-trend-up"></i>
+          <span>Awaiting quality insights</span>
+        </div>
+      </article>
+      <article class="summary-tile is-attendance">
+        <div class="tile-icon"><i class="fa-solid fa-calendar-check"></i></div>
+        <div class="tile-label">Attendance health</div>
+        <div class="tile-value" id="summaryAttendanceRate">—</div>
+        <div class="tile-subtext" id="summaryAttendanceTrend">
+          <i class="fa-solid fa-chart-line"></i>
+          <span>Attendance variance unavailable</span>
+        </div>
+      </article>
+      <article class="summary-tile is-threads">
+        <div class="tile-icon"><i class="fa-solid fa-comments"></i></div>
+        <div class="tile-label">Collaboration threads</div>
+        <div class="tile-value" id="summaryThreads">0</div>
+        <div class="tile-subtext" id="summaryThreadsHint">
+          <i class="fa-solid fa-user-group"></i>
+          <span>Invite teams to collaborate</span>
+        </div>
+      </article>
+      <article class="summary-tile is-actions">
+        <div class="tile-icon"><i class="fa-solid fa-list-check"></i></div>
+        <div class="tile-label">Action items</div>
+        <div class="tile-value" id="summaryFollowUps">0</div>
+        <div class="tile-subtext" id="summaryFollowUpsHint">
+          <i class="fa-solid fa-bolt"></i>
+          <span>No action items yet</span>
+        </div>
+      </article>
+    </div>
+  </section>
 
   <section class="module panel ai-suite">
     <div class="panel-header">
