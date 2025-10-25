@@ -221,14 +221,30 @@
 
   .qa-grid {
     display: grid;
-    grid-template-columns: minmax(320px, 1.2fr) minmax(320px, 1fr);
+    grid-template-columns: 1fr;
     gap: 2rem;
   }
 
-  @media (max-width: 1200px) {
-    .qa-grid {
-      grid-template-columns: 1fr;
-    }
+  .qa-metrics-group {
+    display: grid;
+    gap: 1.5rem;
+  }
+
+  .qa-form {
+    background: var(--collab-surface-soft);
+    border: 1px solid var(--collab-border);
+    border-radius: var(--collab-radius-md);
+    padding: 1.6rem;
+    box-shadow: var(--collab-shadow-soft);
+  }
+
+  .qa-form .form-section-label {
+    display: block;
+    font-size: 0.78rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--collab-text-muted);
+    margin-bottom: 0.65rem;
   }
 
   .qa-form {
@@ -718,6 +734,23 @@
     color: var(--collab-text-subtle);
   }
 
+  .team-pagination-bar {
+    margin-top: 1rem;
+    border-radius: var(--collab-radius-sm);
+    border: 1px solid var(--collab-border);
+    background: var(--collab-surface);
+    padding: 0.75rem 1rem;
+    box-shadow: var(--collab-shadow-soft);
+  }
+
+  .team-pagination-bar .btn {
+    min-width: 2.5rem;
+  }
+
+  .team-pagination-bar .btn i {
+    pointer-events: none;
+  }
+
   .floating-campaign-bar {
     position: fixed;
     bottom: 2rem;
@@ -1025,6 +1058,40 @@
         </div>
         <div class="card-body">
           <div class="qa-grid">
+            <div class="qa-metrics-group">
+              <div class="qa-metric-card">
+                <div class="d-flex justify-content-between align-items-center">
+                  <div>
+                    <div class="label text-uppercase">Average QA Score</div>
+                    <div class="value" id="qaAverageScore">—</div>
+                  </div>
+                  <div class="text-end">
+                    <div class="muted-label">vs target 92%</div>
+                    <div class="badge bg-success rounded-pill" id="qaScoreTrend">—</div>
+                  </div>
+                </div>
+                <div class="mt-3">
+                  <canvas id="qaTrendChart" height="160"></canvas>
+                </div>
+              </div>
+              <div class="row g-3 mt-1">
+                <div class="col-md-6">
+                  <div class="qa-metric-card">
+                    <div class="label text-uppercase">Actionable Items</div>
+                    <div class="value" id="qaFollowUps">—</div>
+
+                    <div class="muted-label">Follow-ups scheduled this week</div>
+                  </div>
+                </div>
+                <div class="col-md-6">
+                  <div class="qa-metric-card">
+                    <div class="label text-uppercase">Collaboration Threads</div>
+                    <div class="value" id="qaThreads">—</div>
+                    <div class="muted-label">Audits with multi-role feedback</div>
+                  </div>
+                </div>
+              </div>
+            </div>
             <form class="qa-form" id="qaCollaborationForm">
               <div class="row g-3">
                 <div class="col-12">
@@ -1110,40 +1177,6 @@
                 </div>
               </div>
             </form>
-            <div>
-              <div class="qa-metric-card">
-                <div class="d-flex justify-content-between align-items-center">
-                  <div>
-                    <div class="label text-uppercase">Average QA Score</div>
-                    <div class="value" id="qaAverageScore">—</div>
-                  </div>
-                  <div class="text-end">
-                    <div class="muted-label">vs target 92%</div>
-                    <div class="badge bg-success rounded-pill" id="qaScoreTrend">—</div>
-                  </div>
-                </div>
-                <div class="mt-3">
-                  <canvas id="qaTrendChart" height="160"></canvas>
-                </div>
-              </div>
-              <div class="row g-3">
-                <div class="col-md-6">
-                  <div class="qa-metric-card">
-                    <div class="label text-uppercase">Actionable Items</div>
-                    <div class="value" id="qaFollowUps">—</div>
-
-                    <div class="muted-label">Follow-ups scheduled this week</div>
-                  </div>
-                </div>
-                <div class="col-md-6">
-                  <div class="qa-metric-card">
-                    <div class="label text-uppercase">Collaboration Threads</div>
-                    <div class="value" id="qaThreads">—</div>
-                    <div class="muted-label">Audits with multi-role feedback</div>
-                  </div>
-                </div>
-              </div>
-            </div>
           </div>
 
           <div class="table-responsive mt-4">
@@ -1339,7 +1372,7 @@
       attendance: { campaigns: [], history: {}, summary: {} },
       executive: { summary: null, campaigns: [], brief: [], timeframeLabel: '', payPeriod: null },
       chat: { personas: [], threads: {} },
-      teams: { overview: null, managers: [], guests: [], managerTabs: [] },
+      teams: { overview: null, managers: [], guests: [], managerTabs: [], pagination: { pageSize: 8, scopes: {} } },
       banner: {
         persona: 'Operations Hub',
         userName: 'Team member',
@@ -1427,9 +1460,23 @@
     const teamTabContent = document.getElementById('teamTabContent');
     const teamSection = document.getElementById('teamIntelligenceSection');
 
+    if (teamTabContent) {
+      teamTabContent.addEventListener('click', function (event) {
+        const trigger = event.target.closest('[data-team-page-key]');
+        if (!trigger) return;
+        const scope = trigger.getAttribute('data-team-page-key');
+        const direction = trigger.getAttribute('data-team-page-direction');
+        if (!scope || !direction) return;
+        event.preventDefault();
+        adjustTeamPagination(scope, direction === 'next' ? 1 : -1);
+        rerenderAllTeamPanes();
+      });
+    }
+
     const alertsContainer = document.getElementById('collabAlerts');
     const loadingMessage = '<div class="text-secondary py-4 text-center small">Loading…</div>';
     const chartColors = ['#38bdf8', '#34d399', '#facc15', '#f97316', '#8b5cf6', '#f472b6'];
+    const TEAM_TABLE_PAGE_SIZE = 8;
 
     const campaignActions = [
       { key: 'dashboard', label: 'Dashboard', icon: 'fas fa-chart-line' },
@@ -1718,6 +1765,7 @@
       } else {
         window.__pendingBannerData = Object.assign({}, config);
       }
+      return parts.join(' ');
     }
 
     function updateBannerMetrics() {
@@ -2673,6 +2721,7 @@
       state.teams.managers = Array.isArray(data.managers) ? data.managers : [];
       state.teams.guests = Array.isArray(data.guests) ? data.guests : [];
       state.teams.managerTabs = Array.isArray(data.managerTabs) ? data.managerTabs : [];
+      state.teams.pagination = { pageSize: TEAM_TABLE_PAGE_SIZE, scopes: {} };
       renderTeamTabs();
       renderQADirectory();
     }
@@ -2724,6 +2773,15 @@
         pane.id = paneId;
         pane.role = 'tabpanel';
         pane.setAttribute('aria-labelledby', navId);
+        pane.dataset.tabType = tab.type || '';
+        if (tab.type === 'manager') {
+          if (tab.id) {
+            pane.dataset.managerKey = tab.id;
+          }
+          if (tab.data && tab.data.managerId !== undefined && tab.data.managerId !== null) {
+            pane.dataset.managerId = String(tab.data.managerId);
+          }
+        }
         pane.innerHTML = renderTeamTabContent(tab);
         teamTabContent.appendChild(pane);
       });
@@ -2734,8 +2792,106 @@
       if (tab.type === 'overview') return renderTeamOverviewTab();
       if (tab.type === 'managers') return renderTeamManagersTab();
       if (tab.type === 'guests') return renderTeamGuestsTab();
-      if (tab.type === 'manager') return renderManagerTeamTab(tab.data);
+      if (tab.type === 'manager') return renderManagerTeamTab(tab.data, tab.id);
       return renderTeamEmptyState('No data available.');
+    }
+
+    function ensureTeamPagination() {
+      if (!state.teams.pagination) {
+        state.teams.pagination = { pageSize: TEAM_TABLE_PAGE_SIZE, scopes: {} };
+      }
+      if (!state.teams.pagination.scopes) {
+        state.teams.pagination.scopes = {};
+      }
+      if (!state.teams.pagination.pageSize) {
+        state.teams.pagination.pageSize = TEAM_TABLE_PAGE_SIZE;
+      }
+    }
+
+    function getTeamPage(scope) {
+      ensureTeamPagination();
+      const page = state.teams.pagination.scopes[scope];
+      return page && page > 0 ? page : 1;
+    }
+
+    function setTeamPage(scope, page) {
+      ensureTeamPagination();
+      state.teams.pagination.scopes[scope] = page;
+    }
+
+    function clampTeamPage(scope, totalPages) {
+      const maxPages = totalPages && totalPages > 0 ? totalPages : 1;
+      const current = getTeamPage(scope);
+      const clamped = Math.min(Math.max(current, 1), maxPages);
+      setTeamPage(scope, clamped);
+      return clamped;
+    }
+
+    function adjustTeamPagination(scope, delta) {
+      ensureTeamPagination();
+      const change = Number(delta) || 0;
+      const next = getTeamPage(scope) + change;
+      state.teams.pagination.scopes[scope] = next > 0 ? next : 1;
+    }
+
+    function renderTeamPaginationControls(scope, current, totalPages, rangeStart, rangeEnd, totalCount) {
+      if (!totalPages || totalPages <= 1) return '';
+      const safeStart = rangeStart || 1;
+      const safeEnd = rangeEnd || safeStart;
+      const safeTotal = totalCount || safeEnd;
+      return `
+        <div class="team-pagination-bar">
+          <div class="d-flex flex-column flex-sm-row align-items-start align-items-sm-center justify-content-between gap-2">
+            <div class="text-secondary small">Showing ${safeStart}&ndash;${safeEnd} of ${safeTotal}</div>
+            <div class="d-flex align-items-center gap-2">
+              <button type="button" class="btn btn-outline-primary btn-sm" data-team-page-key="${scope}" data-team-page-direction="prev" ${current <= 1 ? 'disabled' : ''}>
+                <i class="fas fa-chevron-left"></i>
+              </button>
+              <span class="small fw-semibold">Page ${current} of ${totalPages}</span>
+              <button type="button" class="btn btn-outline-primary btn-sm" data-team-page-key="${scope}" data-team-page-direction="next" ${current >= totalPages ? 'disabled' : ''}>
+                <i class="fas fa-chevron-right"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function rerenderTeamPane(pane) {
+      if (!pane) return;
+      const tabType = pane.getAttribute('data-tab-type');
+      if (!tabType) return;
+      if (tabType === 'overview') {
+        pane.innerHTML = renderTeamOverviewTab();
+        return;
+      }
+      if (tabType === 'managers') {
+        pane.innerHTML = renderTeamManagersTab();
+        return;
+      }
+      if (tabType === 'guests') {
+        pane.innerHTML = renderTeamGuestsTab();
+        return;
+      }
+      if (tabType === 'manager') {
+        const managerKey = pane.getAttribute('data-manager-key') || '';
+        const managerId = pane.getAttribute('data-manager-id') || '';
+        const managerTab = (state.teams.managerTabs || []).find(function (entry, index) {
+          if (!entry) return false;
+          if (managerId && String(entry.managerId) === managerId) return true;
+          const safeId = sanitizeId(entry && entry.managerId ? entry.managerId : ('manager-' + index));
+          return safeId === managerKey;
+        });
+        pane.innerHTML = renderManagerTeamTab(managerTab, managerKey);
+      }
+    }
+
+    function rerenderAllTeamPanes() {
+      if (!teamTabContent) return;
+      const panes = teamTabContent.querySelectorAll('.tab-pane');
+      panes.forEach(function (pane) {
+        rerenderTeamPane(pane);
+      });
     }
 
     function renderTeamOverviewTab() {
@@ -2804,11 +2960,22 @@
       `;
     }
 
-    function renderManagerTeamTab(managerTab) {
+    function renderManagerTeamTab(managerTab, paneKey) {
       if (!managerTab || !Array.isArray(managerTab.users) || !managerTab.users.length) {
         return renderTeamEmptyState('This manager does not have any assigned team members yet.');
       }
       const summary = managerTab.summary || {};
+      let managerKey = paneKey || '';
+      if (!managerKey && managerTab && managerTab.managerId !== undefined && managerTab.managerId !== null) {
+        managerKey = sanitizeId(managerTab.managerId);
+      }
+      if (!managerKey && managerTab && managerTab.name) {
+        managerKey = sanitizeId(managerTab.name);
+      }
+      if (!managerKey) {
+        managerKey = 'manager';
+      }
+      const scope = managerKey ? 'managerMembers:' + managerKey : 'managerMembers';
       const metricsHtml = `
         <div class="team-summary-grid">
           ${renderTeamMetricCard('Team Members', formatTeamNumber(summary.teamSize), 'fa-users')}
@@ -2818,14 +2985,21 @@
           ${renderTeamMetricCard('CSAT Average', formatTeamPercent(summary.csatAverage), 'fa-face-smile')}
         </div>
       `;
-      return metricsHtml + renderTeamMembersTable(managerTab.users);
+      return metricsHtml + renderTeamMembersTable(managerTab.users, scope);
     }
 
     function renderManagerSummaryTable(managers) {
       if (!managers || !managers.length) {
         return renderTeamEmptyState('No managers currently have assigned teams.');
       }
-      const rows = managers.map(function (manager) {
+      const scope = 'managerSummary';
+      const pageSize = (state.teams.pagination && state.teams.pagination.pageSize) || TEAM_TABLE_PAGE_SIZE;
+      const total = managers.length;
+      const totalPages = Math.max(1, Math.ceil(total / pageSize));
+      const current = clampTeamPage(scope, totalPages);
+      const startIndex = (current - 1) * pageSize;
+      const pageManagers = managers.slice(startIndex, startIndex + pageSize);
+      const rows = pageManagers.map(function (manager) {
         const name = escapeHtml(manager.name || 'Manager');
         const email = manager.email ? `<div class="team-member-meta">${escapeHtml(manager.email)}</div>` : '';
         return `
@@ -2842,6 +3016,9 @@
           </tr>
         `;
       }).join('');
+      const rangeStart = startIndex + 1;
+      const rangeEnd = Math.min(startIndex + pageSize, total);
+      const paginationHtml = renderTeamPaginationControls(scope, current, totalPages, rangeStart, rangeEnd, total);
       return `
         <div class="table-responsive mt-4">
           <table class="table table-hover align-middle team-table">
@@ -2858,14 +3035,22 @@
             <tbody>${rows}</tbody>
           </table>
         </div>
+        ${paginationHtml}
       `;
     }
 
-    function renderTeamMembersTable(users) {
+    function renderTeamMembersTable(users, scopeKey) {
       if (!users || !users.length) {
         return renderTeamEmptyState('No team members assigned.');
       }
-      const rows = users.map(function (user) {
+      const scope = scopeKey || 'managerMembers';
+      const pageSize = (state.teams.pagination && state.teams.pagination.pageSize) || TEAM_TABLE_PAGE_SIZE;
+      const total = users.length;
+      const totalPages = Math.max(1, Math.ceil(total / pageSize));
+      const current = clampTeamPage(scope, totalPages);
+      const startIndex = (current - 1) * pageSize;
+      const pageUsers = users.slice(startIndex, startIndex + pageSize);
+      const rows = pageUsers.map(function (user) {
         const name = escapeHtml(user.name || 'Team Member');
         const email = user.email ? `<div class="team-member-meta">${escapeHtml(user.email)}</div>` : '';
         const campaign = user.campaignName ? `<div class="team-member-meta">${escapeHtml(user.campaignName)}</div>` : '';
@@ -2883,6 +3068,9 @@
           </tr>
         `;
       }).join('');
+      const rangeStart = startIndex + 1;
+      const rangeEnd = Math.min(startIndex + pageSize, total);
+      const paginationHtml = renderTeamPaginationControls(scope, current, totalPages, rangeStart, rangeEnd, total);
       return `
         <div class="table-responsive mt-4">
           <table class="table table-hover align-middle team-table">
@@ -2898,6 +3086,7 @@
             <tbody>${rows}</tbody>
           </table>
         </div>
+        ${paginationHtml}
       `;
     }
 
