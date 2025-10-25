@@ -4,6 +4,50 @@
  * Add these functions to complete your OKRService.gs implementation
  */
 
+/**
+ * Resolve configuration for the OKR dashboard.
+ * When the broader system already exposes a configuration object the code
+ * reuses it, otherwise we fall back to sensible defaults so the dashboard can
+ * aggregate data across every campaign without manual setup.
+ */
+const CAMPAIGN_OKR_DEFAULT_CONFIG = {
+  SHEETS: {
+    CALLS: 'Call_Reports',
+    ATTENDANCE: 'Attendance',
+    QA: 'QA_Records',
+    TASKS: 'Tasks',
+    COACHING: 'Coaching',
+    GOALS: 'Goals',
+    CAMPAIGNS: 'Campaigns',
+    USERS: 'Users',
+    OKR_DATA: 'OKR_Data',
+    ALERTS: 'Alerts'
+  },
+  DEFAULT_TARGETS: {
+    productivity: { callsPerHour: 12, tasksCompleted: 8 },
+    quality: { csat: 90, qaScore: 85 },
+    efficiency: { responseTimeMin: 4, resolutionRate: 0.75 },
+    engagement: { participationRate: 0.8, feedbackScore: 4.2 },
+    growth: { conversionRate: 0.2, revenue: 10000 }
+  },
+  STATUS_THRESHOLDS: {
+    EXCELLENT: 80,
+    GOOD: 60,
+    NEEDS_IMPROVEMENT: 40
+  },
+  GRADE_THRESHOLDS: {
+    A: 90,
+    B: 80,
+    C: 70,
+    D: 60
+  },
+  CACHE_DURATION: 600
+};
+
+const CONFIG = (typeof CAMPAIGN_OKR_CONFIG !== 'undefined' && CAMPAIGN_OKR_CONFIG && CAMPAIGN_OKR_CONFIG.SHEETS)
+  ? CAMPAIGN_OKR_CONFIG
+  : CAMPAIGN_OKR_DEFAULT_CONFIG;
+
 /** ─────────────────────────────────────────────────────────────────────────
  * Period helpers used server-side
  * ───────────────────────────────────────────────────────────────────────── */
@@ -2320,16 +2364,24 @@ function clientGetOKRDataEnhanced(granularity = 'Week', period = '', agent = '',
     let baseData;
     if (typeof clientGetOKRData === 'function') {
       const result = clientGetOKRData(granularity, period, agent, campaign, department);
-      baseData = result.success ? result.data : null;
+      baseData = result && result.success ? result.data : null;
     }
 
-    // If base function doesn't exist or failed, use our implementation
-    if (!baseData) {
-      baseData = getMultiCampaignOKRData(granularity, period, agent, campaign);
-    }
+    // Always gather fresh multi-campaign data so the dashboard reflects every
+    // connected system even if the legacy response succeeded.
+    const multiCampaignData = getMultiCampaignOKRData(granularity, period, agent, campaign);
+
+    const mergedData = mergeCampaignOverviewData(baseData, multiCampaignData);
 
     // Enhance data for campaign overview
-    const enhancedData = enhanceDataForCampaignOverview(baseData, granularity, period, agent, campaign);
+    const enhancedData = enhanceDataForCampaignOverview(
+      mergedData,
+      multiCampaignData,
+      granularity,
+      period,
+      agent,
+      campaign
+    );
 
     return {
       success: true,
@@ -2356,43 +2408,66 @@ function getMultiCampaignOKRData(granularity, period, agent, campaign) {
   try {
     // Get all campaigns if no specific campaign selected
     const campaigns = campaign ? [{ Name: campaign }] : getAllCampaigns();
-    
+
     const campaignResults = [];
+    const aggregatedAgentSet = new Set();
+    let totalRecords = 0;
+
     const aggregatedData = {
       totalUsers: 0,
       totalCampaigns: campaigns.length,
-      totalRecords: 0
+      totalRecords: 0,
+      agentList: []
     };
 
     // Process each campaign
     campaigns.forEach(campaignObj => {
       try {
         const campaignName = campaignObj.Name || campaignObj.ID;
-        
+
         // Get raw OKR data for this campaign using existing function
         const rawData = getRawOKRData(granularity, period, agent, campaignName, '');
-        
-        if (rawData && rawData.length > 0) {
-          const campaignData = {
-            name: campaignName,
-            description: campaignObj.Description || `${campaignName} operations`,
-            department: campaignObj.Department || 'Call Center',
-            agents: getUniqueAgentCount(rawData),
-            calls: getTotalCalls(rawData),
-            overall: calculateOverallCampaignScore(rawData)
-          };
+        const agentList = getAgentListFromRawData(rawData);
+        const calls = getTotalCalls(rawData);
+        const hasData = rawData && rawData.length > 0;
 
-          campaignResults.push(campaignData);
-          aggregatedData.totalUsers += campaignData.agents;
-          aggregatedData.totalRecords += campaignData.calls;
-        }
+        const categoryMetrics = {};
+        ['productivity', 'quality', 'efficiency', 'engagement', 'growth'].forEach(categoryKey => {
+          try {
+            categoryMetrics[categoryKey] = processCategory(categoryKey, rawData);
+          } catch (categoryError) {
+            console.error(`Error processing ${categoryKey} metrics for ${campaignName}:`, categoryError);
+            categoryMetrics[categoryKey] = { title: categoryKey, metrics: {} };
+          }
+        });
+
+        const campaignData = {
+          name: campaignName,
+          description: campaignObj.Description || `${campaignName} operations`,
+          department: campaignObj.Department || 'Call Center',
+          agents: agentList.length,
+          agentList: agentList,
+          calls: calls,
+          categoryMetrics: categoryMetrics,
+          overall: hasData ? calculateOverallCampaignScore(rawData)
+            : { score: 0, grade: 'F', status: 'needs_improvement' }
+        };
+
+        agentList.forEach(agentName => aggregatedAgentSet.add(agentName));
+        totalRecords += isFinite(calls) ? calls : 0;
+
+        campaignResults.push(campaignData);
       } catch (campaignError) {
         console.error(`Error processing campaign ${campaignObj.Name}:`, campaignError);
       }
     });
 
+    aggregatedData.totalUsers = aggregatedAgentSet.size;
+    aggregatedData.totalRecords = totalRecords;
+    aggregatedData.agentList = Array.from(aggregatedAgentSet).sort();
+
     // Calculate overall metrics across all campaigns
-    const overallScore = campaignResults.length > 0 
+    const overallScore = campaignResults.length > 0
       ? Math.round(campaignResults.reduce((sum, c) => sum + (c.overall?.score || 0), 0) / campaignResults.length)
       : 0;
 
@@ -2426,29 +2501,85 @@ function getMultiCampaignOKRData(granularity, period, agent, campaign) {
   }
 }
 
+function mergeCampaignOverviewData(baseData, multiCampaignData) {
+  const baseClone = cloneObject(baseData);
+
+  if (!baseClone) {
+    return cloneObject(multiCampaignData);
+  }
+
+  const merged = baseClone;
+
+  if (multiCampaignData && Array.isArray(multiCampaignData.campaigns)) {
+    merged.campaigns = mergeCampaignCollections(baseClone.campaigns, multiCampaignData.campaigns);
+  }
+
+  if (multiCampaignData && multiCampaignData.aggregated) {
+    merged.aggregated = multiCampaignData.aggregated;
+  }
+
+  if (multiCampaignData && multiCampaignData.overall && (!merged.overall || typeof merged.overall.score !== 'number')) {
+    merged.overall = multiCampaignData.overall;
+  }
+
+  if (multiCampaignData && multiCampaignData.trends) {
+    merged.trends = multiCampaignData.trends;
+  }
+
+  merged.alerts = mergeAlertCollections(merged.alerts, multiCampaignData ? multiCampaignData.alerts : null);
+
+  const categories = ['productivity', 'quality', 'efficiency', 'engagement', 'growth'];
+  categories.forEach(categoryKey => {
+    const currentCategory = merged[categoryKey];
+    const aggregatedCategory = multiCampaignData ? multiCampaignData[categoryKey] : null;
+    const needsFallback = !currentCategory || !currentCategory.metrics || Object.keys(currentCategory.metrics).length === 0;
+
+    if (needsFallback && aggregatedCategory) {
+      merged[categoryKey] = aggregatedCategory;
+    }
+  });
+
+  return merged;
+}
+
 /**
  * Enhance data specifically for campaign overview dashboard
  */
-function enhanceDataForCampaignOverview(baseData, granularity, period, agent, campaign) {
+function enhanceDataForCampaignOverview(baseData, multiCampaignData, granularity, period, agent, campaign) {
   try {
-    if (!baseData) {
+    const workingData = baseData ? cloneObject(baseData) : null;
+    const referenceData = workingData || cloneObject(multiCampaignData);
+
+    if (!referenceData) {
       return getEmptyOKRData(granularity, period);
     }
 
     // If data doesn't have campaigns array, create it from existing structure
-    if (!baseData.campaigns) {
-      baseData.campaigns = extractCampaignsFromBaseData(baseData, campaign);
+    if (!referenceData.campaigns) {
+      referenceData.campaigns = extractCampaignsFromBaseData(referenceData, campaign);
+    }
+
+    if (Array.isArray(referenceData.campaigns)) {
+      referenceData.campaigns.sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
     }
 
     // Ensure all required fields exist
-    baseData.lastUpdated = baseData.lastUpdated || new Date().toISOString();
-    baseData.period = period;
-    baseData.granularity = granularity;
+    referenceData.lastUpdated = (multiCampaignData && multiCampaignData.lastUpdated)
+      || referenceData.lastUpdated
+      || new Date().toISOString();
+    referenceData.period = period;
+    referenceData.granularity = granularity;
+
+    referenceData.aggregated = (multiCampaignData && multiCampaignData.aggregated)
+      || referenceData.aggregated
+      || { totalUsers: 0, totalCampaigns: 0, totalRecords: 0 };
+
+    referenceData.alerts = mergeAlertCollections(referenceData.alerts, multiCampaignData ? multiCampaignData.alerts : null);
 
     // Add agent list for dropdowns
-    baseData.agents = extractAgentList(baseData);
+    referenceData.agents = extractAgentList(referenceData, multiCampaignData);
 
-    return baseData;
+    return referenceData;
 
   } catch (error) {
     console.error('Error enhancing data for campaign overview:', error);
@@ -2499,30 +2630,160 @@ function extractCampaignsFromBaseData(baseData, selectedCampaign) {
 /**
  * Extract agent list for dropdowns
  */
-function extractAgentList(data) {
+function cloneObject(obj) {
+  try {
+    return obj ? JSON.parse(JSON.stringify(obj)) : null;
+  } catch (error) {
+    return null;
+  }
+}
+
+function normalizeToRecordArray(sourceData) {
+  if (!sourceData) {
+    return [];
+  }
+
+  if (Array.isArray(sourceData)) {
+    return sourceData;
+  }
+
+  if (sourceData && Array.isArray(sourceData.records)) {
+    return sourceData.records;
+  }
+
+  if (sourceData && typeof sourceData === 'object') {
+    const values = Object.values(sourceData);
+    if (values.length && values.every(item => item && typeof item === 'object')) {
+      return values;
+    }
+  }
+
+  return [];
+}
+
+function mergeOverallScores(existingOverall, aggregatedOverall) {
+  if (aggregatedOverall && typeof aggregatedOverall.score === 'number') {
+    return aggregatedOverall;
+  }
+  return existingOverall || { score: 0, grade: 'F', status: 'needs_improvement' };
+}
+
+function mergeCampaignCollections(baseCampaigns, aggregatedCampaigns) {
+  const merged = new Map();
+
+  (Array.isArray(baseCampaigns) ? baseCampaigns : []).forEach(campaign => {
+    if (!campaign || !campaign.name) return;
+    const key = String(campaign.name).toLowerCase();
+    merged.set(key, cloneObject(campaign) || {});
+  });
+
+  (Array.isArray(aggregatedCampaigns) ? aggregatedCampaigns : []).forEach(campaign => {
+    if (!campaign || !campaign.name) return;
+    const key = String(campaign.name).toLowerCase();
+    const existing = merged.get(key) || {};
+
+    const combined = Object.assign({}, existing, campaign);
+    combined.name = campaign.name || existing.name || '';
+    combined.description = campaign.description || existing.description || '';
+    combined.department = campaign.department || existing.department || '';
+    combined.agents = typeof campaign.agents === 'number' ? campaign.agents : (existing.agents || 0);
+    combined.calls = typeof campaign.calls === 'number' ? campaign.calls : (existing.calls || 0);
+    combined.agentList = Array.isArray(campaign.agentList) && campaign.agentList.length
+      ? campaign.agentList
+      : (existing.agentList || []);
+    combined.overall = mergeOverallScores(existing.overall, campaign.overall);
+
+    merged.set(key, combined);
+  });
+
+  return Array.from(merged.values()).sort((a, b) => {
+    return String(a.name || '').localeCompare(String(b.name || ''));
+  });
+}
+
+function mergeAlertCollections(baseAlerts, aggregatedAlerts) {
+  const combined = [];
+  const seen = new Set();
+
+  [baseAlerts, aggregatedAlerts].forEach(alertList => {
+    if (!Array.isArray(alertList)) return;
+    alertList.forEach(alert => {
+      if (!alert) return;
+      const key = [alert.category, alert.message, alert.campaign].map(val => String(val || '').toLowerCase()).join('|');
+      if (!seen.has(key)) {
+        seen.add(key);
+        combined.push(alert);
+      }
+    });
+  });
+
+  return combined;
+}
+
+function extractAgentList(data, multiCampaignData) {
   try {
     const agents = new Set();
-    
+    const addAgent = (value) => {
+      if (typeof value === 'string') {
+        const trimmed = value.trim();
+        if (trimmed) {
+          agents.add(trimmed);
+        }
+      }
+    };
+
     // Try to get agents from raw data sources
     const sources = ['callReports', 'attendanceRecords', 'qaRecords'];
-    
+
     sources.forEach(source => {
-      const sourceData = data[source];
-      const records = Array.isArray(sourceData)
-        ? sourceData
-        : (sourceData && Array.isArray(sourceData.records))
-          ? sourceData.records
-          : [];
+      const sourceData = data ? data[source] : null;
+      const records = normalizeToRecordArray(sourceData);
 
       records.forEach(record => {
         const agentFields = ['ToSFUser', 'Agent', 'AgentName', 'user', 'UserName'];
         agentFields.forEach(field => {
-          if (record[field] && record[field].trim()) {
-            agents.add(record[field].trim());
+          const candidate = record && record[field];
+          if (typeof candidate === 'string') {
+            addAgent(candidate);
           }
         });
       });
     });
+
+    if (multiCampaignData && multiCampaignData.aggregated && Array.isArray(multiCampaignData.aggregated.agentList)) {
+      multiCampaignData.aggregated.agentList.forEach(addAgent);
+    }
+
+    if (multiCampaignData && Array.isArray(multiCampaignData.campaigns)) {
+      multiCampaignData.campaigns.forEach(campaign => {
+        if (Array.isArray(campaign.agentList)) {
+          campaign.agentList.forEach(addAgent);
+        }
+      });
+    }
+
+    if (data && Array.isArray(data.campaigns)) {
+      data.campaigns.forEach(campaign => {
+        if (Array.isArray(campaign.agentList)) {
+          campaign.agentList.forEach(addAgent);
+        }
+        if (Array.isArray(campaign.agents)) {
+          campaign.agents.forEach(addAgent);
+        }
+      });
+    }
+
+    try {
+      const userDirectory = getAllUsersForOKR();
+      if (Array.isArray(userDirectory)) {
+        userDirectory.forEach(user => {
+          if (user && user.name) addAgent(user.name);
+          if (user && user.email) addAgent(user.email);
+        });
+      }
+    } catch (userError) {
+      console.warn('Unable to load full user directory for OKR dashboard:', userError);
+    }
 
     return Array.from(agents).sort();
 
@@ -2590,19 +2851,29 @@ function processCategoriesAcrossCampaigns(campaigns, granularity, period, agent)
  */
 function getUniqueAgentCount(rawData) {
   try {
-    const agents = new Set();
-    rawData.forEach(row => {
-      if (Array.isArray(row.agentList)) {
-        row.agentList.forEach(agent => {
-          if (agent) agents.add(agent);
-        });
-      } else if (row.agent) {
-        agents.add(row.agent);
-      }
-    });
-    return agents.size;
+    return getAgentListFromRawData(rawData).length;
   } catch (error) {
     return 0;
+  }
+}
+
+function getAgentListFromRawData(rawData) {
+  try {
+    const agents = new Set();
+    (Array.isArray(rawData) ? rawData : []).forEach(row => {
+      if (Array.isArray(row.agentList)) {
+        row.agentList.forEach(agent => {
+          if (agent) {
+            agents.add(String(agent).trim());
+          }
+        });
+      } else if (row && row.agent) {
+        agents.add(String(row.agent).trim());
+      }
+    });
+    return Array.from(agents).filter(Boolean).sort();
+  } catch (error) {
+    return [];
   }
 }
 
