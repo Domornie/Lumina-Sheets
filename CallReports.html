@@ -2501,9 +2501,9 @@
 
     const attEligible = repMetrics
       .map(item => {
-        const calls = Number(item.qualifyingTalkCalls ?? item.totalCalls ?? 0);
-        const totalMinutes = Number(item.totalTalkWholeMinutes ?? item.totalTalk ?? 0);
-        const avgTalk = calls > 0 ? totalMinutes / calls : null;
+        const calls = Number(item.totalCalls ?? 0);
+        const totalMinutes = Number(item.totalTalk ?? 0);
+        const avgHandle = calls > 0 ? totalMinutes / calls : 0;
         const coverageSummaries = Array.isArray(item.weeklyCoverageSummary)
           ? item.weeklyCoverageSummary
           : [];
@@ -2530,24 +2530,19 @@
           agent: item.agent || '—',
           calls,
           totalMinutes,
-          avgTalk,
+          avgHandle,
           coverageRequiredDays,
           coverageActualDays,
           coverageExpectationsDefined,
           metCoverageGoals
         };
-      })
-      .filter(entry => (
-        entry.avgTalk !== null
-        && Number.isFinite(entry.avgTalk)
-        && entry.calls > 0
-      ));
+      });
 
     const attLeaders = attEligible
       .slice()
       .sort((a, b) => {
         if (b.calls !== a.calls) return b.calls - a.calls;
-        if (a.avgTalk !== b.avgTalk) return a.avgTalk - b.avgTalk;
+        if (a.avgHandle !== b.avgHandle) return a.avgHandle - b.avgHandle;
         if (b.totalMinutes !== a.totalMinutes) return b.totalMinutes - a.totalMinutes;
         return a.agent.localeCompare(b.agent);
       })
@@ -2562,8 +2557,8 @@
       updateRankingList(attListEl, []);
     } else {
       const champion = attLeaders[0];
-      const championAvg = Math.round(champion.avgTalk);
-      const championCalls = champion.calls === 1 ? '1 qualifying call' : `${champion.calls} qualifying calls`;
+      const championAvg = Math.round(champion.avgHandle);
+      const championCalls = champion.calls === 1 ? '1 call' : `${champion.calls} calls`;
       const championMinutes = `${champion.totalMinutes.toLocaleString()} total minutes`;
       const coverageLabel = champion.metCoverageGoals
         ? (champion.coverageRequiredDays === 1
@@ -2580,13 +2575,13 @@
       if (coverageLabel) detailParts.push(`Covered ${coverageLabel}.`);
       if (teamAverageLabel) detailParts.push(teamAverageLabel);
       attDetailEl.textContent = detailParts.join(' ').replace(/\s+/g, ' ').trim();
-      const footerParts = ['Ranked by highest qualifying call volume with the lowest average handle time'];
+      const footerParts = ['Ranked by highest call volume with the lowest average handle time'];
       if (champion.metCoverageGoals) {
         footerParts.push('(coverage goals met)');
       }
       attFooterEl.textContent = footerParts.join(' ');
       updateRankingList(attListEl, attLeaders, entry => {
-        const avgLabel = `${Math.round(entry.avgTalk)} min avg`;
+        const avgLabel = `${Math.round(entry.avgHandle)} min avg`;
         const callLabel = entry.calls === 1 ? '1 call' : `${entry.calls} calls`;
         const totalLabel = `${entry.totalMinutes.toLocaleString()} total minutes`;
         const coverageDisplay = entry.metCoverageGoals
