@@ -54,7 +54,21 @@
   .collab-shell {
     display: flex;
     flex-direction: column;
-    gap: 2.5rem;
+    gap: 3rem;
+  }
+
+  .collab-section {
+    display: grid;
+    gap: 2.4rem;
+  }
+
+  .collab-section.collab-section-grid {
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    align-items: stretch;
+  }
+
+  .collab-section + .collab-section {
+    margin-top: 0.5rem;
   }
 
   .collab-topline {
@@ -222,7 +236,14 @@
   .qa-grid {
     display: grid;
     grid-template-columns: 1fr;
-    gap: 2rem;
+    gap: 2.4rem;
+  }
+
+  @media (min-width: 1200px) {
+    .qa-grid {
+      grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.85fr);
+      align-items: start;
+    }
   }
 
   .qa-metrics-group {
@@ -230,21 +251,25 @@
     gap: 1.5rem;
   }
 
-  .qa-form {
-    background: var(--collab-surface-soft);
-    border: 1px solid var(--collab-border);
-    border-radius: var(--collab-radius-md);
-    padding: 1.6rem;
-    box-shadow: var(--collab-shadow-soft);
+  .qa-metrics-group .qa-metric-card {
+    margin-bottom: 0;
   }
 
-  .qa-form .form-section-label {
-    display: block;
-    font-size: 0.78rem;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--collab-text-muted);
-    margin-bottom: 0.65rem;
+  .qa-insight-pair {
+    display: grid;
+    gap: 1.5rem;
+  }
+
+  @media (min-width: 768px) {
+    .qa-insight-pair {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  .kpi-mini-grid {
+    display: grid;
+    gap: 1.2rem;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   }
 
   .qa-form {
@@ -751,12 +776,20 @@
     pointer-events: none;
   }
 
-  .floating-campaign-bar {
+  .floating-launchers {
     position: fixed;
     bottom: 2rem;
     right: 2rem;
-    width: min(420px, calc(100vw - 3rem));
+    display: flex;
+    flex-direction: column;
+    gap: 1.2rem;
+    align-items: flex-end;
     z-index: 1040;
+  }
+
+  .floating-campaign-bar {
+    position: relative;
+    width: min(420px, calc(100vw - 4rem));
     display: flex;
     flex-direction: column;
     gap: 0.8rem;
@@ -856,11 +889,8 @@
   }
 
   .floating-chat-bar {
-    position: fixed;
-    bottom: 2rem;
-    left: 2rem;
-    width: min(520px, calc(100vw - 3rem));
-    z-index: 1040;
+    position: relative;
+    width: min(520px, calc(100vw - 4rem));
     display: flex;
     flex-direction: column;
     gap: 0.8rem;
@@ -964,17 +994,24 @@
     }
   }
 
+  @media (max-width: 992px) {
+    .floating-launchers {
+      right: 1.5rem;
+      gap: 1rem;
+    }
+  }
+
   @media (max-width: 768px) {
-    .floating-campaign-bar {
+    .floating-launchers {
       right: 1rem;
       left: 1rem;
-      width: auto;
+      bottom: 1.5rem;
+      align-items: stretch;
     }
 
+    .floating-campaign-bar,
     .floating-chat-bar {
-      right: 1rem;
-      left: 1rem;
-      width: auto;
+      width: 100%;
     }
   }
 
@@ -1025,26 +1062,23 @@
         </div>
       </div>
     </div>
-    <div class="row g-4 mt-1">
-      <div class="col-12">
-        <div class="card section-card h-100" id="teamIntelligenceCard">
-          <div class="card-header">
-            <div class="insight-pill"><i class="fas fa-users-gear"></i> Team Collaboration Intelligence</div>
-            <h2 class="mt-3">Managers, Clients, and Teams</h2>
-            <p class="mb-0">Review collaboration metrics by role, then dive into individual manager rosters for quality and attendance outcomes.</p>
-          </div>
-          <div class="card-body">
-            <div id="teamIntelligenceSection">
-              <ul class="nav nav-pills team-nav flex-wrap" id="teamTabs" role="tablist"></ul>
-              <div class="tab-content mt-4" id="teamTabContent"></div>
-            </div>
+    <section class="collab-section">
+      <div class="card section-card" id="teamIntelligenceCard">
+        <div class="card-header">
+          <div class="insight-pill"><i class="fas fa-users-gear"></i> Team Collaboration Intelligence</div>
+          <h2 class="mt-3">Managers, Clients, and Teams</h2>
+          <p class="mb-0">Review collaboration metrics by role, then dive into individual manager rosters for quality and attendance outcomes.</p>
+        </div>
+        <div class="card-body">
+          <div id="teamIntelligenceSection">
+            <ul class="nav nav-pills team-nav flex-wrap" id="teamTabs" role="tablist"></ul>
+            <div class="tab-content mt-4" id="teamTabContent"></div>
           </div>
         </div>
       </div>
-    </div>
-    <div class="row g-4 align-items-stretch">
-      <div class="col-xxl-8">
-        <div class="card section-card h-100">
+    </section>
+    <section class="collab-section collab-section-grid">
+      <article class="card section-card h-100">
         <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-3">
           <div>
             <div class="insight-pill"><i class="fas fa-clipboard-check"></i> Quality Collaboration Control</div>
@@ -1074,26 +1108,21 @@
                   <canvas id="qaTrendChart" height="160"></canvas>
                 </div>
               </div>
-              <div class="row g-3 mt-1">
-                <div class="col-md-6">
-                  <div class="qa-metric-card">
-                    <div class="label text-uppercase">Actionable Items</div>
-                    <div class="value" id="qaFollowUps">—</div>
-
-                    <div class="muted-label">Follow-ups scheduled this week</div>
-                  </div>
+              <div class="qa-insight-pair mt-1">
+                <div class="qa-metric-card">
+                  <div class="label text-uppercase">Actionable Items</div>
+                  <div class="value" id="qaFollowUps">—</div>
+                  <div class="muted-label">Follow-ups scheduled this week</div>
                 </div>
-                <div class="col-md-6">
-                  <div class="qa-metric-card">
-                    <div class="label text-uppercase">Collaboration Threads</div>
-                    <div class="value" id="qaThreads">—</div>
-                    <div class="muted-label">Audits with multi-role feedback</div>
-                  </div>
+                <div class="qa-metric-card">
+                  <div class="label text-uppercase">Collaboration Threads</div>
+                  <div class="value" id="qaThreads">—</div>
+                  <div class="muted-label">Audits with multi-role feedback</div>
                 </div>
               </div>
             </div>
             <form class="qa-form" id="qaCollaborationForm">
-              <div class="row g-3">
+              <div class="row g-3 g-xl-4">
                 <div class="col-12">
                   <span class="form-section-label">Review details</span>
                 </div>
@@ -1197,31 +1226,24 @@
             </table>
           </div>
         </div>
-      </div>
-    </div>
-      <div class="col-xxl-4">
-        <div class="card section-card h-100">
+      </article>
+      <article class="card section-card h-100">
         <div class="card-header">
           <div class="insight-pill"><i class="fas fa-chart-line"></i> Executive KPI Pulse</div>
           <h2 class="mt-3">Multi-campaign Leadership Summary</h2>
           <p class="mb-0">Blended KPIs across every managed campaign, with proactive signals for strategic decision making.</p>
         </div>
         <div class="card-body d-flex flex-column gap-3">
-          <div class="row g-3">
-            <div class="col-sm-6">
-              <div class="exec-kpi-card text-center">
-                <small>Average QA score</small>
-                <div class="headline" id="kpiQualityAverage">—</div>
-                <div class="text-success fw-semibold" id="kpiQualityTrend">Awaiting data</div>
-              </div>
+          <div class="kpi-mini-grid">
+            <div class="exec-kpi-card text-center">
+              <small>Average QA score</small>
+              <div class="headline" id="kpiQualityAverage">—</div>
+              <div class="text-success fw-semibold" id="kpiQualityTrend">Awaiting data</div>
             </div>
-            <div class="col-sm-6">
-              <div class="exec-kpi-card text-center">
-                <small>Attendance rate</small>
-                <div class="headline" id="kpiAttendanceRate">—</div>
-                <div class="text-success fw-semibold" id="kpiAttendanceTrend">Awaiting data</div>
-
-              </div>
+            <div class="exec-kpi-card text-center">
+              <small>Attendance rate</small>
+              <div class="headline" id="kpiAttendanceRate">—</div>
+              <div class="text-success fw-semibold" id="kpiAttendanceTrend">Awaiting data</div>
             </div>
           </div>
           <div class="kpi-trend-card">
@@ -1241,17 +1263,14 @@
           </div>
           <div class="exec-kpi-card">
             <h3>Executive Brief</h3>
-            <ul class="list-unstyled mb-0" id="executiveBrief">
-            </ul>
+            <ul class="list-unstyled mb-0" id="executiveBrief"></ul>
           </div>
         </div>
-      </div>
-    </div>
-  </div>
+      </article>
+    </section>
 
-  <div class="row g-4 mt-2 align-items-stretch">
-    <div class="col-12">
-      <div class="card section-card h-100">
+    <section class="collab-section">
+      <article class="card section-card h-100">
         <div class="card-header">
           <div class="insight-pill"><i class="fas fa-user-check"></i> Attendance &amp; Adherence</div>
           <h2 class="mt-3">Shift coverage &amp; schedule fidelity</h2>
@@ -1288,67 +1307,68 @@
             </div>
           </div>
         </div>
-      </div>
-    </div>
-  </div>
+      </article>
+    </section>
 
-  <div class="floating-chat-bar collapsed" id="leadershipChatBar" aria-expanded="false">
-    <button type="button" class="floating-toggle" id="leadershipChatToggle" aria-expanded="false" aria-controls="leadershipChatPanel">
-      <span class="toggle-icon"><i class="fas fa-headset"></i></span>
-      <span class="toggle-text">
-        <span class="toggle-label" id="leadershipChatToggleLabel">Precision chat for leadership huddles</span>
-        <span class="toggle-meta" id="leadershipChatToggleMeta">Loading…</span>
-      </span>
-      <span class="toggle-caret"><i class="fas fa-chevron-up"></i></span>
-    </button>
-    <div class="floating-panel floating-chat-panel" id="leadershipChatPanel" role="dialog" aria-modal="false" aria-labelledby="leadershipChatTitle" aria-hidden="true">
-      <div class="floating-panel-header d-flex justify-content-between align-items-start">
-        <div>
-          <div class="insight-pill"><i class="fas fa-headset"></i> Targeted Collaboration Threads</div>
-          <h3 class="mb-1" id="leadershipChatTitle">Precision chat for leadership huddles</h3>
-          <p class="mb-0">Spin up focused conversations for managers, agents, and executives to address outcomes faster.</p>
-        </div>
-        <button type="button" class="btn btn-outline-secondary btn-sm rounded-circle" id="leadershipChatClose" aria-label="Collapse leadership chat">
-          <i class="fas fa-xmark"></i>
+    <div class="floating-launchers">
+      <div class="floating-campaign-bar collapsed" id="campaignFloatingBar" aria-expanded="false">
+        <button type="button" class="floating-toggle" id="campaignFloatingToggle" aria-expanded="false" aria-controls="campaignConnectivitySection">
+          <span class="toggle-icon"><i class="fas fa-network-wired"></i></span>
+          <span class="toggle-label">Connected Campaign Workflows</span>
+          <span class="toggle-caret"><i class="fas fa-chevron-up"></i></span>
         </button>
-      </div>
-      <div class="floating-panel-body chat-panel-body">
-        <div class="chat-popup-grid">
-          <div class="chat-popup-column personas">
-            <div class="d-flex flex-column gap-2" id="chatPersonaFilters"></div>
+        <div class="floating-panel" id="campaignConnectivitySection">
+          <div class="floating-panel-header">
+            <div class="insight-pill"><i class="fas fa-network-wired"></i> Connected Campaign Workflows</div>
+            <h3>Navigate the workspace by campaign</h3>
+            <p>Jump into quality, coaching, attendance, and collaboration views that run on the same campaign data fabric.</p>
           </div>
-          <div class="chat-popup-column threads">
-            <div id="chatThreadList" class="chat-thread-list"></div>
-          </div>
-          <div class="chat-popup-column conversation">
-            <div class="chat-stream" id="chatMessageStream"></div>
-            <form id="chatComposer" class="chat-composer mt-3">
-              <div class="input-group">
-                <input type="text" id="chatMessageInput" class="form-control" placeholder="Share an update" required>
-                <button class="btn btn-primary" type="submit"><i class="fas fa-paper-plane"></i></button>
-              </div>
-              <div class="form-text mt-1">Visible to <span id="chatAudienceLabel" class="fw-semibold">all participants</span></div>
-            </form>
+          <div class="floating-panel-body">
+            <div id="campaignConnectivity" class="connectivity-container"></div>
           </div>
         </div>
       </div>
-    </div>
-  </div>
-
-  <div class="floating-campaign-bar collapsed" id="campaignFloatingBar" aria-expanded="false">
-    <button type="button" class="floating-toggle" id="campaignFloatingToggle" aria-expanded="false" aria-controls="campaignConnectivitySection">
-      <span class="toggle-icon"><i class="fas fa-network-wired"></i></span>
-      <span class="toggle-label">Connected Campaign Workflows</span>
-      <span class="toggle-caret"><i class="fas fa-chevron-up"></i></span>
-    </button>
-    <div class="floating-panel" id="campaignConnectivitySection">
-      <div class="floating-panel-header">
-        <div class="insight-pill"><i class="fas fa-network-wired"></i> Connected Campaign Workflows</div>
-        <h3>Navigate the workspace by campaign</h3>
-        <p>Jump into quality, coaching, attendance, and collaboration views that run on the same campaign data fabric.</p>
-      </div>
-      <div class="floating-panel-body">
-        <div id="campaignConnectivity" class="connectivity-container"></div>
+      <div class="floating-chat-bar collapsed" id="leadershipChatBar" aria-expanded="false">
+        <button type="button" class="floating-toggle" id="leadershipChatToggle" aria-expanded="false" aria-controls="leadershipChatPanel">
+          <span class="toggle-icon"><i class="fas fa-headset"></i></span>
+          <span class="toggle-text">
+            <span class="toggle-label" id="leadershipChatToggleLabel">Precision chat for leadership huddles</span>
+            <span class="toggle-meta" id="leadershipChatToggleMeta">Loading…</span>
+          </span>
+          <span class="toggle-caret"><i class="fas fa-chevron-up"></i></span>
+        </button>
+        <div class="floating-panel floating-chat-panel" id="leadershipChatPanel" role="dialog" aria-modal="false" aria-labelledby="leadershipChatTitle" aria-hidden="true">
+          <div class="floating-panel-header d-flex justify-content-between align-items-start">
+            <div>
+              <div class="insight-pill"><i class="fas fa-headset"></i> Targeted Collaboration Threads</div>
+              <h3 class="mb-1" id="leadershipChatTitle">Precision chat for leadership huddles</h3>
+              <p class="mb-0">Spin up focused conversations for managers, agents, and executives to address outcomes faster.</p>
+            </div>
+            <button type="button" class="btn btn-outline-secondary btn-sm rounded-circle" id="leadershipChatClose" aria-label="Collapse leadership chat">
+              <i class="fas fa-xmark"></i>
+            </button>
+          </div>
+          <div class="floating-panel-body chat-panel-body">
+            <div class="chat-popup-grid">
+              <div class="chat-popup-column personas">
+                <div class="d-flex flex-column gap-2" id="chatPersonaFilters"></div>
+              </div>
+              <div class="chat-popup-column threads">
+                <div id="chatThreadList" class="chat-thread-list"></div>
+              </div>
+              <div class="chat-popup-column conversation">
+                <div class="chat-stream" id="chatMessageStream"></div>
+                <form id="chatComposer" class="chat-composer mt-3">
+                  <div class="input-group">
+                    <input type="text" id="chatMessageInput" class="form-control" placeholder="Share an update" required>
+                    <button class="btn btn-primary" type="submit"><i class="fas fa-paper-plane"></i></button>
+                  </div>
+                  <div class="form-text mt-1">Visible to <span id="chatAudienceLabel" class="fw-semibold">all participants</span></div>
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
