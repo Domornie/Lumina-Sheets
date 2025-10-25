@@ -247,6 +247,23 @@
     margin-bottom: 0.65rem;
   }
 
+  .qa-form {
+    background: var(--collab-surface-soft);
+    border: 1px solid var(--collab-border);
+    border-radius: var(--collab-radius-md);
+    padding: 1.6rem;
+    box-shadow: var(--collab-shadow-soft);
+  }
+
+  .qa-form .form-section-label {
+    display: block;
+    font-size: 0.78rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--collab-text-muted);
+    margin-bottom: 0.65rem;
+  }
+
   .qa-form label {
     font-weight: 600;
     color: var(--collab-text);
@@ -1748,6 +1765,7 @@
       } else {
         window.__pendingBannerData = Object.assign({}, config);
       }
+      return parts.join(' ');
     }
 
     function updateBannerMetrics() {
