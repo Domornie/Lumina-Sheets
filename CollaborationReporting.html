@@ -12,865 +12,791 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIpp0hKBR6hO2l4QmF0k0s1Xv1JQnF6YJ7N2drF6wW5w==" crossorigin="anonymous" referrerpolicy="no-referrer" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
 <style>
   :root {
-    --collab-bg: linear-gradient(180deg, #f8faff 0%, #eef2ff 35%, #f8fafc 100%);
-    --collab-surface: #ffffff;
-    --collab-surface-soft: #f3f6ff;
-    --collab-surface-muted: #eef2ff;
-    --collab-border: rgba(148, 163, 184, 0.18);
-    --collab-border-strong: rgba(99, 102, 241, 0.28);
-    --collab-shadow: 0 28px 60px rgba(15, 23, 42, 0.08);
-    --collab-shadow-soft: 0 18px 45px rgba(15, 23, 42, 0.06);
-    --collab-radius-lg: 1.6rem;
-    --collab-radius-md: 1.1rem;
-    --collab-radius-sm: 0.85rem;
-    --collab-text: #0f172a;
-    --collab-text-muted: #64748b;
-    --collab-text-subtle: #94a3b8;
-    --collab-accent: #1d4ed8;
-    --collab-accent-soft: rgba(37, 99, 235, 0.12);
-    --collab-accent-strong: #2563eb;
-    --collab-success: #0ea5e9;
-    --collab-warning: #f59e0b;
-    --collab-danger: #ef4444;
-    --collab-spacing: clamp(1.5rem, 2.2vw, 2.75rem);
+    --page-bg: radial-gradient(circle at top, #172554 0%, #0b1220 35%, #050b18 100%);
+    --surface-primary: rgba(12, 18, 35, 0.92);
+    --surface-muted: rgba(22, 30, 55, 0.75);
+    --surface-glass: rgba(15, 23, 42, 0.6);
+    --surface-card: rgba(12, 18, 35, 0.86);
+    --surface-border: rgba(99, 102, 241, 0.2);
+    --surface-border-strong: rgba(129, 140, 248, 0.45);
+    --surface-highlight: rgba(59, 130, 246, 0.18);
+    --surface-glow: rgba(56, 189, 248, 0.22);
+    --text-primary: #f8fafc;
+    --text-secondary: rgba(226, 232, 240, 0.75);
+    --text-muted: rgba(148, 163, 184, 0.7);
+    --accent-primary: #60a5fa;
+    --accent-secondary: #22d3ee;
+    --accent-tertiary: #a855f7;
+    --positive: #34d399;
+    --warning: #facc15;
+    --danger: #f87171;
+    --radius-lg: 28px;
+    --radius-md: 20px;
+    --radius-sm: 14px;
+    --shadow-xl: 0 50px 120px rgba(15, 23, 42, 0.45);
+    --shadow-lg: 0 30px 70px rgba(15, 23, 42, 0.4);
+    --shadow-md: 0 20px 45px rgba(15, 23, 42, 0.35);
+    --shadow-sm: 0 12px 28px rgba(15, 23, 42, 0.3);
   }
 
   body {
-    background: var(--collab-bg);
-    font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
-    color: var(--collab-text);
+    background: var(--page-bg);
+    font-family: 'Inter', 'Space Grotesk', system-ui, -apple-system, sans-serif;
+    color: var(--text-primary);
+    min-height: 100vh;
+    padding-bottom: 6rem;
   }
 
-  .collab-wrapper {
-    max-width: 1600px;
+  .collab-app {
+    max-width: 1480px;
     margin: 0 auto;
-    padding: 2.75rem 2rem 6rem;
-  }
-
-  .collab-shell {
+    padding: 3rem clamp(1.5rem, 3vw, 3.5rem) 7rem;
     display: flex;
     flex-direction: column;
-    gap: 3rem;
+    gap: clamp(2rem, 4vw, 3.5rem);
   }
 
-  .collab-section {
+  .alert-stack {
     display: grid;
-    gap: 2.4rem;
+    gap: 0.75rem;
   }
 
-  .collab-section.collab-section-grid {
-    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-    align-items: stretch;
+  .alert-stack .alert {
+    border-radius: var(--radius-sm);
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    background: rgba(15, 23, 42, 0.75);
+    color: var(--text-primary);
+    box-shadow: var(--shadow-sm);
   }
 
-  .collab-section + .collab-section {
-    margin-top: 0.5rem;
-  }
-
-  .collab-topline {
-    display: grid;
-    gap: 1.2rem;
-    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-  }
-
-  .summary-card {
+  .collab-hero {
     position: relative;
-    border-radius: var(--collab-radius-md);
-    border: 1px solid var(--collab-border);
-    background: var(--collab-surface);
-    box-shadow: var(--collab-shadow-soft);
-    padding: 1.5rem 1.7rem;
+    border-radius: var(--radius-lg);
+    padding: clamp(2.5rem, 4vw, 3.6rem);
+    background: linear-gradient(130deg, rgba(96, 165, 250, 0.18), rgba(34, 211, 238, 0.12)) var(--surface-card);
+    border: 1px solid var(--surface-border-strong);
+    box-shadow: var(--shadow-xl);
     overflow: hidden;
   }
 
-  .summary-card::after {
+  .collab-hero::after {
     content: '';
     position: absolute;
     inset: 0;
-    background: var(--summary-accent, linear-gradient(135deg, rgba(37, 99, 235, 0.35), rgba(14, 165, 233, 0.35)));
-    opacity: 0.12;
+    background: radial-gradient(circle at 20% 10%, rgba(59, 130, 246, 0.4), transparent 55%),
+                radial-gradient(circle at 80% 20%, rgba(129, 140, 248, 0.35), transparent 55%),
+                radial-gradient(circle at 20% 80%, rgba(14, 165, 233, 0.3), transparent 60%);
+    opacity: 0.55;
     pointer-events: none;
   }
 
-  .summary-card .summary-icon {
+  .hero-content {
     position: relative;
     z-index: 1;
+    display: grid;
+    gap: clamp(1.6rem, 3vw, 2.6rem);
+  }
+
+  .hero-eyebrow {
     display: inline-flex;
     align-items: center;
-    justify-content: center;
-    width: 44px;
-    height: 44px;
-    border-radius: 12px;
-    background: rgba(37, 99, 235, 0.12);
-    color: var(--collab-accent-strong);
-    font-size: 1.1rem;
-    margin-bottom: 1rem;
-  }
-
-  .summary-card .summary-label {
-    position: relative;
-    z-index: 1;
-    font-size: 0.85rem;
-    text-transform: uppercase;
+    gap: 0.45rem;
+    padding: 0.4rem 1rem;
+    border-radius: 999px;
+    background: rgba(15, 23, 42, 0.55);
+    border: 1px solid rgba(96, 165, 250, 0.5);
+    color: var(--accent-primary);
+    font-weight: 600;
     letter-spacing: 0.08em;
-    color: var(--collab-text-muted);
-    margin-bottom: 0.25rem;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    width: fit-content;
   }
 
-  .summary-card .summary-value {
-    position: relative;
-    z-index: 1;
-    font-size: clamp(1.8rem, 3vw, 2.8rem);
-    font-weight: 700;
-    color: var(--collab-text);
+  .hero-title {
+    font-family: 'Space Grotesk', 'Inter', sans-serif;
+    font-weight: 600;
+    font-size: clamp(2rem, 5vw, 3.4rem);
+    letter-spacing: -0.015em;
+    margin-bottom: 0.35rem;
   }
 
-  .summary-card .summary-trend {
-    position: relative;
-    z-index: 1;
-    margin-top: 0.35rem;
-    font-size: 0.9rem;
-    color: var(--collab-text-muted);
+  .hero-description {
+    max-width: 720px;
+    color: var(--text-secondary);
+    font-size: 1.05rem;
+  }
+
+  .hero-meta {
     display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .hero-chip {
+    background: rgba(15, 23, 42, 0.55);
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    border-radius: 999px;
+    padding: 0.45rem 0.9rem;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    display: inline-flex;
     align-items: center;
     gap: 0.4rem;
   }
 
-  .summary-card.is-quality {
-    --summary-accent: linear-gradient(135deg, rgba(37, 99, 235, 0.45), rgba(56, 189, 248, 0.45));
+  .summary-tiles {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: clamp(1rem, 2.5vw, 1.6rem);
   }
 
-  .summary-card.is-attendance {
-    --summary-accent: linear-gradient(135deg, rgba(16, 185, 129, 0.45), rgba(59, 130, 246, 0.4));
-  }
-
-  .summary-card.is-threads {
-    --summary-accent: linear-gradient(135deg, rgba(168, 85, 247, 0.4), rgba(244, 114, 182, 0.45));
-  }
-
-  .summary-card.is-actions {
-    --summary-accent: linear-gradient(135deg, rgba(245, 158, 11, 0.4), rgba(59, 130, 246, 0.35));
-  }
-
-  .summary-card.is-attendance .summary-icon {
-    background: rgba(16, 185, 129, 0.18);
-    color: #0f766e;
-  }
-
-  .summary-card.is-threads .summary-icon {
-    background: rgba(168, 85, 247, 0.18);
-    color: #7c3aed;
-  }
-
-  .summary-card.is-actions .summary-icon {
-    background: rgba(245, 158, 11, 0.2);
-    color: #b45309;
-  }
-
-  .collab-alerts {
-    margin-bottom: 1rem;
-  }
-
-  #collabAlerts > .alert {
-    border-radius: var(--collab-radius-sm);
-    border: 1px solid rgba(148, 163, 184, 0.24);
-    background: #ffffff;
-    color: var(--collab-text);
-    box-shadow: var(--collab-shadow-soft);
-  }
-
-  .section-card {
-    border-radius: var(--collab-radius-lg);
-    border: 1px solid var(--collab-border);
-    box-shadow: var(--collab-shadow);
-    background: var(--collab-surface);
+  .summary-tile {
+    position: relative;
+    border-radius: var(--radius-md);
+    padding: 1.6rem 1.8rem;
+    background: var(--surface-primary);
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    box-shadow: var(--shadow-md);
     overflow: hidden;
+    display: grid;
+    gap: 0.65rem;
   }
 
-  .section-card .card-header {
-    background: linear-gradient(135deg, rgba(15, 23, 42, 0.04), rgba(37, 99, 235, 0.1));
-    color: var(--collab-text);
-    padding: 1.85rem 2.1rem 1.6rem;
-    border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+  .summary-tile::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(96, 165, 250, 0.22), transparent 65%);
+    opacity: 0.6;
+    pointer-events: none;
   }
 
-  .section-card .card-header h2 {
-    font-weight: 700;
-    margin-bottom: 0.45rem;
-    letter-spacing: -0.01em;
-    color: var(--collab-text);
+  .summary-tile .tile-icon {
+    position: relative;
+    z-index: 1;
+    width: 48px;
+    height: 48px;
+    border-radius: 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(15, 23, 42, 0.55);
+    color: var(--accent-primary);
+    font-size: 1.3rem;
   }
 
-  .section-card .card-header p {
-    margin: 0;
-    color: var(--collab-text-muted);
+  .summary-tile .tile-label {
+    position: relative;
+    z-index: 1;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    color: var(--text-muted);
   }
 
-  .section-card .card-body {
-    padding: 2rem 2.1rem 2.4rem;
+  .summary-tile .tile-value {
+    position: relative;
+    z-index: 1;
+    font-size: clamp(1.9rem, 4vw, 2.8rem);
+    font-weight: 600;
+    color: var(--text-primary);
   }
 
-  .insight-pill {
+  .summary-tile .tile-subtext {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+  }
+
+  .summary-tile .tile-subtext i {
+    font-size: 0.85rem;
+    opacity: 0.75;
+  }
+
+  .panel {
+    border-radius: var(--radius-lg);
+    background: var(--surface-primary);
+    border: 1px solid var(--surface-border);
+    box-shadow: var(--shadow-lg);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .panel-header {
+    padding: clamp(1.8rem, 3vw, 2.2rem) clamp(1.6rem, 3vw, 2.4rem);
+    border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.12), transparent);
+  }
+
+  .panel-eyebrow {
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
-    background: var(--collab-accent-soft);
-    color: var(--collab-accent-strong);
+    padding: 0.4rem 0.9rem;
     border-radius: 999px;
-    padding: 0.45rem 1rem;
+    background: rgba(96, 165, 250, 0.12);
+    color: var(--accent-primary);
     font-weight: 600;
-    font-size: 0.8rem;
-    text-transform: uppercase;
     letter-spacing: 0.08em;
-  }
-
-  .muted-label {
-    font-size: 0.9rem;
-    color: var(--collab-text-muted);
-  }
-
-  .qa-grid {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 2.4rem;
-  }
-
-  @media (min-width: 1200px) {
-    .qa-grid {
-      grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.85fr);
-      align-items: start;
-    }
-  }
-
-  .qa-metrics-group {
-    display: grid;
-    gap: 1.5rem;
-  }
-
-  .qa-metrics-group .qa-metric-card {
-    margin-bottom: 0;
-  }
-
-  .qa-insight-pair {
-    display: grid;
-    gap: 1.5rem;
-  }
-
-  @media (min-width: 768px) {
-    .qa-insight-pair {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-  }
-
-  .kpi-mini-grid {
-    display: grid;
-    gap: 1.2rem;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  }
-
-  .qa-form {
-    background: var(--collab-surface-soft);
-    border: 1px solid var(--collab-border);
-    border-radius: var(--collab-radius-md);
-    padding: 1.6rem;
-    box-shadow: var(--collab-shadow-soft);
-  }
-
-  .qa-form .form-section-label {
-    display: block;
+    text-transform: uppercase;
     font-size: 0.78rem;
-    letter-spacing: 0.08em;
+  }
+
+  .panel-header h2 {
+    margin-top: 1.2rem;
+    margin-bottom: 0.6rem;
+    font-family: 'Space Grotesk', 'Inter', sans-serif;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  .panel-header p {
+    margin-bottom: 0;
+    color: var(--text-secondary);
+  }
+
+  .panel-body {
+    padding: clamp(1.8rem, 3vw, 2.4rem);
+    display: grid;
+    gap: clamp(1.5rem, 3vw, 2.2rem);
+  }
+
+  .layout-grid {
+    display: grid;
+    gap: clamp(1.8rem, 3vw, 2.5rem);
+  }
+
+  .layout-grid--split {
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  }
+
+  .layout-grid--two {
+    grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  }
+  .metric-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1.1rem;
+  }
+
+  .metric-card {
+    border-radius: var(--radius-sm);
+    padding: 1.2rem 1.4rem;
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    box-shadow: var(--shadow-sm);
+    display: grid;
+    gap: 0.4rem;
+  }
+
+  .metric-card .metric-label {
     text-transform: uppercase;
-    color: var(--collab-text-muted);
-    margin-bottom: 0.65rem;
+    letter-spacing: 0.07em;
+    font-size: 0.72rem;
+    color: var(--text-muted);
   }
 
-  .qa-form label {
+  .metric-card .metric-value {
+    font-size: 1.8rem;
     font-weight: 600;
-    color: var(--collab-text);
   }
 
-  .qa-form .form-control,
-  .qa-form .form-select {
-    border-radius: var(--collab-radius-sm);
-    border: 1px solid rgba(148, 163, 184, 0.3);
-    padding: 0.75rem 1rem;
-    font-size: 0.95rem;
-    box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.04);
-  }
-
-  .qa-form textarea.form-control {
-    min-height: 110px;
-  }
-
-  .qa-form .btn-primary {
-    border-radius: 999px;
-    padding: 0.85rem 1.8rem;
-    background: linear-gradient(135deg, var(--collab-accent-strong) 0%, var(--collab-success) 100%);
-    border: none;
-    font-weight: 600;
-    box-shadow: 0 12px 28px rgba(37, 99, 235, 0.25);
-  }
-
-  .qa-form .btn-outline-secondary {
-    border-radius: 999px;
-    padding: 0.85rem 1.6rem;
-    border: 1px solid rgba(148, 163, 184, 0.5);
-  }
-
-  .qa-metric-card {
-    background: var(--collab-surface);
-    border: 1px solid var(--collab-border);
-    border-radius: var(--collab-radius-md);
-    padding: 1.45rem 1.6rem;
-    margin-bottom: 1.2rem;
-    box-shadow: var(--collab-shadow-soft);
-  }
-
-  .qa-metric-card .value {
-    font-size: 2.1rem;
-    font-weight: 700;
-    color: var(--collab-accent-strong);
-  }
-
-  .qa-metric-card .label {
+  .metric-card .metric-note {
     font-size: 0.85rem;
-    color: var(--collab-text-muted);
+    color: var(--text-secondary);
+  }
+
+  .metric-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.35rem 0.85rem;
+    border-radius: 999px;
+    background: rgba(96, 165, 250, 0.18);
+    color: var(--accent-primary);
+    font-size: 0.75rem;
+    font-weight: 600;
+    transition: background 0.2s ease, color 0.2s ease;
+  }
+
+  .metric-badge.bg-success {
+    background: rgba(52, 211, 153, 0.18) !important;
+    color: var(--positive) !important;
+  }
+
+  .metric-badge.bg-danger {
+    background: rgba(248, 113, 113, 0.18) !important;
+    color: var(--danger) !important;
+  }
+
+  .chart-shell {
+    background: rgba(15, 23, 42, 0.65);
+    border-radius: var(--radius-md);
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    padding: 1.6rem;
+    box-shadow: var(--shadow-sm);
+    position: relative;
+  }
+
+  .chart-title {
+    font-size: 1.05rem;
+    font-weight: 600;
+    margin-bottom: 0.6rem;
+  }
+
+  .chart-empty {
+    border-radius: var(--radius-sm);
+    background: rgba(148, 163, 184, 0.12);
+    padding: 2rem 1rem;
+    color: var(--text-muted);
+    margin-top: 1rem;
+  }
+
+  .ai-suite .panel-body {
+    gap: 1.6rem;
+  }
+
+  .ai-summary {
+    background: rgba(34, 211, 238, 0.12);
+    border: 1px solid rgba(34, 211, 238, 0.32);
+    border-radius: var(--radius-md);
+    padding: 1.6rem;
+    box-shadow: var(--shadow-sm);
+  }
+
+  .ai-summary h3 {
+    margin-bottom: 0.5rem;
+    font-size: 1.15rem;
+    font-weight: 600;
+  }
+
+  .ai-summary p {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 1rem;
+    line-height: 1.6;
+  }
+
+  .ai-streams {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1.2rem;
+  }
+
+  .ai-block {
+    background: rgba(15, 23, 42, 0.55);
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    border-radius: var(--radius-md);
+    padding: 1.4rem 1.6rem;
+    box-shadow: var(--shadow-sm);
+  }
+
+  .ai-block h3 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 0.8rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .ai-block ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    gap: 0.6rem;
+  }
+
+  .ai-block li {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+    line-height: 1.5;
+  }
+
+  .ai-block li i {
+    color: var(--accent-primary);
+    margin-top: 0.2rem;
+  }
+
+  .team-intelligence .nav-pills {
+    gap: 0.6rem;
+    flex-wrap: wrap;
+  }
+
+  .team-intelligence .nav-link {
+    border-radius: 999px;
+    background: rgba(15, 23, 42, 0.55);
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    color: var(--text-secondary);
+    font-weight: 600;
+    padding: 0.55rem 1.35rem;
+    transition: background 0.2s ease, transform 0.2s ease, color 0.2s ease;
+  }
+
+  .team-intelligence .nav-link:hover {
+    background: rgba(96, 165, 250, 0.14);
+    color: var(--text-primary);
+    transform: translateY(-1px);
+  }
+
+  .team-intelligence .nav-link.active {
+    background: linear-gradient(135deg, rgba(96, 165, 250, 0.7), rgba(168, 85, 247, 0.6));
+    border-color: transparent;
+    color: #fff;
+  }
+
+  .team-table,
+  .qa-table,
+  .attendance-table {
+    color: var(--text-primary);
+  }
+
+  .table thead {
+    background: rgba(15, 23, 42, 0.7);
+    color: var(--text-secondary);
+  }
+
+  .table thead th {
+    border: none;
+    font-size: 0.74rem;
     text-transform: uppercase;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.06em;
   }
 
-  .qa-table thead {
-    background: var(--collab-surface-soft);
-    color: var(--collab-text);
+  .table tbody tr {
+    border-color: rgba(148, 163, 184, 0.2);
   }
 
-  .qa-table tbody tr td {
+  .table tbody td {
     vertical-align: middle;
+    border-color: rgba(148, 163, 184, 0.12);
   }
 
-  .qa-table .collaborator {
+  .status-pill {
     display: inline-flex;
     align-items: center;
     gap: 0.35rem;
-    padding: 0.25rem 0.6rem;
     border-radius: 999px;
-    font-size: 0.75rem;
-    background: rgba(37, 99, 235, 0.12);
-    color: var(--collab-accent-strong);
-    margin-right: 0.25rem;
-  }
-
-  .qa-table .status-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.3rem;
-    border-radius: 999px;
-    padding: 0.4rem 0.85rem;
+    padding: 0.35rem 0.85rem;
     font-size: 0.75rem;
     font-weight: 600;
   }
 
   .status-published {
-    background: rgba(14, 165, 233, 0.18);
-    color: #0c4a6e;
+    background: rgba(52, 211, 153, 0.18);
+    color: var(--positive);
   }
 
   .status-draft {
-    background: rgba(245, 158, 11, 0.2);
-    color: #b45309;
+    background: rgba(250, 204, 21, 0.18);
+    color: #facc15;
   }
 
   .status-followup {
-    background: rgba(239, 68, 68, 0.18);
-    color: #b91c1c;
+    background: rgba(248, 113, 113, 0.18);
+    color: var(--danger);
   }
 
-  .attendance-grid {
+  .collaborator {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    border-radius: 999px;
+    padding: 0.35rem 0.75rem;
+    background: rgba(96, 165, 250, 0.18);
+    color: var(--accent-primary);
+    font-size: 0.78rem;
+    margin-right: 0.4rem;
+  }
+
+  .qa-form {
+    background: rgba(15, 23, 42, 0.55);
+    border-radius: var(--radius-md);
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    padding: 1.8rem;
+    box-shadow: var(--shadow-sm);
+  }
+
+  .qa-form label {
+    font-weight: 600;
+    color: var(--text-secondary);
+  }
+
+  .qa-form .form-section-label {
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+  }
+
+  .qa-form .form-control,
+  .qa-form .form-select {
+    background: rgba(15, 23, 42, 0.75);
+    border: 1px solid rgba(148, 163, 184, 0.28);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+  }
+
+  .qa-form .form-control:focus,
+  .qa-form .form-select:focus {
+    border-color: rgba(96, 165, 250, 0.65);
+    box-shadow: 0 0 0 0.25rem rgba(96, 165, 250, 0.18);
+  }
+
+  .qa-form .btn-primary {
+    border-radius: 999px;
+    background: linear-gradient(135deg, rgba(96, 165, 250, 0.9), rgba(34, 211, 238, 0.9));
+    border: none;
+    box-shadow: 0 18px 35px rgba(56, 189, 248, 0.35);
+    font-weight: 600;
+    padding: 0.85rem 1.9rem;
+  }
+
+  .qa-form .btn-outline-secondary {
+    border-radius: 999px;
+    border: 1px solid rgba(148, 163, 184, 0.4);
+    color: var(--text-secondary);
+    padding: 0.85rem 1.6rem;
+  }
+
+  .attendance-metrics {
     display: grid;
-    grid-template-columns: minmax(380px, 1.3fr) minmax(280px, 1fr);
-    gap: 2rem;
+    gap: 1.2rem;
   }
 
-  @media (max-width: 1200px) {
-    .attendance-grid {
-      grid-template-columns: 1fr;
-    }
+  .attendance-metrics .metric-card {
+    background: rgba(59, 130, 246, 0.12);
+    border: 1px solid rgba(59, 130, 246, 0.35);
   }
 
-  .attendance-table tbody tr td {
-    vertical-align: middle;
+  .progress {
+    background-color: rgba(148, 163, 184, 0.2);
+    border-radius: 999px;
   }
 
   .progress-bar {
     border-radius: 999px;
   }
 
-  .exec-kpi-card {
-    background: var(--collab-surface);
-    border-radius: var(--collab-radius-md);
-    padding: 1.6rem 1.8rem;
-    border: 1px solid rgba(148, 163, 184, 0.25);
-    box-shadow: var(--collab-shadow-soft);
-    height: 100%;
-  }
-
-  .exec-kpi-card h3 {
-    font-size: 1.15rem;
-    font-weight: 700;
-    margin-bottom: 0.6rem;
-  }
-
-  .exec-kpi-card .headline {
-    font-size: 2rem;
-    font-weight: 700;
-    color: var(--collab-text);
-  }
-
-  .exec-kpi-card small {
-    color: var(--collab-text-muted);
-  }
-
-  .persona-chip {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    border-radius: 999px;
-    padding: 0.65rem 1.05rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    border: 1px solid transparent;
-    color: var(--collab-text);
-    background: rgba(148, 163, 184, 0.12);
-  }
-
-  .persona-chip.active {
-    background: linear-gradient(135deg, var(--collab-accent-strong) 0%, var(--collab-success) 100%);
-    color: #ffffff;
-    border-color: rgba(255, 255, 255, 0.35);
-    box-shadow: 0 12px 28px rgba(37, 99, 235, 0.25);
-  }
-
   .thread-card {
-    border-radius: var(--collab-radius-sm);
-    padding: 1rem 1.1rem;
-    border: 1px solid rgba(148, 163, 184, 0.24);
-    background: rgba(255, 255, 255, 0.9);
-    margin-bottom: 0.85rem;
+    background: rgba(15, 23, 42, 0.55);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    border-radius: var(--radius-sm);
+    padding: 1rem 1.2rem;
+    margin-bottom: 0.7rem;
     cursor: pointer;
-    transition: transform 0.18s ease, box-shadow 0.18s ease;
+    transition: transform 0.2s ease, border 0.2s ease, background 0.2s ease;
   }
 
   .thread-card:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 18px 40px rgba(15, 23, 42, 0.12);
+    transform: translateY(-2px);
+    border-color: rgba(96, 165, 250, 0.5);
   }
 
   .thread-card.active {
-    border-color: rgba(37, 99, 235, 0.6);
-    box-shadow: 0 22px 45px rgba(37, 99, 235, 0.18);
+    background: linear-gradient(135deg, rgba(96, 165, 250, 0.22), rgba(168, 85, 247, 0.18));
+    border-color: rgba(96, 165, 250, 0.55);
   }
 
   .thread-card .title {
     font-weight: 600;
-    color: var(--collab-text);
+    margin-bottom: 0.4rem;
   }
 
-  .thread-meta {
-    font-size: 0.75rem;
-    color: var(--collab-text-subtle);
+  .thread-card .thread-meta {
     display: flex;
-    align-items: center;
+    flex-wrap: wrap;
     gap: 0.6rem;
+    font-size: 0.78rem;
+    color: var(--text-muted);
   }
 
   .chat-stream {
-    background: var(--collab-surface-soft);
-    border-radius: var(--collab-radius-md);
-    padding: 1.25rem 1.45rem;
-    border: 1px solid rgba(148, 163, 184, 0.18);
-    flex: 1 1 auto;
+    display: grid;
+    gap: 1rem;
+    max-height: 380px;
     overflow-y: auto;
-    min-height: 280px;
+    padding-right: 0.4rem;
+  }
+
+  .chat-thread-list {
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    border-radius: var(--radius-md);
+    padding: 1rem 1.1rem;
+    max-height: 360px;
+    overflow-y: auto;
   }
 
   .chat-message {
-    margin-bottom: 1rem;
     display: flex;
+    align-items: flex-start;
     gap: 0.9rem;
   }
 
   .chat-message .avatar {
-    width: 40px;
-    height: 40px;
+    width: 42px;
+    height: 42px;
     border-radius: 50%;
-    background: linear-gradient(135deg, var(--collab-accent-strong) 0%, var(--collab-success) 100%);
-    color: #ffffff;
-    display: flex;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
+    background: rgba(96, 165, 250, 0.18);
+    color: var(--accent-primary);
     font-weight: 600;
   }
 
   .chat-message .bubble {
-    background: #ffffff;
-    border-radius: 1rem;
-    padding: 0.85rem 1rem;
-    box-shadow: 0 12px 32px rgba(15, 23, 42, 0.1);
     flex: 1;
+    background: rgba(15, 23, 42, 0.6);
+    border-radius: 20px;
+    padding: 1rem 1.2rem;
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    box-shadow: var(--shadow-sm);
   }
 
-  .chat-message .bubble .author {
+  .chat-message .author {
     font-weight: 600;
-    color: var(--collab-text);
   }
 
-  .chat-message .bubble .timestamp {
+  .chat-message .timestamp {
     font-size: 0.75rem;
-    color: var(--collab-text-subtle);
-  }
-
-  .chat-message .bubble .tags {
-    margin-top: 0.5rem;
+    color: var(--text-muted);
   }
 
   .chat-tag {
     display: inline-flex;
     align-items: center;
     gap: 0.3rem;
-    padding: 0.25rem 0.6rem;
     border-radius: 999px;
-    background: rgba(148, 163, 184, 0.18);
-    color: var(--collab-text-muted);
-    font-size: 0.7rem;
+    background: rgba(148, 163, 184, 0.22);
+    color: var(--text-muted);
+    font-size: 0.68rem;
+    padding: 0.25rem 0.65rem;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.08em;
   }
 
-  .chat-thread-list {
-    border-radius: var(--collab-radius-md);
-    border: 1px solid rgba(148, 163, 184, 0.18);
-    background: rgba(255, 255, 255, 0.92);
-    padding: 1rem 1.1rem;
-    overflow-y: auto;
-    flex: 1 1 auto;
-    min-height: 280px;
+  .persona-chip {
+    width: 100%;
+    text-align: left;
+    background: rgba(15, 23, 42, 0.55);
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    border-radius: var(--radius-sm);
+    padding: 0.8rem 1rem;
+    color: var(--text-secondary);
+    font-weight: 600;
+    transition: background 0.2s ease, border 0.2s ease;
   }
 
-  .chat-popup-grid {
-    display: grid;
-    grid-template-columns: 0.9fr 1fr 1.4fr;
-    gap: 1.2rem;
-    height: 100%;
+  .persona-chip.active,
+  .persona-chip:hover {
+    background: linear-gradient(135deg, rgba(96, 165, 250, 0.2), rgba(34, 211, 238, 0.22));
+    color: var(--text-primary);
+    border-color: rgba(96, 165, 250, 0.4);
   }
 
-  .chat-popup-column {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
+  .chat-composer .form-control {
+    background: rgba(15, 23, 42, 0.75);
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    color: var(--text-primary);
   }
 
-  .chat-popup-column.personas #chatPersonaFilters {
-    flex: 1 1 auto;
-    overflow-y: auto;
-    background: rgba(255, 255, 255, 0.92);
-    border-radius: var(--collab-radius-md);
-    border: 1px solid rgba(148, 163, 184, 0.18);
-    padding: 1rem 1.1rem;
-  }
-
-  .chat-popup-column.threads .chat-thread-list {
-    flex: 1 1 auto;
-  }
-
-  .chat-popup-column.conversation {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-  }
-
-  .chat-popup-column.conversation .chat-stream {
-    margin-bottom: 0;
-  }
-
-  .chat-popup-column.conversation .chat-composer {
-    margin-top: auto;
-  }
-
-  .connectivity-container {
-    display: grid;
-    gap: 1rem;
-  }
-
-  .connectivity-grid {
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  }
-
-  .connectivity-card {
-    border-radius: var(--collab-radius-md);
-    border: 1px solid var(--collab-border);
-    background: var(--collab-surface);
-    padding: 1.2rem 1.4rem;
-    box-shadow: var(--collab-shadow-soft);
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-  }
-
-  .connectivity-card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 26px 45px rgba(15, 23, 42, 0.14);
-  }
-
-  .connectivity-actions {
+  .floating-docks {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.45rem;
-  }
-
-  .connectivity-actions .btn {
-    border-radius: 999px;
-    font-weight: 600;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    border: none;
-    background: rgba(37, 99, 235, 0.12);
-    color: var(--collab-accent-strong);
-    padding: 0.45rem 1.1rem;
-    transition: background 0.2s ease, transform 0.2s ease;
-  }
-
-  .connectivity-actions .btn:hover {
-    background: rgba(37, 99, 235, 0.2);
-    transform: translateY(-1px);
-  }
-
-  .connectivity-empty {
-    border-radius: var(--collab-radius-md);
-    background: rgba(148, 163, 184, 0.12);
-    padding: 1.6rem;
-  }
-
-  .team-nav {
-    gap: 0.6rem;
-  }
-
-  .team-nav .nav-link {
-    border-radius: 999px;
-    font-weight: 600;
-    color: var(--collab-accent-strong);
-    background: rgba(37, 99, 235, 0.1);
-    border: none;
-    padding: 0.55rem 1.25rem;
-    transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
-  }
-
-  .team-nav .nav-link:hover {
-    color: #1e40af;
-    background: rgba(37, 99, 235, 0.18);
-    transform: translateY(-1px);
-  }
-
-  .team-nav .nav-link.active {
-    background: linear-gradient(135deg, var(--collab-accent-strong) 0%, var(--collab-success) 100%);
-    color: #ffffff;
-  }
-
-  .kpi-trend-card {
-    border-radius: var(--collab-radius-md);
-    border: 1px solid var(--collab-border);
-    background: var(--collab-surface-soft);
-    padding: 1.5rem 1.7rem;
-    box-shadow: var(--collab-shadow-soft);
-  }
-
-  .kpi-bullet {
-    display: flex;
-    align-items: center;
-    gap: 0.6rem;
-    font-size: 0.85rem;
-    color: var(--collab-text-muted);
-    margin-bottom: 0.35rem;
-  }
-
-  .kpi-dot {
-    width: 10px;
-    height: 10px;
-    border-radius: 999px;
-    background: var(--collab-accent-strong);
-    display: inline-block;
-  }
-
-  .team-summary-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: 1.2rem;
-  }
-
-  .team-metric-card {
-    border-radius: var(--collab-radius-sm);
-    background: rgba(37, 99, 235, 0.08);
-    padding: 1.15rem 1.3rem;
-    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
-  }
-
-  .team-metric-card .label {
-    font-size: 0.8rem;
-    text-transform: uppercase;
-    color: var(--collab-text-muted);
-    letter-spacing: 0.06em;
-    margin-bottom: 0.25rem;
-  }
-
-  .team-metric-card .value {
-    font-size: 1.75rem;
-    font-weight: 700;
-    color: var(--collab-accent-strong);
-  }
-
-  .team-metric-card .caption {
-    font-size: 0.75rem;
-    color: var(--collab-text-subtle);
-  }
-
-  .team-table th {
-    text-transform: uppercase;
-    font-size: 0.75rem;
-    letter-spacing: 0.04em;
-    color: var(--collab-text-muted);
-    border: none;
-  }
-
-  .team-table td {
-    vertical-align: middle;
-  }
-
-  .team-member-name {
-    font-weight: 600;
-    color: var(--collab-text);
-  }
-
-  .team-member-meta {
-    font-size: 0.75rem;
-    color: var(--collab-text-subtle);
-  }
-
-  .team-pagination-bar {
-    margin-top: 1rem;
-    border-radius: var(--collab-radius-sm);
-    border: 1px solid var(--collab-border);
-    background: var(--collab-surface);
-    padding: 0.75rem 1rem;
-    box-shadow: var(--collab-shadow-soft);
-  }
-
-  .team-pagination-bar .btn {
-    min-width: 2.5rem;
-  }
-
-  .team-pagination-bar .btn i {
-    pointer-events: none;
-  }
-
-  .floating-launchers {
-    position: fixed;
-    bottom: 2rem;
-    right: 2rem;
-    display: flex;
-    flex-direction: column;
-    gap: 1.2rem;
-    align-items: flex-end;
-    z-index: 1040;
-  }
-
-  .floating-campaign-bar {
+    gap: 1.4rem;
+    justify-content: flex-end;
     position: relative;
-    width: min(420px, calc(100vw - 4rem));
+    z-index: 2;
+  }
+
+  .floating-bar {
+    flex: 1 1 360px;
+    max-width: 520px;
+  }
+
+  .floating-bar.is-hidden {
+    display: none !important;
+  }
+
+  .floating-toggle {
+    width: 100%;
     display: flex;
-    flex-direction: column;
-    gap: 0.8rem;
-    transition: opacity 0.3s ease, transform 0.3s ease;
-  }
-
-  .floating-campaign-bar.is-hidden {
-    display: none;
-  }
-
-  .floating-campaign-bar .floating-toggle {
-    display: inline-flex;
     align-items: center;
     justify-content: space-between;
-    gap: 0.9rem;
+    gap: 1rem;
     border-radius: 999px;
-    padding: 0.8rem 1.3rem;
-    background: rgba(15, 23, 42, 0.82);
-    color: #fff;
-    border: none;
+    padding: 0.95rem 1.35rem;
+    border: 1px solid rgba(96, 165, 250, 0.35);
+    background: linear-gradient(135deg, rgba(96, 165, 250, 0.22), rgba(34, 211, 238, 0.18));
+    color: var(--text-primary);
     font-weight: 600;
-    box-shadow: 0 20px 45px rgba(15, 23, 42, 0.3);
-    cursor: pointer;
+    box-shadow: var(--shadow-sm);
   }
 
-  .floating-campaign-bar .floating-toggle .toggle-icon {
+  .floating-toggle .toggle-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: rgba(15, 23, 42, 0.5);
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    background: rgba(255, 255, 255, 0.14);
+    color: var(--accent-primary);
   }
 
-  .floating-campaign-bar .floating-toggle .toggle-caret {
+  .floating-toggle .toggle-caret {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: rgba(15, 23, 42, 0.5);
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 28px;
-    height: 28px;
-    border-radius: 50%;
-    background: rgba(255, 255, 255, 0.18);
+    color: var(--accent-primary);
   }
 
-  .floating-campaign-bar .floating-panel {
-    background: var(--collab-surface);
-    border-radius: var(--collab-radius-lg);
-    border: 1px solid var(--collab-border);
-    box-shadow: var(--collab-shadow);
+  .floating-panel {
+    margin-top: 1rem;
+    border-radius: var(--radius-lg);
+    background: rgba(15, 23, 42, 0.85);
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    box-shadow: var(--shadow-lg);
     overflow: hidden;
     transition: max-height 0.35s ease, opacity 0.35s ease, transform 0.35s ease;
-    max-height: 540px;
   }
 
-  .floating-campaign-bar.collapsed .floating-panel {
+  .floating-panel.collapsed,
+  .floating-bar.collapsed .floating-panel {
     max-height: 0;
     opacity: 0;
-    transform: translateY(12px);
+    transform: translateY(18px);
     pointer-events: none;
   }
 
   .floating-panel-header {
-    padding: 1.5rem 1.5rem 0.5rem;
-  }
-
-  .floating-panel-header h3 {
-    font-size: 1.1rem;
-    margin-top: 1rem;
-    margin-bottom: 0.35rem;
-  }
-
-  .floating-panel-header p {
-    margin-bottom: 0;
-    color: var(--collab-text-muted);
-    font-size: 0.95rem;
+    padding: 1.6rem 1.8rem 1.2rem;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.18);
   }
 
   .floating-panel-body {
-    padding: 0 1.5rem 1.5rem;
-    max-height: 340px;
+    padding: 1.6rem 1.8rem 1.8rem;
+    max-height: 420px;
     overflow-y: auto;
   }
 
@@ -879,421 +805,391 @@
   }
 
   .floating-panel-body::-webkit-scrollbar-thumb {
-    background: rgba(148, 163, 184, 0.45);
+    background: rgba(148, 163, 184, 0.35);
     border-radius: 999px;
   }
 
-  .floating-campaign-bar .connectivity-card {
+  .connectivity-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1rem;
+  }
+
+  .connectivity-card {
+    border-radius: var(--radius-sm);
+    background: rgba(15, 23, 42, 0.6);
     border: 1px solid rgba(148, 163, 184, 0.25);
-    box-shadow: none;
-  }
-
-  .floating-chat-bar {
-    position: relative;
-    width: min(520px, calc(100vw - 4rem));
-    display: flex;
-    flex-direction: column;
+    padding: 1.1rem 1.3rem;
+    display: grid;
     gap: 0.8rem;
-    transition: opacity 0.3s ease, transform 0.3s ease;
+    transition: transform 0.2s ease, border 0.2s ease;
   }
 
-  .floating-chat-bar.is-hidden {
-    display: none;
+  .connectivity-card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(96, 165, 250, 0.45);
   }
 
-  .floating-chat-bar .floating-toggle {
-    display: inline-flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.9rem;
+  .connectivity-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .connectivity-actions .btn {
     border-radius: 999px;
-    padding: 0.85rem 1.4rem;
-    border: none;
-    background: linear-gradient(135deg, rgba(37, 99, 235, 0.92), rgba(14, 165, 233, 0.92));
-    color: #ffffff;
     font-weight: 600;
-    box-shadow: 0 20px 45px rgba(37, 99, 235, 0.35);
-    cursor: pointer;
+    background: rgba(96, 165, 250, 0.2);
+    border: none;
+    color: var(--accent-primary);
+    padding: 0.45rem 1.05rem;
   }
 
-  .floating-chat-bar .floating-toggle .toggle-icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 38px;
-    height: 38px;
-    border-radius: 50%;
-    background: rgba(255, 255, 255, 0.18);
+  .connectivity-empty {
+    border-radius: var(--radius-md);
+    background: rgba(148, 163, 184, 0.12);
+    padding: 1.5rem;
+    text-align: center;
+    color: var(--text-muted);
   }
 
-  .floating-chat-bar .floating-toggle .toggle-text {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.2rem;
+  .team-pagination-bar {
+    margin-top: 1.1rem;
+    padding-top: 1.1rem;
+    border-top: 1px solid rgba(148, 163, 184, 0.18);
   }
 
-  .floating-chat-bar .floating-toggle .toggle-meta {
-    font-size: 0.75rem;
-    opacity: 0.9;
+  .team-member-name {
+    font-weight: 600;
   }
 
-  .floating-chat-bar .floating-toggle .toggle-caret {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 28px;
-    height: 28px;
-    border-radius: 50%;
-    background: rgba(255, 255, 255, 0.2);
-  }
-
-  .floating-chat-panel {
-    background: var(--collab-surface);
-    border-radius: var(--collab-radius-lg);
-    border: 1px solid var(--collab-border);
-    box-shadow: var(--collab-shadow);
-    overflow: hidden;
-    transition: max-height 0.35s ease, opacity 0.35s ease, transform 0.35s ease;
-    max-height: min(80vh, 680px);
-    display: flex;
-    flex-direction: column;
-  }
-
-  .floating-chat-bar.collapsed .floating-chat-panel {
-    max-height: 0;
-    opacity: 0;
-    transform: translateY(12px);
-    pointer-events: none;
-  }
-
-  .floating-chat-panel .floating-panel-body {
-    flex: 1 1 auto;
-    max-height: none;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    padding-bottom: 1.5rem;
-  }
-
-  .floating-chat-panel .chat-popup-grid {
-    flex: 1 1 auto;
-  }
-
-  .floating-chat-panel .floating-panel-header .btn {
-    border-color: rgba(148, 163, 184, 0.35);
+  .team-member-meta {
+    color: var(--text-muted);
+    font-size: 0.78rem;
   }
 
   @media (max-width: 992px) {
-    .chat-popup-grid {
-      grid-template-columns: 1fr;
+    .collab-app {
+      padding: 2.6rem 1.5rem 6rem;
     }
 
-    .chat-popup-column.personas #chatPersonaFilters {
-      max-height: 200px;
-    }
-  }
-
-  @media (max-width: 992px) {
-    .floating-launchers {
-      right: 1.5rem;
-      gap: 1rem;
+    .floating-docks {
+      justify-content: center;
     }
   }
 
   @media (max-width: 768px) {
-    .floating-launchers {
-      right: 1rem;
-      left: 1rem;
-      bottom: 1.5rem;
+    .collab-hero {
+      padding: 2rem;
+    }
+
+    .floating-docks {
+      flex-direction: column;
       align-items: stretch;
     }
-
-    .floating-campaign-bar,
-    .floating-chat-bar {
-      width: 100%;
-    }
-  }
-
-  .chart-empty {
-    border-radius: var(--collab-radius-sm);
-    background: rgba(148, 163, 184, 0.14);
   }
 </style>
 
-<div class="collab-wrapper">
-  <div class="collab-shell">
-    <div id="collabAlerts" class="collab-alerts"></div>
-    <div class="collab-topline">
-      <div class="summary-card is-quality">
-        <div class="summary-icon"><i class="fa-solid fa-star"></i></div>
-        <div class="summary-label">Quality average</div>
-        <div class="summary-value" id="summaryQaAverage">—</div>
-        <div class="summary-trend" id="summaryQaTrend">
-          <i class="fa-solid fa-arrow-trend-up"></i>
-          <span>Awaiting quality insights</span>
-        </div>
+<div class="collab-app">
+  <div id="collabAlerts" class="alert-stack"></div>
+
+  <header class="collab-hero">
+    <div class="hero-content">
+      <span class="hero-eyebrow"><i class="fa-solid fa-microchip"></i> Lumina Collaboration OS</span>
+      <div>
+        <h1 class="hero-title">Collaboration & Reporting Hub</h1>
+        <p class="hero-description">Command quality, attendance, and executive alignment from a next-generation glassmorphism workspace built for hybrid teams.</p>
       </div>
-      <div class="summary-card is-attendance">
-        <div class="summary-icon"><i class="fa-solid fa-calendar-check"></i></div>
-        <div class="summary-label">Attendance health</div>
-        <div class="summary-value" id="summaryAttendanceRate">—</div>
-        <div class="summary-trend" id="summaryAttendanceTrend">
-          <i class="fa-solid fa-chart-line"></i>
-          <span>Attendance variance unavailable</span>
-        </div>
+      <div class="hero-meta" id="heroMeta">
+        <span class="hero-chip"><i class="fa-solid fa-user-astronaut"></i><span id="heroPersonaLabel">Persona syncing…</span></span>
+        <span class="hero-chip"><i class="fa-solid fa-diagram-project"></i><span id="heroCampaignLabel">Campaigns calibrating…</span></span>
+        <span class="hero-chip"><i class="fa-solid fa-clock"></i><span id="heroUpdatedLabel">Awaiting timestamp…</span></span>
       </div>
-      <div class="summary-card is-threads">
-        <div class="summary-icon"><i class="fa-solid fa-comments"></i></div>
-        <div class="summary-label">Collaboration threads</div>
-        <div class="summary-value" id="summaryThreads">0</div>
-        <div class="summary-trend" id="summaryThreadsHint">
-          <i class="fa-solid fa-user-group"></i>
-          <span>Invite teams to collaborate</span>
-        </div>
+      <div class="summary-tiles">
+        <article class="summary-tile is-quality">
+          <div class="tile-icon"><i class="fa-solid fa-star"></i></div>
+          <div class="tile-label">Quality average</div>
+          <div class="tile-value" id="summaryQaAverage">—</div>
+          <div class="tile-subtext" id="summaryQaTrend">
+            <i class="fa-solid fa-arrow-trend-up"></i>
+            <span>Awaiting quality insights</span>
+          </div>
+        </article>
+        <article class="summary-tile is-attendance">
+          <div class="tile-icon"><i class="fa-solid fa-calendar-check"></i></div>
+          <div class="tile-label">Attendance health</div>
+          <div class="tile-value" id="summaryAttendanceRate">—</div>
+          <div class="tile-subtext" id="summaryAttendanceTrend">
+            <i class="fa-solid fa-chart-line"></i>
+            <span>Attendance variance unavailable</span>
+          </div>
+        </article>
+        <article class="summary-tile is-threads">
+          <div class="tile-icon"><i class="fa-solid fa-comments"></i></div>
+          <div class="tile-label">Collaboration threads</div>
+          <div class="tile-value" id="summaryThreads">0</div>
+          <div class="tile-subtext" id="summaryThreadsHint">
+            <i class="fa-solid fa-user-group"></i>
+            <span>Invite teams to collaborate</span>
+          </div>
+        </article>
+        <article class="summary-tile is-actions">
+          <div class="tile-icon"><i class="fa-solid fa-list-check"></i></div>
+          <div class="tile-label">Action items</div>
+          <div class="tile-value" id="summaryFollowUps">0</div>
+          <div class="tile-subtext" id="summaryFollowUpsHint">
+            <i class="fa-solid fa-diagram-project"></i>
+            <span>No action items yet</span>
+          </div>
+        </article>
       </div>
-      <div class="summary-card is-actions">
-        <div class="summary-icon"><i class="fa-solid fa-list-check"></i></div>
-        <div class="summary-label">Action items</div>
-        <div class="summary-value" id="summaryFollowUps">0</div>
-        <div class="summary-trend" id="summaryFollowUpsHint">
-          <i class="fa-solid fa-diagram-project"></i>
-          <span>No action items yet</span>
+    </div>
+  </header>
+
+  <section class="panel ai-suite">
+    <div class="panel-header">
+      <span class="panel-eyebrow"><i class="fa-solid fa-robot"></i> AI Collaboration Co-Pilot</span>
+      <h2>Real-time orchestration guidance</h2>
+      <p>Let the Lumina AI layer synthesize signal across quality, attendance, and collaboration threads to highlight momentum and risk.</p>
+    </div>
+    <div class="panel-body">
+      <div class="ai-summary">
+        <h3><i class="fa-solid fa-bolt"></i> AI Pulse</h3>
+        <p id="aiPulseSummary">AI summary will populate after data sync.</p>
+      </div>
+      <div class="ai-streams">
+        <div class="ai-block">
+          <h3><i class="fa-solid fa-chart-pie"></i> AI Report</h3>
+          <ul id="aiReportList">
+            <li><i class="fa-solid fa-spinner fa-spin"></i>Calibrating executive snapshot…</li>
+          </ul>
+        </div>
+        <div class="ai-block">
+          <h3><i class="fa-solid fa-lightbulb"></i> AI Suggestions</h3>
+          <ul id="aiSuggestionList">
+            <li><i class="fa-solid fa-spinner fa-spin"></i>Generating suggestions…</li>
+          </ul>
+        </div>
+        <div class="ai-block">
+          <h3><i class="fa-solid fa-handshake-angle"></i> AI Collaboration Notes</h3>
+          <ul id="aiCollaborationNotes">
+            <li><i class="fa-solid fa-spinner fa-spin"></i>Mapping collaboration notes…</li>
+          </ul>
         </div>
       </div>
     </div>
-    <section class="collab-section">
-      <div class="card section-card" id="teamIntelligenceCard">
-        <div class="card-header">
-          <div class="insight-pill"><i class="fas fa-users-gear"></i> Team Collaboration Intelligence</div>
-          <h2 class="mt-3">Managers, Clients, and Teams</h2>
-          <p class="mb-0">Review collaboration metrics by role, then dive into individual manager rosters for quality and attendance outcomes.</p>
-        </div>
-        <div class="card-body">
-          <div id="teamIntelligenceSection">
-            <ul class="nav nav-pills team-nav flex-wrap" id="teamTabs" role="tablist"></ul>
-            <div class="tab-content mt-4" id="teamTabContent"></div>
-          </div>
+  </section>
+
+  <div class="layout-grid layout-grid--two">
+    <section class="panel" id="teamIntelligenceCard">
+      <div class="panel-header">
+        <span class="panel-eyebrow"><i class="fa-solid fa-users-gear"></i> Team Collaboration Intelligence</span>
+        <h2>Managers, clients, and cross-functional squads</h2>
+        <p>Navigate workstreams by persona to monitor quality and attendance outcomes while staying aligned with executive initiatives.</p>
+      </div>
+      <div class="panel-body">
+        <div id="teamIntelligenceSection" class="team-intelligence">
+          <ul class="nav nav-pills" id="teamTabs" role="tablist"></ul>
+          <div class="tab-content mt-4" id="teamTabContent"></div>
         </div>
       </div>
     </section>
-    <section class="collab-section collab-section-grid">
-      <article class="card section-card h-100">
-        <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-3">
-          <div>
-            <div class="insight-pill"><i class="fas fa-clipboard-check"></i> Quality Collaboration Control</div>
-            <h2 class="mt-3 mb-1">Orchestrate QA reviews and feedback</h2>
-            <p class="mb-0 text-secondary">Log audits, loop in stakeholders, and monitor performance lift with a streamlined workflow.</p>
-          </div>
-          <div class="text-end">
-            <div class="muted-label text-uppercase">Rolling 30-day coverage</div>
-            <div class="display-6 fw-bold" id="qaCoverageRate">—</div>
-          </div>
-        </div>
-        <div class="card-body">
-          <div class="qa-grid">
-            <div class="qa-metrics-group">
-              <div class="qa-metric-card">
-                <div class="d-flex justify-content-between align-items-center">
-                  <div>
-                    <div class="label text-uppercase">Average QA Score</div>
-                    <div class="value" id="qaAverageScore">—</div>
-                  </div>
-                  <div class="text-end">
-                    <div class="muted-label">vs target 92%</div>
-                    <div class="badge bg-success rounded-pill" id="qaScoreTrend">—</div>
-                  </div>
-                </div>
-                <div class="mt-3">
-                  <canvas id="qaTrendChart" height="160"></canvas>
-                </div>
-              </div>
-              <div class="qa-insight-pair mt-1">
-                <div class="qa-metric-card">
-                  <div class="label text-uppercase">Actionable Items</div>
-                  <div class="value" id="qaFollowUps">—</div>
-                  <div class="muted-label">Follow-ups scheduled this week</div>
-                </div>
-                <div class="qa-metric-card">
-                  <div class="label text-uppercase">Collaboration Threads</div>
-                  <div class="value" id="qaThreads">—</div>
-                  <div class="muted-label">Audits with multi-role feedback</div>
-                </div>
-              </div>
-            </div>
-            <form class="qa-form" id="qaCollaborationForm">
-              <div class="row g-3 g-xl-4">
-                <div class="col-12">
-                  <span class="form-section-label">Review details</span>
-                </div>
-                <div class="col-sm-6">
-                  <label for="qaAgent" class="form-label">Agent</label>
-                  <select class="form-select" id="qaAgent" name="qaAgent" required>
-                    <option value="">Select an agent</option>
-                  </select>
-                </div>
-                <div class="col-sm-6">
-                  <label for="qaCampaign" class="form-label">Campaign</label>
-                  <select class="form-select" id="qaCampaign" name="qaCampaign" required>
-                    <option value="">Choose campaign</option>
-                  </select>
-                </div>
-                <div class="col-sm-6">
-                  <label for="qaReviewer" class="form-label">Reviewer</label>
-                  <select class="form-select" id="qaReviewer" name="qaReviewer" required>
-                    <option value="">Assign reviewer</option>
-                  </select>
-                </div>
-                <div class="col-sm-6">
-                  <label for="qaCollaborators" class="form-label">Collaborators</label>
-                  <select class="form-select" id="qaCollaborators" name="qaCollaborators" multiple>
-                  </select>
-                  <div class="form-text">Loop in managers, QA leads, or executives who need visibility.</div>
-                </div>
-                <div class="col-12 pt-1">
-                  <span class="form-section-label">Scorecard insights</span>
-                </div>
-                <div class="col-sm-4">
-                  <label for="qaScore" class="form-label">Score</label>
-                  <input type="number" class="form-control" id="qaScore" name="qaScore" min="0" max="100" step="0.5" value="92" required>
-                </div>
-                <div class="col-sm-4">
-                  <label for="qaFocusArea" class="form-label">Focus Area</label>
-                  <select class="form-select" id="qaFocusArea" name="qaFocusArea" required>
-                    <option value="">Select focus</option>
-                    <option>Call Control</option>
-                    <option>Compliance</option>
-                    <option>Rapport &amp; Empathy</option>
-                    <option>Product Knowledge</option>
-                    <option>Objection Handling</option>
-                  </select>
-                </div>
-                <div class="col-sm-4">
-                  <label for="qaStatus" class="form-label">Status</label>
-                  <select class="form-select" id="qaStatus" name="qaStatus" required>
-                    <option value="Published">Published</option>
-                    <option value="Draft">Draft</option>
-                    <option value="Follow-up">Follow-up Scheduled</option>
-                  </select>
-                </div>
-                <div class="col-12">
-                  <label for="qaHighlights" class="form-label">Highlights &amp; Coaching Actions</label>
-                  <textarea class="form-control" id="qaHighlights" name="qaHighlights" placeholder="Document key wins, risks, and next steps" required></textarea>
-                </div>
-                <div class="col-12 pt-1">
-                  <span class="form-section-label">Next touch planning</span>
-                </div>
-                <div class="col-md-6">
-                  <label for="qaNextTouch" class="form-label">Next touchpoint</label>
-                  <input type="date" class="form-control" id="qaNextTouch" name="qaNextTouch">
-                </div>
-                <div class="col-md-6">
-                  <label for="qaChannel" class="form-label">Channel</label>
-                  <select class="form-select" id="qaChannel" name="qaChannel" required>
-                    <option>Voice</option>
-                    <option>Email</option>
-                    <option>Chat</option>
-                    <option>Social</option>
-                  </select>
-                </div>
-                <div class="col-12 d-flex gap-3 mt-2">
-                  <button type="submit" class="btn btn-primary">
-                    <i class="fas fa-paper-plane me-2"></i>Log QA Collaboration
-                  </button>
-                  <button type="reset" class="btn btn-outline-secondary" id="qaResetBtn">
-                    <i class="fas fa-rotate-left me-1"></i>Reset
-                  </button>
-                </div>
-              </div>
-            </form>
-          </div>
 
-          <div class="table-responsive mt-4">
-            <table class="table table-hover align-middle qa-table" id="qaReviewTable">
-              <thead>
-                <tr>
-                  <th>Audit ID</th>
-                  <th>Agent</th>
-                  <th>Campaign</th>
-                  <th>Score</th>
-                  <th>Focus</th>
-                  <th>Collaborators</th>
-                  <th>Status</th>
-                  <th>Updated</th>
-                </tr>
-              </thead>
-              <tbody></tbody>
-            </table>
+    <section class="panel">
+      <div class="panel-header">
+        <span class="panel-eyebrow"><i class="fa-solid fa-sparkles"></i> Quality Collaboration Workspace</span>
+        <h2>QA outcomes &amp; coaching actions</h2>
+        <p>Track QA trends, capture follow-ups, and log collaboration threads without breaking focus.</p>
+      </div>
+      <div class="panel-body">
+        <div class="metric-grid">
+          <div class="metric-card">
+            <div class="metric-label">Average QA</div>
+            <div class="metric-value" id="qaAverageScore">—</div>
+            <div class="metric-note">Delta vs target <span id="qaScoreTrend" class="metric-badge">—</span></div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Follow ups</div>
+            <div class="metric-value" id="qaFollowUps">0</div>
+            <div class="metric-note">Collaboration backlog</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Threads engaged</div>
+            <div class="metric-value" id="qaThreads">0</div>
+            <div class="metric-note">Cross-team conversations</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Coverage</div>
+            <div class="metric-value" id="qaCoverageRate">—</div>
+            <div class="metric-note">QA coverage this cycle</div>
           </div>
         </div>
-      </article>
-      <article class="card section-card h-100">
-        <div class="card-header">
-          <div class="insight-pill"><i class="fas fa-chart-line"></i> Executive KPI Pulse</div>
-          <h2 class="mt-3">Multi-campaign Leadership Summary</h2>
-          <p class="mb-0">Blended KPIs across every managed campaign, with proactive signals for strategic decision making.</p>
+        <div class="chart-shell">
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+            <div>
+              <div class="chart-title">QA score trend</div>
+              <div class="text-secondary">Six-week quality trajectory</div>
+            </div>
+            <span class="badge bg-light text-dark opacity-75">Auto-refreshing</span>
+          </div>
+          <canvas id="qaTrendChart" height="220"></canvas>
         </div>
-        <div class="card-body d-flex flex-column gap-3">
-          <div class="kpi-mini-grid">
-            <div class="exec-kpi-card text-center">
-              <small>Average QA score</small>
-              <div class="headline" id="kpiQualityAverage">—</div>
-              <div class="text-success fw-semibold" id="kpiQualityTrend">Awaiting data</div>
+        <form id="qaCollaborationForm" class="qa-form" novalidate>
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label for="qaAgent" class="form-label">Agent</label>
+              <select class="form-select" id="qaAgent" name="qaAgent" required></select>
             </div>
-            <div class="exec-kpi-card text-center">
-              <small>Attendance rate</small>
-              <div class="headline" id="kpiAttendanceRate">—</div>
-              <div class="text-success fw-semibold" id="kpiAttendanceTrend">Awaiting data</div>
+            <div class="col-md-6">
+              <label for="qaCampaign" class="form-label">Campaign</label>
+              <select class="form-select" id="qaCampaign" name="qaCampaign" required></select>
+            </div>
+            <div class="col-md-6">
+              <label for="qaReviewer" class="form-label">Reviewer</label>
+              <select class="form-select" id="qaReviewer" name="qaReviewer" required></select>
+            </div>
+            <div class="col-md-6">
+              <label for="qaCollaborators" class="form-label">QA collaborators</label>
+              <select class="form-select" id="qaCollaborators" name="qaCollaborators" multiple title="Select QA leads"></select>
+            </div>
+            <div class="col-sm-4">
+              <label for="qaScore" class="form-label">Score</label>
+              <input type="number" class="form-control" id="qaScore" name="qaScore" min="0" max="100" step="0.1" placeholder="92.5">
+            </div>
+            <div class="col-sm-4">
+              <label for="qaFocusArea" class="form-label">Focus area</label>
+              <select class="form-select" id="qaFocusArea" name="qaFocusArea" required>
+                <option value="">Select focus</option>
+                <option>Call Control</option>
+                <option>Compliance</option>
+                <option>Rapport &amp; Empathy</option>
+                <option>Product Knowledge</option>
+                <option>Objection Handling</option>
+              </select>
+            </div>
+            <div class="col-sm-4">
+              <label for="qaStatus" class="form-label">Status</label>
+              <select class="form-select" id="qaStatus" name="qaStatus" required>
+                <option value="Published">Published</option>
+                <option value="Draft">Draft</option>
+                <option value="Follow-up">Follow-up Scheduled</option>
+              </select>
+            </div>
+            <div class="col-12">
+              <label for="qaHighlights" class="form-label">Highlights &amp; coaching actions</label>
+              <textarea class="form-control" id="qaHighlights" name="qaHighlights" placeholder="Document key wins, risks, and next steps" required></textarea>
+            </div>
+            <div class="col-12 pt-2">
+              <span class="form-section-label">Next touch planning</span>
+            </div>
+            <div class="col-md-6">
+              <label for="qaNextTouch" class="form-label">Next touchpoint</label>
+              <input type="date" class="form-control" id="qaNextTouch" name="qaNextTouch">
+            </div>
+            <div class="col-md-6">
+              <label for="qaChannel" class="form-label">Channel</label>
+              <select class="form-select" id="qaChannel" name="qaChannel" required>
+                <option>Voice</option>
+                <option>Email</option>
+                <option>Chat</option>
+                <option>Social</option>
+              </select>
+            </div>
+            <div class="col-12 d-flex gap-3 flex-wrap">
+              <button type="submit" class="btn btn-primary"><i class="fas fa-paper-plane me-2"></i>Log QA Collaboration</button>
+              <button type="reset" class="btn btn-outline-secondary" id="qaResetBtn"><i class="fas fa-rotate-left me-1"></i>Reset</button>
             </div>
           </div>
-          <div class="kpi-trend-card">
-            <div class="d-flex justify-content-between align-items-start mb-3">
-              <div>
-                <h3 class="h5 mb-1">Campaign Health Mix</h3>
-                <p class="mb-0 text-secondary">Distribution of KPI attainment vs executive targets.</p>
-              </div>
-              <div class="text-end">
-                <span class="badge bg-primary-subtle text-primary" id="execTimeframe">—</span>
-                <div class="small text-secondary mt-1" id="execPeriodRange">—</div>
-                <div class="small text-secondary" id="execPayDate">Pay date —</div>
-              </div>
-            </div>
-            <canvas id="execBlendChart" height="180"></canvas>
-            <div class="mt-3" id="execCampaignBullets"></div>
+        </form>
+        <div class="table-responsive">
+          <table class="table table-hover align-middle qa-table" id="qaReviewTable">
+            <thead>
+              <tr>
+                <th>Audit ID</th>
+                <th>Agent</th>
+                <th>Campaign</th>
+                <th>Score</th>
+                <th>Focus</th>
+                <th>Collaborators</th>
+                <th>Status</th>
+                <th>Updated</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </div>
+  <div class="layout-grid layout-grid--split">
+    <section class="panel">
+      <div class="panel-header">
+        <span class="panel-eyebrow"><i class="fa-solid fa-chart-line"></i> Executive KPI Pulse</span>
+        <h2>Multi-campaign leadership summary</h2>
+        <p>Blended KPIs across managed campaigns with proactive signal for strategy conversations.</p>
+      </div>
+      <div class="panel-body">
+        <div class="metric-grid">
+          <div class="metric-card text-center">
+            <div class="metric-label">Average QA score</div>
+            <div class="metric-value" id="kpiQualityAverage">—</div>
+            <div class="metric-note" id="kpiQualityTrend">Awaiting data</div>
           </div>
-          <div class="exec-kpi-card">
-            <h3>Executive Brief</h3>
-            <ul class="list-unstyled mb-0" id="executiveBrief"></ul>
+          <div class="metric-card text-center">
+            <div class="metric-label">Attendance rate</div>
+            <div class="metric-value" id="kpiAttendanceRate">—</div>
+            <div class="metric-note" id="kpiAttendanceTrend">Awaiting data</div>
           </div>
         </div>
-      </article>
+        <div class="chart-shell">
+          <div class="d-flex justify-content-between flex-wrap align-items-start gap-3 mb-3">
+            <div>
+              <div class="chart-title">Campaign health mix</div>
+              <div class="text-secondary">Distribution of KPI attainment vs executive targets.</div>
+            </div>
+            <div class="text-end">
+              <span class="badge bg-info-subtle text-info" id="execTimeframe">—</span>
+              <div class="small text-secondary mt-1" id="execPeriodRange">—</div>
+              <div class="small text-secondary" id="execPayDate">Pay date —</div>
+            </div>
+          </div>
+          <canvas id="execBlendChart" height="200"></canvas>
+          <div class="mt-3" id="execCampaignBullets"></div>
+        </div>
+        <div class="ai-block">
+          <h3><i class="fa-solid fa-briefcase"></i> Executive brief</h3>
+          <ul class="mb-0" id="executiveBrief"></ul>
+        </div>
+      </div>
     </section>
 
-    <section class="collab-section">
-      <article class="card section-card h-100">
-        <div class="card-header">
-          <div class="insight-pill"><i class="fas fa-user-check"></i> Attendance &amp; Adherence</div>
-          <h2 class="mt-3">Shift coverage &amp; schedule fidelity</h2>
-          <p class="mb-0">Track live adherence, shrinkage trends, and campaign-level coverage gaps.</p>
-        </div>
-        <div class="card-body">
-          <div class="attendance-grid">
-            <div>
-              <div class="d-flex justify-content-between align-items-center mb-3">
-                <div>
-                  <h3 class="h5 mb-0">Adherence trend</h3>
-                  <small class="text-secondary">Rolling six weeks</small>
-                </div>
-                <select class="form-select form-select-sm" style="width:auto" id="attendanceCampaignFilter"></select>
+    <section class="panel">
+      <div class="panel-header">
+        <span class="panel-eyebrow"><i class="fa-solid fa-user-check"></i> Attendance &amp; Adherence</span>
+        <h2>Shift coverage &amp; schedule fidelity</h2>
+        <p>Track adherence trends and shrinkage across campaigns to keep customer experience on pace.</p>
+      </div>
+      <div class="panel-body">
+        <div class="d-flex flex-column flex-lg-row gap-3">
+          <div class="flex-grow-1">
+            <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+              <div>
+                <div class="chart-title mb-0">Adherence trend</div>
+                <div class="text-secondary">Rolling six weeks</div>
               </div>
+              <select class="form-select form-select-sm w-auto" id="attendanceCampaignFilter"></select>
+            </div>
+            <div class="chart-shell">
               <canvas id="attendanceTrendChart" height="220"></canvas>
             </div>
-            <div>
-              <div class="qa-metric-card">
-                <div class="label text-uppercase">Average adherence</div>
-                <div class="value" id="attendanceAverage">—</div>
-                <div class="muted-label">Across all campaigns this month</div>
-              </div>
+          </div>
+          <div class="attendance-metrics" style="min-width: 280px;">
+            <div class="metric-card">
+              <div class="metric-label">Average adherence</div>
+              <div class="metric-value" id="attendanceAverage">—</div>
+              <div class="metric-note">Across all campaigns this month</div>
+            </div>
+            <div class="table-responsive">
               <table class="table table-sm align-middle attendance-table">
                 <thead>
                   <tr>
@@ -1307,65 +1203,66 @@
             </div>
           </div>
         </div>
-      </article>
+      </div>
     </section>
+  </div>
 
-    <div class="floating-launchers">
-      <div class="floating-campaign-bar collapsed" id="campaignFloatingBar" aria-expanded="false">
-        <button type="button" class="floating-toggle" id="campaignFloatingToggle" aria-expanded="false" aria-controls="campaignConnectivitySection">
-          <span class="toggle-icon"><i class="fas fa-network-wired"></i></span>
-          <span class="toggle-label">Connected Campaign Workflows</span>
-          <span class="toggle-caret"><i class="fas fa-chevron-up"></i></span>
-        </button>
-        <div class="floating-panel" id="campaignConnectivitySection">
-          <div class="floating-panel-header">
-            <div class="insight-pill"><i class="fas fa-network-wired"></i> Connected Campaign Workflows</div>
-            <h3>Navigate the workspace by campaign</h3>
-            <p>Jump into quality, coaching, attendance, and collaboration views that run on the same campaign data fabric.</p>
-          </div>
-          <div class="floating-panel-body">
-            <div id="campaignConnectivity" class="connectivity-container"></div>
-          </div>
+  <div class="floating-docks">
+    <div class="floating-bar collapsed" id="campaignFloatingBar" aria-expanded="false">
+      <button type="button" class="floating-toggle" id="campaignFloatingToggle" aria-expanded="false" aria-controls="campaignConnectivitySection">
+        <span class="toggle-icon"><i class="fas fa-network-wired"></i></span>
+        <span class="toggle-label">Connected campaign workflows</span>
+        <span class="toggle-caret"><i class="fas fa-chevron-up"></i></span>
+      </button>
+      <div class="floating-panel" id="campaignConnectivitySection">
+        <div class="floating-panel-header">
+          <div class="panel-eyebrow"><i class="fas fa-network-wired"></i> Connected campaign workflows</div>
+          <h3 class="mt-3">Navigate the workspace by campaign</h3>
+          <p class="text-secondary">Jump into quality, coaching, attendance, and collaboration views powered by the same data fabric.</p>
+        </div>
+        <div class="floating-panel-body">
+          <div id="campaignConnectivity"></div>
         </div>
       </div>
-      <div class="floating-chat-bar collapsed" id="leadershipChatBar" aria-expanded="false">
-        <button type="button" class="floating-toggle" id="leadershipChatToggle" aria-expanded="false" aria-controls="leadershipChatPanel">
-          <span class="toggle-icon"><i class="fas fa-headset"></i></span>
-          <span class="toggle-text">
-            <span class="toggle-label" id="leadershipChatToggleLabel">Precision chat for leadership huddles</span>
-            <span class="toggle-meta" id="leadershipChatToggleMeta">Loading…</span>
-          </span>
-          <span class="toggle-caret"><i class="fas fa-chevron-up"></i></span>
-        </button>
-        <div class="floating-panel floating-chat-panel" id="leadershipChatPanel" role="dialog" aria-modal="false" aria-labelledby="leadershipChatTitle" aria-hidden="true">
-          <div class="floating-panel-header d-flex justify-content-between align-items-start">
-            <div>
-              <div class="insight-pill"><i class="fas fa-headset"></i> Targeted Collaboration Threads</div>
-              <h3 class="mb-1" id="leadershipChatTitle">Precision chat for leadership huddles</h3>
-              <p class="mb-0">Spin up focused conversations for managers, agents, and executives to address outcomes faster.</p>
-            </div>
-            <button type="button" class="btn btn-outline-secondary btn-sm rounded-circle" id="leadershipChatClose" aria-label="Collapse leadership chat">
-              <i class="fas fa-xmark"></i>
-            </button>
+    </div>
+
+    <div class="floating-bar collapsed" id="leadershipChatBar" aria-expanded="false">
+      <button type="button" class="floating-toggle" id="leadershipChatToggle" aria-expanded="false" aria-controls="leadershipChatPanel">
+        <span class="toggle-icon"><i class="fas fa-headset"></i></span>
+        <span class="toggle-text">
+          <span class="toggle-label" id="leadershipChatToggleLabel">Precision chat for leadership huddles</span>
+          <span class="text-secondary small" id="leadershipChatToggleMeta">Loading…</span>
+        </span>
+        <span class="toggle-caret"><i class="fas fa-chevron-up"></i></span>
+      </button>
+      <div class="floating-panel" id="leadershipChatPanel" role="dialog" aria-modal="false" aria-labelledby="leadershipChatTitle" aria-hidden="true">
+        <div class="floating-panel-header d-flex justify-content-between align-items-start">
+          <div>
+            <div class="panel-eyebrow"><i class="fas fa-headset"></i> Targeted collaboration threads</div>
+            <h3 class="mt-3 mb-2" id="leadershipChatTitle">Precision chat for leadership huddles</h3>
+            <p class="text-secondary mb-0">Spin up focused conversations for managers, agents, and executives to accelerate outcomes.</p>
           </div>
-          <div class="floating-panel-body chat-panel-body">
-            <div class="chat-popup-grid">
-              <div class="chat-popup-column personas">
-                <div class="d-flex flex-column gap-2" id="chatPersonaFilters"></div>
-              </div>
-              <div class="chat-popup-column threads">
-                <div id="chatThreadList" class="chat-thread-list"></div>
-              </div>
-              <div class="chat-popup-column conversation">
-                <div class="chat-stream" id="chatMessageStream"></div>
-                <form id="chatComposer" class="chat-composer mt-3">
-                  <div class="input-group">
-                    <input type="text" id="chatMessageInput" class="form-control" placeholder="Share an update" required>
-                    <button class="btn btn-primary" type="submit"><i class="fas fa-paper-plane"></i></button>
-                  </div>
-                  <div class="form-text mt-1">Visible to <span id="chatAudienceLabel" class="fw-semibold">all participants</span></div>
-                </form>
-              </div>
+          <button type="button" class="btn btn-outline-secondary btn-sm rounded-circle" id="leadershipChatClose" aria-label="Collapse leadership chat">
+            <i class="fas fa-xmark"></i>
+          </button>
+        </div>
+        <div class="floating-panel-body">
+          <div class="row g-3">
+            <div class="col-12 col-lg-3">
+              <div class="d-flex flex-column gap-2" id="chatPersonaFilters"></div>
+            </div>
+            <div class="col-12 col-lg-4">
+              <div id="chatThreadList" class="chat-thread-list"></div>
+            </div>
+            <div class="col-12 col-lg-5 d-flex flex-column gap-3">
+              <div class="chat-stream" id="chatMessageStream"></div>
+              <form id="chatComposer" class="chat-composer">
+                <div class="input-group">
+                  <input type="text" id="chatMessageInput" class="form-control" placeholder="Share an update" required>
+                  <button class="btn btn-primary" type="submit"><i class="fas fa-paper-plane"></i></button>
+                </div>
+                <div class="form-text text-secondary">Visible to <span id="chatAudienceLabel" class="fw-semibold text-light">all participants</span></div>
+              </form>
             </div>
           </div>
         </div>
@@ -1373,6 +1270,7 @@
     </div>
   </div>
 </div>
+
 
 <script>
   const currentUser = <?!= JSON.stringify(user || {}) ?>;
@@ -1395,6 +1293,10 @@
         persona: 'Operations Hub',
         userName: 'Team member',
         campaignsText: 'No campaigns connected',
+        lastUpdatedText: 'Updated —',
+        insights: []
+      },
+      ai: { summary: '', report: [], suggestions: [], notes: [] },
         lastUpdatedText: 'Updated —',
         insights: [
           { key: 'quality', label: 'Quality pulse', value: '—', hint: 'QA average this cycle', icon: 'fa-solid fa-sparkles' },
@@ -1445,6 +1347,13 @@
     const qaThreadsEl = document.getElementById('qaThreads');
     const qaCoverageEl = document.getElementById('qaCoverageRate');
     const qaScoreTrendEl = document.getElementById('qaScoreTrend');
+    const aiPulseSummaryEl = document.getElementById('aiPulseSummary');
+    const aiReportList = document.getElementById('aiReportList');
+    const aiSuggestionList = document.getElementById('aiSuggestionList');
+    const aiCollaborationNotes = document.getElementById('aiCollaborationNotes');
+    const heroPersonaLabel = document.getElementById('heroPersonaLabel');
+    const heroCampaignLabel = document.getElementById('heroCampaignLabel');
+    const heroUpdatedLabel = document.getElementById('heroUpdatedLabel');
     const attendanceAverageEl = document.getElementById('attendanceAverage');
 
     const summaryQaAverageEl = document.getElementById('summaryQaAverage');
@@ -1742,6 +1651,168 @@
       }
     }
 
+    function syncHeroChips() {
+      if (heroPersonaLabel) {
+        heroPersonaLabel.textContent = state.banner.persona || 'Persona syncing…';
+      }
+      if (heroCampaignLabel) {
+        heroCampaignLabel.textContent = state.banner.campaignsText || 'Campaigns calibrating…';
+      }
+      if (heroUpdatedLabel) {
+        heroUpdatedLabel.textContent = state.banner.lastUpdatedText || 'Awaiting timestamp…';
+      }
+    }
+
+    function renderAiList(container, items, emptyText, iconClass) {
+      if (!container) return;
+      container.innerHTML = '';
+      const list = Array.isArray(items) ? items.filter(Boolean) : [];
+      if (!list.length) {
+        const li = document.createElement('li');
+        const icon = document.createElement('i');
+        icon.className = 'fa-solid fa-circle-info';
+        li.appendChild(icon);
+        const span = document.createElement('span');
+        span.textContent = emptyText || 'Insights will display when data is available.';
+        li.appendChild(span);
+        container.appendChild(li);
+        return;
+      }
+      list.forEach(function (entry) {
+        const li = document.createElement('li');
+        const icon = document.createElement('i');
+        icon.className = 'fa-solid ' + (iconClass || 'fa-circle-check');
+        li.appendChild(icon);
+        const span = document.createElement('span');
+        span.textContent = entry;
+        li.appendChild(span);
+        container.appendChild(li);
+      });
+    }
+
+    function buildAiNarrative() {
+      const qaMetrics = state.qa && state.qa.metrics ? state.qa.metrics : {};
+      const attendanceSummary = state.attendance && state.attendance.summary ? state.attendance.summary : {};
+      const execSummary = state.executive && state.executive.summary ? state.executive.summary : {};
+      const persona = state.banner && state.banner.persona ? state.banner.persona : 'Operations Hub';
+      const qaAverage = qaMetrics.averageScore != null ? Number(qaMetrics.averageScore) : null;
+      const qaDelta = qaMetrics.deltaVsTarget != null ? Number(qaMetrics.deltaVsTarget) : null;
+      const attendanceRate = attendanceSummary.attendanceRate != null
+        ? Number(attendanceSummary.attendanceRate)
+        : (attendanceSummary.averageAdherence != null ? Number(attendanceSummary.averageAdherence) : null);
+      const absenceRate = attendanceSummary.absenceRate != null ? Number(attendanceSummary.absenceRate) : null;
+      const coverageRate = qaMetrics.coverageRate != null ? Number(qaMetrics.coverageRate) : null;
+      const followUps = qaMetrics.followUps != null ? Number(qaMetrics.followUps) : 0;
+      const campaigns = Array.isArray(state.campaigns) ? state.campaigns.length : 0;
+      const threadStats = computeThreadStats();
+
+      function listJoin(items) {
+        if (!items || !items.length) return '';
+        if (items.length === 1) return items[0];
+        if (items.length === 2) return items[0] + ' and ' + items[1];
+        return items.slice(0, -1).join(', ') + ', and ' + items[items.length - 1];
+      }
+
+      const summaryPieces = [];
+      if (qaAverage != null && !Number.isNaN(qaAverage)) {
+        summaryPieces.push('quality at ' + formatPercent(qaAverage, 1));
+      }
+      if (attendanceRate != null && !Number.isNaN(attendanceRate)) {
+        summaryPieces.push('attendance at ' + formatPercent(attendanceRate, 1));
+      }
+      if (threadStats.total) {
+        summaryPieces.push(threadStats.total + ' collaboration thread' + (threadStats.total === 1 ? '' : 's'));
+      }
+      const summary = summaryPieces.length
+        ? 'AI sees ' + listJoin(summaryPieces) + ' for the ' + persona + ' workspace.'
+        : '';
+
+      const report = [];
+      if (qaAverage != null && !Number.isNaN(qaAverage)) {
+        let text = 'Quality average ' + formatPercent(qaAverage, 1);
+        if (qaDelta != null && !Number.isNaN(qaDelta)) {
+          text += ' (' + (qaDelta >= 0 ? '+' : '') + qaDelta.toFixed(1) + ' pts vs target)';
+        }
+        report.push(text);
+      }
+      if (attendanceRate != null && !Number.isNaN(attendanceRate)) {
+        let text = 'Attendance rate ' + formatPercent(attendanceRate, 1);
+        if (absenceRate != null && !Number.isNaN(absenceRate)) {
+          text += ', absence ' + formatPercent(absenceRate, 1);
+        }
+        report.push(text);
+      }
+      if (coverageRate != null && !Number.isNaN(coverageRate)) {
+        report.push('QA coverage ' + formatPercent(coverageRate, 1));
+      }
+      if (execSummary && execSummary.campaignsAchievingTarget != null) {
+        const achieving = Number(execSummary.campaignsAchievingTarget);
+        if (!Number.isNaN(achieving)) {
+          report.push(achieving + ' campaign' + (achieving === 1 ? '' : 's') + ' hitting targets');
+        }
+      }
+      if (campaigns) {
+        report.push(campaigns + ' connected campaign' + (campaigns === 1 ? '' : 's'));
+      }
+
+      const suggestions = [];
+      if (qaDelta != null && !Number.isNaN(qaDelta)) {
+        if (qaDelta < 0) {
+          suggestions.push('Deploy a coaching sprint to recover ' + Math.abs(qaDelta).toFixed(1) + ' pts toward the quality target.');
+        } else if (qaDelta > 1) {
+          suggestions.push('Highlight quality gains with leadership to reinforce winning behaviors.');
+        }
+      }
+      if (attendanceRate != null && !Number.isNaN(attendanceRate)) {
+        if (attendanceRate < 95) {
+          suggestions.push('Audit schedule adherence for the lowest-performing campaign to protect coverage.');
+        } else if (attendanceRate >= 97) {
+          suggestions.push('Leverage attendance strength to back upcoming volume spikes.');
+        }
+      }
+      if (followUps > 0) {
+        suggestions.push('Work through ' + followUps + ' open follow-up action' + (followUps === 1 ? '' : 's') + ' with QA leads.');
+      }
+      if (!threadStats.total) {
+        suggestions.push('Launch the first collaboration thread to activate cross-team problem solving.');
+      } else if (threadStats.active === 0) {
+        suggestions.push('Nudge participants in dormant threads to keep momentum in the last 24 hours.');
+      }
+
+      const notes = [];
+      if (threadStats.total) {
+        notes.push(threadStats.total + ' thread' + (threadStats.total === 1 ? '' : 's') + ' live, ' + threadStats.active + ' active in 24h.');
+      }
+      const personaCount = state.chat && Array.isArray(state.chat.personas) ? state.chat.personas.length : 0;
+      if (personaCount) {
+        notes.push(personaCount + ' collaboration audience' + (personaCount === 1 ? '' : 's') + ' configured.');
+      }
+      if (coverageRate != null && !Number.isNaN(coverageRate) && coverageRate < 75) {
+        notes.push('QA coverage below 75% — prioritize sampling to stabilize insight quality.');
+      }
+      if (execSummary && execSummary.alert) {
+        notes.push(execSummary.alert);
+      }
+
+      return {
+        summary: summary,
+        report: report,
+        suggestions: suggestions,
+        notes: notes
+      };
+    }
+
+    function renderAiAssistant() {
+      const narrative = buildAiNarrative();
+      state.ai = narrative;
+      if (aiPulseSummaryEl) {
+        aiPulseSummaryEl.textContent = narrative.summary || 'AI summary will populate after data sync.';
+      }
+      renderAiList(aiReportList, narrative.report, 'Waiting for campaign metrics…', 'fa-chart-line');
+      renderAiList(aiSuggestionList, narrative.suggestions, 'Suggestions will surface after data sync.', 'fa-lightbulb');
+      renderAiList(aiCollaborationNotes, narrative.notes, 'Collaboration notes appear once chat threads load.', 'fa-handshake-angle');
+    }
+
     function buildBannerDescription() {
       const descriptionParts = [];
       if (typeof bannerDescriptionLead === 'string' && bannerDescriptionLead.trim()) {
@@ -1789,7 +1860,7 @@
       } else {
         window.__pendingBannerData = Object.assign({}, config);
       }
-      return parts.join(' ');
+      return config;
     }
 
     function updateBannerMetrics() {
@@ -1830,8 +1901,10 @@
 
       state.banner.campaignsText = formatHeroCampaignCount(state.campaigns.length, isGuestView);
       state.banner.insights = insights;
+      syncHeroChips();
       syncBanner();
       syncToplineCards();
+      renderAiAssistant();
     }
 
     function updateBannerFromResponse(response) {
@@ -1850,6 +1923,7 @@
       state.banner.lastUpdatedText = formatHeroTimestamp(response.generatedAt || new Date().toISOString());
       state.banner.campaignsText = formatHeroCampaignCount(state.campaigns.length, isGuestView);
 
+      syncHeroChips();
       updateBannerMetrics();
     }
 
@@ -2103,7 +2177,7 @@
           campaignConnectivitySection.classList.remove('d-none');
         }
         setCampaignFloatingExpanded(false);
-        syncToplineCards();
+        updateBannerMetrics();
         return;
       }
 
@@ -2129,7 +2203,7 @@
         campaignConnectivityContainer.classList.add('connectivity-empty');
         campaignConnectivityContainer.innerHTML = '<div class="text-secondary small text-center py-3">No campaign access detected yet.</div>';
         setCampaignFloatingExpanded(false);
-        syncToplineCards();
+        updateBannerMetrics();
         return;
       }
 
@@ -2164,7 +2238,7 @@
       });
 
       campaignConnectivityContainer.appendChild(fragment);
-      syncToplineCards();
+      updateBannerMetrics();
     }
 
     function buildLeadCollaboratorOptions() {
@@ -2698,7 +2772,7 @@
       renderActiveThread();
       updateChatFloatingVisibility();
       updateChatFloatingMeta();
-      syncToplineCards();
+      updateBannerMetrics();
     }
 
     function applyQaData(data) {
