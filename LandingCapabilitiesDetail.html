@@ -5,16 +5,26 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Dive Into LuminaHQ Capabilities</title>
     <?!= includeOnce('LandingSharedStyles'); ?>
+    <?
+      var __landingBase = scriptUrl || baseUrl || '';
+      var landingHomeUrl = __landingBase ? __landingBase + '?page=landing' : 'Landing.html';
+      var landingAboutUrl = __landingBase ? __landingBase + '?page=landing-about' : 'LandingAbout.html';
+      var landingCapabilitiesUrl = __landingBase ? __landingBase + '?page=landing-capabilities' : 'LandingCapabilities.html';
+      var landingStoryUrl = __landingBase ? __landingBase + '?page=landing-story' : 'LandingStory.html';
+      var landingCapabilitiesDetailUrl = __landingBase ? __landingBase + '?page=landing-capabilities-detail' : 'LandingCapabilitiesDetail.html';
+      var loginUrl = buildLoginPageUrl({});
+    ?>
   </head>
   <body>
     <header class="site-header">
       <nav class="site-nav">
-        <a class="logo" href="Landing.html">LuminaHQ</a>
+        <a class="logo" href="<?!= landingHomeUrl ?>" target="_top">LuminaHQ</a>
         <ul class="nav-links">
-          <li><a href="LandingCapabilities.html">Capabilities</a></li>
-          <li><a href="LandingAbout.html">About</a></li>
-          <li><a href="LandingStory.html">Stories</a></li>
-          <li><a class="nav-cta" href="LandingCapabilitiesDetail.html">Get Started</a></li>
+          <li><a href="<?!= landingCapabilitiesUrl ?>" target="_top">Capabilities</a></li>
+          <li><a href="<?!= landingAboutUrl ?>" target="_top">About</a></li>
+          <li><a href="<?!= landingStoryUrl ?>" target="_top">Stories</a></li>
+          <li><a class="nav-cta" href="<?!= landingCapabilitiesDetailUrl ?>" target="_top">Get Started</a></li>
+          <li><a class="nav-cta" href="<?!= loginUrl ?>" target="_top">Login</a></li>
         </ul>
       </nav>
     </header>
@@ -30,8 +40,8 @@
               is built from real-world playbooks contributed by operations experts.
             </p>
             <div class="cta-buttons">
-              <a class="btn btn-primary" href="LandingCapabilities.html">Return to overview</a>
-              <a class="btn btn-ghost" href="LandingStory.html">See it in action</a>
+              <a class="btn btn-primary" href="<?!= landingCapabilitiesUrl ?>" target="_top">Return to overview</a>
+              <a class="btn btn-ghost" href="<?!= landingStoryUrl ?>" target="_top">See it in action</a>
             </div>
             <div class="hero-metrics">
               <div class="metric-card">
@@ -161,8 +171,8 @@
                 <li>Automation audits identify new opportunities for time savings.</li>
               </ul>
               <div class="navigation-cta" style="justify-content: flex-start; margin-top: 2rem">
-                <a class="btn btn-ghost" href="LandingStory.html">Read success stories</a>
-                <a class="btn btn-ghost" href="Landing.html">Return to landing</a>
+                <a class="btn btn-ghost" href="<?!= landingStoryUrl ?>" target="_top">Read success stories</a>
+                <a class="btn btn-ghost" href="<?!= landingHomeUrl ?>" target="_top">Return to landing</a>
               </div>
             </div>
             <div class="image-frame">
@@ -184,9 +194,9 @@
           Connect with LuminaHQ specialists for custom demos, integration planning, and transformation playbooks.
         </p>
         <div class="footer-links">
-          <a href="LandingCapabilities.html">Capabilities overview</a>
-          <a href="LandingStory.html">Discover customer wins</a>
-          <a href="LandingAbout.html">Meet the team</a>
+          <a href="<?!= landingCapabilitiesUrl ?>" target="_top">Capabilities overview</a>
+          <a href="<?!= landingStoryUrl ?>" target="_top">Discover customer wins</a>
+          <a href="<?!= landingAboutUrl ?>" target="_top">Meet the team</a>
         </div>
       </div>
     </footer>

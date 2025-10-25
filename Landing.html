@@ -5,16 +5,26 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>LuminaHQ – Grow your operations faster</title>
     <?!= includeOnce('LandingSharedStyles'); ?>
+    <?
+      var __landingBase = scriptUrl || baseUrl || '';
+      var landingHomeUrl = __landingBase ? __landingBase + '?page=landing' : 'Landing.html';
+      var landingAboutUrl = __landingBase ? __landingBase + '?page=landing-about' : 'LandingAbout.html';
+      var landingCapabilitiesUrl = __landingBase ? __landingBase + '?page=landing-capabilities' : 'LandingCapabilities.html';
+      var landingStoryUrl = __landingBase ? __landingBase + '?page=landing-story' : 'LandingStory.html';
+      var landingCapabilitiesDetailUrl = __landingBase ? __landingBase + '?page=landing-capabilities-detail' : 'LandingCapabilitiesDetail.html';
+      var loginUrl = buildLoginPageUrl({});
+    ?>
   </head>
   <body>
     <header class="site-header">
       <nav class="site-nav">
-        <a class="logo" href="Landing.html">LuminaHQ</a>
+        <a class="logo" href="<?!= landingHomeUrl ?>" target="_top">LuminaHQ</a>
         <ul class="nav-links">
-          <li><a href="LandingCapabilities.html">Capabilities</a></li>
-          <li><a href="LandingAbout.html">About</a></li>
-          <li><a href="LandingStory.html">Stories</a></li>
-          <li><a class="nav-cta" href="LandingCapabilitiesDetail.html">Get Started</a></li>
+          <li><a href="<?!= landingCapabilitiesUrl ?>" target="_top">Capabilities</a></li>
+          <li><a href="<?!= landingAboutUrl ?>" target="_top">About</a></li>
+          <li><a href="<?!= landingStoryUrl ?>" target="_top">Stories</a></li>
+          <li><a class="nav-cta" href="<?!= landingCapabilitiesDetailUrl ?>" target="_top">Get Started</a></li>
+          <li><a class="nav-cta" href="<?!= loginUrl ?>" target="_top">Login</a></li>
         </ul>
       </nav>
     </header>
@@ -179,10 +189,10 @@
             </p>
           </div>
           <div class="navigation-cta">
-            <a class="btn btn-ghost" href="LandingAbout.html">About LuminaHQ</a>
-            <a class="btn btn-ghost" href="LandingCapabilities.html">Explore capabilities</a>
-            <a class="btn btn-ghost" href="LandingCapabilitiesDetail.html">Dive into details</a>
-            <a class="btn btn-ghost" href="LandingStory.html">Discover our story</a>
+            <a class="btn btn-ghost" href="<?!= landingAboutUrl ?>" target="_top">About LuminaHQ</a>
+            <a class="btn btn-ghost" href="<?!= landingCapabilitiesUrl ?>" target="_top">Explore capabilities</a>
+            <a class="btn btn-ghost" href="<?!= landingCapabilitiesDetailUrl ?>" target="_top">Dive into details</a>
+            <a class="btn btn-ghost" href="<?!= landingStoryUrl ?>" target="_top">Discover our story</a>
           </div>
         </div>
       </section>
@@ -196,9 +206,9 @@
           leaders.
         </p>
         <div class="footer-links">
-          <a href="LandingAbout.html">Meet the platform</a>
-          <a href="LandingCapabilities.html">Capabilities overview</a>
-          <a href="LandingStory.html">Customer stories</a>
+          <a href="<?!= landingAboutUrl ?>" target="_top">Meet the platform</a>
+          <a href="<?!= landingCapabilitiesUrl ?>" target="_top">Capabilities overview</a>
+          <a href="<?!= landingStoryUrl ?>" target="_top">Customer stories</a>
         </div>
       </div>
     </footer>
