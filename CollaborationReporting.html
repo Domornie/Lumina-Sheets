@@ -1,63 +1,68 @@
 <!-- CollaborationReporting.html -->
 <?!= include('layout', {
-  baseUrl: baseUrl || '',
-  scriptUrl: scriptUrl,
-  user: user || {},
-  currentPage: currentPage || 'collaboration-reporting',
-  pageTitle: 'Collaboration & Reporting Hub',
-  pageDescription: 'Unify quality, attendance, executive intelligence, and collaboration workflows in one command center.'
-}) ?>
+   baseUrl: baseUrl || '',
+   scriptUrl: scriptUrl,
+   user: user || {},
+   currentPage: currentPage || 'collaboration-reporting',
+   pageTitle: 'Collaboration & Reporting Hub',
+   pageDescription: 'Unify quality, attendance, executive intelligence, and collaboration workflows in one command center.'
+ }) ?>
+
+<? var collabCurrentUserJson = currentUserJson || '{}'; ?>
 
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIpp0hKBR6hO2l4QmF0k0s1Xv1JQnF6YJ7N2drF6wW5w==" crossorigin="anonymous" referrerpolicy="no-referrer" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Sora:wght@500;600;700&display=swap" rel="stylesheet">
 
 <style>
   :root {
-    --page-bg: radial-gradient(circle at top, #172554 0%, #0b1220 35%, #050b18 100%);
-    --surface-primary: rgba(12, 18, 35, 0.92);
-    --surface-muted: rgba(22, 30, 55, 0.75);
-    --surface-glass: rgba(15, 23, 42, 0.6);
-    --surface-card: rgba(12, 18, 35, 0.86);
-    --surface-border: rgba(99, 102, 241, 0.2);
-    --surface-border-strong: rgba(129, 140, 248, 0.45);
-    --surface-highlight: rgba(59, 130, 246, 0.18);
-    --surface-glow: rgba(56, 189, 248, 0.22);
-    --text-primary: #f8fafc;
-    --text-secondary: rgba(226, 232, 240, 0.75);
-    --text-muted: rgba(148, 163, 184, 0.7);
-    --accent-primary: #60a5fa;
-    --accent-secondary: #22d3ee;
-    --accent-tertiary: #a855f7;
-    --positive: #34d399;
-    --warning: #facc15;
-    --danger: #f87171;
-    --radius-lg: 28px;
-    --radius-md: 20px;
-    --radius-sm: 14px;
-    --shadow-xl: 0 50px 120px rgba(15, 23, 42, 0.45);
-    --shadow-lg: 0 30px 70px rgba(15, 23, 42, 0.4);
-    --shadow-md: 0 20px 45px rgba(15, 23, 42, 0.35);
-    --shadow-sm: 0 12px 28px rgba(15, 23, 42, 0.3);
+    --page-background: #f5f7ff;
+    --page-gradient: linear-gradient(180deg, #f7f9ff 0%, #ffffff 65%);
+    --surface-card: #ffffff;
+    --surface-soft: #f1f5ff;
+    --surface-muted: #eef2fb;
+    --surface-pill: #ecf2ff;
+    --border-soft: #d8e3ff;
+    --border-strong: #b9cdf6;
+    --shadow-sm: 0 12px 24px rgba(15, 23, 42, 0.05);
+    --shadow-md: 0 20px 45px rgba(15, 23, 42, 0.08);
+    --shadow-lg: 0 32px 60px rgba(15, 23, 42, 0.12);
+    --text-primary: #1f2937;
+    --text-secondary: #4b5565;
+    --text-muted: #7b8ba6;
+    --accent-primary: #2563eb;
+    --accent-secondary: #0ea5e9;
+    --accent-success: #059669;
+    --accent-warning: #d97706;
+    --accent-danger: #dc2626;
+    --radius-xl: 28px;
+    --radius-lg: 20px;
+    --radius-md: 16px;
+    --radius-sm: 12px;
   }
 
   body {
-    background: var(--page-bg);
-    font-family: 'Inter', 'Space Grotesk', system-ui, -apple-system, sans-serif;
-    color: var(--text-primary);
     min-height: 100vh;
+    background: var(--page-gradient);
+    color: var(--text-primary);
+    font-family: 'Plus Jakarta Sans', 'Inter', system-ui, -apple-system, sans-serif;
     padding-bottom: 6rem;
   }
 
-  .collab-app {
-    max-width: 1480px;
-    margin: 0 auto;
-    padding: 3rem clamp(1.5rem, 3vw, 3.5rem) 7rem;
+  body::before {
+    content: none;
+  }
+
+  .collab-galaxy {
+    position: relative;
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: clamp(2.5rem, 5vw, 4rem) clamp(1.5rem, 4vw, 3rem) clamp(4rem, 6vw, 5rem);
     display: flex;
     flex-direction: column;
-    gap: clamp(2rem, 4vw, 3.5rem);
+    gap: clamp(2rem, 4vw, 3rem);
   }
 
   .alert-stack {
@@ -67,86 +72,74 @@
 
   .alert-stack .alert {
     border-radius: var(--radius-sm);
-    border: 1px solid rgba(148, 163, 184, 0.3);
-    background: rgba(15, 23, 42, 0.75);
+    border: 1px solid var(--border-soft);
+    background: var(--surface-card);
     color: var(--text-primary);
     box-shadow: var(--shadow-sm);
   }
 
-  .collab-hero {
-    position: relative;
-    border-radius: var(--radius-lg);
-    padding: clamp(2.5rem, 4vw, 3.6rem);
-    background: linear-gradient(130deg, rgba(96, 165, 250, 0.18), rgba(34, 211, 238, 0.12)) var(--surface-card);
-    border: 1px solid var(--surface-border-strong);
-    box-shadow: var(--shadow-xl);
-    overflow: hidden;
-  }
-
-  .collab-hero::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: radial-gradient(circle at 20% 10%, rgba(59, 130, 246, 0.4), transparent 55%),
-                radial-gradient(circle at 80% 20%, rgba(129, 140, 248, 0.35), transparent 55%),
-                radial-gradient(circle at 20% 80%, rgba(14, 165, 233, 0.3), transparent 60%);
-    opacity: 0.55;
-    pointer-events: none;
-  }
-
-  .hero-content {
-    position: relative;
-    z-index: 1;
+  .observatory {
     display: grid;
-    gap: clamp(1.6rem, 3vw, 2.6rem);
+    gap: 1.4rem;
+    padding: 0;
+    margin: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
   }
 
-  .hero-eyebrow {
+  .observatory__eyebrow {
     display: inline-flex;
     align-items: center;
-    gap: 0.45rem;
-    padding: 0.4rem 1rem;
+    gap: 0.5rem;
+    padding: 0.45rem 1.2rem;
     border-radius: 999px;
-    background: rgba(15, 23, 42, 0.55);
-    border: 1px solid rgba(96, 165, 250, 0.5);
+    border: 1px solid var(--border-soft);
+    background: var(--surface-pill);
     color: var(--accent-primary);
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
     font-size: 0.75rem;
-    width: fit-content;
-  }
-
-  .hero-title {
-    font-family: 'Space Grotesk', 'Inter', sans-serif;
     font-weight: 600;
-    font-size: clamp(2rem, 5vw, 3.4rem);
-    letter-spacing: -0.015em;
-    margin-bottom: 0.35rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
   }
 
-  .hero-description {
-    max-width: 720px;
+  .observatory__title {
+    font-family: 'Sora', 'Plus Jakarta Sans', sans-serif;
+    font-weight: 600;
+    font-size: clamp(2.2rem, 5vw, 3.4rem);
+    letter-spacing: -0.01em;
+    margin: 0;
+  }
+
+  .observatory__lead {
+    margin: 0;
     color: var(--text-secondary);
     font-size: 1.05rem;
+    max-width: 640px;
+    line-height: 1.6;
   }
 
-  .hero-meta {
+  .observatory__chips {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.5rem;
+    gap: 0.6rem;
   }
 
   .hero-chip {
-    background: rgba(15, 23, 42, 0.55);
-    border: 1px solid rgba(148, 163, 184, 0.3);
-    border-radius: 999px;
-    padding: 0.45rem 0.9rem;
-    font-size: 0.85rem;
-    color: var(--text-secondary);
     display: inline-flex;
     align-items: center;
-    gap: 0.4rem;
+    gap: 0.45rem;
+    padding: 0.55rem 1rem;
+    border-radius: 999px;
+    border: 1px solid var(--border-soft);
+    background: var(--surface-soft);
+    color: var(--accent-primary);
+    font-size: 0.85rem;
+    font-weight: 500;
+  }
+
+  .hero-chip i {
+    color: var(--accent-secondary);
   }
 
   .summary-tiles {
@@ -157,22 +150,21 @@
 
   .summary-tile {
     position: relative;
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-lg);
     padding: 1.6rem 1.8rem;
-    background: var(--surface-primary);
-    border: 1px solid rgba(148, 163, 184, 0.25);
-    box-shadow: var(--shadow-md);
-    overflow: hidden;
+    background: var(--surface-card);
+    border: 1px solid var(--border-soft);
+    box-shadow: var(--shadow-sm);
     display: grid;
-    gap: 0.65rem;
+    gap: 0.55rem;
+    overflow: hidden;
   }
 
   .summary-tile::before {
     content: '';
     position: absolute;
     inset: 0;
-    background: linear-gradient(135deg, rgba(96, 165, 250, 0.22), transparent 65%);
-    opacity: 0.6;
+    background: radial-gradient(circle at 80% 20%, rgba(37, 99, 235, 0.12), transparent 60%);
     pointer-events: none;
   }
 
@@ -185,24 +177,25 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    background: rgba(15, 23, 42, 0.55);
-    color: var(--accent-primary);
-    font-size: 1.3rem;
+    background: var(--surface-soft);
+    color: var(--accent-secondary);
+    font-size: 1.25rem;
   }
 
   .summary-tile .tile-label {
     position: relative;
     z-index: 1;
-    letter-spacing: 0.08em;
     text-transform: uppercase;
-    font-size: 0.75rem;
+    letter-spacing: 0.12em;
     color: var(--text-muted);
+    font-size: 0.7rem;
+    font-weight: 600;
   }
 
   .summary-tile .tile-value {
     position: relative;
     z-index: 1;
-    font-size: clamp(1.9rem, 4vw, 2.8rem);
+    font-size: clamp(1.9rem, 4vw, 2.6rem);
     font-weight: 600;
     color: var(--text-primary);
   }
@@ -210,204 +203,113 @@
   .summary-tile .tile-subtext {
     position: relative;
     z-index: 1;
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    gap: 0.45rem;
+    gap: 0.4rem;
     color: var(--text-secondary);
     font-size: 0.9rem;
   }
 
-  .summary-tile .tile-subtext i {
-    font-size: 0.85rem;
-    opacity: 0.75;
-  }
-
-  .panel {
-    border-radius: var(--radius-lg);
-    background: var(--surface-primary);
-    border: 1px solid var(--surface-border);
-    box-shadow: var(--shadow-lg);
+  .module.panel {
+    border-radius: var(--radius-xl);
+    background: var(--surface-card);
+    border: 1px solid var(--border-soft);
+    box-shadow: var(--shadow-sm);
     overflow: hidden;
-    display: flex;
-    flex-direction: column;
   }
 
   .panel-header {
-    padding: clamp(1.8rem, 3vw, 2.2rem) clamp(1.6rem, 3vw, 2.4rem);
-    border-bottom: 1px solid rgba(148, 163, 184, 0.18);
-    background: linear-gradient(135deg, rgba(59, 130, 246, 0.12), transparent);
+    padding: clamp(1.6rem, 3vw, 2.2rem) clamp(1.6rem, 3vw, 2.4rem);
+    background: linear-gradient(180deg, #ffffff 0%, #f0f4ff 100%);
+    border-bottom: 1px solid var(--border-soft);
   }
 
   .panel-eyebrow {
     display: inline-flex;
     align-items: center;
-    gap: 0.5rem;
-    padding: 0.4rem 0.9rem;
+    gap: 0.45rem;
+    padding: 0.4rem 1.05rem;
     border-radius: 999px;
-    background: rgba(96, 165, 250, 0.12);
+    background: var(--surface-pill);
     color: var(--accent-primary);
+    font-size: 0.75rem;
     font-weight: 600;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
-    font-size: 0.78rem;
   }
 
   .panel-header h2 {
-    margin-top: 1.2rem;
-    margin-bottom: 0.6rem;
-    font-family: 'Space Grotesk', 'Inter', sans-serif;
+    margin: 1.1rem 0 0.5rem;
+    font-family: 'Sora', 'Plus Jakarta Sans', sans-serif;
     font-weight: 600;
     letter-spacing: -0.01em;
   }
 
   .panel-header p {
-    margin-bottom: 0;
+    margin: 0;
     color: var(--text-secondary);
+    max-width: 720px;
   }
 
   .panel-body {
-    padding: clamp(1.8rem, 3vw, 2.4rem);
+    padding: clamp(1.7rem, 3vw, 2.3rem);
     display: grid;
-    gap: clamp(1.5rem, 3vw, 2.2rem);
+    gap: clamp(1.4rem, 3vw, 2rem);
+    background: var(--surface-card);
   }
 
-  .layout-grid {
+  .module-grid {
     display: grid;
-    gap: clamp(1.8rem, 3vw, 2.5rem);
-  }
-
-  .layout-grid--split {
     grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  }
-
-  .layout-grid--two {
-    grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
-  }
-  .metric-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: 1.1rem;
-  }
-
-  .metric-card {
-    border-radius: var(--radius-sm);
-    padding: 1.2rem 1.4rem;
-    background: rgba(15, 23, 42, 0.6);
-    border: 1px solid rgba(148, 163, 184, 0.25);
-    box-shadow: var(--shadow-sm);
-    display: grid;
-    gap: 0.4rem;
-  }
-
-  .metric-card .metric-label {
-    text-transform: uppercase;
-    letter-spacing: 0.07em;
-    font-size: 0.72rem;
-    color: var(--text-muted);
-  }
-
-  .metric-card .metric-value {
-    font-size: 1.8rem;
-    font-weight: 600;
-  }
-
-  .metric-card .metric-note {
-    font-size: 0.85rem;
-    color: var(--text-secondary);
-  }
-
-  .metric-badge {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0.35rem 0.85rem;
-    border-radius: 999px;
-    background: rgba(96, 165, 250, 0.18);
-    color: var(--accent-primary);
-    font-size: 0.75rem;
-    font-weight: 600;
-    transition: background 0.2s ease, color 0.2s ease;
-  }
-
-  .metric-badge.bg-success {
-    background: rgba(52, 211, 153, 0.18) !important;
-    color: var(--positive) !important;
-  }
-
-  .metric-badge.bg-danger {
-    background: rgba(248, 113, 113, 0.18) !important;
-    color: var(--danger) !important;
-  }
-
-  .chart-shell {
-    background: rgba(15, 23, 42, 0.65);
-    border-radius: var(--radius-md);
-    border: 1px solid rgba(148, 163, 184, 0.25);
-    padding: 1.6rem;
-    box-shadow: var(--shadow-sm);
-    position: relative;
-  }
-
-  .chart-title {
-    font-size: 1.05rem;
-    font-weight: 600;
-    margin-bottom: 0.6rem;
-  }
-
-  .chart-empty {
-    border-radius: var(--radius-sm);
-    background: rgba(148, 163, 184, 0.12);
-    padding: 2rem 1rem;
-    color: var(--text-muted);
-    margin-top: 1rem;
+    gap: clamp(1.4rem, 3vw, 2rem);
   }
 
   .ai-suite .panel-body {
-    gap: 1.6rem;
+    gap: clamp(1.2rem, 3vw, 1.8rem);
   }
 
   .ai-summary {
-    background: rgba(34, 211, 238, 0.12);
-    border: 1px solid rgba(34, 211, 238, 0.32);
-    border-radius: var(--radius-md);
-    padding: 1.6rem;
-    box-shadow: var(--shadow-sm);
+    border-radius: var(--radius-lg);
+    background: var(--surface-soft);
+    border: 1px solid var(--border-soft);
+    padding: clamp(1.4rem, 3vw, 1.8rem);
   }
 
   .ai-summary h3 {
-    margin-bottom: 0.5rem;
-    font-size: 1.15rem;
+    margin-bottom: 0.6rem;
+    font-size: 1.1rem;
     font-weight: 600;
+    color: var(--accent-primary);
   }
 
   .ai-summary p {
     margin: 0;
-    color: var(--text-primary);
-    font-size: 1rem;
+    color: var(--text-secondary);
     line-height: 1.6;
   }
 
   .ai-streams {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-    gap: 1.2rem;
+    gap: clamp(1rem, 2.5vw, 1.5rem);
   }
 
   .ai-block {
-    background: rgba(15, 23, 42, 0.55);
-    border: 1px solid rgba(148, 163, 184, 0.25);
     border-radius: var(--radius-md);
+    background: var(--surface-card);
+    border: 1px solid var(--border-soft);
     padding: 1.4rem 1.6rem;
     box-shadow: var(--shadow-sm);
   }
 
   .ai-block h3 {
-    font-size: 1rem;
-    font-weight: 600;
-    margin-bottom: 0.8rem;
     display: flex;
     align-items: center;
     gap: 0.5rem;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 0.75rem;
   }
 
   .ai-block ul {
@@ -416,118 +318,100 @@
     margin: 0;
     display: grid;
     gap: 0.6rem;
-  }
-
-  .ai-block li {
-    display: flex;
-    align-items: flex-start;
-    gap: 0.6rem;
     color: var(--text-secondary);
     font-size: 0.95rem;
-    line-height: 1.5;
   }
 
   .ai-block li i {
-    color: var(--accent-primary);
-    margin-top: 0.2rem;
+    color: var(--accent-secondary);
+    margin-right: 0.35rem;
   }
 
-  .team-intelligence .nav-pills {
-    gap: 0.6rem;
-    flex-wrap: wrap;
+  .metric-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1rem;
   }
 
-  .team-intelligence .nav-link {
-    border-radius: 999px;
-    background: rgba(15, 23, 42, 0.55);
-    border: 1px solid rgba(148, 163, 184, 0.25);
-    color: var(--text-secondary);
-    font-weight: 600;
-    padding: 0.55rem 1.35rem;
-    transition: background 0.2s ease, transform 0.2s ease, color 0.2s ease;
+  .metric-card {
+    border-radius: var(--radius-md);
+    background: var(--surface-card);
+    border: 1px solid var(--border-soft);
+    padding: 1.2rem 1.35rem;
+    box-shadow: var(--shadow-sm);
+    display: grid;
+    gap: 0.45rem;
   }
 
-  .team-intelligence .nav-link:hover {
-    background: rgba(96, 165, 250, 0.14);
-    color: var(--text-primary);
-    transform: translateY(-1px);
-  }
-
-  .team-intelligence .nav-link.active {
-    background: linear-gradient(135deg, rgba(96, 165, 250, 0.7), rgba(168, 85, 247, 0.6));
-    border-color: transparent;
-    color: #fff;
-  }
-
-  .team-table,
-  .qa-table,
-  .attendance-table {
-    color: var(--text-primary);
-  }
-
-  .table thead {
-    background: rgba(15, 23, 42, 0.7);
-    color: var(--text-secondary);
-  }
-
-  .table thead th {
-    border: none;
-    font-size: 0.74rem;
+  .metric-card .metric-label {
     text-transform: uppercase;
-    letter-spacing: 0.06em;
-  }
-
-  .table tbody tr {
-    border-color: rgba(148, 163, 184, 0.2);
-  }
-
-  .table tbody td {
-    vertical-align: middle;
-    border-color: rgba(148, 163, 184, 0.12);
-  }
-
-  .status-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    border-radius: 999px;
-    padding: 0.35rem 0.85rem;
-    font-size: 0.75rem;
+    letter-spacing: 0.08em;
+    font-size: 0.72rem;
+    color: var(--text-muted);
     font-weight: 600;
   }
 
-  .status-published {
-    background: rgba(52, 211, 153, 0.18);
-    color: var(--positive);
+  .metric-card .metric-value {
+    font-size: 1.7rem;
+    font-weight: 600;
+    color: var(--text-primary);
   }
 
-  .status-draft {
-    background: rgba(250, 204, 21, 0.18);
-    color: #facc15;
+  .metric-card .metric-note {
+    font-size: 0.86rem;
+    color: var(--text-secondary);
   }
 
-  .status-followup {
-    background: rgba(248, 113, 113, 0.18);
-    color: var(--danger);
-  }
-
-  .collaborator {
+  .metric-badge {
     display: inline-flex;
     align-items: center;
-    gap: 0.4rem;
+    justify-content: center;
+    padding: 0.35rem 0.8rem;
     border-radius: 999px;
-    padding: 0.35rem 0.75rem;
-    background: rgba(96, 165, 250, 0.18);
+    background: rgba(37, 99, 235, 0.12);
     color: var(--accent-primary);
     font-size: 0.78rem;
-    margin-right: 0.4rem;
+    font-weight: 600;
+  }
+
+  .metric-badge.bg-success {
+    background: rgba(5, 150, 105, 0.12) !important;
+    color: var(--accent-success) !important;
+  }
+
+  .metric-badge.bg-danger {
+    background: rgba(220, 38, 38, 0.12) !important;
+    color: var(--accent-danger) !important;
+  }
+
+  .chart-shell {
+    border-radius: var(--radius-md);
+    background: var(--surface-soft);
+    border: 1px solid var(--border-soft);
+    padding: 1.5rem;
+    box-shadow: var(--shadow-sm);
+  }
+
+  .chart-title {
+    font-size: 1.05rem;
+    font-weight: 600;
+    margin-bottom: 0.4rem;
+  }
+
+  .chart-empty {
+    border-radius: var(--radius-sm);
+    background: var(--surface-muted);
+    padding: 2rem 1rem;
+    color: var(--text-muted);
+    margin-top: 1rem;
+    text-align: center;
   }
 
   .qa-form {
-    background: rgba(15, 23, 42, 0.55);
     border-radius: var(--radius-md);
-    border: 1px solid rgba(148, 163, 184, 0.25);
-    padding: 1.8rem;
+    background: var(--surface-card);
+    border: 1px solid var(--border-soft);
+    padding: clamp(1.6rem, 3vw, 2rem);
     box-shadow: var(--shadow-sm);
   }
 
@@ -540,180 +424,86 @@
     text-transform: uppercase;
     letter-spacing: 0.08em;
     color: var(--text-muted);
-    font-size: 0.75rem;
+    font-size: 0.74rem;
   }
 
   .qa-form .form-control,
   .qa-form .form-select {
-    background: rgba(15, 23, 42, 0.75);
-    border: 1px solid rgba(148, 163, 184, 0.28);
+    background: #ffffff;
+    border: 1px solid var(--border-soft);
     border-radius: var(--radius-sm);
     color: var(--text-primary);
   }
 
   .qa-form .form-control:focus,
   .qa-form .form-select:focus {
-    border-color: rgba(96, 165, 250, 0.65);
-    box-shadow: 0 0 0 0.25rem rgba(96, 165, 250, 0.18);
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 0.2rem rgba(37, 99, 235, 0.16);
   }
 
   .qa-form .btn-primary {
     border-radius: 999px;
-    background: linear-gradient(135deg, rgba(96, 165, 250, 0.9), rgba(34, 211, 238, 0.9));
+    background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
     border: none;
-    box-shadow: 0 18px 35px rgba(56, 189, 248, 0.35);
+    box-shadow: 0 12px 24px rgba(14, 165, 233, 0.25);
     font-weight: 600;
-    padding: 0.85rem 1.9rem;
+    padding: 0.85rem 2.1rem;
   }
 
   .qa-form .btn-outline-secondary {
     border-radius: 999px;
-    border: 1px solid rgba(148, 163, 184, 0.4);
+    border: 1px solid var(--border-soft);
     color: var(--text-secondary);
-    padding: 0.85rem 1.6rem;
+    padding: 0.85rem 1.8rem;
+  }
+
+  .qa-table thead th {
+    border: none;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    background: var(--surface-soft);
+  }
+
+  .qa-table tbody tr {
+    background: var(--surface-card);
+  }
+
+  .qa-table tbody tr + tr td {
+    border-top: 1px solid var(--border-soft);
   }
 
   .attendance-metrics {
     display: grid;
-    gap: 1.2rem;
+    gap: 1rem;
   }
 
   .attendance-metrics .metric-card {
-    background: rgba(59, 130, 246, 0.12);
-    border: 1px solid rgba(59, 130, 246, 0.35);
+    background: var(--surface-card);
+  }
+
+  .attendance-table thead th {
+    border: none;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    background: var(--surface-soft);
+  }
+
+  .attendance-table tbody tr {
+    background: var(--surface-card);
   }
 
   .progress {
-    background-color: rgba(148, 163, 184, 0.2);
+    background-color: var(--surface-muted);
     border-radius: 999px;
   }
 
   .progress-bar {
     border-radius: 999px;
-  }
-
-  .thread-card {
-    background: rgba(15, 23, 42, 0.55);
-    border: 1px solid rgba(148, 163, 184, 0.2);
-    border-radius: var(--radius-sm);
-    padding: 1rem 1.2rem;
-    margin-bottom: 0.7rem;
-    cursor: pointer;
-    transition: transform 0.2s ease, border 0.2s ease, background 0.2s ease;
-  }
-
-  .thread-card:hover {
-    transform: translateY(-2px);
-    border-color: rgba(96, 165, 250, 0.5);
-  }
-
-  .thread-card.active {
-    background: linear-gradient(135deg, rgba(96, 165, 250, 0.22), rgba(168, 85, 247, 0.18));
-    border-color: rgba(96, 165, 250, 0.55);
-  }
-
-  .thread-card .title {
-    font-weight: 600;
-    margin-bottom: 0.4rem;
-  }
-
-  .thread-card .thread-meta {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.6rem;
-    font-size: 0.78rem;
-    color: var(--text-muted);
-  }
-
-  .chat-stream {
-    display: grid;
-    gap: 1rem;
-    max-height: 380px;
-    overflow-y: auto;
-    padding-right: 0.4rem;
-  }
-
-  .chat-thread-list {
-    background: rgba(15, 23, 42, 0.6);
-    border: 1px solid rgba(148, 163, 184, 0.25);
-    border-radius: var(--radius-md);
-    padding: 1rem 1.1rem;
-    max-height: 360px;
-    overflow-y: auto;
-  }
-
-  .chat-message {
-    display: flex;
-    align-items: flex-start;
-    gap: 0.9rem;
-  }
-
-  .chat-message .avatar {
-    width: 42px;
-    height: 42px;
-    border-radius: 50%;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    background: rgba(96, 165, 250, 0.18);
-    color: var(--accent-primary);
-    font-weight: 600;
-  }
-
-  .chat-message .bubble {
-    flex: 1;
-    background: rgba(15, 23, 42, 0.6);
-    border-radius: 20px;
-    padding: 1rem 1.2rem;
-    border: 1px solid rgba(148, 163, 184, 0.22);
-    box-shadow: var(--shadow-sm);
-  }
-
-  .chat-message .author {
-    font-weight: 600;
-  }
-
-  .chat-message .timestamp {
-    font-size: 0.75rem;
-    color: var(--text-muted);
-  }
-
-  .chat-tag {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.3rem;
-    border-radius: 999px;
-    background: rgba(148, 163, 184, 0.22);
-    color: var(--text-muted);
-    font-size: 0.68rem;
-    padding: 0.25rem 0.65rem;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-  }
-
-  .persona-chip {
-    width: 100%;
-    text-align: left;
-    background: rgba(15, 23, 42, 0.55);
-    border: 1px solid rgba(148, 163, 184, 0.25);
-    border-radius: var(--radius-sm);
-    padding: 0.8rem 1rem;
-    color: var(--text-secondary);
-    font-weight: 600;
-    transition: background 0.2s ease, border 0.2s ease;
-  }
-
-  .persona-chip.active,
-  .persona-chip:hover {
-    background: linear-gradient(135deg, rgba(96, 165, 250, 0.2), rgba(34, 211, 238, 0.22));
-    color: var(--text-primary);
-    border-color: rgba(96, 165, 250, 0.4);
-  }
-
-  .chat-composer .form-control {
-    background: rgba(15, 23, 42, 0.75);
-    border: 1px solid rgba(148, 163, 184, 0.25);
-    color: var(--text-primary);
+    background-color: var(--accent-primary);
   }
 
   .floating-docks {
@@ -721,13 +511,12 @@
     flex-wrap: wrap;
     gap: 1.4rem;
     justify-content: flex-end;
-    position: relative;
-    z-index: 2;
   }
 
   .floating-bar {
     flex: 1 1 360px;
     max-width: 520px;
+    transition: transform 0.35s ease, opacity 0.35s ease;
   }
 
   .floating-bar.is-hidden {
@@ -741,126 +530,219 @@
     justify-content: space-between;
     gap: 1rem;
     border-radius: 999px;
-    padding: 0.95rem 1.35rem;
-    border: 1px solid rgba(96, 165, 250, 0.35);
-    background: linear-gradient(135deg, rgba(96, 165, 250, 0.22), rgba(34, 211, 238, 0.18));
+    padding: 1rem 1.4rem;
+    border: 1px solid var(--border-soft);
+    background: var(--surface-card);
     color: var(--text-primary);
     font-weight: 600;
     box-shadow: var(--shadow-sm);
   }
 
   .floating-toggle .toggle-icon {
-    width: 40px;
-    height: 40px;
+    width: 42px;
+    height: 42px;
     border-radius: 50%;
-    background: rgba(15, 23, 42, 0.5);
+    background: var(--surface-soft);
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    color: var(--accent-primary);
+    color: var(--accent-secondary);
   }
 
   .floating-toggle .toggle-caret {
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    background: rgba(15, 23, 42, 0.5);
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--surface-soft);
     color: var(--accent-primary);
   }
 
   .floating-panel {
-    margin-top: 1rem;
+    margin-top: 0.9rem;
     border-radius: var(--radius-lg);
-    background: rgba(15, 23, 42, 0.85);
-    border: 1px solid rgba(148, 163, 184, 0.25);
+    background: var(--surface-card);
+    border: 1px solid var(--border-soft);
     box-shadow: var(--shadow-lg);
     overflow: hidden;
-    transition: max-height 0.35s ease, opacity 0.35s ease, transform 0.35s ease;
+    transition: max-height 0.35s ease, opacity 0.35s ease;
   }
 
   .floating-panel.collapsed,
   .floating-bar.collapsed .floating-panel {
     max-height: 0;
     opacity: 0;
-    transform: translateY(18px);
     pointer-events: none;
   }
 
   .floating-panel-header {
     padding: 1.6rem 1.8rem 1.2rem;
-    border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+    border-bottom: 1px solid var(--border-soft);
+    background: linear-gradient(180deg, #ffffff 0%, #f0f4ff 100%);
   }
 
   .floating-panel-body {
-    padding: 1.6rem 1.8rem 1.8rem;
-    max-height: 420px;
+    padding: 1.8rem;
+    max-height: 540px;
+    overflow: hidden;
+  }
+
+  .floating-panel-body:hover {
     overflow-y: auto;
   }
 
   .floating-panel-body::-webkit-scrollbar {
-    width: 6px;
+    width: 8px;
   }
 
   .floating-panel-body::-webkit-scrollbar-thumb {
-    background: rgba(148, 163, 184, 0.35);
+    background: var(--border-soft);
     border-radius: 999px;
   }
 
-  .connectivity-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 1rem;
-  }
-
-  .connectivity-card {
+  .persona-chip {
+    width: 100%;
+    text-align: left;
     border-radius: var(--radius-sm);
-    background: rgba(15, 23, 42, 0.6);
-    border: 1px solid rgba(148, 163, 184, 0.25);
-    padding: 1.1rem 1.3rem;
-    display: grid;
-    gap: 0.8rem;
-    transition: transform 0.2s ease, border 0.2s ease;
+    border: 1px solid var(--border-soft);
+    background: var(--surface-card);
+    color: var(--text-secondary);
+    font-weight: 600;
+    padding: 0.85rem 1.05rem;
+    transition: transform 0.2s ease, border 0.2s ease, background 0.2s ease;
   }
 
-  .connectivity-card:hover {
+  .persona-chip.active,
+  .persona-chip:hover {
+    background: var(--surface-soft);
+    color: var(--text-primary);
+    border-color: var(--accent-primary);
     transform: translateY(-2px);
-    border-color: rgba(96, 165, 250, 0.45);
   }
 
-  .connectivity-actions {
+  .chat-thread-list {
+    border-radius: var(--radius-md);
+    background: var(--surface-soft);
+    border: 1px solid var(--border-soft);
+    padding: 1.1rem;
+    max-height: 360px;
+    overflow-y: auto;
+  }
+
+  .thread-card {
+    border-radius: var(--radius-sm);
+    padding: 1rem 1.1rem;
+    margin-bottom: 0.7rem;
+    border: 1px solid var(--border-soft);
+    background: var(--surface-card);
+    cursor: pointer;
+    transition: transform 0.2s ease, border 0.2s ease, background 0.2s ease;
+  }
+
+  .thread-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--accent-primary);
+  }
+
+  .thread-card.active {
+    background: rgba(37, 99, 235, 0.08);
+    border-color: var(--accent-primary);
+  }
+
+  .thread-card .title {
+    font-weight: 600;
+    margin-bottom: 0.35rem;
+    color: var(--text-primary);
+  }
+
+  .thread-card .thread-meta {
     display: flex;
     flex-wrap: wrap;
     gap: 0.5rem;
-  }
-
-  .connectivity-actions .btn {
-    border-radius: 999px;
-    font-weight: 600;
-    background: rgba(96, 165, 250, 0.2);
-    border: none;
-    color: var(--accent-primary);
-    padding: 0.45rem 1.05rem;
-  }
-
-  .connectivity-empty {
-    border-radius: var(--radius-md);
-    background: rgba(148, 163, 184, 0.12);
-    padding: 1.5rem;
-    text-align: center;
+    font-size: 0.76rem;
     color: var(--text-muted);
+  }
+
+  .chat-stream {
+    display: grid;
+    gap: 1rem;
+    max-height: 380px;
+    overflow-y: auto;
+    padding-right: 0.4rem;
+  }
+
+  .chat-message {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.9rem;
+  }
+
+  .chat-message .avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--surface-soft);
+    color: var(--accent-primary);
+    font-weight: 600;
+  }
+
+  .chat-message .bubble {
+    flex: 1;
+    border-radius: 20px;
+    background: var(--surface-card);
+    border: 1px solid var(--border-soft);
+    padding: 1rem 1.2rem;
+    box-shadow: var(--shadow-sm);
+  }
+
+  .chat-message .author {
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .chat-message .timestamp {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }
+
+  .chat-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    border-radius: 999px;
+    background: var(--surface-soft);
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    padding: 0.25rem 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .chat-composer .form-control {
+    background: #ffffff;
+    border: 1px solid var(--border-soft);
+    color: var(--text-primary);
+  }
+
+  .chat-composer .form-control:focus {
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 0.2rem rgba(37, 99, 235, 0.16);
   }
 
   .team-pagination-bar {
     margin-top: 1.1rem;
     padding-top: 1.1rem;
-    border-top: 1px solid rgba(148, 163, 184, 0.18);
+    border-top: 1px solid var(--border-soft);
   }
 
   .team-member-name {
     font-weight: 600;
+    color: var(--text-primary);
   }
 
   .team-member-meta {
@@ -869,18 +751,17 @@
   }
 
   @media (max-width: 992px) {
-    .collab-app {
-      padding: 2.6rem 1.5rem 6rem;
+    .collab-galaxy {
+      padding: 2.4rem 1.5rem 5rem;
     }
 
     .floating-docks {
       justify-content: center;
     }
-  }
 
   @media (max-width: 768px) {
-    .collab-hero {
-      padding: 2rem;
+    .module-grid {
+      grid-template-columns: 1fr;
     }
 
     .floating-docks {
@@ -888,69 +769,106 @@
       align-items: stretch;
     }
   }
+  .hero-summary {
+    border-radius: var(--radius-xl);
+    background: var(--surface-card);
+    border: 1px solid var(--border-soft);
+    box-shadow: var(--shadow-md);
+    padding: clamp(2.3rem, 4vw, 3.2rem);
+  }
+
+  .hero-summary__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.2rem;
+    margin-bottom: clamp(1.4rem, 3vw, 2rem);
+  }
+
+  .hero-summary__title {
+    font-family: 'Sora', 'Plus Jakarta Sans', sans-serif;
+    font-size: 1.35rem;
+    font-weight: 600;
+    margin: 0;
+  }
+
+  .hero-summary__meta {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+  }
+
+  @media (max-width: 768px) {
+    .hero-summary__header {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+  }
 </style>
 
-<div class="collab-app">
+<div class="collab-galaxy">
   <div id="collabAlerts" class="alert-stack"></div>
 
-  <header class="collab-hero">
-    <div class="hero-content">
-      <span class="hero-eyebrow"><i class="fa-solid fa-microchip"></i> Lumina Collaboration OS</span>
-      <div>
-        <h1 class="hero-title">Collaboration & Reporting Hub</h1>
-        <p class="hero-description">Command quality, attendance, and executive alignment from a next-generation glassmorphism workspace built for hybrid teams.</p>
-      </div>
-      <div class="hero-meta" id="heroMeta">
-        <span class="hero-chip"><i class="fa-solid fa-user-astronaut"></i><span id="heroPersonaLabel">Persona syncing…</span></span>
-        <span class="hero-chip"><i class="fa-solid fa-diagram-project"></i><span id="heroCampaignLabel">Campaigns calibrating…</span></span>
-        <span class="hero-chip"><i class="fa-solid fa-clock"></i><span id="heroUpdatedLabel">Awaiting timestamp…</span></span>
-      </div>
-      <div class="summary-tiles">
-        <article class="summary-tile is-quality">
-          <div class="tile-icon"><i class="fa-solid fa-star"></i></div>
-          <div class="tile-label">Quality average</div>
-          <div class="tile-value" id="summaryQaAverage">—</div>
-          <div class="tile-subtext" id="summaryQaTrend">
-            <i class="fa-solid fa-arrow-trend-up"></i>
-            <span>Awaiting quality insights</span>
-          </div>
-        </article>
-        <article class="summary-tile is-attendance">
-          <div class="tile-icon"><i class="fa-solid fa-calendar-check"></i></div>
-          <div class="tile-label">Attendance health</div>
-          <div class="tile-value" id="summaryAttendanceRate">—</div>
-          <div class="tile-subtext" id="summaryAttendanceTrend">
-            <i class="fa-solid fa-chart-line"></i>
-            <span>Attendance variance unavailable</span>
-          </div>
-        </article>
-        <article class="summary-tile is-threads">
-          <div class="tile-icon"><i class="fa-solid fa-comments"></i></div>
-          <div class="tile-label">Collaboration threads</div>
-          <div class="tile-value" id="summaryThreads">0</div>
-          <div class="tile-subtext" id="summaryThreadsHint">
-            <i class="fa-solid fa-user-group"></i>
-            <span>Invite teams to collaborate</span>
-          </div>
-        </article>
-        <article class="summary-tile is-actions">
-          <div class="tile-icon"><i class="fa-solid fa-list-check"></i></div>
-          <div class="tile-label">Action items</div>
-          <div class="tile-value" id="summaryFollowUps">0</div>
-          <div class="tile-subtext" id="summaryFollowUpsHint">
-            <i class="fa-solid fa-diagram-project"></i>
-            <span>No action items yet</span>
-          </div>
-        </article>
-      </div>
+  <header class="observatory" data-banner-source>
+    <span class="observatory__eyebrow" data-banner-eyebrow><i class="fa-solid fa-microchip"></i> Lumina Collaboration Sphere</span>
+    <h1 class="observatory__title" data-banner-title>Collaboration &amp; Reporting Hub</h1>
+    <p class="observatory__lead" data-banner-description>Orchestrate quality, attendance, and executive workflows from a luminous control center designed for hybrid teams.</p>
+    <div class="observatory__chips" id="heroMeta">
+      <span class="hero-chip"><i class="fa-solid fa-user-astronaut"></i><span id="heroPersonaLabel">Persona syncing…</span></span>
+      <span class="hero-chip"><i class="fa-solid fa-diagram-project"></i><span id="heroCampaignLabel">Campaigns calibrating…</span></span>
+      <span class="hero-chip"><i class="fa-solid fa-clock"></i><span id="heroUpdatedLabel">Awaiting timestamp…</span></span>
     </div>
   </header>
 
-  <section class="panel ai-suite">
+  <section class="hero-summary" aria-labelledby="heroSummaryTitle">
+    <div class="hero-summary__header">
+      <h2 class="hero-summary__title" id="heroSummaryTitle">Operational pulse</h2>
+      <p class="hero-summary__meta" id="heroSummaryMeta">Refreshed from quality, attendance, and collaboration activity.</p>
+    </div>
+    <div class="summary-tiles">
+      <article class="summary-tile is-quality">
+        <div class="tile-icon"><i class="fa-solid fa-sparkles"></i></div>
+        <div class="tile-label">Quality average</div>
+        <div class="tile-value" id="summaryQaAverage">—</div>
+        <div class="tile-subtext" id="summaryQaTrend">
+          <i class="fa-solid fa-arrow-trend-up"></i>
+          <span>Awaiting quality insights</span>
+        </div>
+      </article>
+      <article class="summary-tile is-attendance">
+        <div class="tile-icon"><i class="fa-solid fa-calendar-check"></i></div>
+        <div class="tile-label">Attendance health</div>
+        <div class="tile-value" id="summaryAttendanceRate">—</div>
+        <div class="tile-subtext" id="summaryAttendanceTrend">
+          <i class="fa-solid fa-chart-line"></i>
+          <span>Attendance variance unavailable</span>
+        </div>
+      </article>
+      <article class="summary-tile is-threads">
+        <div class="tile-icon"><i class="fa-solid fa-comments"></i></div>
+        <div class="tile-label">Collaboration threads</div>
+        <div class="tile-value" id="summaryThreads">0</div>
+        <div class="tile-subtext" id="summaryThreadsHint">
+          <i class="fa-solid fa-user-group"></i>
+          <span>Invite teams to collaborate</span>
+        </div>
+      </article>
+      <article class="summary-tile is-actions">
+        <div class="tile-icon"><i class="fa-solid fa-list-check"></i></div>
+        <div class="tile-label">Action items</div>
+        <div class="tile-value" id="summaryFollowUps">0</div>
+        <div class="tile-subtext" id="summaryFollowUpsHint">
+          <i class="fa-solid fa-bolt"></i>
+          <span>No action items yet</span>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <section class="module panel ai-suite">
     <div class="panel-header">
       <span class="panel-eyebrow"><i class="fa-solid fa-robot"></i> AI Collaboration Co-Pilot</span>
-      <h2>Real-time orchestration guidance</h2>
-      <p>Let the Lumina AI layer synthesize signal across quality, attendance, and collaboration threads to highlight momentum and risk.</p>
+      <h2>Intelligence generated for every stakeholder</h2>
+      <p>Let Lumina AI distill momentum, risks, and suggested moves across quality, attendance, and live collaboration threads.</p>
     </div>
     <div class="panel-body">
       <div class="ai-summary">
@@ -980,8 +898,7 @@
     </div>
   </section>
 
-  <div class="layout-grid layout-grid--two">
-    <section class="panel" id="teamIntelligenceCard">
+  <section class="module panel" id="teamIntelligenceCard">
       <div class="panel-header">
         <span class="panel-eyebrow"><i class="fa-solid fa-users-gear"></i> Team Collaboration Intelligence</span>
         <h2>Managers, clients, and cross-functional squads</h2>
@@ -995,175 +912,175 @@
       </div>
     </section>
 
-    <section class="panel">
-      <div class="panel-header">
-        <span class="panel-eyebrow"><i class="fa-solid fa-sparkles"></i> Quality Collaboration Workspace</span>
-        <h2>QA outcomes &amp; coaching actions</h2>
-        <p>Track QA trends, capture follow-ups, and log collaboration threads without breaking focus.</p>
-      </div>
-      <div class="panel-body">
-        <div class="metric-grid">
-          <div class="metric-card">
-            <div class="metric-label">Average QA</div>
-            <div class="metric-value" id="qaAverageScore">—</div>
-            <div class="metric-note">Delta vs target <span id="qaScoreTrend" class="metric-badge">—</span></div>
+  <div class="module-grid">
+    <section class="module panel">
+          <div class="panel-header">
+            <span class="panel-eyebrow"><i class="fa-solid fa-sparkles"></i> Quality Collaboration Workspace</span>
+            <h2>QA outcomes &amp; coaching actions</h2>
+            <p>Track QA trends, capture follow-ups, and log collaboration threads without breaking focus.</p>
           </div>
-          <div class="metric-card">
-            <div class="metric-label">Follow ups</div>
-            <div class="metric-value" id="qaFollowUps">0</div>
-            <div class="metric-note">Collaboration backlog</div>
+          <div class="panel-body">
+            <div class="metric-grid">
+              <div class="metric-card">
+                <div class="metric-label">Average QA</div>
+                <div class="metric-value" id="qaAverageScore">—</div>
+                <div class="metric-note">Delta vs target <span id="qaScoreTrend" class="metric-badge">—</span></div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">Follow ups</div>
+                <div class="metric-value" id="qaFollowUps">0</div>
+                <div class="metric-note">Collaboration backlog</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">Threads engaged</div>
+                <div class="metric-value" id="qaThreads">0</div>
+                <div class="metric-note">Cross-team conversations</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">Coverage</div>
+                <div class="metric-value" id="qaCoverageRate">—</div>
+                <div class="metric-note">QA coverage this cycle</div>
+              </div>
+            </div>
+            <div class="chart-shell">
+              <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+                <div>
+                  <div class="chart-title">QA score trend</div>
+                  <div class="text-secondary">Six-week quality trajectory</div>
+                </div>
+                <span class="badge bg-light text-dark opacity-75">Auto-refreshing</span>
+              </div>
+              <canvas id="qaTrendChart" height="220"></canvas>
+            </div>
+            <form id="qaCollaborationForm" class="qa-form" novalidate>
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label for="qaAgent" class="form-label">Agent</label>
+                  <select class="form-select" id="qaAgent" name="qaAgent" required></select>
+                </div>
+                <div class="col-md-6">
+                  <label for="qaCampaign" class="form-label">Campaign</label>
+                  <select class="form-select" id="qaCampaign" name="qaCampaign" required></select>
+                </div>
+                <div class="col-md-6">
+                  <label for="qaReviewer" class="form-label">Reviewer</label>
+                  <select class="form-select" id="qaReviewer" name="qaReviewer" required></select>
+                </div>
+                <div class="col-md-6">
+                  <label for="qaCollaborators" class="form-label">QA collaborators</label>
+                  <select class="form-select" id="qaCollaborators" name="qaCollaborators" multiple title="Select QA leads"></select>
+                </div>
+                <div class="col-sm-4">
+                  <label for="qaScore" class="form-label">Score</label>
+                  <input type="number" class="form-control" id="qaScore" name="qaScore" min="0" max="100" step="0.1" placeholder="92.5">
+                </div>
+                <div class="col-sm-4">
+                  <label for="qaFocusArea" class="form-label">Focus area</label>
+                  <select class="form-select" id="qaFocusArea" name="qaFocusArea" required>
+                    <option value="">Select focus</option>
+                    <option>Call Control</option>
+                    <option>Compliance</option>
+                    <option>Rapport &amp; Empathy</option>
+                    <option>Product Knowledge</option>
+                    <option>Objection Handling</option>
+                  </select>
+                </div>
+                <div class="col-sm-4">
+                  <label for="qaStatus" class="form-label">Status</label>
+                  <select class="form-select" id="qaStatus" name="qaStatus" required>
+                    <option value="Published">Published</option>
+                    <option value="Draft">Draft</option>
+                    <option value="Follow-up">Follow-up Scheduled</option>
+                  </select>
+                </div>
+                <div class="col-12">
+                  <label for="qaHighlights" class="form-label">Highlights &amp; coaching actions</label>
+                  <textarea class="form-control" id="qaHighlights" name="qaHighlights" placeholder="Document key wins, risks, and next steps" required></textarea>
+                </div>
+                <div class="col-12 pt-2">
+                  <span class="form-section-label">Next touch planning</span>
+                </div>
+                <div class="col-md-6">
+                  <label for="qaNextTouch" class="form-label">Next touchpoint</label>
+                  <input type="date" class="form-control" id="qaNextTouch" name="qaNextTouch">
+                </div>
+                <div class="col-md-6">
+                  <label for="qaChannel" class="form-label">Channel</label>
+                  <select class="form-select" id="qaChannel" name="qaChannel" required>
+                    <option>Voice</option>
+                    <option>Email</option>
+                    <option>Chat</option>
+                    <option>Social</option>
+                  </select>
+                </div>
+                <div class="col-12 d-flex gap-3 flex-wrap">
+                  <button type="submit" class="btn btn-primary"><i class="fas fa-paper-plane me-2"></i>Log QA Collaboration</button>
+                  <button type="reset" class="btn btn-outline-secondary" id="qaResetBtn"><i class="fas fa-rotate-left me-1"></i>Reset</button>
+                </div>
+              </div>
+            </form>
+            <div class="table-responsive">
+              <table class="table table-hover align-middle qa-table" id="qaReviewTable">
+                <thead>
+                  <tr>
+                    <th>Audit ID</th>
+                    <th>Agent</th>
+                    <th>Campaign</th>
+                    <th>Score</th>
+                    <th>Focus</th>
+                    <th>Collaborators</th>
+                    <th>Status</th>
+                    <th>Updated</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
           </div>
-          <div class="metric-card">
-            <div class="metric-label">Threads engaged</div>
-            <div class="metric-value" id="qaThreads">0</div>
-            <div class="metric-note">Cross-team conversations</div>
+        </section>
+    <section class="module panel">
+          <div class="panel-header">
+            <span class="panel-eyebrow"><i class="fa-solid fa-chart-line"></i> Executive KPI Pulse</span>
+            <h2>Multi-campaign leadership summary</h2>
+            <p>Blended KPIs across managed campaigns with proactive signal for strategy conversations.</p>
           </div>
-          <div class="metric-card">
-            <div class="metric-label">Coverage</div>
-            <div class="metric-value" id="qaCoverageRate">—</div>
-            <div class="metric-note">QA coverage this cycle</div>
-          </div>
-        </div>
-        <div class="chart-shell">
-          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
-            <div>
-              <div class="chart-title">QA score trend</div>
-              <div class="text-secondary">Six-week quality trajectory</div>
+          <div class="panel-body">
+            <div class="metric-grid">
+              <div class="metric-card text-center">
+                <div class="metric-label">Average QA score</div>
+                <div class="metric-value" id="kpiQualityAverage">—</div>
+                <div class="metric-note" id="kpiQualityTrend">Awaiting data</div>
+              </div>
+              <div class="metric-card text-center">
+                <div class="metric-label">Attendance rate</div>
+                <div class="metric-value" id="kpiAttendanceRate">—</div>
+                <div class="metric-note" id="kpiAttendanceTrend">Awaiting data</div>
+              </div>
             </div>
-            <span class="badge bg-light text-dark opacity-75">Auto-refreshing</span>
-          </div>
-          <canvas id="qaTrendChart" height="220"></canvas>
-        </div>
-        <form id="qaCollaborationForm" class="qa-form" novalidate>
-          <div class="row g-3">
-            <div class="col-md-6">
-              <label for="qaAgent" class="form-label">Agent</label>
-              <select class="form-select" id="qaAgent" name="qaAgent" required></select>
+            <div class="chart-shell">
+              <div class="d-flex justify-content-between flex-wrap align-items-start gap-3 mb-3">
+                <div>
+                  <div class="chart-title">Campaign health mix</div>
+                  <div class="text-secondary">Distribution of KPI attainment vs executive targets.</div>
+                </div>
+                <div class="text-end">
+                  <span class="badge bg-info-subtle text-info" id="execTimeframe">—</span>
+                  <div class="small text-secondary mt-1" id="execPeriodRange">—</div>
+                  <div class="small text-secondary" id="execPayDate">Pay date —</div>
+                </div>
+              </div>
+              <canvas id="execBlendChart" height="200"></canvas>
+              <div class="mt-3" id="execCampaignBullets"></div>
             </div>
-            <div class="col-md-6">
-              <label for="qaCampaign" class="form-label">Campaign</label>
-              <select class="form-select" id="qaCampaign" name="qaCampaign" required></select>
-            </div>
-            <div class="col-md-6">
-              <label for="qaReviewer" class="form-label">Reviewer</label>
-              <select class="form-select" id="qaReviewer" name="qaReviewer" required></select>
-            </div>
-            <div class="col-md-6">
-              <label for="qaCollaborators" class="form-label">QA collaborators</label>
-              <select class="form-select" id="qaCollaborators" name="qaCollaborators" multiple title="Select QA leads"></select>
-            </div>
-            <div class="col-sm-4">
-              <label for="qaScore" class="form-label">Score</label>
-              <input type="number" class="form-control" id="qaScore" name="qaScore" min="0" max="100" step="0.1" placeholder="92.5">
-            </div>
-            <div class="col-sm-4">
-              <label for="qaFocusArea" class="form-label">Focus area</label>
-              <select class="form-select" id="qaFocusArea" name="qaFocusArea" required>
-                <option value="">Select focus</option>
-                <option>Call Control</option>
-                <option>Compliance</option>
-                <option>Rapport &amp; Empathy</option>
-                <option>Product Knowledge</option>
-                <option>Objection Handling</option>
-              </select>
-            </div>
-            <div class="col-sm-4">
-              <label for="qaStatus" class="form-label">Status</label>
-              <select class="form-select" id="qaStatus" name="qaStatus" required>
-                <option value="Published">Published</option>
-                <option value="Draft">Draft</option>
-                <option value="Follow-up">Follow-up Scheduled</option>
-              </select>
-            </div>
-            <div class="col-12">
-              <label for="qaHighlights" class="form-label">Highlights &amp; coaching actions</label>
-              <textarea class="form-control" id="qaHighlights" name="qaHighlights" placeholder="Document key wins, risks, and next steps" required></textarea>
-            </div>
-            <div class="col-12 pt-2">
-              <span class="form-section-label">Next touch planning</span>
-            </div>
-            <div class="col-md-6">
-              <label for="qaNextTouch" class="form-label">Next touchpoint</label>
-              <input type="date" class="form-control" id="qaNextTouch" name="qaNextTouch">
-            </div>
-            <div class="col-md-6">
-              <label for="qaChannel" class="form-label">Channel</label>
-              <select class="form-select" id="qaChannel" name="qaChannel" required>
-                <option>Voice</option>
-                <option>Email</option>
-                <option>Chat</option>
-                <option>Social</option>
-              </select>
-            </div>
-            <div class="col-12 d-flex gap-3 flex-wrap">
-              <button type="submit" class="btn btn-primary"><i class="fas fa-paper-plane me-2"></i>Log QA Collaboration</button>
-              <button type="reset" class="btn btn-outline-secondary" id="qaResetBtn"><i class="fas fa-rotate-left me-1"></i>Reset</button>
+            <div class="ai-block">
+              <h3><i class="fa-solid fa-briefcase"></i> Executive brief</h3>
+              <ul class="mb-0" id="executiveBrief"></ul>
             </div>
           </div>
-        </form>
-        <div class="table-responsive">
-          <table class="table table-hover align-middle qa-table" id="qaReviewTable">
-            <thead>
-              <tr>
-                <th>Audit ID</th>
-                <th>Agent</th>
-                <th>Campaign</th>
-                <th>Score</th>
-                <th>Focus</th>
-                <th>Collaborators</th>
-                <th>Status</th>
-                <th>Updated</th>
-              </tr>
-            </thead>
-            <tbody></tbody>
-          </table>
-        </div>
-      </div>
-    </section>
+        </section>
   </div>
-  <div class="layout-grid layout-grid--split">
-    <section class="panel">
-      <div class="panel-header">
-        <span class="panel-eyebrow"><i class="fa-solid fa-chart-line"></i> Executive KPI Pulse</span>
-        <h2>Multi-campaign leadership summary</h2>
-        <p>Blended KPIs across managed campaigns with proactive signal for strategy conversations.</p>
-      </div>
-      <div class="panel-body">
-        <div class="metric-grid">
-          <div class="metric-card text-center">
-            <div class="metric-label">Average QA score</div>
-            <div class="metric-value" id="kpiQualityAverage">—</div>
-            <div class="metric-note" id="kpiQualityTrend">Awaiting data</div>
-          </div>
-          <div class="metric-card text-center">
-            <div class="metric-label">Attendance rate</div>
-            <div class="metric-value" id="kpiAttendanceRate">—</div>
-            <div class="metric-note" id="kpiAttendanceTrend">Awaiting data</div>
-          </div>
-        </div>
-        <div class="chart-shell">
-          <div class="d-flex justify-content-between flex-wrap align-items-start gap-3 mb-3">
-            <div>
-              <div class="chart-title">Campaign health mix</div>
-              <div class="text-secondary">Distribution of KPI attainment vs executive targets.</div>
-            </div>
-            <div class="text-end">
-              <span class="badge bg-info-subtle text-info" id="execTimeframe">—</span>
-              <div class="small text-secondary mt-1" id="execPeriodRange">—</div>
-              <div class="small text-secondary" id="execPayDate">Pay date —</div>
-            </div>
-          </div>
-          <canvas id="execBlendChart" height="200"></canvas>
-          <div class="mt-3" id="execCampaignBullets"></div>
-        </div>
-        <div class="ai-block">
-          <h3><i class="fa-solid fa-briefcase"></i> Executive brief</h3>
-          <ul class="mb-0" id="executiveBrief"></ul>
-        </div>
-      </div>
-    </section>
 
-    <section class="panel">
+  <section class="module panel">
       <div class="panel-header">
         <span class="panel-eyebrow"><i class="fa-solid fa-user-check"></i> Attendance &amp; Adherence</span>
         <h2>Shift coverage &amp; schedule fidelity</h2>
@@ -1261,7 +1178,7 @@
                   <input type="text" id="chatMessageInput" class="form-control" placeholder="Share an update" required>
                   <button class="btn btn-primary" type="submit"><i class="fas fa-paper-plane"></i></button>
                 </div>
-                <div class="form-text text-secondary">Visible to <span id="chatAudienceLabel" class="fw-semibold text-light">all participants</span></div>
+                <div class="form-text text-secondary">Visible to <span id="chatAudienceLabel" class="fw-semibold text-primary">all participants</span></div>
               </form>
             </div>
           </div>
@@ -1272,9 +1189,17 @@
 </div>
 
 
-<script>
-  const currentUser = <?!= JSON.stringify(user || {}) ?>;
-</script>
+  <script>
+    const CURRENT_USER_BOOTSTRAP = <?!= collabCurrentUserJson ?>;
+    const hasWindowUser = typeof window !== 'undefined' && window.CURRENT_USER && typeof window.CURRENT_USER === 'object';
+    const windowUserIsEmpty = !hasWindowUser || Object.keys(window.CURRENT_USER).length === 0;
+
+    if (windowUserIsEmpty) {
+      window.CURRENT_USER = CURRENT_USER_BOOTSTRAP && typeof CURRENT_USER_BOOTSTRAP === 'object' ? CURRENT_USER_BOOTSTRAP : {};
+    }
+
+    const currentUser = window.CURRENT_USER && typeof window.CURRENT_USER === 'object' ? window.CURRENT_USER : {};
+  </script>
 
 <script>
   document.addEventListener('DOMContentLoaded', function () {
@@ -1304,6 +1229,7 @@
           { key: 'campaigns', label: 'Active campaigns', value: '0', hint: 'Workspace connections', icon: 'fa-solid fa-diagram-project' }
         ]
       },
+      ai: { summary: '', report: [], suggestions: [], notes: [] },
       charts: { qaTrend: null, attendance: null, executive: null },
       campaigns: [],
       activePersona: null,
