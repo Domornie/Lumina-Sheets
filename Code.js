@@ -34,6 +34,8 @@ const ACCESS = {
     'landing',
     'landing-about',
     'landing-capabilities',
+    'landing-story',
+    'landing-capabilities-detail',
     'setpassword',
     'resetpassword',
     'forgotpassword',
@@ -1803,6 +1805,16 @@ function canonicalizePageKey(k) {
     case 'capabilities':
     case 'explore-capabilities':
       return 'landing-capabilities';
+    case 'landing-story':
+    case 'landingstory':
+    case 'stories':
+    case 'customer-stories':
+      return 'landing-story';
+    case 'landing-capabilities-detail':
+    case 'landingcapabilitiesdetail':
+    case 'capabilities-detail':
+    case 'capabilitiesdetail':
+      return 'landing-capabilities-detail';
 
     // Legal & public resources
     case 'terms-of-service':
@@ -2154,6 +2166,13 @@ function doGet(e) {
       'about',
       'landing-capabilities',
       'capabilities',
+      'landing-story',
+      'landingstory',
+      'stories',
+      'customer-stories',
+      'landing-capabilities-detail',
+      'landingcapabilitiesdetail',
+      'capabilities-detail',
       'setpassword',
       'resetpassword',
       'resend-verification',
@@ -2719,6 +2738,32 @@ function handlePublicPage(page, e, baseUrl) {
 
       return capabilitiesTpl.evaluate()
         .setTitle('Explore LuminaHQ Capabilities')
+        .addMetaTag('viewport', 'width=device-width,initial-scale=1')
+        .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+
+    case 'landing-story':
+    case 'stories':
+    case 'customer-stories':
+    case 'landingstory':
+      const storyTpl = HtmlService.createTemplateFromFile('LandingStory');
+      storyTpl.baseUrl = baseUrl;
+      storyTpl.scriptUrl = scriptUrl;
+
+      return storyTpl.evaluate()
+        .setTitle('LuminaHQ Stories')
+        .addMetaTag('viewport', 'width=device-width,initial-scale=1')
+        .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+
+    case 'landing-capabilities-detail':
+    case 'landingcapabilitiesdetail':
+    case 'capabilities-detail':
+    case 'capabilitiesdetail':
+      const capDetailTpl = HtmlService.createTemplateFromFile('LandingCapabilitiesDetail');
+      capDetailTpl.baseUrl = baseUrl;
+      capDetailTpl.scriptUrl = scriptUrl;
+
+      return capDetailTpl.evaluate()
+        .setTitle('LuminaHQ Capability Details')
         .addMetaTag('viewport', 'width=device-width,initial-scale=1')
         .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 

@@ -23,13 +23,14 @@
   }
 
   header.site-header {
-    background: linear-gradient(135deg, #0c94d3 0%, #026ba9 100%);
+    background: #ffffff;
     padding: 1rem 2rem;
     position: fixed;
     width: 100%;
     top: 0;
     z-index: 1000;
-    box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 2px 20px rgba(15, 23, 42, 0.08);
+    border-bottom: 1px solid rgba(148, 163, 184, 0.2);
   }
 
   .site-nav {
@@ -44,7 +45,7 @@
     display: flex;
     align-items: center;
     gap: 0.75rem;
-    color: #ffffff;
+    color: #0f172a;
     font-size: 1.8rem;
     font-weight: 700;
     letter-spacing: -0.5px;
@@ -62,22 +63,28 @@
   }
 
   .nav-links a {
-    color: #ffffff;
+    color: #0f172a;
     font-weight: 500;
-    transition: opacity 0.3s ease;
+    transition: color 0.3s ease, box-shadow 0.3s ease;
   }
 
   .nav-links a:hover,
   .nav-links a:focus {
-    opacity: 0.8;
+    color: #0284c7;
   }
 
   .nav-cta {
-    background: rgba(255, 255, 255, 0.2);
+    background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
+    color: #ffffff !important;
     padding: 0.6rem 1.5rem;
-    border-radius: 8px;
-    border: 1px solid rgba(255, 255, 255, 0.3);
-    backdrop-filter: blur(10px);
+    border-radius: 999px;
+    border: none;
+    box-shadow: 0 10px 25px rgba(14, 165, 233, 0.2);
+  }
+
+  .nav-cta:hover,
+  .nav-cta:focus {
+    box-shadow: 0 12px 30px rgba(14, 165, 233, 0.35);
   }
 
   main {
