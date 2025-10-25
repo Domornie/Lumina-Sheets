@@ -1372,8 +1372,6 @@
       </div>
     </div>
   </div>
-
-  </div>
 </div>
 
 <script>
@@ -1745,7 +1743,11 @@
     }
 
     function buildBannerDescription() {
-      const parts = [bannerDescriptionLead];
+      const descriptionParts = [];
+      if (typeof bannerDescriptionLead === 'string' && bannerDescriptionLead.trim()) {
+        descriptionParts.push(bannerDescriptionLead);
+      }
+
       const meta = [];
       if (state.banner.userName) {
         meta.push('Workspace lead: ' + state.banner.userName);
@@ -1756,10 +1758,12 @@
       if (state.banner.lastUpdatedText) {
         meta.push(state.banner.lastUpdatedText);
       }
+
       if (meta.length) {
-        parts.push(meta.join(' • '));
+        descriptionParts.push(meta.join(' • '));
       }
-      return parts.join(' ');
+
+      return descriptionParts.join(' ').trim();
     }
 
     function syncBanner() {
