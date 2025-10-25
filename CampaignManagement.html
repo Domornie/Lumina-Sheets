@@ -1,23 +1,34 @@
-    <?!= includeOnce('ResponsiveStyles') ?>
 <!DOCTYPE html>
 <html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Campaign Management</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <?!= includeOnce('ResponsiveStyles') ?>
 
-  <style>
+    <style>
     :root {
       --primary: #2563eb;
       --primary-dark: #1e40af;
+      --primary-soft: rgba(37, 99, 235, .1);
+      --accent: #8b5cf6;
       --success: #10b981;
       --warning: #f59e0b;
       --danger: #dc2626;
 
       --surface: #ffffff;
       --surface-variant: #f8fafc;
+      --surface-glass: rgba(255, 255, 255, .75);
       --text: #0f172a;
       --text-muted: #64748b;
       --border: #e2e8f0;
 
       --shadow: 0 1px 3px rgba(2, 8, 23, .06), 0 1px 2px rgba(2, 8, 23, .08);
-      --shadow-lg: 0 10px 15px rgba(2, 8, 23, .08), 0 4px 6px rgba(2, 8, 23, .06);
+      --shadow-lg: 0 20px 45px rgba(15, 23, 42, .12);
     }
 
     @media (prefers-color-scheme: dark) {
@@ -40,50 +51,72 @@
 
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: var(--surface-variant);
+      background: radial-gradient(circle at top left, rgba(139, 92, 246, .18), transparent 45%),
+        radial-gradient(circle at 20% 80%, rgba(37, 99, 235, .12), transparent 55%),
+        var(--surface-variant);
       color: var(--text);
       line-height: 1.6;
     }
 
     .container {
-      max-width: 1400px;
-      margin: 0 auto;
-      padding: 1.5rem;
+      width: 100%;
+      max-width: none;
+      margin: 0;
+      padding: 2rem clamp(1rem, 2vw, 1.75rem) 3rem;
+      position: relative;
     }
 
-    .header {
-      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
-      color: #fff;
-      padding: 2rem;
+    .container::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at top right, rgba(14, 165, 233, .18), transparent 40%);
+      z-index: -1;
+      filter: blur(60px);
+      opacity: .8;
+    }
+
+    .campaign-surface {
+      background: var(--surface);
       border-radius: 1rem;
-      margin-bottom: 2rem;
-      box-shadow: var(--shadow-lg);
+      padding: 1.5rem;
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
     }
 
-    .header h1 {
-      font-size: 2rem;
-      margin-bottom: .5rem;
+    .campaign-header {
       display: flex;
-      align-items: center;
+      flex-wrap: wrap;
       gap: 1rem;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 1.5rem;
     }
 
-    .header p {
-      opacity: .9;
-      font-size: 1rem;
+    .campaign-header h1 {
+      font-size: 1.75rem;
+      font-weight: 600;
+      letter-spacing: -.01em;
     }
 
-    .layout {
-      display: grid;
-      grid-template-columns: 1fr 320px;
-      gap: 2rem;
-      align-items: start;
+    .campaign-header p {
+      color: var(--text-muted);
+      margin-top: .25rem;
+      font-size: .95rem;
+      max-width: 520px;
     }
 
-    @media (max-width:1024px) {
-      .layout {
-        grid-template-columns: 1fr;
-      }
+    .campaign-header__text {
+      display: flex;
+      flex-direction: column;
+      gap: .25rem;
+    }
+
+    .campaign-header__actions {
+      display: flex;
+      gap: .75rem;
+      flex-wrap: wrap;
+      align-items: center;
     }
 
     .card {
@@ -113,30 +146,58 @@
 
     .stats {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 1rem;
-      margin-bottom: 2rem;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1.25rem;
+      margin-bottom: 2.5rem;
     }
 
     .stat-card {
-      background: var(--surface);
+      position: relative;
+      background: var(--surface-glass);
       padding: 1.5rem;
-      border-radius: .75rem;
-      text-align: center;
-      box-shadow: var(--shadow);
-      border: 1px solid var(--border);
+      border-radius: 1rem;
+      overflow: hidden;
+      border: 1px solid rgba(148, 163, 184, .25);
+      backdrop-filter: blur(12px);
+      box-shadow: 0 18px 35px rgba(15, 23, 42, .08);
+    }
+
+    .stat-card::after {
+      content: '';
+      position: absolute;
+      inset: auto -30% -40% 40%;
+      height: 120%;
+      background: linear-gradient(120deg, rgba(37, 99, 235, .15), rgba(139, 92, 246, .05));
+      transform: rotate(12deg);
+      pointer-events: none;
+    }
+
+    .stat-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 42px;
+      height: 42px;
+      border-radius: 14px;
+      background: rgba(37, 99, 235, .12);
+      color: var(--primary);
+      margin-bottom: 1rem;
+      font-size: 1.15rem;
     }
 
     .stat-number {
-      font-size: 2rem;
-      font-weight: bold;
-      color: var(--primary);
-      margin-bottom: .5rem;
+      font-size: 2.25rem;
+      font-weight: 700;
+      letter-spacing: -.02em;
+      color: var(--text);
+      margin-bottom: .35rem;
     }
 
     .stat-label {
       color: var(--text-muted);
-      font-size: .875rem;
+      font-size: .85rem;
+      text-transform: uppercase;
+      letter-spacing: .08em;
     }
 
     .btn {
@@ -191,6 +252,253 @@
       color: #fff;
     }
 
+    .btn-hero {
+      background: #fff;
+      color: var(--primary);
+      font-weight: 600;
+      box-shadow: 0 10px 25px rgba(15, 23, 42, .15);
+    }
+
+    .btn-hero:hover {
+      color: #1d4ed8;
+      transform: translateY(-2px);
+    }
+
+    .campaign-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      align-items: center;
+      margin-bottom: 1.5rem;
+    }
+
+    .search-field {
+      display: flex;
+      align-items: center;
+      gap: .75rem;
+      flex: 1;
+      min-width: 220px;
+      background: var(--surface-variant);
+      padding: .75rem 1rem;
+      border-radius: .75rem;
+      border: 1px solid var(--border);
+      transition: all .2s ease;
+    }
+
+    .search-field:focus-within {
+      border-color: rgba(37, 99, 235, .45);
+      box-shadow: 0 0 0 4px rgba(37, 99, 235, .12);
+      background: #fff;
+    }
+
+    .search-field input {
+      border: none;
+      background: transparent;
+      flex: 1;
+      font-size: .95rem;
+      outline: none;
+    }
+
+    .campaign-filters {
+      display: inline-flex;
+      gap: .5rem;
+      flex-wrap: wrap;
+    }
+
+    .filter-chip {
+      border: 1px solid var(--border);
+      background: #fff;
+      color: var(--text-muted);
+      border-radius: 999px;
+      padding: .45rem .95rem;
+      font-size: .8rem;
+      font-weight: 600;
+      letter-spacing: .02em;
+      cursor: pointer;
+      transition: all .2s ease;
+    }
+
+    .filter-chip.active {
+      background: rgba(37, 99, 235, .12);
+      border-color: rgba(37, 99, 235, .35);
+      color: var(--primary);
+      box-shadow: 0 8px 18px rgba(37, 99, 235, .15);
+    }
+
+    .campaign-list {
+      display: grid;
+      gap: 1.5rem;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    }
+
+    .campaign-card {
+      background: #fff;
+      border-radius: 1.25rem;
+      padding: 1.75rem;
+      border: 1px solid rgba(226, 232, 240, .9);
+      box-shadow: 0 25px 50px -12px rgba(15, 23, 42, .18);
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+      transition: transform .25s ease, box-shadow .25s ease;
+    }
+
+    .campaign-card:hover {
+      transform: translateY(-6px);
+      box-shadow: 0 30px 60px -20px rgba(37, 99, 235, .35);
+    }
+
+    .campaign-card__header {
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      align-items: flex-start;
+    }
+
+    .campaign-card__title {
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+    }
+
+    .campaign-icon {
+      width: 54px;
+      height: 54px;
+      border-radius: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(37, 99, 235, .12);
+      color: var(--primary);
+      font-size: 1.4rem;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .4);
+    }
+
+    .campaign-card__meta {
+      color: var(--text-muted);
+      font-size: .85rem;
+    }
+
+    .campaign-card__meta span {
+      margin-right: .75rem;
+      display: inline-flex;
+      align-items: center;
+      gap: .35rem;
+    }
+
+    .campaign-card__description {
+      color: var(--text-muted);
+      font-size: .95rem;
+      line-height: 1.7;
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: .4rem;
+      padding: .4rem .9rem;
+      border-radius: 999px;
+      font-size: .75rem;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    .status-badge i {
+      font-size: .55rem;
+    }
+
+    .status-active {
+      background: rgba(16, 185, 129, .12);
+      color: #047857;
+    }
+
+    .status-paused {
+      background: rgba(245, 158, 11, .18);
+      color: #92400e;
+    }
+
+    .status-archived,
+    .status-inactive {
+      background: rgba(148, 163, 184, .16);
+      color: #475569;
+    }
+
+    .status-draft {
+      background: rgba(37, 99, 235, .14);
+      color: var(--primary);
+    }
+
+    .campaign-card__stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 1rem;
+    }
+
+    .campaign-stat {
+      display: flex;
+      gap: .75rem;
+      align-items: center;
+      padding: .9rem 1rem;
+      border-radius: .9rem;
+      background: var(--surface-variant);
+      border: 1px solid rgba(226, 232, 240, .7);
+    }
+
+    .campaign-stat i {
+      width: 36px;
+      height: 36px;
+      border-radius: 12px;
+      background: rgba(37, 99, 235, .15);
+      color: var(--primary);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1rem;
+    }
+
+    .campaign-stat .stat-value {
+      font-weight: 700;
+      font-size: 1.05rem;
+      color: var(--text);
+    }
+
+    .campaign-stat .stat-label {
+      font-size: .75rem;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: var(--text-muted);
+    }
+
+    .campaign-progress {
+      display: flex;
+      flex-direction: column;
+      gap: .6rem;
+    }
+
+    .progress-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: .8rem;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: var(--text-muted);
+    }
+
+    .progress-track {
+      height: 8px;
+      border-radius: 999px;
+      background: var(--surface-variant);
+      overflow: hidden;
+    }
+
+    .progress-value {
+      height: 100%;
+      background: linear-gradient(90deg, var(--primary), var(--accent));
+      border-radius: inherit;
+      transition: width .3s ease;
+    }
+
     .form-group {
       margin-bottom: 1rem;
     }
@@ -227,38 +535,11 @@
       flex: 1;
     }
 
-    .campaign-list {
-      max-height: 600px;
-      overflow-y: auto;
-    }
-
-    .campaign-item {
+    .campaign-card__actions {
       display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 1rem;
-      border-bottom: 1px solid var(--border);
-      transition: background-color .2s ease;
-    }
-
-    .campaign-item:hover {
-      background: var(--surface-variant);
-    }
-
-    .campaign-info h4 {
-      margin: 0 0 .25rem 0;
-      color: var(--text);
-      font-size: 1.1rem;
-    }
-
-    .campaign-meta {
-      color: var(--text-muted);
-      font-size: .875rem;
-    }
-
-    .campaign-actions {
-      display: flex;
+      flex-wrap: wrap;
       gap: .5rem;
+      justify-content: flex-end;
     }
 
     .page-management {
@@ -410,6 +691,11 @@
       overflow-y: auto;
     }
 
+    .modal-content.modal-wide {
+      max-width: 1100px;
+      width: 95%;
+    }
+
     .modal-header {
       display: flex;
       justify-content: space-between;
@@ -417,6 +703,19 @@
       margin-bottom: 1.5rem;
       padding-bottom: 1rem;
       border-bottom: 2px solid var(--surface-variant);
+    }
+
+    .modal-header__actions {
+      display: flex;
+      gap: .5rem;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .modal-subtitle {
+      font-size: .875rem;
+      color: var(--text-muted);
+      margin-top: .25rem;
     }
 
     .fa-guide-modal .modal-content {
@@ -593,6 +892,22 @@
       font-size: .75rem;
     }
 
+    .utility-actions {
+      display: flex;
+      flex-direction: column;
+      gap: .75rem;
+    }
+
+    .system-meta {
+      margin-top: 1.5rem;
+      font-size: .875rem;
+      color: var(--text-muted);
+    }
+
+    .system-meta p {
+      margin-bottom: .25rem;
+    }
+
     .category-badge {
       display: inline-block;
       padding: .25rem .75rem;
@@ -613,6 +928,33 @@
     }
 
     @media (max-width:768px) {
+      .campaign-header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .campaign-header__actions {
+        width: 100%;
+        justify-content: flex-start;
+      }
+
+      .campaign-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .campaign-card__actions {
+        justify-content: flex-start;
+      }
+
+      .campaign-card__meta span {
+        margin-right: .5rem;
+      }
+
+      .campaign-card__stats {
+        grid-template-columns: 1fr;
+      }
+
       .fa-guide-grid {
         grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
       }
@@ -623,136 +965,154 @@
       }
     }
 
-  </style>
+    </style>
+  </head>
+  <body>
 
-  <?!= include("layout", {
-        baseUrl: baseUrl,
-        scriptUrl: scriptUrl,
-        user: user,
-        currentPage: currentPage || 'managecampaign',
-        pageTitle: 'Campaign Management',
-        pageDescription: 'Manage campaigns, organize pages, and control access permissions.'
-      }) ?>
+    <?!= include('layout', {
+          baseUrl: baseUrl || '',
+          scriptUrl: scriptUrl,
+          user: user || {},
+          currentPage: currentPage || 'managecampaign',
+          pageTitle: 'Campaign Management',
+          pageDescription: 'Manage campaigns, organize pages, and control access permissions.'
+        }) ?>
 
-  <div class="container">
-    <div id="alertContainer" aria-live="polite" aria-atomic="true"></div>
-    <div class="stats">
-      <div class="stat-card">
-        <div class="stat-number" id="totalCampaigns">-</div>
-        <div class="stat-label">Total Campaigns</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-number" id="totalUsers">-</div>
-        <div class="stat-label">Active Users</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-number" id="totalPages">-</div>
-        <div class="stat-label">Available Pages</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-number" id="totalAssignments">-</div>
-        <div class="stat-label">Assigned Pages</div>
+    <div class="container">
+      <div id="alertContainer" aria-live="polite" aria-atomic="true"></div>
+      <div class="campaign-surface">
+        <div class="campaign-header">
+          <div class="campaign-header__text">
+            <h1>Campaign Control Center</h1>
+            <p>Manage every campaign from a single streamlined view that stays aligned with the global navigation.</p>
+          </div>
+          <div class="campaign-header__actions">
+            <button class="btn btn-hero" onclick="openNewCampaignModal()"><i class="fas fa-plus"></i> New Campaign</button>
+            <button class="btn btn-secondary" onclick="openSystemActionsModal()"><i class="fas fa-sliders-h"></i> System Actions</button>
+            <button class="btn btn-primary" onclick="refreshData()"><i class="fas fa-sync-alt"></i> Refresh</button>
+          </div>
+        </div>
+
+        <div class="campaign-toolbar">
+          <label class="search-field">
+            <i class="fas fa-search"></i>
+            <input type="search" id="campaignSearch" placeholder="Search campaigns or descriptions..." autocomplete="off">
+          </label>
+          <div class="campaign-filters" id="campaignFilters">
+            <button type="button" class="filter-chip active" data-filter="all">All</button>
+            <button type="button" class="filter-chip" data-filter="active">Active</button>
+            <button type="button" class="filter-chip" data-filter="paused">Paused</button>
+            <button type="button" class="filter-chip" data-filter="archived">Archived</button>
+          </div>
+        </div>
+
+        <div class="loading" id="campaignsLoading"><i class="fas fa-spinner"></i>
+          <p>Loading campaigns...</p>
+        </div>
+    <div class="campaign-list" id="campaignsList"></div>
       </div>
     </div>
 
-    <div class="layout">
-      <div class="main-content">
-        <div class="card">
-          <div class="card-header">
-            <h2 class="card-title"><i class="fas fa-list"></i> Campaigns</h2>
-            <div data-banner-source>
-              <button class="btn btn-primary" onclick="refreshData()"><i class="fas fa-sync-alt"></i> Refresh</button>
-            </div>
-          </div>
-          <div class="loading" id="campaignsLoading"><i class="fas fa-spinner"></i>
-            <p>Loading campaigns...</p>
-          </div>
-          <div class="campaign-list" id="campaignsList"></div>
+  <!-- New Campaign Modal -->
+  <div id="newCampaignModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="newCampaignTitle">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="newCampaignTitle">Create Campaign</h3>
+        <button type="button" class="btn-close" onclick="closeNewCampaignModal()" aria-label="Close dialog"></button>
+      </div>
+      <form id="campaignForm" novalidate>
+        <div class="form-group">
+          <label for="campaignName" class="form-label"><i class="fas fa-tag"></i> Campaign Name</label>
+          <input type="text" id="campaignName" class="form-control" placeholder="e.g. Customer Support Team" required>
         </div>
+        <div class="form-group">
+          <label for="campaignDescription" class="form-label"><i class="fas fa-align-left"></i> Description</label>
+          <textarea id="campaignDescription" class="form-control" rows="3" placeholder="Brief description of this campaign..."></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary" style="width:100%;"><i class="fas fa-plus"></i> Create Campaign</button>
+      </form>
+    </div>
+  </div>
 
-        <div class="page-management card" id="pageManagement">
-          <div class="card-header">
-            <h2 class="card-title"><i class="fas fa-cogs"></i> Page Management -
-              <span id="selectedCampaignName">Campaign</span>
-            </h2>
-            <div data-banner-source>
-              <button class="btn btn-success" onclick="autoFixCategories()"><i class="fas fa-magic"></i> Auto-Fix</button>
-              <button class="btn btn-primary" onclick="closePageManagement()"><i class="fas fa-times"></i> Close</button>
-            </div>
-          </div>
+  <!-- Edit Campaign Modal -->
+  <div id="editCampaignModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="editCampaignTitle">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div>
+          <h3 id="editCampaignTitle">Edit Campaign</h3>
+          <p class="modal-subtitle">Updating <span id="editCampaignNameLabel">Campaign</span></p>
+        </div>
+        <button type="button" class="btn-close" onclick="closeEditCampaignModal()" aria-label="Close dialog"></button>
+      </div>
+      <form id="editCampaignForm" novalidate>
+        <div class="form-group">
+          <label for="editCampaignName" class="form-label"><i class="fas fa-tag"></i> Campaign Name</label>
+          <input type="text" id="editCampaignName" class="form-control" required>
+        </div>
+        <div class="form-group">
+          <label for="editCampaignDescription" class="form-label"><i class="fas fa-align-left"></i> Description</label>
+          <textarea id="editCampaignDescription" class="form-control" rows="3"></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary" style="width:100%;"><i class="fas fa-save"></i> Save Changes</button>
+      </form>
+    </div>
+  </div>
 
-          <div class="tabs">
-            <button class="tab active" onclick="switchTab(event, 'categories')"><i class="fas fa-folder"></i> Categories</button>
-            <button class="tab" onclick="switchTab(event, 'pages')"><i class="fas fa-file"></i> Pages</button>
-          </div>
+  <!-- System Actions Modal -->
+  <div id="systemActionsModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="systemActionsTitle">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="systemActionsTitle">System Actions</h3>
+        <button type="button" class="btn-close" onclick="closeSystemActionsModal()" aria-label="Close dialog"></button>
+      </div>
+      <div class="utility-actions">
+        <button class="btn btn-primary" onclick="testConnection()" style="width:100%;"><i class="fas fa-plug"></i> Test Connection</button>
+        <button class="btn btn-warning" onclick="debugCurrentCampaign()" style="width:100%;"><i class="fas fa-bug"></i> Debug Campaign</button>
+        <button class="btn btn-danger" onclick="clearAllCaches()" style="width:100%;"><i class="fas fa-trash"></i> Clear Caches</button>
+      </div>
+      <div class="system-meta">
+        <p><strong>Last Refresh:</strong> <span id="lastUpdate">-</span></p>
+        <p><strong>Active User:</strong> <?= user.FullName || user.UserName || 'Unknown' ?></p>
+        <p><strong>Role:</strong> <?= user.IsAdmin ? 'Administrator' : 'User' ?></p>
+      </div>
+      <div id="debugData" class="debug-panel" style="display:none; margin-top:1.5rem;">
+        <strong>Debug Information:</strong><br>
+        <div id="debugContent"></div>
+      </div>
+    </div>
+  </div>
 
-          <div id="categoriesTab" class="tab-content active">
-            <div class="card-header">
-              <h5>Navigation Categories</h5>
-              <div data-banner-source>
-                <button class="btn btn-sm btn-primary" onclick="showAddCategoryModal()"><i class="fas fa-plus"></i> Add Category</button>
-              </div>
-            </div>
-            <div class="categories-grid" id="categoriesList"></div>
-          </div>
-
-          <div id="pagesTab" class="tab-content">
-            <div class="card-header">
-              <h5>Campaign Pages</h5>
-              <div data-banner-source>
-                <button class="btn btn-sm btn-primary" onclick="showAddPageModal()"><i class="fas fa-plus"></i> Add Page</button>
-              </div>
-            </div>
-            <div id="pagesList"></div>
-          </div>
+  <!-- Page Management Modal -->
+  <div id="pageManagementModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="pageManagementTitle">
+    <div class="modal-content modal-wide">
+      <div class="modal-header">
+        <div>
+          <h3 id="pageManagementTitle">Page Management</h3>
+          <p class="modal-subtitle">Active campaign: <span id="selectedCampaignName">Campaign</span></p>
+        </div>
+        <div class="modal-header__actions">
+          <button class="btn btn-success" onclick="autoFixCategories()"><i class="fas fa-magic"></i> Auto-Fix</button>
+          <button class="btn btn-primary" onclick="closePageManagement()"><i class="fas fa-times"></i> Close</button>
         </div>
       </div>
 
-      <div class="sidebar">
-        <div class="card pb-1 mb-2">
-          <div class="card-header">
-            <h3 class="card-title"><i class="fas fa-bolt"></i> Quick Actions</h3>
-          </div>
-          <form id="campaignForm" novalidate>
-            <div class="form-group">
-              <label for="campaignName" class="form-label"><i class="fas fa-tag"></i> Campaign Name</label>
-              <input type="text" id="campaignName" class="form-control" placeholder="e.g. Customer Support Team" required>
-            </div>
-            <div class="form-group">
-              <label for="campaignDescription" class="form-label"><i class="fas fa-align-left"></i> Description</label>
-              <textarea id="campaignDescription" class="form-control" rows="3" placeholder="Brief description of this campaign..."></textarea>
-            </div>
-            <button type="submit" class="btn btn-primary" style="width:100%;"><i class="fas fa-plus"></i> Create Campaign</button>
-          </form>
+      <div class="tabs">
+        <button class="tab active" onclick="switchTab(event, 'categories')"><i class="fas fa-folder"></i> Categories</button>
+        <button class="tab" onclick="switchTab(event, 'pages')"><i class="fas fa-file"></i> Pages</button>
+      </div>
+
+      <div class="tab-content active" id="categoriesTab">
+        <div class="tab-toolbar">
+          <button class="btn btn-primary" onclick="showAddCategoryModal()"><i class="fas fa-plus"></i> Add Category</button>
         </div>
+        <div id="categoriesList" class="categories-grid"></div>
+      </div>
 
-        <div class="card pt-2 mt-2">
-          <div class="card-header">
-            <h3 class="card-title"><i class="fas fa-info-circle"></i> System Status</h3>
-          </div>
-          <div id="systemStatus">
-            <p><strong>Last Updated:</strong> <span id="lastUpdate">-</span></p>
-            <p><strong>User:</strong>
-              <?= user.FullName || user.UserName || 'Unknown' ?>
-            </p>
-            <p><strong>Role:</strong>
-              <?= user.IsAdmin ? 'Administrator' : 'User' ?>
-            </p>
-          </div>
-
-          <div style="margin-top:1.5rem; padding-top:1rem; border-top:1px solid var(--border);">
-            <div class="debug-controls" style="display:flex; flex-direction:column; gap:.5rem;">
-              <button class="btn btn-sm btn-primary" onclick="testConnection()" style="width:100%;"><i class="fas fa-plug"></i> Test Connection</button>
-              <button class="btn btn-sm btn-warning" onclick="debugCurrentCampaign()" style="width:100%;"><i class="fas fa-bug"></i> Debug Campaign</button>
-              <button class="btn btn-sm btn-danger" onclick="clearAllCaches()" style="width:100%;"><i class="fas fa-trash"></i> Clear Caches</button>
-            </div>
-
-            <div id="debugData" class="debug-panel" style="display:none;">
-              <strong>Debug Information:</strong><br>
-              <div id="debugContent"></div>
-            </div>
-          </div>
+      <div class="tab-content" id="pagesTab">
+        <div class="tab-toolbar">
+          <button class="btn btn-primary" onclick="showAddPageModal()"><i class="fas fa-plus"></i> Add Page</button>
         </div>
+        <div id="pagesList"></div>
       </div>
     </div>
   </div>
@@ -904,11 +1264,14 @@
 
   let campaigns = [];
   let selectedCampaign = null;
+  let editingCampaignId = null;
   let availablePages = [];
   let campaignCategories = [];
   let campaignPages = [];
   let stats = [];
   let currentTargetInput = null;
+  let campaignSearchTerm = '';
+  let campaignStatusFilter = 'all';
 
   const iconData = {
     business:[{name:'Home',class:'fas fa-home'},{name:'Building',class:'fas fa-building'},{name:'Industry',class:'fas fa-industry'},{name:'Store',class:'fas fa-store'},{name:'Briefcase',class:'fas fa-briefcase'},{name:'Handshake',class:'fas fa-handshake'},{name:'Chart Pie',class:'fas fa-chart-pie'},{name:'Sitemap',class:'fas fa-sitemap'}],
@@ -950,9 +1313,21 @@
     document.getElementById('campaignForm').addEventListener('submit', handleCampaignSubmit);
     document.getElementById('categoryForm').addEventListener('submit', handleCategorySubmit);
     document.getElementById('pageForm').addEventListener('submit', handlePageSubmit);
+    document.getElementById('editCampaignForm').addEventListener('submit', handleEditCampaignSubmit);
     document.getElementById('pageKey').addEventListener('change', handlePageKeyChange);
     document.getElementById('faSearchBox').addEventListener('input', filterFAIcons);
-    window.addEventListener('keydown', (e)=>{ if(e.key==='Escape'){ document.querySelectorAll('.modal.show').forEach(m=>m.classList.remove('show')); }});
+    const searchInput = document.getElementById('campaignSearch');
+    if (searchInput) searchInput.addEventListener('input', handleCampaignSearch);
+    const filtersContainer = document.getElementById('campaignFilters');
+    if (filtersContainer) filtersContainer.addEventListener('click', handleCampaignFilterClick);
+    window.addEventListener('keydown', (e)=>{
+      if(e.key==='Escape'){
+        document.querySelectorAll('.modal.show').forEach(m=>{
+          if(m.id==='fontAwesomeGuideModal') closeFontAwesomeGuide();
+          else closeModal(m.id);
+        });
+      }
+    });
   }
 
   function initializeFontAwesomeGuide(){ populateFAIcons(); }
@@ -1065,12 +1440,82 @@
   }
 
   function updateStatistics(){
+    const totalCampaignsEl = document.getElementById('totalCampaigns');
+    if (!totalCampaignsEl) return;
     const totalUsers = stats.reduce((s,x)=>s + (x.userCount||0), 0);
     const totalAssign = stats.reduce((s,x)=>s + (x.pageCount||0), 0);
-    document.getElementById('totalCampaigns').textContent = campaigns.length;
-    document.getElementById('totalUsers').textContent = totalUsers;
-    document.getElementById('totalPages').textContent = availablePages.length;
-    document.getElementById('totalAssignments').textContent = totalAssign;
+    totalCampaignsEl.textContent = campaigns.length;
+    const totalUsersEl = document.getElementById('totalUsers');
+    const totalPagesEl = document.getElementById('totalPages');
+    const totalAssignmentsEl = document.getElementById('totalAssignments');
+    if (totalUsersEl) totalUsersEl.textContent = totalUsers;
+    if (totalPagesEl) totalPagesEl.textContent = availablePages.length;
+    if (totalAssignmentsEl) totalAssignmentsEl.textContent = totalAssign;
+  }
+
+  function handleCampaignSearch(event){
+    campaignSearchTerm = String(event.target.value || '').toLowerCase();
+    renderCampaignsList();
+  }
+
+  function handleCampaignFilterClick(event){
+    const chip = event.target.closest('[data-filter]');
+    if (!chip) return;
+    campaignStatusFilter = chip.dataset.filter || 'all';
+    document.querySelectorAll('#campaignFilters .filter-chip').forEach(btn=>{
+      btn.classList.toggle('active', btn.dataset.filter === campaignStatusFilter);
+    });
+    renderCampaignsList();
+  }
+
+  function getCampaignStatus(campaign){
+    if (!campaign) return 'active';
+    if (campaign.isArchived || campaign.archived) return 'archived';
+    if (typeof campaign.isActive === 'boolean') return campaign.isActive ? 'active' : 'paused';
+    const statusFields = ['status', 'Status', 'state', 'State', 'lifecycleState'];
+    for (const field of statusFields) {
+      if (campaign[field]) {
+        const value = String(campaign[field]).toLowerCase();
+        if (value.includes('archive')) return 'archived';
+        if (value.includes('pause') || value.includes('hold')) return 'paused';
+        if (value.includes('draft') || value.includes('plan')) return 'draft';
+        if (value.includes('inactive')) return 'inactive';
+        if (value.includes('active') || value.includes('live') || value.includes('launch')) return 'active';
+        return value.split(/\s+/)[0];
+      }
+    }
+    return 'active';
+  }
+
+  function getStatusLabel(status){
+    const labels = {active:'Active', paused:'Paused', archived:'Archived', draft:'Draft', inactive:'Inactive'};
+    if (labels[status]) return labels[status];
+    return status.charAt(0).toUpperCase() + status.slice(1);
+  }
+
+  function getStatusClass(status){
+    switch (status) {
+      case 'paused': return 'status-paused';
+      case 'archived': return 'status-archived';
+      case 'draft': return 'status-draft';
+      case 'inactive': return 'status-inactive';
+      default: return 'status-active';
+    }
+  }
+
+  function getCampaignIcon(campaign){
+    const possibleFields = ['iconClass', 'icon', 'campaignIcon'];
+    for (const field of possibleFields) {
+      if (campaign[field]) return campaign[field];
+    }
+    return 'fas fa-bullhorn';
+  }
+
+  function getCampaignProgress(stat){
+    const assigned = stat.pageCount || 0;
+    const total = availablePages.length || assigned;
+    if (!total) return 0;
+    return Math.min(100, Math.round((assigned / total) * 100));
   }
 
   function renderCampaignsList(){
@@ -1079,22 +1524,80 @@
       container.innerHTML = `<div class="empty-state"><i class="fas fa-building"></i><h3>No Campaigns Found</h3><p>Create your first campaign using the form on the right.</p></div>`;
       return;
     }
-    container.innerHTML = campaigns.map(c=>{
+    const filtered = campaigns.filter(c=>{
+      const status = getCampaignStatus(c);
+      const matchesFilter = campaignStatusFilter === 'all' || status === campaignStatusFilter;
+      if (!matchesFilter) return false;
+      if (!campaignSearchTerm) return true;
+      const haystack = `${String(c.name || '')} ${String(c.description || '')}`.toLowerCase();
+      return haystack.includes(campaignSearchTerm);
+    });
+
+    if (!filtered.length) {
+      container.innerHTML = `<div class="empty-state"><i class="fas fa-moon"></i><h3>No campaigns match these filters</h3><p>Try adjusting the status filter or clearing your search.</p></div>`;
+      return;
+    }
+
+    container.innerHTML = filtered.map(c=>{
       const stat = stats.find(s=>s.id===c.id) || { userCount:0, pageCount:0 };
       const createdDate = c.createdAt ? new Date(c.createdAt).toLocaleDateString() : '-';
       const description = c.description || '';
+      const status = getCampaignStatus(c);
+      const statusClass = getStatusClass(status);
+      const statusLabel = getStatusLabel(status);
+      const iconClass = getCampaignIcon(c);
+      const progress = getCampaignProgress(stat);
       return `
-        <div class="campaign-item">
-          <div class="campaign-info">
-            <h4>${escapeHtml(c.name)}</h4>
-            <div class="campaign-meta">
-              Created: ${createdDate} | Users: ${stat.userCount} | Pages: ${stat.pageCount}
-              ${description ? `<br><em>${escapeHtml(description)}</em>` : ''}
+        <div class="campaign-card">
+          <div class="campaign-card__header">
+            <div class="campaign-card__title">
+              <div class="campaign-icon"><i class="${iconClass}"></i></div>
+              <div>
+                <h4>${escapeHtml(c.name || 'Untitled Campaign')}</h4>
+                <div class="campaign-card__meta">
+                  <span><i class="fas fa-calendar-alt"></i> ${createdDate}</span>
+                  <span><i class="fas fa-id-card"></i> ${escapeHtml(c.id || 'N/A')}</span>
+                </div>
+              </div>
+            </div>
+            <span class="status-badge ${statusClass}"><i class="fas fa-circle"></i> ${statusLabel}</span>
+          </div>
+          ${description ? `<p class="campaign-card__description">${escapeHtml(description)}</p>` : ''}
+          <div class="campaign-card__stats">
+            <div class="campaign-stat">
+              <i class="fas fa-users"></i>
+              <div>
+                <div class="stat-value">${stat.userCount || 0}</div>
+                <div class="stat-label">Members</div>
+              </div>
+            </div>
+            <div class="campaign-stat">
+              <i class="fas fa-copy"></i>
+              <div>
+                <div class="stat-value">${stat.pageCount || 0}</div>
+                <div class="stat-label">Pages</div>
+              </div>
+            </div>
+            <div class="campaign-stat">
+              <i class="fas fa-percent"></i>
+              <div>
+                <div class="stat-value">${progress}%</div>
+                <div class="stat-label">Coverage</div>
+              </div>
             </div>
           </div>
-          <div class="campaign-actions">
+          <div class="campaign-progress">
+            <div class="progress-label">
+              <span>Content Coverage</span>
+              <span>${progress}%</span>
+            </div>
+            <div class="progress-track">
+              <div class="progress-value" style="width:${progress}%;"></div>
+            </div>
+          </div>
+          <div class="campaign-card__actions">
             <button class="btn btn-sm btn-primary" onclick="manageCampaignPages('${jsq(c.id)}','${jsq(c.name||'')}')"><i class="fas fa-cogs"></i> Manage</button>
-            <button class="btn btn-sm btn-warning" onclick="editCampaign('${jsq(c.id)}')"><i class="fas fa-edit"></i> Edit</button>
+            <button class="btn btn-sm btn-warning" onclick="openEditCampaignModal('${jsq(c.id)}')"><i class="fas fa-edit"></i> Edit</button>
             <button class="btn btn-sm btn-danger" onclick="deleteCampaign('${jsq(c.id)}')"><i class="fas fa-trash"></i> Delete</button>
           </div>
         </div>`;
@@ -1203,21 +1706,21 @@
     try{
       showAlert('info','Creating campaign...');
       const result = await callServerFunction('csCreateCampaign', name, description);
-      if (result && result.success){ showAlert('success', result.message || 'Campaign created successfully'); form.reset(); await refreshData(); }
+      if (result && result.success){ showAlert('success', result.message || 'Campaign created successfully'); form.reset(); closeNewCampaignModal(); await refreshData(); }
       else showAlert('danger', (result && result.error) || 'Failed to create campaign');
     } catch (error) { showAlert('danger','Error creating campaign: ' + (error.message || error)); }
   }
 
-  async function editCampaign(campaignId){
-    const campaign = campaigns.find(c=>c.id===campaignId);
-    if (!campaign) return showAlert('danger','Campaign not found');
-    const newName = prompt('Edit campaign name:', campaign.name);
-    if (!newName || newName.trim() === campaign.name) return;
-    const newDesc = prompt('Edit description:', campaign.description || '') || '';
+  async function handleEditCampaignSubmit(e){
+    e.preventDefault();
+    if (!editingCampaignId) return showAlert('danger','No campaign selected for editing');
+    const name = document.getElementById('editCampaignName').value.trim();
+    const description = document.getElementById('editCampaignDescription').value.trim();
+    if (!name) return showAlert('danger','Campaign name is required');
     try{
       showAlert('info','Updating campaign...');
-      const result = await callServerFunction('csUpdateCampaign', campaignId, newName.trim(), newDesc.trim());
-      if (result && result.success){ showAlert('success', result.message || 'Campaign updated successfully'); await refreshData(); }
+      const result = await callServerFunction('csUpdateCampaign', editingCampaignId, name, description);
+      if (result && result.success){ showAlert('success', result.message || 'Campaign updated successfully'); closeEditCampaignModal(); await refreshData(); }
       else showAlert('danger', (result && result.error) || 'Failed to update campaign');
     } catch (error) { showAlert('danger','Error updating campaign: ' + (error.message || error)); }
   }
@@ -1236,11 +1739,14 @@
 
   async function manageCampaignPages(campaignId, campaignName){
     selectedCampaign = { id: campaignId, name: campaignName };
-    document.getElementById('selectedCampaignName').textContent = campaignName;
-    try{ await loadCampaignData(campaignId); showElement('pageManagement'); document.getElementById('pageManagement').scrollIntoView({behavior:'smooth', block:'start'}); }
+    document.getElementById('selectedCampaignName').textContent = campaignName || 'Campaign';
+    try{
+      openModal('pageManagementModal');
+      await loadCampaignData(campaignId);
+    }
     catch (error){ showAlert('danger','Failed to load campaign data: ' + (error.message || error)); }
   }
-  function closePageManagement(){ hideElement('pageManagement'); selectedCampaign = null; }
+  function closePageManagement(){ closeModal('pageManagementModal'); }
 
   async function handleCategorySubmit(e){
     e.preventDefault();
@@ -1333,10 +1839,41 @@
     if (page){ document.getElementById('pageTitle').value = page.pageTitle || key; document.getElementById('pageIcon').value = page.pageIcon || 'fas fa-file'; }
   }
 
-  function showAddCategoryModal(){ document.getElementById('categoryForm').reset(); document.getElementById('categoryModal').classList.add('show'); }
-  function closeCategoryModal(){ document.getElementById('categoryModal').classList.remove('show'); }
-  function showAddPageModal(){ populatePageModal(); document.getElementById('pageForm').reset(); document.getElementById('pageModal').classList.add('show'); }
-  function closePageModal(){ document.getElementById('pageModal').classList.remove('show'); }
+  function openModal(id){ const modal=document.getElementById(id); if(modal) modal.classList.add('show'); }
+  function closeModal(id){
+    if(id==='fontAwesomeGuideModal'){ closeFontAwesomeGuide(); return; }
+    const modal=document.getElementById(id);
+    if(!modal) return;
+    modal.classList.remove('show');
+    if(id==='editCampaignModal') editingCampaignId = null;
+    if(id==='pageManagementModal') selectedCampaign = null;
+    if(id==='newCampaignModal') document.getElementById('campaignForm').reset();
+    if(id==='categoryModal') document.getElementById('categoryForm').reset();
+    if(id==='pageModal') document.getElementById('pageForm').reset();
+  }
+
+  function openNewCampaignModal(){ document.getElementById('campaignForm').reset(); openModal('newCampaignModal'); setTimeout(()=>document.getElementById('campaignName').focus(), 50); }
+  function closeNewCampaignModal(){ closeModal('newCampaignModal'); }
+
+  function openSystemActionsModal(){ updateDebugInfo(); openModal('systemActionsModal'); }
+  function closeSystemActionsModal(){ closeModal('systemActionsModal'); }
+
+  function openEditCampaignModal(campaignId){
+    const campaign = campaigns.find(c=>c.id===campaignId);
+    if(!campaign) return showAlert('danger','Campaign not found');
+    editingCampaignId = campaignId;
+    document.getElementById('editCampaignName').value = campaign.name || '';
+    document.getElementById('editCampaignDescription').value = campaign.description || '';
+    document.getElementById('editCampaignNameLabel').textContent = campaign.name || 'Untitled Campaign';
+    openModal('editCampaignModal');
+    setTimeout(()=>document.getElementById('editCampaignName').focus(), 50);
+  }
+  function closeEditCampaignModal(){ closeModal('editCampaignModal'); }
+
+  function showAddCategoryModal(){ document.getElementById('categoryForm').reset(); openModal('categoryModal'); }
+  function closeCategoryModal(){ closeModal('categoryModal'); }
+  function showAddPageModal(){ populatePageModal(); document.getElementById('pageForm').reset(); openModal('pageModal'); }
+  function closePageModal(){ closeModal('pageModal'); }
 
   function switchTab(ev, name){
     document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
@@ -1392,7 +1929,7 @@
       const campaignId = selectedCampaign ? selectedCampaign.id : null;
       showAlert('info','Clearing all caches...');
       const result = await callServerFunction('forceClearAllCaches', campaignId);
-      if (result && result.success){ showAlert('success', result.message); if (selectedCampaign) await loadCampaignData(selectedCampaign.id); }
+      if (result && result.success){ showAlert('success', result.message); if (selectedCampaign) await loadCampaignData(selectedCampaign.id); updateDebugInfo(); }
       else showAlert('danger','Failed to clear caches: ' + (result ? result.error : 'Unknown error'));
     } catch (error){ showAlert('danger','Failed to clear caches: ' + (error.message || error)); }
   }
@@ -1405,17 +1942,18 @@
       'Selected Campaign': selectedCampaign ? selectedCampaign.name : 'None',
       'Campaign Categories': campaignCategories.length,
       'Campaign Pages': campaignPages.length,
-      'Last Update': document.getElementById('lastUpdate').textContent,
+      'Last Update': (document.getElementById('lastUpdate') || { textContent: '-' }).textContent,
       'Timestamp': new Date().toLocaleString()
     };
     const debugContent = document.getElementById('debugContent');
-    if (debugContent) {
+    const debugContainer = document.getElementById('debugData');
+    if (debugContent && debugContainer) {
       debugContent.innerHTML = Object.entries(info).map(([k,v])=>`${k}: ${typeof v==='object'? JSON.stringify(v) : v}`).join('<br>');
-      document.getElementById('debugData').style.display = 'block';
+      debugContainer.style.display = 'block';
     }
   }
 
-  function updateLastRefresh(){ document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString(); }
+  function updateLastRefresh(){ const el=document.getElementById('lastUpdate'); if(el) el.textContent = new Date().toLocaleTimeString(); }
 
   function callServerFunction(functionName, ...args){
     return new Promise((resolve, reject)=>{
@@ -1451,9 +1989,14 @@
   function hideElement(id){ const el=document.getElementById(id); if (el) el.style.display='none'; }
   function escapeHtml(text){ const d=document.createElement('div'); d.textContent = text || ''; return d.innerHTML; }
 
-  window.addEventListener('click', (e)=>{ if (e.target.classList.contains('modal')) e.target.classList.remove('show'); });
+  window.addEventListener('click', (e)=>{
+    if (e.target.classList.contains('modal')) {
+      if(e.target.id==='fontAwesomeGuideModal') closeFontAwesomeGuide();
+      else closeModal(e.target.id);
+    }
+  });
   console.log('🎉 Campaign Management V2.0 with Font Awesome Guide (Production) Loaded');
   </script>
-</body>
-
+  </body>
 </html>
+
