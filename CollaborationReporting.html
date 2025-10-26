@@ -47,7 +47,7 @@
     background: var(--page-gradient);
     color: var(--text-primary);
     font-family: 'Plus Jakarta Sans', 'Inter', system-ui, -apple-system, sans-serif;
-    padding-bottom: 6rem;
+    padding-bottom: clamp(9rem, 12vw, 14rem);
   }
 
   body::before {
@@ -507,15 +507,24 @@
   }
 
   .floating-docks {
+    position: fixed;
+    bottom: clamp(1rem, 4vw, 2.5rem);
+    left: 0;
+    right: 0;
     display: flex;
-    flex-wrap: wrap;
-    gap: 1.4rem;
-    justify-content: flex-end;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 1.1rem;
+    padding: 0 clamp(1rem, 4vw, 3rem);
+    pointer-events: none;
+    z-index: 1040;
   }
 
   .floating-bar {
-    flex: 1 1 360px;
+    flex: 0 1 520px;
+    width: min(520px, 100%);
     max-width: 520px;
+    pointer-events: auto;
     transition: transform 0.35s ease, opacity 0.35s ease;
   }
 
@@ -600,6 +609,25 @@
   .floating-panel-body::-webkit-scrollbar-thumb {
     background: var(--border-soft);
     border-radius: 999px;
+  }
+
+  @media (max-width: 992px) {
+    .floating-docks {
+      align-items: stretch;
+    }
+
+    .floating-bar {
+      flex-basis: auto;
+      max-width: none;
+      width: 100%;
+    }
+  }
+
+  @media (max-width: 576px) {
+    .floating-docks {
+      bottom: clamp(0.75rem, 5vw, 1.5rem);
+      padding: 0 0.9rem;
+    }
   }
 
   .persona-chip {
@@ -1218,10 +1246,6 @@
         persona: 'Operations Hub',
         userName: 'Team member',
         campaignsText: 'No campaigns connected',
-        lastUpdatedText: 'Updated —',
-        insights: []
-      },
-      ai: { summary: '', report: [], suggestions: [], notes: [] },
         lastUpdatedText: 'Updated —',
         insights: [
           { key: 'quality', label: 'Quality pulse', value: '—', hint: 'QA average this cycle', icon: 'fa-solid fa-sparkles' },
