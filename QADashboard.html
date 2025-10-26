@@ -1112,6 +1112,10 @@
       <i class="fa-solid fa-rotate"></i>
       <span class="ms-1">Refresh</span>
     </button>
+    <button type="button" class="btn btn-outline-secondary" id="qa-export-matrix" disabled>
+      <i class="fa-solid fa-file-export"></i>
+      <span class="ms-1">Export Matrix</span>
+    </button>
   </div>
 
   <div class="qa-summary-grid mt-4" id="qa-summary-cards">
@@ -1576,6 +1580,7 @@
       period: document.getElementById('qa-period'),
       agent: document.getElementById('qa-agent'),
       refresh: document.getElementById('qa-refresh'),
+      exportMatrix: document.getElementById('qa-export-matrix'),
       summaryCards: dashboardEl.querySelectorAll('[data-metric]'),
       error: document.getElementById('qa-dashboard-error'),
       empty: document.getElementById('qa-empty-state'),
@@ -1729,6 +1734,10 @@
       if (dom.refresh) {
         dom.refresh.disabled = Boolean(isLoading);
       }
+      if (dom.exportMatrix) {
+        dom.exportMatrix.disabled = true;
+        dom.exportMatrix.setAttribute('aria-disabled', 'true');
+      }
     }
 
     function destroyChart(key) {
@@ -1776,6 +1785,166 @@
         return `${names[0]} and ${names[1]}`;
       }
       return `${names.slice(0, -1).join(', ')}, and ${names[names.length - 1]}`;
+    }
+
+    function csvEscape(value) {
+      if (value === null || value === undefined) {
+        return '';
+      }
+      const stringValue = String(value);
+      if (/[",\n\r]/.test(stringValue)) {
+        return `"${stringValue.replace(/"/g, '""')}"`;
+      }
+      return stringValue;
+    }
+
+    function buildAgentMatrixCsv(matrix) {
+      if (!matrix || !Array.isArray(matrix.periods) || !matrix.periods.length) {
+        return '';
+      }
+
+      const agentDisplay = {};
+      (matrix.agents || []).forEach(agent => {
+        if (agent && agent.id) {
+          agentDisplay[agent.id] = agent.label || agent.id;
+        }
+      });
+
+      const rows = [[
+        'Granularity',
+        'Period Key',
+        'Period Label',
+        'Agent Identifier',
+        'Agent Name',
+        'Average Score (%)',
+        'Pass Rate (%)',
+        'Evaluations',
+        'Evaluation Share (%)'
+      ]];
+
+      const allAgents = new Set(Object.keys(agentDisplay));
+      matrix.periods.forEach(period => {
+        if (period && period.metrics) {
+          Object.keys(period.metrics).forEach(key => allAgents.add(key));
+        }
+      });
+
+      const agentOrder = Array.from(allAgents);
+      agentOrder.sort((a, b) => {
+        const nameA = (agentDisplay[a] || a || '').toString().toLowerCase();
+        const nameB = (agentDisplay[b] || b || '').toString().toLowerCase();
+        return nameA.localeCompare(nameB);
+      });
+
+      matrix.periods.forEach(period => {
+        if (!period) {
+          return;
+        }
+        const metrics = period.metrics || {};
+
+        agentOrder.forEach(agentId => {
+          const detail = metrics[agentId] || {};
+          const avgScore = typeof detail.avgScore === 'number' && !Number.isNaN(detail.avgScore)
+            ? detail.avgScore
+            : '';
+          const passRate = typeof detail.passRate === 'number' && !Number.isNaN(detail.passRate)
+            ? detail.passRate
+            : '';
+          const evaluations = typeof detail.evaluations === 'number' && !Number.isNaN(detail.evaluations)
+            ? detail.evaluations
+            : '';
+          const share = typeof detail.evaluationShare === 'number' && !Number.isNaN(detail.evaluationShare)
+            ? detail.evaluationShare
+            : '';
+
+          rows.push([
+            matrix.granularity || '',
+            period.period || '',
+            period.label || '',
+            agentId || '',
+            agentDisplay[agentId] || agentId || 'Unassigned',
+            avgScore,
+            passRate,
+            evaluations,
+            share
+          ]);
+        });
+      });
+
+      return rows
+        .map(row => row.map(csvEscape).join(','))
+        .join('\r\n');
+    }
+
+    function triggerCsvDownload(csv, filename) {
+      if (!csv) {
+        return;
+      }
+
+      if (typeof Blob === 'undefined') {
+        console.warn('Blob API unavailable; unable to download CSV.');
+        return;
+      }
+
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      if (window.navigator && typeof window.navigator.msSaveBlob === 'function') {
+        window.navigator.msSaveBlob(blob, filename);
+        return;
+      }
+
+      if (!window.URL || typeof window.URL.createObjectURL !== 'function') {
+        console.warn('URL.createObjectURL is unavailable; unable to download CSV.');
+        return;
+      }
+
+      const link = document.createElement('a');
+      link.href = window.URL.createObjectURL(blob);
+      link.download = filename;
+      link.style.display = 'none';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => window.URL.revokeObjectURL(link.href), 0);
+    }
+
+    function exportAgentMatrix() {
+      const matrix = state && state.data ? state.data.agentMatrix : null;
+      if (!matrix || !Array.isArray(matrix.periods) || !matrix.periods.length) {
+        console.warn('Agent matrix export requested but no data available.');
+        return;
+      }
+
+      const csv = buildAgentMatrixCsv(matrix);
+      if (!csv) {
+        console.warn('Agent matrix export is empty.');
+        return;
+      }
+
+      const granularity = matrix.granularity || state.filters.granularity || 'period';
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const filename = `qa-agent-matrix-${granularity.toLowerCase()}-${timestamp}.csv`;
+      triggerCsvDownload(csv, filename);
+    }
+
+    function updateExportButton(matrix) {
+      if (!dom.exportMatrix) {
+        return;
+      }
+
+      const hasRows = Boolean(
+        matrix && Array.isArray(matrix.periods) && matrix.periods.some(period => {
+          if (!period || !period.metrics) {
+            return false;
+          }
+          return Object.keys(period.metrics).length > 0;
+        })
+      );
+
+      dom.exportMatrix.disabled = !hasRows;
+      dom.exportMatrix.setAttribute('aria-disabled', hasRows ? 'false' : 'true');
+      dom.exportMatrix.title = hasRows
+        ? 'Download agent performance by period as CSV.'
+        : 'Agent matrix export available once data loads.';
     }
 
     function updateAiSignal(summary) {
@@ -3575,6 +3744,7 @@
       clearError();
       state.data = response;
       state.agentLookup = response.agentNameLookup || {};
+      updateExportButton(response.agentMatrix || null);
 
       if (dom.healthPeriod) {
         const context = response.context || {};
@@ -3635,6 +3805,7 @@
       setLoading(false);
       showError('Unable to reach the QA service. Please try again in a moment.');
       toggleEmptyState(true);
+      updateExportButton(null);
     }
 
     function buildRequest() {
@@ -3653,6 +3824,7 @@
       }
 
       setLoading(true);
+      updateExportButton(null);
       const request = buildRequest();
 
       if (window.google && google.script && google.script.run) {
@@ -3694,6 +3866,15 @@
         dom.agent.addEventListener('change', event => {
           state.filters.agent = event.target.value;
           loadData();
+        });
+      }
+
+      if (dom.exportMatrix) {
+        dom.exportMatrix.addEventListener('click', () => {
+          if (dom.exportMatrix.disabled) {
+            return;
+          }
+          exportAgentMatrix();
         });
       }
 
