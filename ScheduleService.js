@@ -1725,7 +1725,9 @@ function clientGetAllShiftSlots() {
 
     let slots = readScheduleSheet(SHIFT_SLOTS_SHEET) || [];
     if (!slots.length) {
-      createDefaultShiftSlots();
+      if (typeof ensureScheduleSheetWithHeaders === 'function') {
+        ensureScheduleSheetWithHeaders(SHIFT_SLOTS_SHEET, SHIFT_SLOTS_HEADERS);
+      }
       slots = readScheduleSheet(SHIFT_SLOTS_SHEET) || [];
     }
 
