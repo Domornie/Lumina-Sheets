@@ -3130,6 +3130,10 @@
 
       const formData = {};
 
+      if (recordId) {
+        formData.recordId = recordId;
+      }
+
       // Basic information fields
       const agentInfo = getSelectedAgentInfo();
       formData.callerName = document.getElementById('callerName').value || '';

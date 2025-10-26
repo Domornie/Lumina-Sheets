@@ -51,14 +51,47 @@ class QAPdfService {
       // Generate HTML content based on template
       const htmlContent = this.generateHtmlTemplate(qaRecord, scoreResult, config);
 
+      const targetFileName = config.fileName || this.generatePdfFilename(qaRecord);
+
       // Create PDF blob
       const blob = Utilities.newBlob(htmlContent, 'text/html')
         .getAs('application/pdf')
-        .setName(this.generatePdfFilename(qaRecord));
+        .setName(targetFileName);
 
-      // Store in appropriate folder structure
-      const folder = this.getOrCreateQaFolder(qaRecord.AgentName, qaRecord.CallDate);
-      const file = folder.createFile(blob);
+      let file = null;
+      let reusedExisting = false;
+
+      if (config.existingFileId) {
+        try {
+          if (typeof Drive !== 'undefined' && Drive.Files && typeof Drive.Files.update === 'function') {
+            const metadata = { name: targetFileName };
+            const updatedFile = Drive.Files.update(metadata, config.existingFileId, blob);
+            const fileId = updatedFile && updatedFile.id ? updatedFile.id : config.existingFileId;
+            file = DriveApp.getFileById(fileId);
+            reusedExisting = true;
+          }
+        } catch (updateError) {
+          console.warn('Existing PDF update failed, will create new file:', updateError);
+          file = null;
+        }
+      }
+
+      if (!file) {
+        const folder = this.getOrCreateQaFolder(qaRecord.AgentName, qaRecord.CallDate);
+        file = folder.createFile(blob);
+
+        if (config.existingFileId) {
+          try {
+            const oldFile = DriveApp.getFileById(config.existingFileId);
+            oldFile.setTrashed(true);
+          } catch (cleanupError) {
+            console.warn('Unable to remove old PDF file:', cleanupError);
+          }
+        }
+      } else {
+        file.setName(targetFileName);
+      }
+
       file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
 
       return {
@@ -67,7 +100,8 @@ class QAPdfService {
         fileUrl: file.getUrl(),
         fileName: file.getName(),
         template: config.template,
-        generatedAt: new Date().toISOString()
+        generatedAt: new Date().toISOString(),
+        reusedExisting
       };
 
     } catch (error) {
