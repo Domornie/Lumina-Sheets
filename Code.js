@@ -2521,6 +2521,12 @@ function routeToPage(page, e, baseUrl, user, campaignIdFromCaller) {
           return renderAccessDenied('You need manager or supervisor privileges to import attendance data.');
         }
 
+      case 'dynamicforms':
+      case 'dynamic-forms':
+      case 'formresponses':
+      case 'form-responses':
+        return serveCampaignPage('DynamicFormResponses', e, baseUrl, user, campaignIdFromCaller);
+
       default:
         // Unknown page - redirect to dashboard
         const defaultCampaignId = user.CampaignID || '';
@@ -3057,6 +3063,10 @@ function handleTemplateSpecificData(tpl, templateName, e, user, campaignId) {
         handleCallReportsData(tpl, e, user, campaignId);
         break;
 
+      case 'DynamicFormResponses':
+        handleDynamicFormResponsesData(tpl, e, user, campaignId);
+        break;
+
       // Campaign-specific QA forms
       case 'IndependenceQAForm':
       case 'CreditSuiteQAForm':
@@ -3290,6 +3300,63 @@ function handleAttendanceReportsData(tpl, e, user, campaignId) {
     tpl.attendanceDataJSON = tpl.attendanceData;
     tpl.userListJSON = JSON.stringify([]);
     tpl.currentUserJSON = JSON.stringify(user || {}).replace(/<\/script>/g, '<\\/script>');
+  }
+}
+
+function handleDynamicFormResponsesData(tpl, e, user, campaignId) {
+  try {
+    var forms = [];
+    if (typeof listDynamicForms === 'function') {
+      var formQuery = null;
+      if (campaignId) {
+        formQuery = { where: { CampaignID: campaignId } };
+      }
+      var formOptions = formQuery ? { query: formQuery } : {};
+      forms = listDynamicForms(formOptions);
+    }
+
+    var selectedFormId = '';
+    if (e && e.parameter && e.parameter.formId) {
+      selectedFormId = String(e.parameter.formId);
+    }
+
+    if (!selectedFormId && forms && forms.length) {
+      selectedFormId = forms[0].ID || forms[0].Id || forms[0].id || '';
+    }
+
+    var responses = [];
+    if (selectedFormId && typeof listDynamicFormResponsesByForm === 'function') {
+      var responseQuery = { orderBy: 'CreatedAt', orderDesc: true };
+      if (campaignId) {
+        responseQuery.where = { CampaignID: campaignId };
+      }
+      responses = listDynamicFormResponsesByForm(selectedFormId, { query: responseQuery });
+    }
+
+    var userDirectory = [];
+    if (typeof getUsers === 'function') {
+      userDirectory = (getUsers() || []).map(function (entry) {
+        return {
+          id: entry.ID || entry.id || '',
+          name: entry.FullName || entry.name || entry.UserName || '',
+          email: entry.Email || entry.email || ''
+        };
+      });
+    }
+
+    tpl.dynamicFormsJSON = JSON.stringify(forms || []).replace(/<\/script>/g, '<\\/script>');
+    tpl.dynamicFormResponsesJSON = JSON.stringify(responses || []).replace(/<\/script>/g, '<\\/script>');
+    tpl.dynamicFormsSelectedId = selectedFormId || '';
+    tpl.dynamicFormUserDirectoryJSON = JSON.stringify(userDirectory || []).replace(/<\/script>/g, '<\\/script>');
+  } catch (error) {
+    console.error('Error handling dynamic form responses data:', error);
+    if (typeof writeError === 'function') {
+      writeError('handleDynamicFormResponsesData', error);
+    }
+    tpl.dynamicFormsJSON = '[]';
+    tpl.dynamicFormResponsesJSON = '[]';
+    tpl.dynamicFormsSelectedId = '';
+    tpl.dynamicFormUserDirectoryJSON = '[]';
   }
 }
 
@@ -5942,6 +6009,62 @@ function getQAFormUsers(campaignId, requestingUserId) {
 // ───────────────────────────────────────────────────────────────────────────────
 // FINAL INITIALIZATION LOG
 // ───────────────────────────────────────────────────────────────────────────────
+
+// ───────────────────────────────────────────────────────────────────────────────
+// DYNAMIC FORM SERVICE WRAPPERS
+// ───────────────────────────────────────────────────────────────────────────────
+
+function createDynamicForm(formConfig, options) {
+  var context = options && options.context ? options.context : null;
+  if (typeof DynamicFormService === 'undefined' || !DynamicFormService || typeof DynamicFormService.createForm !== 'function') {
+    throw new Error('DynamicFormService is not available.');
+  }
+  return DynamicFormService.createForm(context, formConfig || {});
+}
+
+function getDynamicForm(formId, options) {
+  var context = options && options.context ? options.context : null;
+  if (typeof DynamicFormService === 'undefined' || !DynamicFormService || typeof DynamicFormService.getForm !== 'function') {
+    throw new Error('DynamicFormService is not available.');
+  }
+  return DynamicFormService.getForm(context, formId);
+}
+
+function listDynamicForms(options) {
+  var context = options && options.context ? options.context : null;
+  if (typeof DynamicFormService === 'undefined' || !DynamicFormService || typeof DynamicFormService.listForms !== 'function') {
+    throw new Error('DynamicFormService is not available.');
+  }
+  var query = options && options.query ? options.query : null;
+  return DynamicFormService.listForms(context, query);
+}
+
+function submitDynamicFormResponse(formId, userId, answers, options) {
+  var context = options && options.context ? options.context : null;
+  var metadata = options && options.metadata ? options.metadata : null;
+  if (typeof DynamicFormService === 'undefined' || !DynamicFormService || typeof DynamicFormService.submitFormResponse !== 'function') {
+    throw new Error('DynamicFormService is not available.');
+  }
+  return DynamicFormService.submitFormResponse(context, formId, userId, answers, metadata);
+}
+
+function listDynamicFormResponsesByUser(userId, options) {
+  var context = options && options.context ? options.context : null;
+  var query = options && options.query ? options.query : null;
+  if (typeof DynamicFormService === 'undefined' || !DynamicFormService || typeof DynamicFormService.listResponsesForUser !== 'function') {
+    throw new Error('DynamicFormService is not available.');
+  }
+  return DynamicFormService.listResponsesForUser(context, userId, query);
+}
+
+function listDynamicFormResponsesByForm(formId, options) {
+  var context = options && options.context ? options.context : null;
+  var query = options && options.query ? options.query : null;
+  if (typeof DynamicFormService === 'undefined' || !DynamicFormService || typeof DynamicFormService.listResponsesForForm !== 'function') {
+    throw new Error('DynamicFormService is not available.');
+  }
+  return DynamicFormService.listResponsesForForm(context, formId, query);
+}
 
 console.log('Enhanced Multi-Campaign Code.gs with Simplified Authentication loaded successfully');
 console.log('Features: Token-based authentication, Campaign-aware routing, Enhanced access control');
