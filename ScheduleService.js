@@ -19,6 +19,210 @@ const SCHEDULE_SETTINGS = (typeof getScheduleConfig === 'function')
       CACHE_DURATION: 300
     };
 
+const SCHEDULE_SYSTEM_ACTOR_NAME = (SCHEDULE_SETTINGS && (
+  SCHEDULE_SETTINGS.SYSTEM_ACTOR_NAME
+    || SCHEDULE_SETTINGS.SYSTEM_NAME
+    || SCHEDULE_SETTINGS.SYSTEM_USER_NAME
+)) || 'Lumina Schedule System';
+
+const SCHEDULE_SYSTEM_ACTOR_EMAIL = (SCHEDULE_SETTINGS && (
+  SCHEDULE_SETTINGS.SYSTEM_ACTOR_EMAIL
+    || SCHEDULE_SETTINGS.SYSTEM_EMAIL
+    || SCHEDULE_SETTINGS.SYSTEM_USER_EMAIL
+)) || 'system@lumina-hq.com';
+
+const SCHEDULE_SYSTEM_ACTOR_ALIASES = [
+  'system',
+  'systemuser',
+  'system-user',
+  'system_user',
+  'systemaccount',
+  'system-account',
+  'system scheduler',
+  'schedule-system',
+  'schedule_system',
+  (SCHEDULE_SYSTEM_ACTOR_EMAIL || '').toLowerCase()
+].filter(Boolean);
+
+let scheduleActorDirectory = null;
+let scheduleActorDirectoryBuiltAt = 0;
+const SCHEDULE_ACTOR_DIRECTORY_TTL_MS = 5 * 60 * 1000;
+
+function normalizeActorId(value) {
+  if (typeof normalizeUserIdValue === 'function') {
+    return normalizeUserIdValue(value);
+  }
+  if (value === null || typeof value === 'undefined') {
+    return '';
+  }
+  return String(value).trim();
+}
+
+function formatScheduleActorLabel(name, email) {
+  const normalizedName = name ? String(name).trim() : '';
+  const normalizedEmail = email ? String(email).trim().toLowerCase() : '';
+
+  if (normalizedName && normalizedEmail) {
+    return `${normalizedName} <${normalizedEmail}>`;
+  }
+  if (normalizedEmail) {
+    return normalizedEmail;
+  }
+  if (normalizedName) {
+    return normalizedName;
+  }
+  const fallbackName = SCHEDULE_SYSTEM_ACTOR_NAME || 'Lumina Schedule System';
+  const fallbackEmail = SCHEDULE_SYSTEM_ACTOR_EMAIL || 'system@lumina-hq.com';
+  return `${fallbackName} <${(fallbackEmail || '').toLowerCase()}>`;
+}
+
+function buildScheduleActorDirectory(forceReload = false) {
+  const now = Date.now ? Date.now() : new Date().getTime();
+  if (!forceReload && scheduleActorDirectory && (now - scheduleActorDirectoryBuiltAt) < SCHEDULE_ACTOR_DIRECTORY_TTL_MS) {
+    return scheduleActorDirectory;
+  }
+
+  const directory = {
+    byId: new Map(),
+    byEmail: new Map()
+  };
+
+  try {
+    const users = (typeof readSheet === 'function') ? (readSheet(USERS_SHEET) || []) : [];
+    users.forEach(user => {
+      if (!user || typeof user !== 'object') {
+        return;
+      }
+      const id = normalizeActorId(user.ID || user.Id || user.UserID || user.UserId || user.id || user.userId);
+      const email = (user.Email || user.email || '').toString().trim().toLowerCase();
+      const name = (user.FullName || user.fullName || user.UserName || user.Username || user.Name || '').toString().trim();
+      const record = {
+        id,
+        email,
+        name
+      };
+
+      if (id) {
+        directory.byId.set(id, record);
+      }
+      if (email) {
+        directory.byEmail.set(email, record);
+      }
+    });
+  } catch (error) {
+    console.warn('Unable to build schedule actor directory:', error);
+  }
+
+  scheduleActorDirectory = directory;
+  scheduleActorDirectoryBuiltAt = now;
+  return scheduleActorDirectory;
+}
+
+function resolveScheduleActor(candidate) {
+  const systemEmail = (SCHEDULE_SYSTEM_ACTOR_EMAIL || '').toLowerCase();
+  const systemName = SCHEDULE_SYSTEM_ACTOR_NAME || 'Lumina Schedule System';
+  const systemLabel = formatScheduleActorLabel(systemName, systemEmail);
+  const systemInfo = {
+    id: 'system',
+    email: systemEmail,
+    name: systemName,
+    label: systemLabel,
+    lookupKey: 'system'
+  };
+
+  const directory = buildScheduleActorDirectory(false);
+
+  if (candidate && typeof candidate === 'object') {
+    const candidateId = normalizeActorId(
+      candidate.ID
+        || candidate.Id
+        || candidate.UserID
+        || candidate.UserId
+        || candidate.id
+        || candidate.userId
+    );
+    const candidateEmail = (candidate.Email || candidate.email || '').toString().trim().toLowerCase();
+    const candidateName = (candidate.FullName || candidate.fullName || candidate.Name || candidate.name || candidate.UserName || candidate.Username || candidate.userName || '').toString().trim();
+
+    const directoryRecord = candidateEmail && directory.byEmail ? directory.byEmail.get(candidateEmail) : null;
+    const idRecord = (!directoryRecord && candidateId && directory.byId) ? directory.byId.get(candidateId) : directoryRecord;
+
+    const resolvedEmail = candidateEmail || (directoryRecord && directoryRecord.email) || (idRecord && idRecord.email) || '';
+    const resolvedId = candidateId || (idRecord && idRecord.id) || (directoryRecord && directoryRecord.id) || '';
+    const resolvedName = candidateName || (idRecord && idRecord.name) || (directoryRecord && directoryRecord.name) || '';
+
+    return {
+      id: resolvedId || '',
+      email: resolvedEmail || '',
+      name: resolvedName || '',
+      label: formatScheduleActorLabel(resolvedName || '', resolvedEmail || ''),
+      lookupKey: resolvedId || resolvedEmail || systemInfo.lookupKey
+    };
+  }
+
+  const candidateStr = candidate === null || typeof candidate === 'undefined'
+    ? ''
+    : String(candidate).trim();
+
+  if (!candidateStr) {
+    return systemInfo;
+  }
+
+  const lowerCandidate = candidateStr.toLowerCase();
+  if (SCHEDULE_SYSTEM_ACTOR_ALIASES.includes(lowerCandidate)) {
+    return systemInfo;
+  }
+
+  let resolvedId = '';
+  let resolvedEmail = '';
+  let resolvedName = '';
+
+  if (candidateStr.includes('<') && candidateStr.includes('>')) {
+    const emailMatch = candidateStr.match(/<([^>]+)>/);
+    if (emailMatch && emailMatch[1]) {
+      resolvedEmail = emailMatch[1].trim().toLowerCase();
+    }
+    const namePart = candidateStr.replace(/<[^>]+>/g, '').trim();
+    if (namePart) {
+      resolvedName = namePart;
+    }
+  }
+
+  if (!resolvedEmail && candidateStr.includes('@')) {
+    resolvedEmail = candidateStr.toLowerCase();
+  }
+
+  resolvedId = normalizeActorId(candidateStr);
+
+  if (!resolvedName && !candidateStr.includes('@') && !candidateStr.includes('<')) {
+    resolvedName = candidateStr;
+  }
+
+  if (resolvedEmail && directory.byEmail && directory.byEmail.has(resolvedEmail)) {
+    const record = directory.byEmail.get(resolvedEmail);
+    resolvedId = resolvedId || (record && record.id) || '';
+    resolvedName = resolvedName || (record && record.name) || '';
+  }
+
+  if (resolvedId && directory.byId && directory.byId.has(resolvedId)) {
+    const record = directory.byId.get(resolvedId);
+    resolvedEmail = resolvedEmail || (record && record.email) || '';
+    resolvedName = resolvedName || (record && record.name) || '';
+  }
+
+  if (!resolvedName && !resolvedEmail) {
+    return systemInfo;
+  }
+
+  return {
+    id: resolvedId || '',
+    email: resolvedEmail || '',
+    name: resolvedName || '',
+    label: formatScheduleActorLabel(resolvedName || '', resolvedEmail || ''),
+    lookupKey: resolvedId || resolvedEmail || systemInfo.lookupKey
+  };
+}
+
 const DEFAULT_SCHEDULE_TIME_ZONE = (typeof Session !== 'undefined' && typeof Session.getScriptTimeZone === 'function')
   ? Session.getScriptTimeZone()
   : 'UTC';
@@ -224,15 +428,17 @@ function writeShiftAssignments(assignments, actorId, notes, statusOverride) {
 
   const sheet = ensureShiftAssignmentsSheet();
   const now = new Date();
-  const actor = actorId || (typeof getCurrentUser === 'function' ? getCurrentUser()?.Email : 'System');
+  const actorCandidate = actorId || (typeof getCurrentUser === 'function' ? getCurrentUser() : null);
+  const actorInfo = resolveScheduleActor(actorCandidate);
+  const actorLabel = actorInfo.label;
 
   const rows = assignments.map(assignment => {
     const normalized = Object.assign({}, assignment);
     normalized.AssignmentId = normalized.AssignmentId || Utilities.getUuid();
     normalized.CreatedAt = normalized.CreatedAt || now;
-    normalized.CreatedBy = normalized.CreatedBy || actor;
+    normalized.CreatedBy = normalized.CreatedBy || actorLabel;
     normalized.UpdatedAt = now;
-    normalized.UpdatedBy = actor;
+    normalized.UpdatedBy = actorLabel;
     if (statusOverride) {
       normalized.Status = statusOverride;
     } else {
@@ -1172,7 +1378,8 @@ function clientCreateShiftSlot(slotData) {
     const existingSlots = readScheduleSheet(SHIFT_SLOTS_SHEET) || [];
 
     const actor = typeof getCurrentUser === 'function' ? getCurrentUser() : null;
-    const actorName = actor && (actor.Email || actor.UserName || actor.name) || 'System';
+    const actorInfo = resolveScheduleActor(actor);
+    const actorLabel = actorInfo.label;
     const now = new Date();
 
     const slotId = Utilities.getUuid();
@@ -1215,12 +1422,12 @@ function clientCreateShiftSlot(slotData) {
       Department: campaign,
       Location: slotData.location || slotData.Location || 'Office',
       Description: slotData.description || '',
-      CreatedBy: actorName,
+      CreatedBy: actorLabel,
       Notes: slotData.notes || '',
       Status: 'Active',
       CreatedAt: now,
       UpdatedAt: now,
-      UpdatedBy: actorName,
+      UpdatedBy: actorLabel,
       // compatibility aliases
       SlotId: slotId,
       SlotName: slotName,
@@ -2207,6 +2414,9 @@ function clientGenerateSchedulesEnhanced(startDate, endDate, userNames, shiftSlo
     }
 
     const campaignId = normalizeCampaignIdValue(options.campaignId || '');
+    const actorInfo = resolveScheduleActor(generatedBy || null);
+    const actorLabel = actorInfo.label;
+    const actorLookupKey = actorInfo.lookupKey || 'system';
     const detectConflicts = options.detectConflicts !== false;
     const includeHolidays = options.includeHolidays !== false;
     const advancedOptions = options.advanced || {};
@@ -2240,7 +2450,7 @@ function clientGenerateSchedulesEnhanced(startDate, endDate, userNames, shiftSlo
     }
 
     const slotMap = new Map(selectedSlots.map(slot => [slot.SlotId, slot]));
-    const scheduleUsers = clientGetScheduleUsers(generatedBy || 'system', campaignId || null);
+    const scheduleUsers = clientGetScheduleUsers(actorLookupKey || 'system', campaignId || null);
     const userKeyMap = new Map();
     const userIdMap = new Map();
     scheduleUsers.forEach(user => {
@@ -2334,8 +2544,6 @@ function clientGenerateSchedulesEnhanced(startDate, endDate, userNames, shiftSlo
     const assignments = [];
     const skippedUsers = [];
     const now = new Date();
-    const actor = generatedBy || (typeof getCurrentUser === 'function' ? (getCurrentUser()?.Email || 'System') : 'System');
-
     orderedUsers.forEach((user, index) => {
       let assignedSlot = null;
       for (let attempt = 0; attempt < selectedSlots.length; attempt++) {
@@ -2397,9 +2605,9 @@ function clientGenerateSchedulesEnhanced(startDate, endDate, userNames, shiftSlo
         HandoverMinutes: handoverMinutes || '',
         Notes: assignmentNotes,
         CreatedAt: now,
-        CreatedBy: actor,
+        CreatedBy: actorLabel,
         UpdatedAt: now,
-        UpdatedBy: actor
+        UpdatedBy: actorLabel
       });
     });
 
@@ -2602,7 +2810,7 @@ function clientGenerateSchedulesEnhanced(startDate, endDate, userNames, shiftSlo
           error: 'Preview token expired or not found. Please regenerate the schedule preview.'
         };
       }
-      const commitResult = writeShiftAssignments(cached.assignments, actor, options.notes || 'Auto-assigned schedule generation', 'PENDING');
+      const commitResult = writeShiftAssignments(cached.assignments, actorLabel, options.notes || 'Auto-assigned schedule generation', 'PENDING');
       CacheService.getScriptCache().put(`schedule_preview_${options.commitToken}`, '', 1);
       return {
         success: true,
@@ -3410,10 +3618,12 @@ function clientGetCountryHolidays(countryCode, year) {
 
     const replaceExisting = scheduleFlagToBool(request.replaceExisting, false);
     const campaignId = normalizeCampaignIdValue(request.campaignId || slot.Campaign || '');
-    const actor = request.createdBy || (typeof getCurrentUser === 'function' ? (getCurrentUser()?.Email || 'System') : 'System');
+    const actorInfo = resolveScheduleActor(request.createdBy || null);
+    const actorLabel = actorInfo.label;
+    const actorLookupKey = actorInfo.lookupKey || 'system';
 
     const scheduleTimeZone = getSafeScheduleTimeZone();
-    const scheduleUsers = clientGetScheduleUsers(actor, campaignId || null);
+    const scheduleUsers = clientGetScheduleUsers(actorLookupKey, campaignId || null);
     const userKeyMap = new Map();
     const userIdMap = new Map();
     scheduleUsers.forEach(user => {
@@ -3479,7 +3689,7 @@ function clientGetCountryHolidays(countryCode, year) {
           updateShiftAssignmentRow(conflict.AssignmentId, row => {
             row.Status = 'ARCHIVED';
             row.UpdatedAt = now;
-            row.UpdatedBy = actor;
+            row.UpdatedBy = actorLabel;
             return row;
           });
           archivedAssignments.push(conflict.AssignmentId);
@@ -3523,9 +3733,9 @@ function clientGetCountryHolidays(countryCode, year) {
         HandoverMinutes: '',
         Notes: assignmentNotes,
         CreatedAt: now,
-        CreatedBy: actor,
+        CreatedBy: actorLabel,
         UpdatedAt: now,
-        UpdatedBy: actor
+        UpdatedBy: actorLabel
       });
     });
 
@@ -3538,7 +3748,7 @@ function clientGetCountryHolidays(countryCode, year) {
       };
     }
 
-    const writeResult = writeShiftAssignments(createdAssignments, actor, request.notes || 'Manual assignment', 'PENDING');
+    const writeResult = writeShiftAssignments(createdAssignments, actorLabel, request.notes || 'Manual assignment', 'PENDING');
 
     const outputAssignments = createdAssignments.map(item => ({
       AssignmentId: item.AssignmentId,
