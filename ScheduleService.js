@@ -1125,6 +1125,145 @@ function clientCreateShiftSlot(slotData) {
   }
 }
 
+function normalizeShiftSlotIdentifier(slot) {
+  if (slot === null || typeof slot === 'undefined') {
+    return '';
+  }
+
+  if (typeof slot === 'object') {
+    const candidateKeys = [
+      slot.ID, slot.Id, slot.id,
+      slot.SlotID, slot.SlotId, slot.slotId,
+      slot.Guid, slot.GUID, slot.UUID, slot.Uuid,
+      slot.Name, slot.SlotName
+    ];
+
+    for (let index = 0; index < candidateKeys.length; index++) {
+      const value = candidateKeys[index];
+      if (value === null || typeof value === 'undefined') {
+        continue;
+      }
+
+      const normalized = String(value).trim();
+      if (normalized) {
+        return normalized;
+      }
+    }
+
+    return '';
+  }
+
+  return String(slot).trim();
+}
+
+function clientDeleteShiftSlot(slot) {
+  try {
+    const normalizedId = normalizeShiftSlotIdentifier(slot);
+
+    if (!normalizedId) {
+      return {
+        success: false,
+        error: 'A valid shift slot identifier is required to delete a shift slot.'
+      };
+    }
+
+    const sheet = ensureScheduleSheetWithHeaders(SHIFT_SLOTS_SHEET, SHIFT_SLOTS_HEADERS);
+    const data = sheet.getDataRange().getValues();
+
+    if (!Array.isArray(data) || data.length <= 1) {
+      return {
+        success: false,
+        error: 'No shift slots are available to delete.'
+      };
+    }
+
+    const headers = data[0].map(header => (header || '').toString());
+    const headerLookup = headers.map(header => header.trim().toLowerCase());
+    const idIndex = headerLookup.indexOf('id');
+    const nameIndex = headerLookup.indexOf('name');
+    const slotNameIndex = headerLookup.indexOf('slotname');
+
+    let rowToDelete = -1;
+    let deletedSlotRecord = null;
+    const normalizedLowerId = normalizedId.toLowerCase();
+
+    for (let rowIndex = 1; rowIndex < data.length; rowIndex++) {
+      const rowValues = data[rowIndex];
+      const record = {};
+
+      headers.forEach((header, columnIndex) => {
+        record[header] = rowValues[columnIndex];
+      });
+
+      const candidateIds = [];
+
+      if (idIndex !== -1) {
+        candidateIds.push(rowValues[idIndex]);
+      }
+
+      if (slotNameIndex !== -1) {
+        candidateIds.push(rowValues[slotNameIndex]);
+      }
+
+      if (nameIndex !== -1 && nameIndex !== slotNameIndex) {
+        candidateIds.push(rowValues[nameIndex]);
+      }
+
+      candidateIds.push(record.ID, record.Id, record.id);
+      candidateIds.push(record.SlotID, record.SlotId, record.slotId);
+      candidateIds.push(record.Guid, record.GUID, record.UUID, record.Uuid);
+
+      const hasMatch = candidateIds.some(candidate => {
+        if (candidate === null || typeof candidate === 'undefined') {
+          return false;
+        }
+
+        const text = String(candidate).trim();
+        if (!text) {
+          return false;
+        }
+
+        return text.toLowerCase() === normalizedLowerId;
+      });
+
+      if (hasMatch) {
+        rowToDelete = rowIndex + 1; // account for header row offset
+        deletedSlotRecord = record;
+        break;
+      }
+    }
+
+    if (rowToDelete === -1 || !deletedSlotRecord) {
+      return {
+        success: false,
+        error: 'Shift slot not found. It may have already been deleted.',
+        slotId: normalizedId
+      };
+    }
+
+    sheet.deleteRow(rowToDelete);
+    SpreadsheetApp.flush();
+
+    appendAuditLogEntry('DELETE', 'ShiftSlot', normalizedId, deletedSlotRecord, null, 'Deleted shift slot');
+    invalidateScheduleCaches();
+
+    return {
+      success: true,
+      message: 'Shift slot deleted successfully.',
+      slotId: normalizedId,
+      slot: deletedSlotRecord
+    };
+
+  } catch (error) {
+    console.error('Error deleting shift slot:', error);
+    safeWriteError('clientDeleteShiftSlot', error);
+    return {
+      success: false,
+      error: error && error.message ? error.message : 'Failed to delete shift slot.'
+    };
+  }
+}
+
 function buildScheduleUserLookupIndex() {
   const lookup = {
     users: [],
@@ -1982,6 +2121,8 @@ function clientGenerateSchedulesEnhanced(startDate, endDate, userNames, shiftSlo
 
     let targetUsers = [];
     const unresolvedUsers = [];
+    const explicitlyRequestedIds = new Set();
+    const explicitlyRequestedNameKeys = new Set();
     if (Array.isArray(userNames) && userNames.length) {
       userNames.forEach(entry => {
         if (!entry) {
@@ -1992,6 +2133,14 @@ function clientGenerateSchedulesEnhanced(startDate, endDate, userNames, shiftSlo
         const user = userKeyMap.get(nameKey) || userIdMap.get(idKey);
         if (user) {
           targetUsers.push(user);
+          const normalizedId = normalizeUserIdValue(user.ID || user.UserID || user.id || user.userId);
+          if (normalizedId) {
+            explicitlyRequestedIds.add(normalizedId);
+          }
+          const resolvedKey = normalizeUserKey(user.UserName || user.FullName || user.Username || user.Email);
+          if (resolvedKey) {
+            explicitlyRequestedNameKeys.add(resolvedKey);
+          }
         } else {
           unresolvedUsers.push(entry);
         }
@@ -2000,6 +2149,7 @@ function clientGenerateSchedulesEnhanced(startDate, endDate, userNames, shiftSlo
       targetUsers = scheduleUsers.slice();
     }
 
+    const normalizedCampaignId = campaignId ? campaignId.toLowerCase() : '';
     const filteredUsers = targetUsers.filter(user => {
       if (!user || !user.ID) {
         return false;
@@ -2007,8 +2157,29 @@ function clientGenerateSchedulesEnhanced(startDate, endDate, userNames, shiftSlo
       if (user.isActive === false) {
         return false;
       }
-      if (campaignId && (user.CampaignID || '').toString().toLowerCase() !== campaignId.toLowerCase()) {
-        return false;
+      const normalizedId = normalizeUserIdValue(user.ID || user.UserID || user.id || user.userId);
+      const explicitRequest = (normalizedId && explicitlyRequestedIds.has(normalizedId))
+        || explicitlyRequestedNameKeys.has(normalizeUserKey(user.UserName || user.FullName || user.Username || user.Email));
+
+      if (normalizedCampaignId) {
+        const userCampaignId = normalizeCampaignIdValue(
+          user.CampaignID
+            || user.campaignID
+            || user.CampaignId
+            || user.campaignId
+            || user.Campaign
+            || user.campaign
+            || user.primaryCampaignId
+            || user.PrimaryCampaignId
+        );
+
+        if (userCampaignId) {
+          if (userCampaignId.toString().trim().toLowerCase() !== normalizedCampaignId && !explicitRequest) {
+            return false;
+          }
+        } else if (!explicitRequest) {
+          return false;
+        }
       }
       if (user.HireDate) {
         const hireDate = new Date(user.HireDate);
