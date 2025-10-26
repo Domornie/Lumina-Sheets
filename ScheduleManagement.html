@@ -3107,6 +3107,10 @@
                     if (this.resolvedManagerId && this.managedUserIdSet.has(this.resolvedManagerId)) {
                         this.managedUserIdSet.delete(this.resolvedManagerId);
                     }
+
+                    if (Array.isArray(state.context.managedCampaigns)) {
+                        this.applyAvailableCampaigns(state.context.managedCampaigns);
+                    }
                 }
 
                 const scheduleUsers = state.users && Array.isArray(state.users.schedule)
@@ -3228,6 +3232,7 @@
                     const unifiedState = await this.fetchUnifiedState();
                     if (unifiedState && unifiedState.success) {
                         this.applyUnifiedState(unifiedState);
+                        await this.ensureCampaignOptionsFromUnifiedState(unifiedState);
                         unifiedApplied = true;
                     } else {
                         throw new Error(unifiedState?.error || 'Unified state unavailable');
@@ -3892,39 +3897,125 @@
                     `;
             }
 
+            applyAvailableCampaigns(campaigns) {
+                const defaultCampaignFilterOption = '<option value="">All Campaigns</option>';
+                const defaultDepartmentOption = '<option value="">Select Department (Campaign)</option>';
+
+                const sourceCampaigns = Array.isArray(campaigns) ? campaigns : [];
+                const normalizedCampaigns = [];
+                const seenKeys = new Set();
+
+                sourceCampaigns.forEach(campaign => {
+                    if (campaign === null || typeof campaign === 'undefined') {
+                        return;
+                    }
+
+                    let id = '';
+                    let name = '';
+
+                    if (typeof campaign === 'string') {
+                        name = String(campaign || '').trim();
+                        id = this.normalizeCampaignIdValue(campaign);
+                    } else if (typeof campaign === 'object') {
+                        id = this.normalizeCampaignIdValue(
+                            campaign.id
+                            || campaign.ID
+                            || campaign.CampaignID
+                            || campaign.campaignId
+                            || campaign.value
+                            || campaign.Id
+                        );
+                        const nameCandidate = campaign.name
+                            || campaign.Name
+                            || campaign.campaignName
+                            || campaign.CampaignName
+                            || campaign.ClientName
+                            || '';
+                        name = String(nameCandidate || '').trim();
+                    }
+
+                    if (!id && !name) {
+                        return;
+                    }
+
+                    const keySource = id || name;
+                    const key = String(keySource).toLowerCase();
+                    if (seenKeys.has(key)) {
+                        return;
+                    }
+                    seenKeys.add(key);
+
+                    normalizedCampaigns.push({
+                        id: id || name,
+                        name: name || id || ''
+                    });
+                });
+
+                this.availableCampaigns = normalizedCampaigns;
+
+                const campaignFilter = document.getElementById('campaignFilter');
+                if (campaignFilter) {
+                    const optionsHtml = [defaultCampaignFilterOption].concat(
+                        normalizedCampaigns.map(campaign =>
+                            `<option value="${this.escapeHtml(campaign.id || '')}">${this.escapeHtml(campaign.name || campaign.id || '')}</option>`
+                        )
+                    ).join('');
+                    campaignFilter.innerHTML = optionsHtml;
+                }
+
+                const departmentSelect = document.getElementById('slotDepartment');
+                if (departmentSelect) {
+                    const optionsHtml = [defaultDepartmentOption].concat(
+                        normalizedCampaigns.map(campaign =>
+                            `<option value="${this.escapeHtml(campaign.name || campaign.id || '')}">${this.escapeHtml(campaign.name || campaign.id || '')}</option>`
+                        )
+                    ).join('');
+                    departmentSelect.innerHTML = optionsHtml;
+                }
+
+                return normalizedCampaigns.length > 0;
+            }
+
             async loadCampaigns() {
                 try {
                     const campaigns = await this.callServerFunction('csGetAllCampaigns');
-                    this.availableCampaigns = Array.isArray(campaigns) ? campaigns : [];
+                    const applied = this.applyAvailableCampaigns(campaigns);
 
-                    // Update campaign filter dropdown
-                    const campaignFilter = document.getElementById('campaignFilter');
-                    if (campaignFilter) {
-                        campaignFilter.innerHTML = '<option value="">All Campaigns</option>' +
-                            this.availableCampaigns.map(campaign =>
-                                `<option value="${campaign.id}">${campaign.name}</option>`
-                            ).join('');
+                    if (applied) {
+                        console.log(`✅ Loaded ${this.availableCampaigns.length} campaign(s) and populated selectors`);
+                    } else {
+                        console.log('ℹ️ No campaigns returned when loading campaign list.');
                     }
-
-                    // Update department dropdown in shift slot form (using campaigns as departments)
-                    const departmentSelect = document.getElementById('slotDepartment');
-                    if (departmentSelect) {
-                        departmentSelect.innerHTML = '<option value="">Select Department (Campaign)</option>' +
-                            this.availableCampaigns.map(campaign =>
-                                `<option value="${campaign.name}">${campaign.name}</option>`
-                            ).join('');
-                    }
-
-                    console.log(`✅ Loaded ${this.availableCampaigns.length} campaigns and populated department dropdown`);
                 } catch (error) {
                     console.error('❌ Error loading campaigns:', error);
                     this.availableCampaigns = [];
+                    this.applyAvailableCampaigns([]);
 
-                    // Show error state in department dropdown
                     const departmentSelect = document.getElementById('slotDepartment');
                     if (departmentSelect) {
                         departmentSelect.innerHTML = '<option value="">Error loading campaigns</option>';
                     }
+                }
+            }
+
+            async ensureCampaignOptionsFromUnifiedState(state) {
+                try {
+                    const managedCampaigns = Array.isArray(state?.context?.managedCampaigns)
+                        ? state.context.managedCampaigns
+                        : [];
+
+                    const appliedFromContext = managedCampaigns.length
+                        ? this.applyAvailableCampaigns(managedCampaigns)
+                        : false;
+
+                    if (!appliedFromContext && this.availableCampaigns.length === 0) {
+                        await this.loadCampaigns();
+                    }
+
+                    return this.availableCampaigns.length > 0;
+                } catch (error) {
+                    console.warn('⚠️ Unable to ensure campaign options from unified state:', error);
+                    return false;
                 }
             }
 
