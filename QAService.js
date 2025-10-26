@@ -1051,6 +1051,11 @@ function clientGetQADashboardSnapshot(request = {}) {
       };
     });
 
+    const filteredForMatrix = filterRecordsForIntelligence_(records, { ...context, period: '' });
+    const agentMatrix = buildAgentGranularityMatrix_(context, filteredForMatrix, {
+      displayLookup: agentDisplayLookup
+    });
+
     return {
       success: true,
       context,
@@ -1077,7 +1082,8 @@ function clientGetQADashboardSnapshot(request = {}) {
       agentNameLookup,
       questionSignals,
       programMetrics,
-      qualityRecognition
+      qualityRecognition,
+      agentMatrix
     };
   } catch (error) {
     console.error('clientGetQADashboardSnapshot failed:', error);
@@ -1913,6 +1919,99 @@ function calculateAgentProfiles_(records, options = {}) {
   }).sort((a, b) => b.avgScore - a.avgScore);
 
   return { totalEvaluations, profiles };
+}
+
+function buildAgentGranularityMatrix_(context, records, options = {}) {
+  if (!context) {
+    return { granularity: '', periods: [], agents: [] };
+  }
+
+  const granularity = context.granularity || 'Week';
+  const depth = Number(context.depth) > 0 ? Number(context.depth) : 6;
+  const startPeriod = context.period || '';
+  if (!startPeriod) {
+    return { granularity, periods: [], agents: [] };
+  }
+
+  const visited = new Set();
+  const periods = [];
+  let cursor = startPeriod;
+  let steps = 0;
+  const displayLookup = options.displayLookup || {};
+  const universe = new Set();
+  const safeRecords = Array.isArray(records) ? records : [];
+
+  while (cursor && steps < depth && !visited.has(cursor)) {
+    visited.add(cursor);
+    const bucket = filterRecordsForIntelligence_(safeRecords, { ...context, period: cursor });
+    const totalEvaluations = bucket.length;
+    const aggregates = {};
+
+    bucket.forEach(record => {
+      if (!record) {
+        return;
+      }
+      const identifier = record.agent || 'Unassigned';
+      if (!aggregates[identifier]) {
+        aggregates[identifier] = {
+          evaluations: 0,
+          scoreSum: 0,
+          passCount: 0
+        };
+      }
+      const stats = aggregates[identifier];
+      stats.evaluations += 1;
+      stats.scoreSum += Number(record.percentage) || 0;
+      if (record.pass) {
+        stats.passCount += 1;
+      }
+      universe.add(identifier);
+    });
+
+    const metrics = {};
+    Object.keys(aggregates).forEach(identifier => {
+      const stats = aggregates[identifier];
+      const evals = stats.evaluations;
+      const avgScore = evals ? roundOneDecimal_((stats.scoreSum / evals) * 100) : null;
+      const passRate = evals ? roundOneDecimal_((stats.passCount / evals) * 100) : null;
+      const evaluationShare = totalEvaluations
+        ? roundOneDecimal_((stats.evaluations / totalEvaluations) * 100)
+        : null;
+
+      metrics[identifier] = {
+        avgScore,
+        passRate,
+        evaluations: evals,
+        evaluationShare
+      };
+    });
+
+    periods.push({
+      period: cursor,
+      label: formatPeriodLabel_(granularity, cursor),
+      totalEvaluations,
+      agentCount: Object.keys(metrics).length,
+      metrics
+    });
+
+    cursor = getPreviousPeriod_(granularity, cursor);
+    steps += 1;
+  }
+
+  const agents = Array.from(universe).map(identifier => ({
+    id: identifier,
+    label: resolveAgentDisplayNameFromLookup_(identifier, displayLookup)
+  })).sort((a, b) => {
+    const nameA = (a.label || a.id || '').toString().toLowerCase();
+    const nameB = (b.label || b.id || '').toString().toLowerCase();
+    return nameA.localeCompare(nameB);
+  });
+
+  return {
+    granularity,
+    periods: periods.reverse(),
+    agents
+  };
 }
 
 function buildAgentDisplayLookup_(records) {
