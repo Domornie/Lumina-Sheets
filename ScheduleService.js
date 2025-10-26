@@ -1982,6 +1982,8 @@ function clientGenerateSchedulesEnhanced(startDate, endDate, userNames, shiftSlo
 
     let targetUsers = [];
     const unresolvedUsers = [];
+    const explicitlyRequestedIds = new Set();
+    const explicitlyRequestedNameKeys = new Set();
     if (Array.isArray(userNames) && userNames.length) {
       userNames.forEach(entry => {
         if (!entry) {
@@ -1992,6 +1994,14 @@ function clientGenerateSchedulesEnhanced(startDate, endDate, userNames, shiftSlo
         const user = userKeyMap.get(nameKey) || userIdMap.get(idKey);
         if (user) {
           targetUsers.push(user);
+          const normalizedId = normalizeUserIdValue(user.ID || user.UserID || user.id || user.userId);
+          if (normalizedId) {
+            explicitlyRequestedIds.add(normalizedId);
+          }
+          const resolvedKey = normalizeUserKey(user.UserName || user.FullName || user.Username || user.Email);
+          if (resolvedKey) {
+            explicitlyRequestedNameKeys.add(resolvedKey);
+          }
         } else {
           unresolvedUsers.push(entry);
         }
@@ -2000,6 +2010,7 @@ function clientGenerateSchedulesEnhanced(startDate, endDate, userNames, shiftSlo
       targetUsers = scheduleUsers.slice();
     }
 
+    const normalizedCampaignId = campaignId ? campaignId.toLowerCase() : '';
     const filteredUsers = targetUsers.filter(user => {
       if (!user || !user.ID) {
         return false;
@@ -2007,8 +2018,29 @@ function clientGenerateSchedulesEnhanced(startDate, endDate, userNames, shiftSlo
       if (user.isActive === false) {
         return false;
       }
-      if (campaignId && (user.CampaignID || '').toString().toLowerCase() !== campaignId.toLowerCase()) {
-        return false;
+      const normalizedId = normalizeUserIdValue(user.ID || user.UserID || user.id || user.userId);
+      const explicitRequest = (normalizedId && explicitlyRequestedIds.has(normalizedId))
+        || explicitlyRequestedNameKeys.has(normalizeUserKey(user.UserName || user.FullName || user.Username || user.Email));
+
+      if (normalizedCampaignId) {
+        const userCampaignId = normalizeCampaignIdValue(
+          user.CampaignID
+            || user.campaignID
+            || user.CampaignId
+            || user.campaignId
+            || user.Campaign
+            || user.campaign
+            || user.primaryCampaignId
+            || user.PrimaryCampaignId
+        );
+
+        if (userCampaignId) {
+          if (userCampaignId.toString().trim().toLowerCase() !== normalizedCampaignId && !explicitRequest) {
+            return false;
+          }
+        } else if (!explicitRequest) {
+          return false;
+        }
       }
       if (user.HireDate) {
         const hireDate = new Date(user.HireDate);
