@@ -312,6 +312,133 @@ function buildDateSeries(startDateStr, endDateStr) {
   return dates;
 }
 
+function getSafeScheduleTimeZone() {
+  if (typeof getScheduleTimeZone === 'function') {
+    try {
+      const tz = getScheduleTimeZone();
+      if (tz) {
+        return tz;
+      }
+    } catch (error) {
+      console.warn('Falling back to default schedule timezone:', error && error.message ? error.message : error);
+    }
+  }
+
+  return DEFAULT_SCHEDULE_TIME_ZONE || 'UTC';
+}
+
+function normalizeSlotDaysArray(slot) {
+  if (!slot) {
+    return [];
+  }
+
+  if (Array.isArray(slot.DaysOfWeekArray) && slot.DaysOfWeekArray.length) {
+    return slot.DaysOfWeekArray.slice();
+  }
+
+  if (slot.DaysOfWeek) {
+    return parseDaysCsv(slot.DaysOfWeek);
+  }
+
+  if (slot.DaysCSV) {
+    return parseDaysCsv(slot.DaysCSV);
+  }
+
+  if (slot.daysOfWeek) {
+    return normalizeDaySelection(slot.daysOfWeek);
+  }
+
+  return [];
+}
+
+function convertDateToScheduleDayIndex(dateStr) {
+  if (!dateStr) {
+    return null;
+  }
+
+  const date = new Date(`${dateStr}T00:00:00Z`);
+  if (isNaN(date.getTime())) {
+    return null;
+  }
+
+  const day = date.getUTCDay();
+  return (day + 6) % 7;
+}
+
+function buildDstAdjustmentsForSlot(slot, dateSeries, timeZone) {
+  if (!slot || !Array.isArray(dateSeries) || !dateSeries.length) {
+    return [];
+  }
+
+  const startMinutes = parseTimeToMinutes(slot.StartTime || slot.startTime || '');
+  const endMinutes = parseTimeToMinutes(slot.EndTime || slot.endTime || '');
+
+  if (!Number.isFinite(startMinutes) || !Number.isFinite(endMinutes)) {
+    return [];
+  }
+
+  const slotDays = normalizeSlotDaysArray(slot);
+  const normalizedStartTime = formatMinutesTo12Hour(startMinutes);
+  const normalizedEndTime = formatMinutesTo12Hour(endMinutes);
+
+  const adjustments = [];
+
+  dateSeries.forEach(dateStr => {
+    const dayIndex = convertDateToScheduleDayIndex(dateStr);
+    if (slotDays.length && (dayIndex === null || !slotDays.includes(dayIndex))) {
+      return;
+    }
+
+    const dstInfo = typeof checkDSTStatus === 'function'
+      ? checkDSTStatus(dateStr, timeZone)
+      : { isDST: false, isDSTChange: false, changeType: null, timeAdjustment: 0 };
+
+    if (!dstInfo.isDST && !dstInfo.isDSTChange) {
+      return;
+    }
+
+    let adjustmentMinutes = 0;
+    let adjustedEndMinutes = endMinutes;
+    let adjustedStartMinutes = startMinutes;
+
+    if (dstInfo.isDSTChange && dstInfo.timeAdjustment) {
+      adjustmentMinutes = -dstInfo.timeAdjustment;
+      adjustedEndMinutes = endMinutes + adjustmentMinutes;
+      if (dstInfo.changeType === 'END') {
+        adjustedStartMinutes = startMinutes + adjustmentMinutes;
+      }
+    }
+
+    adjustments.push({
+      date: dateStr,
+      isDST: !!dstInfo.isDST,
+      isDSTChange: !!dstInfo.isDSTChange,
+      changeType: dstInfo.changeType || '',
+      adjustmentMinutes: adjustmentMinutes,
+      originalStartTime: normalizedStartTime,
+      originalEndTime: normalizedEndTime,
+      adjustedStartTime: formatMinutesTo12Hour(adjustedStartMinutes),
+      adjustedEndTime: formatMinutesTo12Hour(adjustedEndMinutes)
+    });
+  });
+
+  return adjustments;
+}
+
+function summarizeDstAdjustments(adjustments) {
+  if (!Array.isArray(adjustments) || !adjustments.length) {
+    return '';
+  }
+
+  const parts = adjustments.map(entry => {
+    const direction = entry.adjustmentMinutes > 0 ? `+${entry.adjustmentMinutes}` : String(entry.adjustmentMinutes);
+    const change = entry.changeType ? ` (${entry.changeType})` : '';
+    return `${entry.date}${change}: ${direction} mins`;
+  });
+
+  return `DST adjustments applied - ${parts.join('; ')}`;
+}
+
 function loadHolidayMap(startDateStr, endDateStr) {
   const holidays = readScheduleSheet(HOLIDAYS_SHEET) || [];
   const holidayMap = new Map();
@@ -2068,6 +2195,8 @@ function clientGenerateSchedulesEnhanced(startDate, endDate, userNames, shiftSlo
       };
     }
 
+    const scheduleTimeZone = getSafeScheduleTimeZone();
+
     const startDateObj = new Date(normalizedStart);
     const endDateObj = new Date(normalizedEnd);
     if (startDateObj > endDateObj) {
@@ -2197,6 +2326,8 @@ function clientGenerateSchedulesEnhanced(startDate, endDate, userNames, shiftSlo
       };
     }
 
+    const dateSeries = buildDateSeries(normalizedStart, normalizedEnd);
+
     const seed = options.seed || `${campaignId || 'ALL'}-${normalizedStart}-${normalizedEnd}-${(shiftSlotIds || []).join('|')}`;
     const orderedUsers = shuffleWithSeed(filteredUsers, seed);
     const slotCounts = new Map();
@@ -2228,6 +2359,25 @@ function clientGenerateSchedulesEnhanced(startDate, endDate, userNames, shiftSlo
 
       slotCounts.set(assignedSlot.SlotId, (slotCounts.get(assignedSlot.SlotId) || 0) + 1);
 
+      const dstAdjustments = buildDstAdjustmentsForSlot(assignedSlot, dateSeries, scheduleTimeZone);
+      const breakConfig = {
+        break1: breaksOptions.first || 15,
+        break2: breaksOptions.second || 0,
+        lunch: breaksOptions.lunch || 30,
+        enableStaggered: scheduleFlagToBool(breaksOptions.enableStaggered, false),
+        groups: breaksOptions.groups || '',
+        interval: breaksOptions.interval || '',
+        minCoveragePct: breaksOptions.minCoveragePct || '',
+        unproductive: (breaksOptions.first || 0) + (breaksOptions.second || 0) + (breaksOptions.lunch || 0)
+      };
+
+      if (dstAdjustments.length) {
+        breakConfig.dstAdjustments = dstAdjustments;
+      }
+
+      const dstNotes = summarizeDstAdjustments(dstAdjustments);
+      const assignmentNotes = [options.notes || '', dstNotes].filter(Boolean).join(' | ');
+
       assignments.push({
         AssignmentId: Utilities.getUuid(),
         UserId: user.ID,
@@ -2240,21 +2390,12 @@ function clientGenerateSchedulesEnhanced(startDate, endDate, userNames, shiftSlo
         Status: 'PENDING',
         AllowSwap: allowSwaps,
         Premiums: '',
-        BreaksConfigJSON: JSON.stringify({
-          break1: breaksOptions.first || 15,
-          break2: breaksOptions.second || 0,
-          lunch: breaksOptions.lunch || 30,
-          enableStaggered: scheduleFlagToBool(breaksOptions.enableStaggered, false),
-          groups: breaksOptions.groups || '',
-          interval: breaksOptions.interval || '',
-          minCoveragePct: breaksOptions.minCoveragePct || '',
-          unproductive: (breaksOptions.first || 0) + (breaksOptions.second || 0) + (breaksOptions.lunch || 0)
-        }),
+        BreaksConfigJSON: JSON.stringify(breakConfig),
         OvertimeMinutes: overtimeMinutes || '',
         RestPeriodHours: restHours || '',
         NotificationLeadHours: notificationLead || '',
         HandoverMinutes: handoverMinutes || '',
-        Notes: options.notes || '',
+        Notes: assignmentNotes,
         CreatedAt: now,
         CreatedBy: actor,
         UpdatedAt: now,
@@ -2262,7 +2403,6 @@ function clientGenerateSchedulesEnhanced(startDate, endDate, userNames, shiftSlo
       });
     });
 
-    const dateSeries = buildDateSeries(normalizedStart, normalizedEnd);
     const holidayMap = includeHolidays ? loadHolidayMap(normalizedStart, normalizedEnd) : new Map();
 
     const existingAssignments = readShiftAssignments()
@@ -3272,6 +3412,7 @@ function clientGetCountryHolidays(countryCode, year) {
     const campaignId = normalizeCampaignIdValue(request.campaignId || slot.Campaign || '');
     const actor = request.createdBy || (typeof getCurrentUser === 'function' ? (getCurrentUser()?.Email || 'System') : 'System');
 
+    const scheduleTimeZone = getSafeScheduleTimeZone();
     const scheduleUsers = clientGetScheduleUsers(actor, campaignId || null);
     const userKeyMap = new Map();
     const userIdMap = new Map();
@@ -3290,6 +3431,7 @@ function clientGetCountryHolidays(countryCode, year) {
     const failedUsers = [];
     const archivedAssignments = [];
     const now = new Date();
+    const dateSeries = buildDateSeries(normalizedStart, normalizedEnd);
 
     userEntries.forEach(entry => {
       if (!entry) {
@@ -3344,6 +3486,24 @@ function clientGetCountryHolidays(countryCode, year) {
         });
       }
 
+      const dstAdjustments = buildDstAdjustmentsForSlot(slot, dateSeries, scheduleTimeZone);
+      const baseBreakConfig = {
+        break1: 15,
+        break2: 15,
+        lunch: 30,
+        enableStaggered: false,
+        groups: '',
+        interval: '',
+        unproductive: 60
+      };
+
+      if (dstAdjustments.length) {
+        baseBreakConfig.dstAdjustments = dstAdjustments;
+      }
+
+      const dstNotes = summarizeDstAdjustments(dstAdjustments);
+      const assignmentNotes = [request.notes || '', dstNotes].filter(Boolean).join(' | ');
+
       createdAssignments.push({
         AssignmentId: Utilities.getUuid(),
         UserId: user.ID,
@@ -3356,20 +3516,12 @@ function clientGetCountryHolidays(countryCode, year) {
         Status: 'PENDING',
         AllowSwap: scheduleFlagToBool(request.allowSwaps, true),
         Premiums: '',
-        BreaksConfigJSON: JSON.stringify({
-          break1: 15,
-          break2: 15,
-          lunch: 30,
-          enableStaggered: false,
-          groups: '',
-          interval: '',
-          unproductive: 60
-        }),
+        BreaksConfigJSON: JSON.stringify(baseBreakConfig),
         OvertimeMinutes: '',
         RestPeriodHours: '',
         NotificationLeadHours: '',
         HandoverMinutes: '',
-        Notes: request.notes || '',
+        Notes: assignmentNotes,
         CreatedAt: now,
         CreatedBy: actor,
         UpdatedAt: now,

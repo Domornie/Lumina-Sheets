@@ -1827,24 +1827,86 @@ function checkIfHoliday(dateStr) {
 /**
  * Basic DST status check
  */
-function checkDSTStatus(dateStr) {
+function checkDSTStatus(dateStr, timeZone) {
+  const safeTimeZone = timeZone || (typeof getScheduleTimeZone === 'function'
+    ? getScheduleTimeZone()
+    : (typeof DEFAULT_SCHEDULE_TIME_ZONE !== 'undefined' ? DEFAULT_SCHEDULE_TIME_ZONE : 'UTC'));
+
+  const parseOffsetToMinutes = (offsetString) => {
+    if (!offsetString || typeof offsetString !== 'string') {
+      return 0;
+    }
+
+    const sign = offsetString.startsWith('-') ? -1 : 1;
+    const hours = Number(offsetString.slice(1, 3));
+    const minutes = Number(offsetString.slice(3, 5));
+
+    if (!Number.isFinite(hours) || !Number.isFinite(minutes)) {
+      return 0;
+    }
+
+    return sign * (hours * 60 + minutes);
+  };
+
+  const resolveOffsetMinutes = (date) => {
+    try {
+      const offset = Utilities.formatDate(date, safeTimeZone, 'Z');
+      return parseOffsetToMinutes(offset);
+    } catch (error) {
+      return 0;
+    }
+  };
+
   try {
-    const date = new Date(dateStr);
-    const year = date.getFullYear();
+    if (!dateStr) {
+      throw new Error('Date string required for DST check');
+    }
 
-    // Simple US DST check (second Sunday in March to first Sunday in November)
-    const dstStart = new Date(year, 2, 8 + (7 - new Date(year, 2, 8).getDay()) % 7);
-    const dstEnd = new Date(year, 10, 1 + (7 - new Date(year, 10, 1).getDay()) % 7);
+    const midnight = new Date(`${dateStr}T00:00:00Z`);
+    if (isNaN(midnight.getTime())) {
+      throw new Error('Invalid date provided for DST check');
+    }
 
-    const isDST = date >= dstStart && date < dstEnd;
+    const midday = new Date(midnight.getTime() + 12 * 60 * 60 * 1000);
+    const previousMidnight = new Date(midnight.getTime() - 24 * 60 * 60 * 1000);
+    const nextMidnight = new Date(midnight.getTime() + 24 * 60 * 60 * 1000);
+
+    const offsetAtMidnight = resolveOffsetMinutes(midnight);
+    const offsetAtMidday = resolveOffsetMinutes(midday);
+    const offsetPreviousMidnight = resolveOffsetMinutes(previousMidnight);
+    const offsetNextMidnight = resolveOffsetMinutes(nextMidnight);
+
+    const year = midnight.getUTCFullYear();
+    const januaryBaseline = new Date(Date.UTC(year, 0, 1, 12, 0, 0));
+    const julyBaseline = new Date(Date.UTC(year, 6, 1, 12, 0, 0));
+    const januaryOffset = resolveOffsetMinutes(januaryBaseline);
+    const julyOffset = resolveOffsetMinutes(julyBaseline);
+    const standardOffset = Math.min(januaryOffset, julyOffset);
+
+    const isDST = offsetAtMidday !== standardOffset;
+
+    let isDSTChange = false;
+    let changeType = null;
+    let timeAdjustment = 0;
+
+    if (offsetAtMidnight !== offsetNextMidnight) {
+      isDSTChange = true;
+      timeAdjustment = offsetAtMidnight - offsetNextMidnight;
+      changeType = timeAdjustment > 0 ? 'END' : 'START';
+    } else if (offsetPreviousMidnight !== offsetAtMidnight) {
+      isDSTChange = true;
+      timeAdjustment = offsetPreviousMidnight - offsetAtMidnight;
+      changeType = timeAdjustment > 0 ? 'START' : 'END';
+    }
 
     return {
       isDST: isDST,
-      isDSTChange: false,
-      changeType: null,
-      timeAdjustment: 0
+      isDSTChange: isDSTChange,
+      changeType: changeType,
+      timeAdjustment: timeAdjustment
     };
   } catch (error) {
+    console.warn('DST status check failed:', error && error.message ? error.message : error);
     return {
       isDST: false,
       isDSTChange: false,
