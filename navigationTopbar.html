@@ -75,31 +75,69 @@
   </div>
 
   <div class="top-actions">
-    <button class="notification-btn" data-bs-toggle="tooltip" title="Notifications">
+    <button class="notification-btn top-actions__notification" data-topbar-action="notifications"
+      data-bs-toggle="tooltip" title="Notifications">
       <i class="fas fa-bell"></i>
       <div class="notification-badge"></div>
     </button>
 
-    <a href="<?= generateLink('search') ?>" class="notification-btn" data-bs-toggle="tooltip" title="Search">
+    <a href="<?= generateLink('search') ?>" class="notification-btn top-actions__search" data-topbar-action="search"
+      data-bs-toggle="tooltip" title="Search">
       <i class="fas fa-search"></i>
     </a>
 
-    <? if (isAdminValue) { ?>
-    <a href="<?= generateLink('manageuser') ?>#employment-report" class="notification-btn" data-bs-toggle="tooltip"
-      title="Employment Report">
-      <i class="fas fa-chart-bar"></i>
-    </a>
-    <? } ?>
+    <div class="top-actions__buttons" role="group" aria-label="Account actions">
+      <? if (isAdminValue) { ?>
+      <a href="<?= generateLink('manageuser') ?>#employment-report" class="notification-btn" data-topbar-action="employment"
+        data-bs-toggle="tooltip" title="Employment Report">
+        <i class="fas fa-chart-bar"></i>
+      </a>
+      <? } ?>
 
-    <button class="notification-btn theme-toggle-btn" data-action="toggle-theme" data-bs-toggle="tooltip"
-      title="Switch to dark mode" aria-label="Switch to dark mode">
-      <i class="fas fa-moon" aria-hidden="true"></i>
-      <span class="visually-hidden">Toggle color theme</span>
-    </button>
+      <button class="notification-btn theme-toggle-btn" data-topbar-action="theme" data-action="toggle-theme"
+        data-bs-toggle="tooltip" title="Switch to dark mode" aria-label="Switch to dark mode">
+        <i class="fas fa-moon" aria-hidden="true"></i>
+        <span class="visually-hidden">Toggle color theme</span>
+      </button>
 
-    <button class="logout-btn-topbar" onclick="handleLogout()" data-bs-toggle="tooltip" title="Logout" aria-label="Logout">
-      <i class="fas fa-sign-out-alt"></i>
-    </button>
+      <button class="logout-btn-topbar" data-topbar-action="logout" onclick="handleLogout()" data-bs-toggle="tooltip"
+        title="Logout" aria-label="Logout">
+        <i class="fas fa-sign-out-alt"></i>
+      </button>
+    </div>
+
+    <div class="topbar-menu" data-open="false">
+      <button class="notification-btn topbar-menu-toggle" type="button" aria-haspopup="true" aria-expanded="false"
+        aria-controls="topbarActionMenu" title="Open quick actions" aria-label="Open quick actions">
+        <i class="fas fa-ellipsis-vertical"></i>
+      </button>
+
+      <div class="topbar-menu-dropdown" id="topbarActionMenu" hidden>
+        <button type="button" class="topbar-menu-item" data-topbar-action="notifications" data-menu-close="true">
+          <i class="fas fa-bell" aria-hidden="true"></i>
+          <span>Notifications</span>
+        </button>
+
+        <? if (isAdminValue) { ?>
+        <a href="<?= generateLink('manageuser') ?>#employment-report" class="topbar-menu-item" data-topbar-action="employment"
+          data-menu-close="true">
+          <i class="fas fa-chart-bar" aria-hidden="true"></i>
+          <span>Employment report</span>
+        </a>
+        <? } ?>
+
+        <button type="button" class="topbar-menu-item" data-topbar-action="theme" data-action="toggle-theme"
+          data-menu-close="true">
+          <i class="fas fa-moon" aria-hidden="true"></i>
+          <span data-menu-theme-label>Switch to dark mode</span>
+        </button>
+
+        <button type="button" class="topbar-menu-item" data-topbar-action="logout" data-menu-close="true">
+          <i class="fas fa-sign-out-alt" aria-hidden="true"></i>
+          <span>Log out</span>
+        </button>
+      </div>
+    </div>
   </div>
 </div>
 
