@@ -3470,29 +3470,90 @@
                     : [];
 
                 const userMap = new Map();
-                const pushUserRecord = (user) => {
-                    if (!user || typeof user !== 'object') {
+                const aliasMap = new Map();
+
+                const resolveCanonicalKey = (key) => {
+                    if (!key) {
+                        return '';
+                    }
+                    const mapped = aliasMap.get(key);
+                    return mapped || key;
+                };
+
+                const resolveExistingKey = (candidateKeys) => {
+                    for (const candidate of candidateKeys) {
+                        if (!candidate) {
+                            continue;
+                        }
+                        const canonical = resolveCanonicalKey(candidate);
+                        if (canonical && userMap.has(canonical)) {
+                            return canonical;
+                        }
+                    }
+                    return '';
+                };
+
+                const registerAliasKeys = (canonicalKey, candidateKeys) => {
+                    if (!canonicalKey) {
                         return;
                     }
+                    candidateKeys.forEach(candidate => {
+                        if (candidate) {
+                            aliasMap.set(candidate, canonicalKey);
+                        }
+                    });
+                };
 
-                    const normalizedId = this.normalizeUserIdValue(user.ID || user.UserID || user.id || user.userId);
+                const userKeyCandidates = (user) => {
+                    const normalizedIdRaw = this.normalizeUserIdValue(user.ID || user.UserID || user.id || user.userId);
+                    const normalizedIdKey = normalizedIdRaw ? normalizedIdRaw.toLowerCase() : '';
                     const normalizedNameKey = this.normalizePersonKey(
                         user.UserName || user.username || user.FullName || user.fullName || ''
                     );
                     const normalizedEmailKey = this.normalizePersonKey(user.Email || user.email || '');
 
-                    const key = normalizedId
-                        ? `id:${normalizedId}`
-                        : (normalizedNameKey ? `name:${normalizedNameKey}` : (normalizedEmailKey ? `email:${normalizedEmailKey}` : null));
+                    const candidates = [];
+                    if (normalizedIdKey) {
+                        candidates.push(`id:${normalizedIdKey}`);
+                    }
+                    if (normalizedEmailKey) {
+                        candidates.push(`email:${normalizedEmailKey}`);
+                    }
+                    if (normalizedNameKey) {
+                        candidates.push(`name:${normalizedNameKey}`);
+                    }
 
-                    if (!key) {
+                    return {
+                        normalizedIdRaw,
+                        normalizedNameKey,
+                        normalizedEmailKey,
+                        candidates
+                    };
+                };
+
+                const pushUserRecord = (user) => {
+                    if (!user || typeof user !== 'object') {
                         return;
                     }
 
-                    const existing = userMap.get(key) || {};
-                    const resolvedId = normalizedId
+                    const { normalizedIdRaw, normalizedNameKey, normalizedEmailKey, candidates } = userKeyCandidates(user);
+
+                    if (!Array.isArray(candidates) || !candidates.length) {
+                        return;
+                    }
+
+                    const existingKey = resolveExistingKey(candidates);
+                    const primaryKey = existingKey || candidates[0];
+                    const canonicalKey = resolveCanonicalKey(primaryKey);
+                    const existing = userMap.get(canonicalKey) || {};
+
+                    const resolvedId = normalizedIdRaw
                         || existing.ID
-                        || (normalizedNameKey ? `name:${normalizedNameKey}` : (normalizedEmailKey ? `email:${normalizedEmailKey}` : key));
+                        || (normalizedNameKey ? `name:${normalizedNameKey}` : (normalizedEmailKey ? `email:${normalizedEmailKey}` : canonicalKey));
+
+                    const syntheticId = normalizedIdRaw
+                        ? false
+                        : (existing.syntheticId === true || !normalizedIdRaw);
 
                     const normalized = {
                         ID: resolvedId,
@@ -3510,10 +3571,11 @@
                         roleNames: Array.isArray(user.roleNames)
                             ? user.roleNames.slice()
                             : (Array.isArray(existing.roleNames) ? existing.roleNames.slice() : []),
-                        syntheticId: normalizedId ? false : (existing.syntheticId === true || !normalizedId)
+                        syntheticId
                     };
 
-                    userMap.set(key, normalized);
+                    userMap.set(canonicalKey, normalized);
+                    registerAliasKeys(canonicalKey, candidates);
                 };
 
                 const collections = [combinedList, scheduleList, rosterList].concat(extraCollections);
