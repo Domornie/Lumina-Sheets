@@ -8124,7 +8124,92 @@
                     });
                 });
 
-                return userNames.map(name => {
+                const uniqueEntries = [];
+                const uniqueIndex = new Map();
+
+                const mergeIntoExistingEntry = (existing, incoming) => {
+                    const existingKeys = Array.isArray(existing.recordKeys) ? existing.recordKeys : [];
+                    const incomingKeys = Array.isArray(incoming.recordKeys) ? incoming.recordKeys : [];
+                    const mergedKeys = new Set([...existingKeys, ...incomingKeys].filter(Boolean));
+                    existing.recordKeys = Array.from(mergedKeys);
+
+                    if (!existing.original && incoming.original) {
+                        existing.original = incoming.original;
+                    }
+
+                    const existingDisplay = (existing.displayName || '').toString().trim();
+                    const incomingDisplay = (incoming.displayName || '').toString().trim();
+                    if ((!existingDisplay || existingDisplay === (existing.identifier || '').toString().trim()) && incomingDisplay) {
+                        existing.displayName = incoming.displayName;
+                    }
+
+                    const updateEmploymentBoundary = (currentDate, nextDate, comparator) => {
+                        if (!(currentDate instanceof Date) || Number.isNaN(currentDate.getTime())) {
+                            return nextDate instanceof Date && !Number.isNaN(nextDate.getTime())
+                                ? new Date(nextDate.getTime())
+                                : null;
+                        }
+
+                        if (!(nextDate instanceof Date) || Number.isNaN(nextDate.getTime())) {
+                            return currentDate;
+                        }
+
+                        return comparator(currentDate.getTime(), nextDate.getTime())
+                            ? new Date(nextDate.getTime())
+                            : currentDate;
+                    };
+
+                    const previousStartTime = existing.employmentStart instanceof Date && !Number.isNaN(existing.employmentStart.getTime())
+                        ? existing.employmentStart.getTime()
+                        : null;
+                    existing.employmentStart = updateEmploymentBoundary(
+                        existing.employmentStart,
+                        incoming.employmentStart,
+                        (current, next) => next < current
+                    );
+                    const updatedStartTime = existing.employmentStart instanceof Date && !Number.isNaN(existing.employmentStart.getTime())
+                        ? existing.employmentStart.getTime()
+                        : null;
+                    if (
+                        updatedStartTime !== null
+                        && updatedStartTime !== previousStartTime
+                        && incoming.employmentStart instanceof Date
+                        && !Number.isNaN(incoming.employmentStart.getTime())
+                        && incoming.employmentStart.getTime() === updatedStartTime
+                    ) {
+                        existing.employmentStartIso = incoming.employmentStartIso || existing.employmentStartIso || '';
+                    }
+
+                    const previousEndTime = existing.employmentEnd instanceof Date && !Number.isNaN(existing.employmentEnd.getTime())
+                        ? existing.employmentEnd.getTime()
+                        : null;
+                    existing.employmentEnd = updateEmploymentBoundary(
+                        existing.employmentEnd,
+                        incoming.employmentEnd,
+                        (current, next) => next > current
+                    );
+                    const updatedEndTime = existing.employmentEnd instanceof Date && !Number.isNaN(existing.employmentEnd.getTime())
+                        ? existing.employmentEnd.getTime()
+                        : null;
+                    if (
+                        updatedEndTime !== null
+                        && updatedEndTime !== previousEndTime
+                        && incoming.employmentEnd instanceof Date
+                        && !Number.isNaN(incoming.employmentEnd.getTime())
+                        && incoming.employmentEnd.getTime() === updatedEndTime
+                    ) {
+                        existing.employmentEndIso = incoming.employmentEndIso || existing.employmentEndIso || '';
+                    }
+
+                    if (!existing.employmentStartIso && incoming.employmentStartIso) {
+                        existing.employmentStartIso = incoming.employmentStartIso;
+                    }
+                    if (!existing.employmentEndIso && incoming.employmentEndIso) {
+                        existing.employmentEndIso = incoming.employmentEndIso;
+                    }
+                };
+
+                userNames.forEach(name => {
                     const normalizedName = this.normalizePersonKey(name);
                     const metadata = normalizedName ? metadataIndex.get(normalizedName) : null;
 
@@ -8149,7 +8234,7 @@
                         ? metadata.employment
                         : { startDate: null, endDate: null, startIso: '', endIso: '' };
 
-                    return {
+                    const entry = {
                         identifier,
                         displayName,
                         original: name,
@@ -8159,7 +8244,21 @@
                         employmentStartIso: employment && employment.startIso ? employment.startIso : '',
                         employmentEndIso: employment && employment.endIso ? employment.endIso : ''
                     };
+
+                    const dedupeKey = this.normalizePersonKey(entry.identifier || entry.original || entry.displayName || '');
+
+                    if (dedupeKey && uniqueIndex.has(dedupeKey)) {
+                        mergeIntoExistingEntry(uniqueIndex.get(dedupeKey), entry);
+                        return;
+                    }
+
+                    if (dedupeKey) {
+                        uniqueIndex.set(dedupeKey, entry);
+                    }
+                    uniqueEntries.push(entry);
                 });
+
+                return uniqueEntries;
             }
 
             getEmploymentPeriod(user) {

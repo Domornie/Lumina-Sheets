@@ -1855,15 +1855,22 @@
         select.innerHTML = '<option value="">👥 All Agents</option>';
 
         if (Array.isArray(users) && users.length > 0) {
-          users.forEach(name => {
-            if (!name || typeof name !== 'string') return;
+          const normalizedUsers = Array.from(new Set(
+            users
+              .filter(name => typeof name === 'string')
+              .map(name => name.trim())
+              .filter(Boolean)
+          )).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+
+          normalizedUsers.forEach(name => {
             const opt = document.createElement('option');
-            opt.value = name.trim();
-            opt.textContent = name.trim();
+            opt.value = name;
+            opt.textContent = name;
             select.appendChild(opt);
           });
-          window.INITIAL_USER_LIST = [...users];
-          console.log('Loaded', users.length, 'users successfully');
+
+          window.INITIAL_USER_LIST = [...normalizedUsers];
+          console.log('Loaded', normalizedUsers.length, 'unique users successfully');
         } else {
           console.warn('No users available');
           const opt = document.createElement('option');
@@ -3443,6 +3450,14 @@
           }
         }
 
+        const normalizedUsers = Array.from(new Set(
+          (Array.isArray(this.userList) ? this.userList : [])
+            .filter(name => typeof name === 'string')
+            .map(name => name.trim())
+            .filter(Boolean)
+        )).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+
+        this.userList = normalizedUsers;
         this.populateUserSelections();
         console.log('Export manager final user list:', this.userList.length, 'users');
       } catch (error) {
