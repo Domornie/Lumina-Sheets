@@ -1125,6 +1125,145 @@ function clientCreateShiftSlot(slotData) {
   }
 }
 
+function normalizeShiftSlotIdentifier(slot) {
+  if (slot === null || typeof slot === 'undefined') {
+    return '';
+  }
+
+  if (typeof slot === 'object') {
+    const candidateKeys = [
+      slot.ID, slot.Id, slot.id,
+      slot.SlotID, slot.SlotId, slot.slotId,
+      slot.Guid, slot.GUID, slot.UUID, slot.Uuid,
+      slot.Name, slot.SlotName
+    ];
+
+    for (let index = 0; index < candidateKeys.length; index++) {
+      const value = candidateKeys[index];
+      if (value === null || typeof value === 'undefined') {
+        continue;
+      }
+
+      const normalized = String(value).trim();
+      if (normalized) {
+        return normalized;
+      }
+    }
+
+    return '';
+  }
+
+  return String(slot).trim();
+}
+
+function clientDeleteShiftSlot(slot) {
+  try {
+    const normalizedId = normalizeShiftSlotIdentifier(slot);
+
+    if (!normalizedId) {
+      return {
+        success: false,
+        error: 'A valid shift slot identifier is required to delete a shift slot.'
+      };
+    }
+
+    const sheet = ensureScheduleSheetWithHeaders(SHIFT_SLOTS_SHEET, SHIFT_SLOTS_HEADERS);
+    const data = sheet.getDataRange().getValues();
+
+    if (!Array.isArray(data) || data.length <= 1) {
+      return {
+        success: false,
+        error: 'No shift slots are available to delete.'
+      };
+    }
+
+    const headers = data[0].map(header => (header || '').toString());
+    const headerLookup = headers.map(header => header.trim().toLowerCase());
+    const idIndex = headerLookup.indexOf('id');
+    const nameIndex = headerLookup.indexOf('name');
+    const slotNameIndex = headerLookup.indexOf('slotname');
+
+    let rowToDelete = -1;
+    let deletedSlotRecord = null;
+    const normalizedLowerId = normalizedId.toLowerCase();
+
+    for (let rowIndex = 1; rowIndex < data.length; rowIndex++) {
+      const rowValues = data[rowIndex];
+      const record = {};
+
+      headers.forEach((header, columnIndex) => {
+        record[header] = rowValues[columnIndex];
+      });
+
+      const candidateIds = [];
+
+      if (idIndex !== -1) {
+        candidateIds.push(rowValues[idIndex]);
+      }
+
+      if (slotNameIndex !== -1) {
+        candidateIds.push(rowValues[slotNameIndex]);
+      }
+
+      if (nameIndex !== -1 && nameIndex !== slotNameIndex) {
+        candidateIds.push(rowValues[nameIndex]);
+      }
+
+      candidateIds.push(record.ID, record.Id, record.id);
+      candidateIds.push(record.SlotID, record.SlotId, record.slotId);
+      candidateIds.push(record.Guid, record.GUID, record.UUID, record.Uuid);
+
+      const hasMatch = candidateIds.some(candidate => {
+        if (candidate === null || typeof candidate === 'undefined') {
+          return false;
+        }
+
+        const text = String(candidate).trim();
+        if (!text) {
+          return false;
+        }
+
+        return text.toLowerCase() === normalizedLowerId;
+      });
+
+      if (hasMatch) {
+        rowToDelete = rowIndex + 1; // account for header row offset
+        deletedSlotRecord = record;
+        break;
+      }
+    }
+
+    if (rowToDelete === -1 || !deletedSlotRecord) {
+      return {
+        success: false,
+        error: 'Shift slot not found. It may have already been deleted.',
+        slotId: normalizedId
+      };
+    }
+
+    sheet.deleteRow(rowToDelete);
+    SpreadsheetApp.flush();
+
+    appendAuditLogEntry('DELETE', 'ShiftSlot', normalizedId, deletedSlotRecord, null, 'Deleted shift slot');
+    invalidateScheduleCaches();
+
+    return {
+      success: true,
+      message: 'Shift slot deleted successfully.',
+      slotId: normalizedId,
+      slot: deletedSlotRecord
+    };
+
+  } catch (error) {
+    console.error('Error deleting shift slot:', error);
+    safeWriteError('clientDeleteShiftSlot', error);
+    return {
+      success: false,
+      error: error && error.message ? error.message : 'Failed to delete shift slot.'
+    };
+  }
+}
+
 function buildScheduleUserLookupIndex() {
   const lookup = {
     users: [],
