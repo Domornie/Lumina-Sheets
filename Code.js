@@ -1650,7 +1650,21 @@ function renderLoginPage(e) {
   const tpl = HtmlService.createTemplateFromFile('Login');
   tpl.baseUrl = getBaseUrl();
   tpl.scriptUrl = SCRIPT_URL;
-  tpl.serverMetadataJson = JSON.stringify(serverMetadata || null);
+
+  let serializedServerMetadata = 'null';
+  try {
+    const metadataPayload = (typeof serverMetadata === 'undefined' || serverMetadata === null)
+      ? null
+      : serverMetadata;
+    const json = JSON.stringify(metadataPayload);
+    if (typeof json === 'string' && json.length) {
+      serializedServerMetadata = json;
+    }
+  } catch (serializeError) {
+    console.warn('renderLoginPage: unable to serialize server metadata', serializeError);
+  }
+
+  tpl.serverMetadataJson = serializedServerMetadata;
   tpl.initialReturnUrl = initialReturnUrl || '';
   return tpl.evaluate()
     .setTitle('Login - VLBPO LuminaHQ')
