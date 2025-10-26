@@ -1,0 +1,1132 @@
+<?!= includeOnce('ResponsiveStyles') ?>
+<?!= include('layout', {
+  baseUrl: baseUrl,
+  scriptUrl: scriptUrl,
+  user: user,
+  currentPage: currentPage || 'dynamic-forms',
+  pageSlug: pageSlug || 'dynamic-forms',
+  pageTitle: pageTitle || 'Dynamic Form Responses',
+  pageDescription: pageDescription || 'Review responses captured through tenant-aware forms and inspect the profile updates applied automatically.'
+}) ?>
+
+<?
+  var __dynamicFormsJSON = (typeof dynamicFormsJSON !== 'undefined' && dynamicFormsJSON) ? dynamicFormsJSON : '[]';
+  var __dynamicFormResponsesJSON = (typeof dynamicFormResponsesJSON !== 'undefined' && dynamicFormResponsesJSON) ? dynamicFormResponsesJSON : '[]';
+  var __dynamicFormUserDirectoryJSON = (typeof dynamicFormUserDirectoryJSON !== 'undefined' && dynamicFormUserDirectoryJSON) ? dynamicFormUserDirectoryJSON : '[]';
+  var __dynamicFormsSelectedId = (typeof dynamicFormsSelectedId !== 'undefined' && dynamicFormsSelectedId) ? String(dynamicFormsSelectedId) : '';
+  var __escapedDynamicFormsSelectedId = __dynamicFormsSelectedId
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, '\\'');
+?>
+
+<style>
+  :root {
+    --df-primary: #4f46e5;
+    --df-primary-light: #eef2ff;
+    --df-border: #e5e7eb;
+    --df-muted: #6b7280;
+    --df-background: #f9fafb;
+    --df-heading: #111827;
+  }
+
+  .hidden {
+    display: none !important;
+  }
+
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .dynamic-forms-page {
+    max-width: 1280px;
+    margin: 0 auto;
+  }
+
+  .page-heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 1.25rem;
+    margin-bottom: 1.75rem;
+  }
+
+  .page-heading h1 {
+    margin: 0;
+    font-size: 1.75rem;
+    font-weight: 600;
+    color: var(--df-heading);
+  }
+
+  .page-heading p {
+    margin: 0.35rem 0 0;
+    color: var(--df-muted);
+    max-width: 720px;
+  }
+
+  .heading-actions {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+  }
+
+  .dynamic-forms-layout {
+    display: grid;
+    grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
+    gap: 1.5rem;
+    align-items: stretch;
+  }
+
+  .forms-panel,
+  .responses-panel {
+    background: #fff;
+    border: 1px solid var(--df-border);
+    border-radius: 16px;
+    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.04);
+  }
+
+  .forms-panel {
+    padding: 1.25rem 1.25rem 1.5rem;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .forms-panel__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 0.75rem;
+  }
+
+  .forms-panel__title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--df-heading);
+    margin: 0;
+  }
+
+  .forms-panel__count {
+    font-size: 0.85rem;
+    color: var(--df-muted);
+  }
+
+  .forms-panel__helper {
+    margin: 0.5rem 0 0.75rem;
+    color: var(--df-muted);
+    font-size: 0.9rem;
+  }
+
+  .forms-search {
+    margin-bottom: 0.75rem;
+  }
+
+  .forms-search input {
+    width: 100%;
+    border-radius: 10px;
+    border: 1px solid var(--df-border);
+    padding: 0.55rem 0.75rem;
+    font-size: 0.95rem;
+    background: var(--df-background);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .forms-search input:focus {
+    border-color: var(--df-primary);
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2);
+    outline: none;
+    background: #fff;
+  }
+
+  .forms-list {
+    margin: 0;
+    padding: 0 0.25rem 0 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    max-height: calc(100vh - 220px);
+    overflow-y: auto;
+  }
+
+  .forms-list::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .forms-list::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.6);
+    border-radius: 999px;
+  }
+
+  .form-list-item {
+    border: 1px solid var(--df-border);
+    background: var(--df-background);
+    border-radius: 12px;
+    padding: 0.75rem 0.9rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    text-align: left;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+    cursor: pointer;
+  }
+
+  .form-list-item:hover {
+    border-color: var(--df-primary);
+    box-shadow: 0 6px 16px rgba(79, 70, 229, 0.16);
+    transform: translateY(-1px);
+  }
+
+  .form-list-item.is-active {
+    border-color: var(--df-primary);
+    background: var(--df-primary-light);
+    box-shadow: 0 6px 18px rgba(79, 70, 229, 0.2);
+  }
+
+  .form-list-item__name {
+    font-weight: 600;
+    font-size: 1rem;
+    color: var(--df-heading);
+  }
+
+  .form-list-item__meta {
+    font-size: 0.82rem;
+    color: var(--df-muted);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .responses-panel {
+    padding: 1.5rem 1.75rem 2rem;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .responses-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 1.25rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .responses-header h2 {
+    margin: 0;
+    font-size: 1.4rem;
+    font-weight: 600;
+    color: var(--df-heading);
+  }
+
+  .responses-header p {
+    margin: 0.4rem 0 0;
+    color: var(--df-muted);
+  }
+
+  .responses-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+
+  .responses-meta__block {
+    min-width: 110px;
+  }
+
+  .responses-meta__label {
+    display: block;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--df-muted);
+  }
+
+  .responses-meta__value {
+    font-weight: 600;
+    font-size: 1.05rem;
+    color: var(--df-heading);
+  }
+
+  .responses-toolbar {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+  }
+
+  .responses-toolbar input {
+    width: 280px;
+    max-width: 100%;
+    border-radius: 10px;
+    border: 1px solid var(--df-border);
+    padding: 0.55rem 0.75rem;
+    font-size: 0.95rem;
+    background: var(--df-background);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .responses-toolbar input:focus {
+    border-color: var(--df-primary);
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2);
+    outline: none;
+    background: #fff;
+  }
+
+  .status-banner {
+    border-radius: 12px;
+    padding: 0.75rem 1rem;
+    margin-bottom: 1rem;
+    font-size: 0.92rem;
+    background: #dbeafe;
+    color: #1e40af;
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+  }
+
+  .status-banner--loading {
+    background: #e0f2fe;
+    color: #0369a1;
+  }
+
+  .status-banner--error {
+    background: #fee2e2;
+    color: #b91c1c;
+  }
+
+  .status-banner--warning {
+    background: #fef3c7;
+    color: #92400e;
+  }
+
+  .status-banner--info {
+    background: #d1fae5;
+    color: #047857;
+  }
+
+  .responses-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .response-card {
+    border: 1px solid var(--df-border);
+    border-radius: 14px;
+    padding: 1.1rem 1.25rem 1.25rem;
+    background: #fff;
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+  }
+
+  .response-card__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .response-card__identity {
+    max-width: 65%;
+  }
+
+  .response-card__title {
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: var(--df-heading);
+  }
+
+  .response-card__submitted-by {
+    font-size: 0.82rem;
+    color: var(--df-muted);
+    margin-top: 0.2rem;
+  }
+
+  .response-card__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    font-size: 0.82rem;
+    color: var(--df-muted);
+  }
+
+  .response-card__answers {
+    display: grid;
+    grid-template-columns: minmax(140px, 220px) minmax(0, 1fr);
+    gap: 0.5rem 1rem;
+    margin: 0;
+  }
+
+  .response-card__answers dt {
+    font-weight: 600;
+    color: var(--df-heading);
+  }
+
+  .response-card__answers dd {
+    margin: 0;
+    color: #374151;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .response-card__updates {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .response-card__update-pill {
+    padding: 0.35rem 0.75rem;
+    border-radius: 999px;
+    background: var(--df-primary-light);
+    color: var(--df-primary);
+    font-size: 0.78rem;
+    font-weight: 500;
+  }
+
+  .empty-state {
+    margin-top: 1rem;
+    padding: 1rem;
+    background: var(--df-background);
+    border-radius: 12px;
+    text-align: center;
+    color: var(--df-muted);
+    font-size: 0.95rem;
+  }
+
+  .responses-empty-inline {
+    margin-top: 0.5rem;
+  }
+
+  @media (max-width: 1024px) {
+    .dynamic-forms-layout {
+      grid-template-columns: 1fr;
+    }
+
+    .response-card__identity {
+      max-width: 100%;
+    }
+
+    .responses-meta {
+      width: 100%;
+    }
+  }
+
+  @media (max-width: 600px) {
+    .responses-toolbar {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .heading-actions {
+      width: 100%;
+      justify-content: flex-start;
+    }
+  }
+</style>
+<main class='dynamic-forms-page container-fluid py-4 px-4 px-lg-5'>
+  <div class='page-heading'>
+    <div>
+      <h1>Dynamic Form Responses</h1>
+      <p>
+        Monitor every submission captured through campaign-aware forms, inspect the answers that users provided,
+        and review any profile updates that were applied automatically.
+      </p>
+    </div>
+    <div class='heading-actions'>
+      <button id='refreshResponses' type='button' class='btn btn-outline-primary'>
+        <i class='fas fa-sync-alt'></i>
+        <span>Refresh</span>
+      </button>
+    </div>
+  </div>
+
+  <div class='dynamic-forms-layout'>
+    <section class='forms-panel' aria-labelledby='dynamic-forms-list-label'>
+      <div class='forms-panel__header'>
+        <h2 id='dynamic-forms-list-label' class='forms-panel__title'>Forms</h2>
+        <span id='formsCount' class='forms-panel__count'>0 forms</span>
+      </div>
+      <p class='forms-panel__helper'>Select a form to explore submissions and linked profile updates.</p>
+      <div class='forms-search'>
+        <label class='sr-only' for='formSearch'>Search forms</label>
+        <input type='search' id='formSearch' placeholder='Search forms' autocomplete='off' />
+      </div>
+      <div id='formsList' class='forms-list' role='listbox' aria-label='Available dynamic forms'></div>
+      <div id='formsEmpty' class='empty-state hidden'>No dynamic forms have been created yet.</div>
+    </section>
+
+    <section class='responses-panel' aria-live='polite'>
+      <div class='responses-header'>
+        <div>
+          <h2 id='responsesTitle'>Select a form</h2>
+          <p id='responsesDescription' class='hidden'></p>
+        </div>
+        <div class='responses-meta'>
+          <div class='responses-meta__block'>
+            <span class='responses-meta__label'>Fields</span>
+            <span id='fieldsCount' class='responses-meta__value'>0</span>
+          </div>
+          <div class='responses-meta__block'>
+            <span class='responses-meta__label'>Responses</span>
+            <span id='responsesCount' class='responses-meta__value'>0</span>
+          </div>
+          <div class='responses-meta__block'>
+            <span class='responses-meta__label'>Last fetched</span>
+            <span id='lastFetched' class='responses-meta__value'>—</span>
+          </div>
+        </div>
+      </div>
+
+      <div class='responses-toolbar'>
+        <label class='sr-only' for='responseSearch'>Search responses</label>
+        <input type='search' id='responseSearch' placeholder='Search responses' autocomplete='off' />
+      </div>
+
+      <div id='responsesStatus' class='status-banner hidden'></div>
+
+      <div id='responsesEmpty' class='empty-state hidden responses-empty-inline'>
+        No responses recorded for this form yet.
+      </div>
+
+      <div id='responsesContainer' class='responses-list' role='list'></div>
+    </section>
+  </div>
+</main>
+
+<script>
+  (function () {
+    'use strict';
+
+    const initialForms = <?!= __dynamicFormsJSON ?>;
+    const initialResponses = <?!= __dynamicFormResponsesJSON ?>;
+    const initialUserDirectory = <?!= __dynamicFormUserDirectoryJSON ?>;
+    const initialSelectedFormId = '<?= __escapedDynamicFormsSelectedId ?>';
+
+    const state = {
+      forms: Array.isArray(initialForms) ? initialForms.slice() : [],
+      responsesByForm: {},
+      selectedFormId: initialSelectedFormId || '',
+      formSearch: '',
+      responseSearch: '',
+      lastFetchedByForm: {}
+    };
+
+    const userLookup = new Map();
+
+    if (Array.isArray(initialUserDirectory)) {
+      initialUserDirectory.forEach(function (entry) {
+        if (!entry) return;
+        const key = entry.id || entry.ID;
+        if (!key) return;
+        userLookup.set(String(key), {
+          name: entry.name || entry.FullName || entry.fullName || '',
+          email: entry.email || entry.Email || ''
+        });
+      });
+    }
+
+    state.forms = state.forms.map(normalizeForm);
+
+    if (!state.selectedFormId && state.forms.length) {
+      state.selectedFormId = getFormId(state.forms[0]);
+    }
+
+    if (state.selectedFormId && Array.isArray(initialResponses)) {
+      state.responsesByForm[state.selectedFormId] = sortResponses(initialResponses.map(normalizeResponse));
+      state.lastFetchedByForm[state.selectedFormId] = new Date().toISOString();
+    }
+
+    const formsListEl = document.getElementById('formsList');
+    const formsCountEl = document.getElementById('formsCount');
+    const formsEmptyEl = document.getElementById('formsEmpty');
+    const formSearchEl = document.getElementById('formSearch');
+
+    const responsesTitleEl = document.getElementById('responsesTitle');
+    const responsesDescriptionEl = document.getElementById('responsesDescription');
+    const fieldsCountEl = document.getElementById('fieldsCount');
+    const responsesCountEl = document.getElementById('responsesCount');
+    const lastFetchedEl = document.getElementById('lastFetched');
+    const responseSearchEl = document.getElementById('responseSearch');
+    const responsesStatusEl = document.getElementById('responsesStatus');
+    const responsesEmptyEl = document.getElementById('responsesEmpty');
+    const responsesContainerEl = document.getElementById('responsesContainer');
+    const refreshButton = document.getElementById('refreshResponses');
+
+    if (formSearchEl) {
+      formSearchEl.addEventListener('input', function (event) {
+        const value = (event.target && typeof event.target.value !== 'undefined')
+          ? String(event.target.value)
+          : '';
+        state.formSearch = value.trim().toLowerCase();
+        renderFormsList();
+      });
+    }
+
+    if (responseSearchEl) {
+      responseSearchEl.addEventListener('input', function (event) {
+        const value = (event.target && typeof event.target.value !== 'undefined')
+          ? String(event.target.value)
+          : '';
+        state.responseSearch = value.trim().toLowerCase();
+        renderResponses(state.selectedFormId);
+      });
+    }
+
+    if (refreshButton) {
+      refreshButton.addEventListener('click', function () {
+        if (!state.selectedFormId) {
+          setStatus('warning', 'Select a form to refresh responses.');
+          return;
+        }
+        selectForm(state.selectedFormId, { force: true });
+      });
+    }
+
+    renderFormsList();
+    renderSelectedFormSummary();
+
+    if (state.selectedFormId) {
+      if (state.responsesByForm[state.selectedFormId]) {
+        renderResponses(state.selectedFormId);
+      } else {
+        fetchResponses(state.selectedFormId);
+      }
+    } else {
+      renderResponses('');
+    }
+
+    if (!canUseGoogleScript()) {
+      setStatus('warning', 'google.script.run is not available. Showing cached data only.');
+    }
+
+    function normalizeForm(form) {
+      if (!form || typeof form !== 'object') return form;
+      if (!Array.isArray(form.Fields) && Array.isArray(form.fields)) {
+        form.Fields = form.fields;
+      }
+      if (typeof form.Name === 'undefined' && typeof form.name !== 'undefined') {
+        form.Name = form.name;
+      }
+      if (typeof form.Description === 'undefined' && typeof form.description !== 'undefined') {
+        form.Description = form.description;
+      }
+      return form;
+    }
+
+    function normalizeResponse(response) {
+      if (!response || typeof response !== 'object') return response;
+      if (!Array.isArray(response.Responses) && Array.isArray(response.responses)) {
+        response.Responses = response.responses;
+      }
+      if (!Array.isArray(response.UserUpdates) && Array.isArray(response.userUpdates)) {
+        response.UserUpdates = response.userUpdates;
+      }
+      return response;
+    }
+
+    function getFormId(form) {
+      if (!form || typeof form !== 'object') return '';
+      return String(form.ID || form.Id || form.id || '');
+    }
+
+    function getFormById(id) {
+      const target = String(id || '');
+      if (!target) return null;
+      for (let i = 0; i < state.forms.length; i++) {
+        const form = state.forms[i];
+        if (!form) continue;
+        if (getFormId(form) === target) {
+          return form;
+        }
+      }
+      return null;
+    }
+
+    function getResponsesForForm(id) {
+      const key = String(id || '');
+      if (!key) return [];
+      const list = state.responsesByForm[key];
+      return Array.isArray(list) ? list : [];
+    }
+
+    function getTimestampValue(values) {
+      for (let i = 0; i < values.length; i++) {
+        const raw = values[i];
+        if (!raw) continue;
+        const date = raw instanceof Date ? raw : new Date(raw);
+        if (!isNaN(date.getTime())) {
+          return date;
+        }
+      }
+      return null;
+    }
+
+    function getFormTimestampMs(form) {
+      const updated = getTimestampValue([form.UpdatedAt, form.updatedAt]);
+      const created = getTimestampValue([form.CreatedAt, form.createdAt]);
+      const resolved = updated || created;
+      return resolved ? resolved.getTime() : 0;
+    }
+
+    function sortFormsList(list) {
+      return list.slice().sort(function (a, b) {
+        return getFormTimestampMs(b || {}) - getFormTimestampMs(a || {});
+      });
+    }
+
+    function getResponseTimestampMs(response) {
+      const stamp = getTimestampValue([
+        response && response.UpdatedAt,
+        response && response.updatedAt,
+        response && response.CreatedAt,
+        response && response.createdAt
+      ]);
+      return stamp ? stamp.getTime() : 0;
+    }
+
+    function sortResponses(list) {
+      return list.slice().sort(function (a, b) {
+        return getResponseTimestampMs(b || {}) - getResponseTimestampMs(a || {});
+      });
+    }
+
+    function formatRelativeTimestamp(value) {
+      if (!value) return '';
+      const date = value instanceof Date ? value : new Date(value);
+      if (isNaN(date.getTime())) return '';
+      const diffMs = Date.now() - date.getTime();
+      if (diffMs < 0) return date.toLocaleDateString();
+      const minutes = Math.floor(diffMs / 60000);
+      if (minutes < 1) return 'just now';
+      if (minutes < 60) return minutes + 'm ago';
+      const hours = Math.floor(minutes / 60);
+      if (hours < 24) return hours + 'h ago';
+      const days = Math.floor(hours / 24);
+      if (days < 7) return days + 'd ago';
+      return date.toLocaleDateString();
+    }
+
+    function formatTimestamp(value) {
+      if (!value) return '—';
+      const date = value instanceof Date ? value : new Date(value);
+      if (isNaN(date.getTime())) return String(value);
+      return date.toLocaleString();
+    }
+
+    function formatAnswerValue(value) {
+      if (value === null || typeof value === 'undefined' || value === '') {
+        return '—';
+      }
+      if (Array.isArray(value)) {
+        const joined = value
+          .map(function (part) {
+            if (part === null || typeof part === 'undefined') return '';
+            return String(part);
+          })
+          .filter(function (part) { return part !== ''; })
+          .join(', ');
+        return joined || '—';
+      }
+      if (typeof value === 'object') {
+        try {
+          return JSON.stringify(value);
+        } catch (err) {
+          return String(value);
+        }
+      }
+      return String(value);
+    }
+
+    function resolveUserSummary(userId) {
+      const key = userId ? String(userId) : '';
+      const stored = key && userLookup.has(key) ? userLookup.get(key) : null;
+      if (stored) {
+        return {
+          name: stored.name || (key ? 'User ' + key : 'Unknown user'),
+          email: stored.email || ''
+        };
+      }
+      return {
+        name: key ? 'User ' + key : 'Unknown user',
+        email: ''
+      };
+    }
+
+    function toDomId(prefix, value) {
+      const safe = String(value || '').replace(/[^a-zA-Z0-9_-]+/g, '-');
+      return prefix + '-' + (safe || 'item');
+    }
+
+    function renderFormsList() {
+      if (!formsListEl) return;
+      const total = state.forms.length;
+      const searchTerm = state.formSearch;
+      const sorted = sortFormsList(state.forms);
+      const filtered = searchTerm
+        ? sorted.filter(function (form) {
+            const name = (form.Name || form.name || '').toLowerCase();
+            const description = (form.Description || form.description || '').toLowerCase();
+            return name.indexOf(searchTerm) !== -1 || description.indexOf(searchTerm) !== -1;
+          })
+        : sorted;
+
+      formsListEl.innerHTML = '';
+      let activeButtonId = '';
+
+      filtered.forEach(function (form) {
+        if (!form) return;
+        const formId = getFormId(form);
+        if (!formId) return;
+
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'form-list-item';
+        button.setAttribute('role', 'option');
+        button.setAttribute('data-form-id', formId);
+        button.id = toDomId('form-option', formId);
+
+        const isActive = formId === state.selectedFormId;
+        if (isActive) {
+          button.classList.add('is-active');
+          button.setAttribute('aria-selected', 'true');
+          activeButtonId = button.id;
+        } else {
+          button.setAttribute('aria-selected', 'false');
+        }
+
+        const nameEl = document.createElement('div');
+        nameEl.className = 'form-list-item__name';
+        nameEl.textContent = form.Name || form.name || 'Untitled form';
+        button.appendChild(nameEl);
+
+        const metaEl = document.createElement('div');
+        metaEl.className = 'form-list-item__meta';
+
+        const fields = Array.isArray(form.Fields) ? form.Fields : [];
+        const fieldSpan = document.createElement('span');
+        fieldSpan.textContent = fields.length === 1 ? '1 field' : fields.length + ' fields';
+        metaEl.appendChild(fieldSpan);
+
+        const updated = getTimestampValue([form.UpdatedAt, form.updatedAt, form.CreatedAt, form.createdAt]);
+        if (updated) {
+          const updatedSpan = document.createElement('span');
+          const prefix = form.UpdatedAt || form.updatedAt ? 'Updated ' : 'Created ';
+          updatedSpan.textContent = prefix + formatRelativeTimestamp(updated);
+          metaEl.appendChild(updatedSpan);
+        }
+
+        button.appendChild(metaEl);
+
+        button.addEventListener('click', function () {
+          selectForm(formId);
+        });
+
+        formsListEl.appendChild(button);
+      });
+
+      if (formsCountEl) {
+        formsCountEl.textContent = total === 1 ? '1 form' : total + ' forms';
+      }
+
+      if (formsEmptyEl) {
+        if (!total) {
+          formsEmptyEl.textContent = 'No dynamic forms have been created yet.';
+          formsEmptyEl.classList.remove('hidden');
+        } else if (!filtered.length) {
+          formsEmptyEl.textContent = 'No forms match your search.';
+          formsEmptyEl.classList.remove('hidden');
+        } else {
+          formsEmptyEl.classList.add('hidden');
+        }
+      }
+
+      if (formsListEl) {
+        if (activeButtonId) {
+          formsListEl.setAttribute('aria-activedescendant', activeButtonId);
+        } else {
+          formsListEl.removeAttribute('aria-activedescendant');
+        }
+      }
+    }
+
+    function renderSelectedFormSummary() {
+      if (!responsesTitleEl || !fieldsCountEl || !responsesCountEl || !lastFetchedEl) return;
+      const form = getFormById(state.selectedFormId);
+      if (!form) {
+        responsesTitleEl.textContent = 'Select a form';
+        if (responsesDescriptionEl) {
+          responsesDescriptionEl.textContent = '';
+          responsesDescriptionEl.classList.add('hidden');
+        }
+        fieldsCountEl.textContent = '0';
+        responsesCountEl.textContent = '0';
+        lastFetchedEl.textContent = '—';
+        return;
+      }
+
+      const name = form.Name || form.name || 'Untitled form';
+      responsesTitleEl.textContent = name;
+
+      if (responsesDescriptionEl) {
+        const description = form.Description || form.description || '';
+        responsesDescriptionEl.textContent = description;
+        if (description && description.trim()) {
+          responsesDescriptionEl.classList.remove('hidden');
+        } else {
+          responsesDescriptionEl.classList.add('hidden');
+        }
+      }
+
+      const fields = Array.isArray(form.Fields) ? form.Fields : [];
+      fieldsCountEl.textContent = String(fields.length);
+
+      const responses = getResponsesForForm(state.selectedFormId);
+      responsesCountEl.textContent = String(responses.length);
+
+      const fetchedAt = state.lastFetchedByForm[state.selectedFormId];
+      lastFetchedEl.textContent = fetchedAt ? formatTimestamp(fetchedAt) : '—';
+    }
+
+    function renderResponses(formId) {
+      if (!responsesContainerEl || !responsesEmptyEl || !responsesCountEl || !lastFetchedEl) return;
+      const form = getFormById(formId);
+      if (!form) {
+        responsesContainerEl.innerHTML = '';
+        responsesEmptyEl.textContent = 'Select a form to review responses.';
+        responsesEmptyEl.classList.remove('hidden');
+        responsesCountEl.textContent = '0';
+        lastFetchedEl.textContent = '—';
+        return;
+      }
+
+      const responses = getResponsesForForm(formId);
+      const searchTerm = state.responseSearch;
+      const filtered = !searchTerm
+        ? responses
+        : responses.filter(function (response) {
+            const summary = resolveUserSummary(response && (response.UserID || response.userId || response.userID));
+            let haystack = '';
+            if (summary.name) haystack += ' ' + summary.name;
+            if (summary.email) haystack += ' ' + summary.email;
+            if (response && response.SubmittedBy) haystack += ' ' + response.SubmittedBy;
+            const answers = response && Array.isArray(response.Responses) ? response.Responses : [];
+            answers.forEach(function (answer) {
+              if (!answer) return;
+              if (answer.label) haystack += ' ' + String(answer.label);
+              if (typeof answer.value !== 'undefined' && answer.value !== null) {
+                haystack += ' ' + formatAnswerValue(answer.value);
+              }
+            });
+            return haystack.toLowerCase().indexOf(searchTerm) !== -1;
+          });
+
+      responsesContainerEl.innerHTML = '';
+
+      if (!responses.length) {
+        responsesEmptyEl.textContent = 'No responses recorded for this form yet.';
+        responsesEmptyEl.classList.remove('hidden');
+      } else if (!filtered.length) {
+        responsesEmptyEl.textContent = 'No responses match the current search.';
+        responsesEmptyEl.classList.remove('hidden');
+      } else {
+        responsesEmptyEl.classList.add('hidden');
+      }
+
+      filtered.forEach(function (response) {
+        if (!response) return;
+        const card = document.createElement('article');
+        card.className = 'response-card';
+
+        const header = document.createElement('header');
+        header.className = 'response-card__header';
+        card.appendChild(header);
+
+        const identity = document.createElement('div');
+        identity.className = 'response-card__identity';
+        header.appendChild(identity);
+
+        const summary = resolveUserSummary(response.UserID || response.userId || response.userID);
+
+        const title = document.createElement('div');
+        title.className = 'response-card__title';
+        title.textContent = summary.name;
+        identity.appendChild(title);
+
+        if (summary.email) {
+          const submittedByEl = document.createElement('div');
+          submittedByEl.className = 'response-card__submitted-by';
+          submittedByEl.textContent = summary.email;
+          identity.appendChild(submittedByEl);
+        }
+
+        const meta = document.createElement('div');
+        meta.className = 'response-card__meta';
+        header.appendChild(meta);
+
+        const submittedAt = getTimestampValue([
+          response.UpdatedAt,
+          response.updatedAt,
+          response.CreatedAt,
+          response.createdAt
+        ]);
+        const submittedSpan = document.createElement('span');
+        submittedSpan.textContent = submittedAt
+          ? 'Submitted ' + formatTimestamp(submittedAt)
+          : 'Submission time unavailable';
+        meta.appendChild(submittedSpan);
+
+        if (response.ID || response.id) {
+          const idSpan = document.createElement('span');
+          idSpan.textContent = 'ID ' + String(response.ID || response.id);
+          meta.appendChild(idSpan);
+        }
+
+        if (response.SubmittedBy) {
+          const bySpan = document.createElement('span');
+          bySpan.textContent = 'By ' + String(response.SubmittedBy);
+          meta.appendChild(bySpan);
+        }
+
+        const answersList = document.createElement('dl');
+        answersList.className = 'response-card__answers';
+        const answers = Array.isArray(response.Responses) ? response.Responses : [];
+        answers.forEach(function (answer) {
+          if (!answer) return;
+          const dt = document.createElement('dt');
+          dt.textContent = answer.label || answer.id || 'Field';
+          answersList.appendChild(dt);
+
+          const dd = document.createElement('dd');
+          dd.textContent = formatAnswerValue(answer.value);
+          answersList.appendChild(dd);
+        });
+        card.appendChild(answersList);
+
+        if (Array.isArray(response.UserUpdates) && response.UserUpdates.length) {
+          const updates = document.createElement('div');
+          updates.className = 'response-card__updates';
+          response.UserUpdates.forEach(function (update) {
+            if (!update) return;
+            const pill = document.createElement('span');
+            pill.className = 'response-card__update-pill';
+            const column = update.column || update.field || update.fieldId || 'Field';
+            const value = typeof update.value === 'undefined' || update.value === null
+              ? ''
+              : String(update.value);
+            pill.textContent = column + (value ? ': ' + value : '');
+            updates.appendChild(pill);
+          });
+          card.appendChild(updates);
+        }
+
+        responsesContainerEl.appendChild(card);
+      });
+
+      responsesCountEl.textContent = String(responses.length);
+      const fetchedAt = state.lastFetchedByForm[state.selectedFormId];
+      lastFetchedEl.textContent = fetchedAt ? formatTimestamp(fetchedAt) : '—';
+    }
+
+    function setStatus(type, message) {
+      if (!responsesStatusEl) return;
+      responsesStatusEl.textContent = message || '';
+      responsesStatusEl.className = 'status-banner';
+      if (!message) {
+        responsesStatusEl.classList.add('hidden');
+        return;
+      }
+      responsesStatusEl.classList.remove('hidden');
+      if (type) {
+        responsesStatusEl.classList.add('status-banner--' + type);
+      }
+    }
+
+    function setBusy(isBusy) {
+      if (!responsesContainerEl) return;
+      responsesContainerEl.setAttribute('aria-busy', isBusy ? 'true' : 'false');
+    }
+
+    function selectForm(formId, options) {
+      if (!formId) return;
+      const normalizedId = String(formId);
+      const force = options && options.force;
+      const changed = state.selectedFormId !== normalizedId;
+      state.selectedFormId = normalizedId;
+
+      if (changed || force) {
+        state.responseSearch = '';
+        if (responseSearchEl) {
+          responseSearchEl.value = '';
+        }
+      }
+
+      renderFormsList();
+      renderSelectedFormSummary();
+
+      if (!state.responsesByForm[normalizedId] || force) {
+        fetchResponses(normalizedId);
+      } else {
+        renderResponses(normalizedId);
+      }
+    }
+
+    function fetchResponses(formId) {
+      if (!formId) {
+        setStatus('warning', 'Select a form to load responses.');
+        return;
+      }
+      if (!canUseGoogleScript()) {
+        setStatus('warning', 'Unable to reach Apps Script. Showing cached data only.');
+        renderResponses(formId);
+        return;
+      }
+
+      setStatus('loading', 'Loading responses…');
+      setBusy(true);
+
+      google.script.run
+        .withSuccessHandler(function (rows) {
+          const list = Array.isArray(rows) ? rows.map(normalizeResponse) : [];
+          state.responsesByForm[formId] = sortResponses(list);
+          state.lastFetchedByForm[formId] = new Date().toISOString();
+          setBusy(false);
+          setStatus(null, '');
+          if (formId === state.selectedFormId) {
+            renderSelectedFormSummary();
+            renderResponses(formId);
+          }
+        })
+        .withFailureHandler(function (error) {
+          setBusy(false);
+          const message = error && error.message ? error.message : String(error || 'Unknown error');
+          setStatus('error', 'Failed to load responses: ' + message);
+          if (formId === state.selectedFormId) {
+            renderResponses(formId);
+          }
+        })
+        .listDynamicFormResponsesByForm(formId, {
+          query: {
+            orderBy: 'CreatedAt',
+            orderDesc: true
+          }
+        });
+    }
+
+    function canUseGoogleScript() {
+      return typeof google !== 'undefined' && google && google.script && google.script.run;
+    }
+  })();
+</script>

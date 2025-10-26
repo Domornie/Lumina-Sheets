@@ -86,6 +86,7 @@ var USER_SHEET_COLUMN_ORDER = (function resolveUserSheetColumnOrder_() {
     'InsuranceQualified',
     'InsuranceEnrolled',
     'InsuranceCardReceivedDate',
+    'InsuranceInformation',
     'ProbationEndDate',
     'InsuranceQualifiedDate',
     'InsuranceEligible',
