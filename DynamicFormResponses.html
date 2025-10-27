@@ -1,0 +1,1929 @@
+<?!= includeOnce('ResponsiveStyles') ?>
+<?!= include('layout', {
+  baseUrl: baseUrl,
+  scriptUrl: scriptUrl,
+  user: user,
+  currentPage: (typeof currentPage !== 'undefined' && currentPage) ? currentPage : 'dynamic-forms',
+  pageSlug: (typeof pageSlug !== 'undefined' && pageSlug) ? pageSlug : 'dynamic-forms',
+  pageTitle: (typeof pageTitle !== 'undefined' && pageTitle) ? pageTitle : 'Dynamic Form Responses',
+  pageDescription: (typeof pageDescription !== 'undefined' && pageDescription) ? pageDescription : 'Review responses captured through tenant-aware forms and inspect the profile updates applied automatically.'
+}) ?>
+
+<?
+  var __dynamicFormsJSON = (typeof dynamicFormsJSON !== 'undefined' && dynamicFormsJSON) ? dynamicFormsJSON : '[]';
+  var __dynamicFormResponsesJSON = (typeof dynamicFormResponsesJSON !== 'undefined' && dynamicFormResponsesJSON) ? dynamicFormResponsesJSON : '[]';
+  var __dynamicFormUserDirectoryJSON = (typeof dynamicFormUserDirectoryJSON !== 'undefined' && dynamicFormUserDirectoryJSON) ? dynamicFormUserDirectoryJSON : '[]';
+  var __dynamicFormsSelectedId = (typeof dynamicFormsSelectedId !== 'undefined' && dynamicFormsSelectedId) ? String(dynamicFormsSelectedId) : '';
+  var __escapedDynamicFormsSelectedId = __dynamicFormsSelectedId
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'");
+?>
+
+<style>
+  :root {
+    --df-primary: #4f46e5;
+    --df-primary-light: #eef2ff;
+    --df-border: #e5e7eb;
+    --df-muted: #6b7280;
+    --df-background: #f9fafb;
+    --df-heading: #111827;
+  }
+
+  .hidden {
+    display: none !important;
+  }
+
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .dynamic-forms-page {
+    max-width: 1280px;
+    margin: 0 auto;
+  }
+
+  .page-heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 1.25rem;
+    margin-bottom: 1.75rem;
+  }
+
+  .page-heading h1 {
+    margin: 0;
+    font-size: 1.75rem;
+    font-weight: 600;
+    color: var(--df-heading);
+  }
+
+  .page-heading p {
+    margin: 0.35rem 0 0;
+    color: var(--df-muted);
+    max-width: 720px;
+  }
+
+  .heading-actions {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+  }
+
+  .heading-actions .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    white-space: nowrap;
+  }
+
+  .create-form-modal .modal-body {
+    background: var(--df-background);
+  }
+
+  .create-form-modal .modal-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 600;
+  }
+
+  .create-form-modal .modal-title i {
+    color: var(--df-primary);
+  }
+
+  .create-form-modal .alert {
+    margin-bottom: 1rem;
+  }
+
+  .create-form-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .create-form-field {
+    position: relative;
+    border: 1px solid var(--df-border);
+    border-radius: 14px;
+    padding: 1rem 1rem 1.25rem;
+    background: #fff;
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+  }
+
+  .create-form-field__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .create-form-field__title {
+    font-weight: 600;
+    color: var(--df-heading);
+  }
+
+  .create-form-field__type {
+    font-size: 0.75rem;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    background: var(--df-primary-light);
+    color: var(--df-primary);
+    padding: 0.2rem 0.6rem;
+    border-radius: 999px;
+    flex-shrink: 0;
+  }
+
+  .create-form-field__controls {
+    margin-left: auto;
+    display: inline-flex;
+    gap: 0.5rem;
+  }
+
+  .create-form-field__remove {
+    border: none;
+    background: transparent;
+    color: #ef4444;
+    font-size: 0.85rem;
+    cursor: pointer;
+    padding: 0.25rem 0.4rem;
+    border-radius: 6px;
+    transition: background 0.2s ease, color 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .create-form-field__remove:hover,
+  .create-form-field__remove:focus {
+    background: rgba(239, 68, 68, 0.12);
+    color: #b91c1c;
+  }
+
+  .create-form-field__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 0.75rem;
+  }
+
+  .create-form-field__options {
+    margin-top: 0.75rem;
+  }
+
+  .create-form-field__options textarea {
+    min-height: 90px;
+  }
+
+  .create-form-field .form-text {
+    color: var(--df-muted);
+  }
+
+  .create-form-modal .modal-footer {
+    justify-content: flex-end;
+    gap: 0.75rem;
+  }
+
+  .create-form-modal .modal-footer .btn-primary {
+    min-width: 160px;
+  }
+
+  .create-form-modal .form-check {
+    margin-top: 0.35rem;
+  }
+
+  .dynamic-forms-layout {
+    display: grid;
+    grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
+    gap: 1.5rem;
+    align-items: stretch;
+  }
+
+  .forms-panel,
+  .responses-panel {
+    background: #fff;
+    border: 1px solid var(--df-border);
+    border-radius: 16px;
+    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.04);
+  }
+
+  .forms-panel {
+    padding: 1.25rem 1.25rem 1.5rem;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .forms-panel__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 0.75rem;
+  }
+
+  .forms-panel__title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--df-heading);
+    margin: 0;
+  }
+
+  .forms-panel__count {
+    font-size: 0.85rem;
+    color: var(--df-muted);
+  }
+
+  .forms-panel__helper {
+    margin: 0.5rem 0 0.75rem;
+    color: var(--df-muted);
+    font-size: 0.9rem;
+  }
+
+  .forms-search {
+    margin-bottom: 0.75rem;
+  }
+
+  .forms-search input {
+    width: 100%;
+    border-radius: 10px;
+    border: 1px solid var(--df-border);
+    padding: 0.55rem 0.75rem;
+    font-size: 0.95rem;
+    background: var(--df-background);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .forms-search input:focus {
+    border-color: var(--df-primary);
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2);
+    outline: none;
+    background: #fff;
+  }
+
+  .forms-list {
+    margin: 0;
+    padding: 0 0.25rem 0 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    max-height: calc(100vh - 220px);
+    overflow-y: auto;
+  }
+
+  .forms-list::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .forms-list::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.6);
+    border-radius: 999px;
+  }
+
+  .form-list-item {
+    border: 1px solid var(--df-border);
+    background: var(--df-background);
+    border-radius: 12px;
+    padding: 0.75rem 0.9rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    text-align: left;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+    cursor: pointer;
+  }
+
+  .form-list-item:hover {
+    border-color: var(--df-primary);
+    box-shadow: 0 6px 16px rgba(79, 70, 229, 0.16);
+    transform: translateY(-1px);
+  }
+
+  .form-list-item.is-active {
+    border-color: var(--df-primary);
+    background: var(--df-primary-light);
+    box-shadow: 0 6px 18px rgba(79, 70, 229, 0.2);
+  }
+
+  .form-list-item__name {
+    font-weight: 600;
+    font-size: 1rem;
+    color: var(--df-heading);
+  }
+
+  .form-list-item__meta {
+    font-size: 0.82rem;
+    color: var(--df-muted);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .responses-panel {
+    padding: 1.5rem 1.75rem 2rem;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .responses-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 1.25rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .responses-header h2 {
+    margin: 0;
+    font-size: 1.4rem;
+    font-weight: 600;
+    color: var(--df-heading);
+  }
+
+  .responses-header p {
+    margin: 0.4rem 0 0;
+    color: var(--df-muted);
+  }
+
+  .responses-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+
+  .responses-meta__block {
+    min-width: 110px;
+  }
+
+  .responses-meta__label {
+    display: block;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--df-muted);
+  }
+
+  .responses-meta__value {
+    font-weight: 600;
+    font-size: 1.05rem;
+    color: var(--df-heading);
+  }
+
+  .responses-toolbar {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+  }
+
+  .responses-toolbar input {
+    width: 280px;
+    max-width: 100%;
+    border-radius: 10px;
+    border: 1px solid var(--df-border);
+    padding: 0.55rem 0.75rem;
+    font-size: 0.95rem;
+    background: var(--df-background);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .responses-toolbar input:focus {
+    border-color: var(--df-primary);
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2);
+    outline: none;
+    background: #fff;
+  }
+
+  .status-banner {
+    border-radius: 12px;
+    padding: 0.75rem 1rem;
+    margin-bottom: 1rem;
+    font-size: 0.92rem;
+    background: #dbeafe;
+    color: #1e40af;
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+  }
+
+  .status-banner--loading {
+    background: #e0f2fe;
+    color: #0369a1;
+  }
+
+  .status-banner--error {
+    background: #fee2e2;
+    color: #b91c1c;
+  }
+
+  .status-banner--warning {
+    background: #fef3c7;
+    color: #92400e;
+  }
+
+  .status-banner--info {
+    background: #d1fae5;
+    color: #047857;
+  }
+
+  .responses-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .response-card {
+    border: 1px solid var(--df-border);
+    border-radius: 14px;
+    padding: 1.1rem 1.25rem 1.25rem;
+    background: #fff;
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+  }
+
+  .response-card__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .response-card__identity {
+    max-width: 65%;
+  }
+
+  .response-card__title {
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: var(--df-heading);
+  }
+
+  .response-card__submitted-by {
+    font-size: 0.82rem;
+    color: var(--df-muted);
+    margin-top: 0.2rem;
+  }
+
+  .response-card__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    font-size: 0.82rem;
+    color: var(--df-muted);
+  }
+
+  .response-card__answers {
+    display: grid;
+    grid-template-columns: minmax(140px, 220px) minmax(0, 1fr);
+    gap: 0.5rem 1rem;
+    margin: 0;
+  }
+
+  .response-card__answers dt {
+    font-weight: 600;
+    color: var(--df-heading);
+  }
+
+  .response-card__answers dd {
+    margin: 0;
+    color: #374151;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .response-card__updates {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .response-card__update-pill {
+    padding: 0.35rem 0.75rem;
+    border-radius: 999px;
+    background: var(--df-primary-light);
+    color: var(--df-primary);
+    font-size: 0.78rem;
+    font-weight: 500;
+  }
+
+  .empty-state {
+    margin-top: 1rem;
+    padding: 1rem;
+    background: var(--df-background);
+    border-radius: 12px;
+    text-align: center;
+    color: var(--df-muted);
+    font-size: 0.95rem;
+  }
+
+  .responses-empty-inline {
+    margin-top: 0.5rem;
+  }
+
+  @media (max-width: 1024px) {
+    .dynamic-forms-layout {
+      grid-template-columns: 1fr;
+    }
+
+    .response-card__identity {
+      max-width: 100%;
+    }
+
+    .responses-meta {
+      width: 100%;
+    }
+  }
+
+  @media (max-width: 600px) {
+    .responses-toolbar {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .heading-actions {
+      width: 100%;
+      justify-content: flex-start;
+    }
+  }
+</style>
+<main class='dynamic-forms-page container-fluid py-4 px-4 px-lg-5'>
+  <div class='page-heading'>
+    <div>
+      <h1>Dynamic Form Responses</h1>
+      <p>
+        Monitor every submission captured through campaign-aware forms, inspect the answers that users provided,
+        and review any profile updates that were applied automatically.
+      </p>
+    </div>
+    <div class='heading-actions'>
+      <button id='openCreateForm' type='button' class='btn btn-primary'>
+        <i class='fas fa-plus'></i>
+        <span>Create form</span>
+      </button>
+      <button id='refreshResponses' type='button' class='btn btn-outline-primary'>
+        <i class='fas fa-sync-alt'></i>
+        <span>Refresh</span>
+      </button>
+    </div>
+  </div>
+
+  <div class='dynamic-forms-layout'>
+    <section class='forms-panel' aria-labelledby='dynamic-forms-list-label'>
+      <div class='forms-panel__header'>
+        <h2 id='dynamic-forms-list-label' class='forms-panel__title'>Forms</h2>
+        <span id='formsCount' class='forms-panel__count'>0 forms</span>
+      </div>
+      <p class='forms-panel__helper'>Select a form to explore submissions and linked profile updates.</p>
+      <div class='forms-search'>
+        <label class='sr-only' for='formSearch'>Search forms</label>
+        <input type='search' id='formSearch' placeholder='Search forms' autocomplete='off' />
+      </div>
+      <div id='formsList' class='forms-list' role='listbox' aria-label='Available dynamic forms'></div>
+      <div id='formsEmpty' class='empty-state hidden'>No dynamic forms have been created yet.</div>
+    </section>
+
+    <section class='responses-panel' aria-live='polite'>
+      <div class='responses-header'>
+        <div>
+          <h2 id='responsesTitle'>Select a form</h2>
+          <p id='responsesDescription' class='hidden'></p>
+        </div>
+        <div class='responses-meta'>
+          <div class='responses-meta__block'>
+            <span class='responses-meta__label'>Fields</span>
+            <span id='fieldsCount' class='responses-meta__value'>0</span>
+          </div>
+          <div class='responses-meta__block'>
+            <span class='responses-meta__label'>Responses</span>
+            <span id='responsesCount' class='responses-meta__value'>0</span>
+          </div>
+          <div class='responses-meta__block'>
+            <span class='responses-meta__label'>Last fetched</span>
+            <span id='lastFetched' class='responses-meta__value'>—</span>
+          </div>
+        </div>
+      </div>
+
+      <div class='responses-toolbar'>
+        <label class='sr-only' for='responseSearch'>Search responses</label>
+        <input type='search' id='responseSearch' placeholder='Search responses' autocomplete='off' />
+      </div>
+
+      <div id='responsesStatus' class='status-banner hidden'></div>
+
+      <div id='responsesEmpty' class='empty-state hidden responses-empty-inline'>
+        No responses recorded for this form yet.
+      </div>
+
+      <div id='responsesContainer' class='responses-list' role='list'></div>
+    </section>
+  </div>
+</main>
+
+<div class='modal fade create-form-modal' id='createFormModal' tabindex='-1' aria-labelledby='createFormModalTitle' aria-hidden='true'>
+  <div class='modal-dialog modal-lg modal-dialog-centered'>
+    <div class='modal-content'>
+      <form id='createFormForm' novalidate>
+        <div class='modal-header'>
+          <h5 class='modal-title' id='createFormModalTitle'>
+            <i class='fas fa-plus-circle'></i>
+            <span>Create dynamic form</span>
+          </h5>
+          <button type='button' class='btn-close' data-bs-dismiss='modal' aria-label='Close'></button>
+        </div>
+        <div class='modal-body'>
+          <div id='createFormAlert' class='alert d-none create-form-alert' role='alert'></div>
+          <div class='mb-3'>
+            <label for='createFormName' class='form-label'>Form name</label>
+            <input type='text' id='createFormName' class='form-control' placeholder='e.g. New client intake' required />
+            <div class='form-text'>Give the form a clear title so teams can recognise it when sending campaigns.</div>
+            <div class='invalid-feedback'>Please provide a form name.</div>
+          </div>
+          <div class='mb-3'>
+            <label for='createFormDescription' class='form-label'>Description <span class='text-muted'>(optional)</span></label>
+            <textarea id='createFormDescription' class='form-control' rows='2' placeholder='Explain when or how this form should be used'></textarea>
+            <div class='form-text'>This appears in the responses view to help identify the purpose of the form.</div>
+          </div>
+          <div class='d-flex justify-content-between align-items-center mb-2'>
+            <h6 class='mb-0'>Form fields</h6>
+            <button type='button' class='btn btn-outline-primary btn-sm' id='addFormField'>
+              <i class='fas fa-plus'></i>
+              <span>Add field</span>
+            </button>
+          </div>
+          <div id='createFormFields' class='create-form-fields'></div>
+          <p class='form-text mt-3 mb-0'>Map a field to a user profile value using the binding input. Leave it blank to store the answer without updating the profile.</p>
+          <datalist id='formFieldBindingSuggestions'>
+            <option value='email'>User email</option>
+            <option value='phone'>Phone number</option>
+            <option value='fullname'>Full name</option>
+            <option value='firstname'>First name</option>
+            <option value='lastname'>Last name</option>
+            <option value='insurance.provider'>Insurance provider</option>
+            <option value='insurance.policyNumber'>Insurance policy number</option>
+            <option value='insurance.groupNumber'>Insurance group number</option>
+            <option value='insurance.memberId'>Insurance member ID</option>
+            <option value='insurance.notes'>Insurance notes</option>
+          </datalist>
+        </div>
+        <div class='modal-footer'>
+          <button type='button' class='btn btn-outline-secondary' data-bs-dismiss='modal'>Cancel</button>
+          <button type='submit' id='createFormSubmit' class='btn btn-primary'>
+            <i class='fas fa-save me-2'></i>
+            <span>Create form</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function () {
+    'use strict';
+
+    const initialForms = <?!= __dynamicFormsJSON ?>;
+    const initialResponses = <?!= __dynamicFormResponsesJSON ?>;
+    const initialUserDirectory = <?!= __dynamicFormUserDirectoryJSON ?>;
+    const initialSelectedFormId = '<?= __escapedDynamicFormsSelectedId ?>';
+
+    const state = {
+      forms: Array.isArray(initialForms) ? initialForms.slice() : [],
+      responsesByForm: {},
+      selectedFormId: initialSelectedFormId || '',
+      formSearch: '',
+      responseSearch: '',
+      lastFetchedByForm: {}
+    };
+
+    const FIELD_TYPES = [
+      { value: 'text', label: 'Short text' },
+      { value: 'textarea', label: 'Paragraph' },
+      { value: 'email', label: 'Email' },
+      { value: 'phone', label: 'Phone number' },
+      { value: 'number', label: 'Number' },
+      { value: 'date', label: 'Date' },
+      { value: 'select', label: 'Dropdown' },
+      { value: 'radio', label: 'Multiple choice' },
+      { value: 'checkbox', label: 'Checkboxes' },
+      { value: 'multiselect', label: 'Multi-select' }
+    ];
+
+    const FIELD_TYPE_LABEL_LOOKUP = FIELD_TYPES.reduce(function (acc, entry) {
+      acc[entry.value] = entry.label;
+      return acc;
+    }, {});
+
+    const OPTION_FIELD_TYPES = ['select', 'radio', 'checkbox', 'multiselect'];
+
+    const userLookup = new Map();
+
+    if (Array.isArray(initialUserDirectory)) {
+      initialUserDirectory.forEach(function (entry) {
+        if (!entry) return;
+        const key = entry.id || entry.ID;
+        if (!key) return;
+        userLookup.set(String(key), {
+          name: entry.name || entry.FullName || entry.fullName || '',
+          email: entry.email || entry.Email || ''
+        });
+      });
+    }
+
+    state.forms = state.forms.map(normalizeForm);
+
+    if (!state.selectedFormId && state.forms.length) {
+      state.selectedFormId = getFormId(state.forms[0]);
+    }
+
+    if (state.selectedFormId && Array.isArray(initialResponses)) {
+      state.responsesByForm[state.selectedFormId] = sortResponses(initialResponses.map(normalizeResponse));
+      state.lastFetchedByForm[state.selectedFormId] = new Date().toISOString();
+    }
+
+    const formsListEl = document.getElementById('formsList');
+    const formsCountEl = document.getElementById('formsCount');
+    const formsEmptyEl = document.getElementById('formsEmpty');
+    const formSearchEl = document.getElementById('formSearch');
+
+    const responsesTitleEl = document.getElementById('responsesTitle');
+    const responsesDescriptionEl = document.getElementById('responsesDescription');
+    const fieldsCountEl = document.getElementById('fieldsCount');
+    const responsesCountEl = document.getElementById('responsesCount');
+    const lastFetchedEl = document.getElementById('lastFetched');
+    const responseSearchEl = document.getElementById('responseSearch');
+    const responsesStatusEl = document.getElementById('responsesStatus');
+    const responsesEmptyEl = document.getElementById('responsesEmpty');
+    const responsesContainerEl = document.getElementById('responsesContainer');
+    const refreshButton = document.getElementById('refreshResponses');
+    const createFormButton = document.getElementById('openCreateForm');
+    const createFormModalEl = document.getElementById('createFormModal');
+    const createFormForm = document.getElementById('createFormForm');
+    const createFormAlertEl = document.getElementById('createFormAlert');
+    const createFormNameEl = document.getElementById('createFormName');
+    const createFormDescriptionEl = document.getElementById('createFormDescription');
+    const createFormFieldsEl = document.getElementById('createFormFields');
+    const addFormFieldButton = document.getElementById('addFormField');
+    const createFormSubmitButton = document.getElementById('createFormSubmit');
+
+    let createFormModalInstance = null;
+    let createFormFieldCounter = 0;
+    let createFormSubmitOriginalHtml = createFormSubmitButton ? createFormSubmitButton.innerHTML : '';
+
+    if (formSearchEl) {
+      formSearchEl.addEventListener('input', function (event) {
+        const value = (event.target && typeof event.target.value !== 'undefined')
+          ? String(event.target.value)
+          : '';
+        state.formSearch = value.trim().toLowerCase();
+        renderFormsList();
+      });
+    }
+
+    if (responseSearchEl) {
+      responseSearchEl.addEventListener('input', function (event) {
+        const value = (event.target && typeof event.target.value !== 'undefined')
+          ? String(event.target.value)
+          : '';
+        state.responseSearch = value.trim().toLowerCase();
+        renderResponses(state.selectedFormId);
+      });
+    }
+
+    if (refreshButton) {
+      refreshButton.addEventListener('click', function () {
+        if (!state.selectedFormId) {
+          setStatus('warning', 'Select a form to refresh responses.');
+          return;
+        }
+        selectForm(state.selectedFormId, { force: true });
+      });
+    }
+
+    if (createFormButton) {
+      if (!canUseGoogleScript()) {
+        createFormButton.classList.add('disabled');
+        createFormButton.setAttribute('disabled', 'disabled');
+        createFormButton.setAttribute('title', 'Form creation is only available inside the Lumina workspace.');
+      } else {
+        createFormButton.addEventListener('click', function () {
+          openCreateFormModal();
+        });
+      }
+    }
+
+    if (createFormModalEl && typeof bootstrap !== 'undefined' && bootstrap && typeof bootstrap.Modal === 'function') {
+      createFormModalEl.addEventListener('hidden.bs.modal', function () {
+        resetCreateFormBuilder();
+      });
+    }
+
+    if (addFormFieldButton) {
+      addFormFieldButton.addEventListener('click', function () {
+        addFormField();
+        refreshBuilderFieldSummaries();
+      });
+    }
+
+    if (createFormForm) {
+      createFormForm.addEventListener('submit', function (event) {
+        event.preventDefault();
+        submitCreateForm();
+      });
+    }
+
+    renderFormsList();
+    renderSelectedFormSummary();
+
+    if (state.selectedFormId) {
+      if (state.responsesByForm[state.selectedFormId]) {
+        renderResponses(state.selectedFormId);
+      } else {
+        fetchResponses(state.selectedFormId);
+      }
+    } else {
+      renderResponses('');
+    }
+
+    if (!canUseGoogleScript()) {
+      setStatus('warning', 'google.script.run is not available. Showing cached data only.');
+    }
+
+    function openCreateFormModal() {
+      resetCreateFormBuilder();
+      showCreateFormModal();
+      setTimeout(function () {
+        if (createFormNameEl && typeof createFormNameEl.focus === 'function') {
+          createFormNameEl.focus();
+        }
+      }, 150);
+    }
+
+    function showCreateFormModal() {
+      if (!createFormModalEl) return;
+      if (typeof bootstrap !== 'undefined' && bootstrap && typeof bootstrap.Modal === 'function') {
+        if (!createFormModalInstance) {
+          createFormModalInstance = new bootstrap.Modal(createFormModalEl, { backdrop: 'static' });
+        }
+        createFormModalInstance.show();
+      } else {
+        createFormModalEl.classList.add('show');
+        createFormModalEl.style.display = 'block';
+        createFormModalEl.removeAttribute('aria-hidden');
+      }
+    }
+
+    function hideCreateFormModal() {
+      if (!createFormModalEl) return;
+      if (typeof bootstrap !== 'undefined' && bootstrap && typeof bootstrap.Modal === 'function') {
+        if (createFormModalInstance) {
+          createFormModalInstance.hide();
+        }
+      } else {
+        createFormModalEl.classList.remove('show');
+        createFormModalEl.style.display = 'none';
+        createFormModalEl.setAttribute('aria-hidden', 'true');
+      }
+    }
+
+    function resetCreateFormBuilder() {
+      clearCreateFormAlert();
+      createFormFieldCounter = 0;
+      if (createFormForm && typeof createFormForm.reset === 'function') {
+        createFormForm.reset();
+      }
+      if (createFormFieldsEl) {
+        createFormFieldsEl.innerHTML = '';
+        addFormField();
+        refreshBuilderFieldSummaries();
+      }
+      if (createFormSubmitButton) {
+        createFormSubmitButton.disabled = false;
+        if (createFormSubmitOriginalHtml) {
+          createFormSubmitButton.innerHTML = createFormSubmitOriginalHtml;
+        }
+      }
+      if (addFormFieldButton) {
+        addFormFieldButton.disabled = false;
+      }
+      if (createFormNameEl) {
+        createFormNameEl.classList.remove('is-invalid');
+      }
+    }
+
+    function clearCreateFormAlert() {
+      if (!createFormAlertEl) return;
+      createFormAlertEl.className = 'alert d-none create-form-alert';
+      createFormAlertEl.textContent = '';
+    }
+
+    function showCreateFormAlert(type, message) {
+      if (!createFormAlertEl) return;
+      var className = 'alert create-form-alert';
+      if (type === 'error') {
+        className += ' alert-danger';
+      } else if (type === 'success') {
+        className += ' alert-success';
+      } else {
+        className += ' alert-info';
+      }
+      createFormAlertEl.className = className;
+      createFormAlertEl.textContent = message || '';
+    }
+
+    function addFormField(initialConfig) {
+      if (!createFormFieldsEl) return;
+      var config = initialConfig && typeof initialConfig === 'object' ? initialConfig : {};
+      createFormFieldCounter += 1;
+      var suffix = String(createFormFieldCounter);
+
+      var wrapper = document.createElement('div');
+      wrapper.className = 'create-form-field';
+      wrapper.setAttribute('data-field-id', suffix);
+
+      var header = document.createElement('div');
+      header.className = 'create-form-field__header';
+      wrapper.appendChild(header);
+
+      var title = document.createElement('span');
+      title.className = 'create-form-field__title';
+      title.setAttribute('data-role', 'field-header');
+      header.appendChild(title);
+
+      var typeBadge = document.createElement('span');
+      typeBadge.className = 'create-form-field__type';
+      typeBadge.setAttribute('data-role', 'field-type-badge');
+      header.appendChild(typeBadge);
+
+      var controls = document.createElement('div');
+      controls.className = 'create-form-field__controls';
+      header.appendChild(controls);
+
+      var removeButton = document.createElement('button');
+      removeButton.type = 'button';
+      removeButton.className = 'create-form-field__remove';
+      removeButton.setAttribute('data-role', 'remove-field');
+      removeButton.setAttribute('aria-label', 'Remove field');
+      removeButton.innerHTML = "<i class='fas fa-trash-alt'></i><span>Remove</span>";
+      controls.appendChild(removeButton);
+
+      var grid = document.createElement('div');
+      grid.className = 'create-form-field__grid';
+      wrapper.appendChild(grid);
+
+      var labelGroup = document.createElement('div');
+      var labelLabel = document.createElement('label');
+      labelLabel.className = 'form-label';
+      labelLabel.setAttribute('for', 'createFormFieldLabel' + suffix);
+      labelLabel.textContent = 'Prompt';
+      labelGroup.appendChild(labelLabel);
+      var labelInput = document.createElement('input');
+      labelInput.type = 'text';
+      labelInput.className = 'form-control';
+      labelInput.id = 'createFormFieldLabel' + suffix;
+      labelInput.placeholder = 'e.g. What is your phone number?';
+      labelInput.setAttribute('data-role', 'field-label');
+      labelGroup.appendChild(labelInput);
+      var labelFeedback = document.createElement('div');
+      labelFeedback.className = 'invalid-feedback';
+      labelFeedback.textContent = 'Please provide a prompt.';
+      labelGroup.appendChild(labelFeedback);
+      grid.appendChild(labelGroup);
+
+      var typeGroup = document.createElement('div');
+      var typeLabel = document.createElement('label');
+      typeLabel.className = 'form-label';
+      typeLabel.setAttribute('for', 'createFormFieldType' + suffix);
+      typeLabel.textContent = 'Answer type';
+      typeGroup.appendChild(typeLabel);
+      var typeSelect = document.createElement('select');
+      typeSelect.className = 'form-select';
+      typeSelect.id = 'createFormFieldType' + suffix;
+      typeSelect.setAttribute('data-role', 'field-type');
+      FIELD_TYPES.forEach(function (option) {
+        var opt = document.createElement('option');
+        opt.value = option.value;
+        opt.textContent = option.label;
+        typeSelect.appendChild(opt);
+      });
+      typeGroup.appendChild(typeSelect);
+      grid.appendChild(typeGroup);
+
+      var bindingGroup = document.createElement('div');
+      var bindingLabel = document.createElement('label');
+      bindingLabel.className = 'form-label';
+      bindingLabel.setAttribute('for', 'createFormFieldBinding' + suffix);
+      bindingLabel.textContent = 'Profile binding (optional)';
+      bindingGroup.appendChild(bindingLabel);
+      var bindingInput = document.createElement('input');
+      bindingInput.type = 'text';
+      bindingInput.className = 'form-control';
+      bindingInput.id = 'createFormFieldBinding' + suffix;
+      bindingInput.placeholder = 'e.g. phone or insurance.provider';
+      bindingInput.setAttribute('list', 'formFieldBindingSuggestions');
+      bindingInput.setAttribute('data-role', 'field-binding');
+      bindingGroup.appendChild(bindingInput);
+      var bindingHelp = document.createElement('div');
+      bindingHelp.className = 'form-text';
+      bindingHelp.textContent = 'Use a binding to update the user profile when this answer is submitted.';
+      bindingGroup.appendChild(bindingHelp);
+      grid.appendChild(bindingGroup);
+
+      var helpGroup = document.createElement('div');
+      helpGroup.className = 'mt-3';
+      var helpLabel = document.createElement('label');
+      helpLabel.className = 'form-label';
+      helpLabel.setAttribute('for', 'createFormFieldHelp' + suffix);
+      helpLabel.textContent = 'Helper text (optional)';
+      helpGroup.appendChild(helpLabel);
+      var helpTextarea = document.createElement('textarea');
+      helpTextarea.className = 'form-control';
+      helpTextarea.rows = 2;
+      helpTextarea.id = 'createFormFieldHelp' + suffix;
+      helpTextarea.placeholder = 'Add additional context shown beneath the prompt';
+      helpTextarea.setAttribute('data-role', 'field-help');
+      helpGroup.appendChild(helpTextarea);
+      wrapper.appendChild(helpGroup);
+
+      var requiredWrapper = document.createElement('div');
+      requiredWrapper.className = 'form-check';
+      var requiredInput = document.createElement('input');
+      requiredInput.className = 'form-check-input';
+      requiredInput.type = 'checkbox';
+      requiredInput.id = 'createFormFieldRequired' + suffix;
+      requiredInput.setAttribute('data-role', 'field-required');
+      requiredWrapper.appendChild(requiredInput);
+      var requiredLabel = document.createElement('label');
+      requiredLabel.className = 'form-check-label';
+      requiredLabel.setAttribute('for', 'createFormFieldRequired' + suffix);
+      requiredLabel.textContent = 'Mark as required';
+      requiredWrapper.appendChild(requiredLabel);
+      wrapper.appendChild(requiredWrapper);
+
+      var optionsWrapper = document.createElement('div');
+      optionsWrapper.className = 'create-form-field__options';
+      optionsWrapper.setAttribute('data-role', 'field-options-container');
+      var optionsLabel = document.createElement('label');
+      optionsLabel.className = 'form-label';
+      optionsLabel.setAttribute('for', 'createFormFieldOptions' + suffix);
+      optionsLabel.textContent = 'Options (one per line)';
+      optionsWrapper.appendChild(optionsLabel);
+      var optionsTextarea = document.createElement('textarea');
+      optionsTextarea.className = 'form-control';
+      optionsTextarea.id = 'createFormFieldOptions' + suffix;
+      optionsTextarea.placeholder = 'Option 1\nOption 2';
+      optionsTextarea.setAttribute('data-role', 'field-options');
+      optionsWrapper.appendChild(optionsTextarea);
+      var optionsHelp = document.createElement('div');
+      optionsHelp.className = 'form-text';
+      optionsHelp.textContent = 'Dropdowns, multiple choice, and checkbox lists need at least one option.';
+      optionsWrapper.appendChild(optionsHelp);
+      wrapper.appendChild(optionsWrapper);
+
+      createFormFieldsEl.appendChild(wrapper);
+
+      var initialLabel = config.label || config.title || '';
+      if (initialLabel && labelInput) {
+        labelInput.value = String(initialLabel);
+      }
+      var initialType = config.type && FIELD_TYPE_LABEL_LOOKUP[config.type]
+        ? String(config.type)
+        : 'text';
+      typeSelect.value = initialType;
+      var initialBinding = '';
+      if (typeof config.binding === 'string') {
+        initialBinding = config.binding;
+      } else if (config.binding && typeof config.binding === 'object') {
+        if (config.binding.type === 'userColumn' && config.binding.column) {
+          initialBinding = config.binding.column.toLowerCase() === 'fullname'
+            ? 'fullname'
+            : config.binding.column.toLowerCase() === 'email'
+              ? 'email'
+              : config.binding.column.toLowerCase() === 'phonenumber'
+                ? 'phone'
+                : '';
+        } else if (config.binding.type === 'namePart' && config.binding.part) {
+          initialBinding = config.binding.part === 'first' ? 'firstname' : config.binding.part === 'last' ? 'lastname' : '';
+        } else if (config.binding.type === 'insurance' && config.binding.key) {
+          initialBinding = 'insurance.' + config.binding.key;
+        }
+      }
+      if (initialBinding && bindingInput) {
+        bindingInput.value = String(initialBinding);
+      }
+      if (config.helpText && helpTextarea) {
+        helpTextarea.value = String(config.helpText);
+      }
+      if (config.required && requiredInput) {
+        requiredInput.checked = true;
+      }
+      if (Array.isArray(config.options) && config.options.length && optionsTextarea) {
+        optionsTextarea.value = config.options.map(function (option) {
+          return option === null || typeof option === 'undefined' ? '' : String(option);
+        }).join('\n');
+      }
+
+      toggleFieldOptions(wrapper, initialType);
+      refreshBuilderFieldSummaries();
+
+      labelInput.addEventListener('input', function () {
+        if (labelInput.value && labelInput.value.trim()) {
+          labelInput.classList.remove('is-invalid');
+        }
+        refreshBuilderFieldSummaries();
+      });
+
+      typeSelect.addEventListener('change', function () {
+        toggleFieldOptions(wrapper, typeSelect.value);
+        refreshBuilderFieldSummaries();
+      });
+
+      removeButton.addEventListener('click', function () {
+        if (!createFormFieldsEl) return;
+        if (createFormFieldsEl.children.length <= 1) {
+          showCreateFormAlert('error', 'At least one field is required.');
+          return;
+        }
+        createFormFieldsEl.removeChild(wrapper);
+        refreshBuilderFieldSummaries();
+      });
+    }
+
+    function toggleFieldOptions(wrapper, typeValue) {
+      if (!wrapper) return;
+      var container = wrapper.querySelector('[data-role="field-options-container"]');
+      if (!container) return;
+      if (needsOptions(typeValue)) {
+        container.classList.remove('hidden');
+      } else {
+        container.classList.add('hidden');
+      }
+    }
+
+    function refreshBuilderFieldSummaries() {
+      if (!createFormFieldsEl) return;
+      var items = Array.prototype.slice.call(createFormFieldsEl.children || []);
+      items.forEach(function (item, index) {
+        if (!item) return;
+        var header = item.querySelector('[data-role="field-header"]');
+        var labelInput = item.querySelector('[data-role="field-label"]');
+        var badge = item.querySelector('[data-role="field-type-badge"]');
+        var typeSelect = item.querySelector('[data-role="field-type"]');
+        var labelValue = labelInput && labelInput.value ? String(labelInput.value).trim() : '';
+        if (header) {
+          header.textContent = labelValue || 'Field ' + (index + 1);
+        }
+        if (badge) {
+          var typeValue = typeSelect ? String(typeSelect.value || '') : '';
+          badge.textContent = getFieldTypeLabel(typeValue);
+        }
+      });
+    }
+
+    function needsOptions(typeValue) {
+      var normalized = (typeValue || '').toLowerCase();
+      return OPTION_FIELD_TYPES.indexOf(normalized) !== -1;
+    }
+
+    function getFieldTypeLabel(typeValue) {
+      if (!typeValue) return 'Field';
+      return FIELD_TYPE_LABEL_LOOKUP[typeValue] || typeValue.charAt(0).toUpperCase() + typeValue.slice(1);
+    }
+
+    function parseFieldOptions(value) {
+      if (!value && value !== 0) return [];
+      return String(value)
+        .split(/\r?\n/)
+        .map(function (part) { return part.trim(); })
+        .filter(function (part) { return part.length > 0; });
+    }
+
+    function collectFormFields() {
+      var result = [];
+      var hasErrors = false;
+      if (!createFormFieldsEl) {
+        return { list: result, hasErrors: true };
+      }
+      var items = Array.prototype.slice.call(createFormFieldsEl.children || []);
+      items.forEach(function (item) {
+        if (!item) return;
+        var labelInput = item.querySelector('[data-role="field-label"]');
+        var typeSelect = item.querySelector('[data-role="field-type"]');
+        var bindingInput = item.querySelector('[data-role="field-binding"]');
+        var helpTextarea = item.querySelector('[data-role="field-help"]');
+        var requiredInput = item.querySelector('[data-role="field-required"]');
+        var optionsTextarea = item.querySelector('[data-role="field-options"]');
+
+        var labelValue = labelInput && typeof labelInput.value !== 'undefined'
+          ? String(labelInput.value).trim()
+          : '';
+        if (!labelValue) {
+          hasErrors = true;
+          if (labelInput) {
+            labelInput.classList.add('is-invalid');
+          }
+          return;
+        }
+        if (labelInput) {
+          labelInput.classList.remove('is-invalid');
+        }
+
+        var typeValue = typeSelect ? String(typeSelect.value || 'text') : 'text';
+        var bindingValue = bindingInput && bindingInput.value ? String(bindingInput.value).trim() : '';
+        var helpValue = helpTextarea && helpTextarea.value ? String(helpTextarea.value).trim() : '';
+        var requiredValue = !!(requiredInput && requiredInput.checked);
+        var optionsList = [];
+        if (needsOptions(typeValue) && optionsTextarea) {
+          optionsList = parseFieldOptions(optionsTextarea.value);
+        }
+
+        var fieldConfig = {
+          label: labelValue,
+          type: typeValue
+        };
+        if (bindingValue) {
+          fieldConfig.binding = bindingValue;
+        }
+        if (helpValue) {
+          fieldConfig.helpText = helpValue;
+        }
+        if (requiredValue) {
+          fieldConfig.required = true;
+        }
+        if (optionsList.length) {
+          fieldConfig.options = optionsList;
+        }
+        result.push(fieldConfig);
+      });
+      return { list: result, hasErrors: hasErrors };
+    }
+
+    function setCreateFormBusy(isBusy) {
+      if (createFormSubmitButton) {
+        if (!createFormSubmitOriginalHtml) {
+          createFormSubmitOriginalHtml = createFormSubmitButton.innerHTML;
+        }
+        if (isBusy) {
+          createFormSubmitButton.disabled = true;
+          createFormSubmitButton.innerHTML = "<span class='spinner-border spinner-border-sm me-2' role='status' aria-hidden='true'></span><span>Creating…</span>";
+        } else {
+          createFormSubmitButton.disabled = false;
+          createFormSubmitButton.innerHTML = createFormSubmitOriginalHtml;
+        }
+      }
+      if (addFormFieldButton) {
+        addFormFieldButton.disabled = !!isBusy;
+      }
+      if (createFormFieldsEl) {
+        var inputs = createFormFieldsEl.querySelectorAll('input, textarea, select, button');
+        inputs.forEach(function (element) {
+          if (!element) return;
+          if (element === createFormSubmitButton) return;
+          if (element === addFormFieldButton) return;
+          element.disabled = !!isBusy;
+        });
+      }
+      if (createFormNameEl) {
+        createFormNameEl.disabled = !!isBusy;
+      }
+      if (createFormDescriptionEl) {
+        createFormDescriptionEl.disabled = !!isBusy;
+      }
+    }
+
+    function submitCreateForm() {
+      if (!canUseGoogleScript()) {
+        showCreateFormAlert('error', 'Form creation is only available when this page is running inside the Lumina workspace.');
+        return;
+      }
+
+      clearCreateFormAlert();
+
+      var nameValue = createFormNameEl && typeof createFormNameEl.value !== 'undefined'
+        ? String(createFormNameEl.value).trim()
+        : '';
+      if (!nameValue && createFormNameEl) {
+        createFormNameEl.classList.add('is-invalid');
+      } else if (createFormNameEl) {
+        createFormNameEl.classList.remove('is-invalid');
+      }
+
+      var descriptionValue = createFormDescriptionEl && typeof createFormDescriptionEl.value !== 'undefined'
+        ? String(createFormDescriptionEl.value).trim()
+        : '';
+
+      var collected = collectFormFields();
+      if (!nameValue) {
+        showCreateFormAlert('error', 'Give the form a name before saving.');
+        if (createFormNameEl && typeof createFormNameEl.focus === 'function') {
+          createFormNameEl.focus();
+        }
+        return;
+      }
+
+      if (collected.hasErrors) {
+        showCreateFormAlert('error', 'Please complete the prompt for each field before saving.');
+        refreshBuilderFieldSummaries();
+        return;
+      }
+
+      if (!collected.list.length) {
+        showCreateFormAlert('error', 'Add at least one field to the form.');
+        return;
+      }
+
+      var payload = {
+        name: nameValue,
+        description: descriptionValue,
+        fields: collected.list
+      };
+
+      setCreateFormBusy(true);
+
+      google.script.run
+        .withSuccessHandler(function (createdForm) {
+          setCreateFormBusy(false);
+          hideCreateFormModal();
+          handleFormCreated(createdForm, payload);
+        })
+        .withFailureHandler(function (error) {
+          setCreateFormBusy(false);
+          var message = error && error.message ? error.message : String(error || 'Unknown error');
+          showCreateFormAlert('error', 'Failed to create form: ' + message);
+        })
+        .createDynamicForm(payload, {});
+    }
+
+    function handleFormCreated(createdForm, payload) {
+      var form = createdForm && typeof createdForm === 'object' ? createdForm : payload;
+      if (!form) return;
+      var normalized = normalizeForm(form);
+      if (!normalized) return;
+      var formId = getFormId(normalized);
+      if (!formId) {
+        setStatus('info', 'Form created. Select it from the list to review responses.');
+        return;
+      }
+
+      var existingIndex = -1;
+      for (var i = 0; i < state.forms.length; i++) {
+        if (getFormId(state.forms[i]) === formId) {
+          existingIndex = i;
+          break;
+        }
+      }
+      if (!normalized.CreatedAt && !normalized.createdAt) {
+        normalized.CreatedAt = new Date().toISOString();
+      }
+
+      if (existingIndex >= 0) {
+        state.forms[existingIndex] = normalized;
+      } else {
+        state.forms.push(normalized);
+      }
+
+      state.formSearch = '';
+      if (formSearchEl) {
+        formSearchEl.value = '';
+      }
+
+      state.responsesByForm[formId] = [];
+      state.lastFetchedByForm[formId] = new Date().toISOString();
+
+      renderFormsList();
+      selectForm(formId);
+
+      var formName = normalized.Name || normalized.name || (payload && payload.name) || 'Form';
+      setStatus('info', 'Form “' + formName + '” created. Share it to start collecting responses.');
+    }
+
+    function normalizeForm(form) {
+      if (!form || typeof form !== 'object') return form;
+      if (!Array.isArray(form.Fields) && Array.isArray(form.fields)) {
+        form.Fields = form.fields;
+      }
+      if (typeof form.Name === 'undefined' && typeof form.name !== 'undefined') {
+        form.Name = form.name;
+      }
+      if (typeof form.Description === 'undefined' && typeof form.description !== 'undefined') {
+        form.Description = form.description;
+      }
+      return form;
+    }
+
+    function normalizeResponse(response) {
+      if (!response || typeof response !== 'object') return response;
+      if (!Array.isArray(response.Responses) && Array.isArray(response.responses)) {
+        response.Responses = response.responses;
+      }
+      if (!Array.isArray(response.UserUpdates) && Array.isArray(response.userUpdates)) {
+        response.UserUpdates = response.userUpdates;
+      }
+      return response;
+    }
+
+    function getFormId(form) {
+      if (!form || typeof form !== 'object') return '';
+      return String(form.ID || form.Id || form.id || '');
+    }
+
+    function getFormById(id) {
+      const target = String(id || '');
+      if (!target) return null;
+      for (let i = 0; i < state.forms.length; i++) {
+        const form = state.forms[i];
+        if (!form) continue;
+        if (getFormId(form) === target) {
+          return form;
+        }
+      }
+      return null;
+    }
+
+    function getResponsesForForm(id) {
+      const key = String(id || '');
+      if (!key) return [];
+      const list = state.responsesByForm[key];
+      return Array.isArray(list) ? list : [];
+    }
+
+    function getTimestampValue(values) {
+      for (let i = 0; i < values.length; i++) {
+        const raw = values[i];
+        if (!raw) continue;
+        const date = raw instanceof Date ? raw : new Date(raw);
+        if (!isNaN(date.getTime())) {
+          return date;
+        }
+      }
+      return null;
+    }
+
+    function getFormTimestampMs(form) {
+      const updated = getTimestampValue([form.UpdatedAt, form.updatedAt]);
+      const created = getTimestampValue([form.CreatedAt, form.createdAt]);
+      const resolved = updated || created;
+      return resolved ? resolved.getTime() : 0;
+    }
+
+    function sortFormsList(list) {
+      return list.slice().sort(function (a, b) {
+        return getFormTimestampMs(b || {}) - getFormTimestampMs(a || {});
+      });
+    }
+
+    function getResponseTimestampMs(response) {
+      const stamp = getTimestampValue([
+        response && response.UpdatedAt,
+        response && response.updatedAt,
+        response && response.CreatedAt,
+        response && response.createdAt
+      ]);
+      return stamp ? stamp.getTime() : 0;
+    }
+
+    function sortResponses(list) {
+      return list.slice().sort(function (a, b) {
+        return getResponseTimestampMs(b || {}) - getResponseTimestampMs(a || {});
+      });
+    }
+
+    function formatRelativeTimestamp(value) {
+      if (!value) return '';
+      const date = value instanceof Date ? value : new Date(value);
+      if (isNaN(date.getTime())) return '';
+      const diffMs = Date.now() - date.getTime();
+      if (diffMs < 0) return date.toLocaleDateString();
+      const minutes = Math.floor(diffMs / 60000);
+      if (minutes < 1) return 'just now';
+      if (minutes < 60) return minutes + 'm ago';
+      const hours = Math.floor(minutes / 60);
+      if (hours < 24) return hours + 'h ago';
+      const days = Math.floor(hours / 24);
+      if (days < 7) return days + 'd ago';
+      return date.toLocaleDateString();
+    }
+
+    function formatTimestamp(value) {
+      if (!value) return '—';
+      const date = value instanceof Date ? value : new Date(value);
+      if (isNaN(date.getTime())) return String(value);
+      return date.toLocaleString();
+    }
+
+    function formatAnswerValue(value) {
+      if (value === null || typeof value === 'undefined' || value === '') {
+        return '—';
+      }
+      if (Array.isArray(value)) {
+        const joined = value
+          .map(function (part) {
+            if (part === null || typeof part === 'undefined') return '';
+            return String(part);
+          })
+          .filter(function (part) { return part !== ''; })
+          .join(', ');
+        return joined || '—';
+      }
+      if (typeof value === 'object') {
+        try {
+          return JSON.stringify(value);
+        } catch (err) {
+          return String(value);
+        }
+      }
+      return String(value);
+    }
+
+    function resolveUserSummary(userId) {
+      const key = userId ? String(userId) : '';
+      const stored = key && userLookup.has(key) ? userLookup.get(key) : null;
+      if (stored) {
+        return {
+          name: stored.name || (key ? 'User ' + key : 'Unknown user'),
+          email: stored.email || ''
+        };
+      }
+      return {
+        name: key ? 'User ' + key : 'Unknown user',
+        email: ''
+      };
+    }
+
+    function toDomId(prefix, value) {
+      const safe = String(value || '').replace(/[^a-zA-Z0-9_-]+/g, '-');
+      return prefix + '-' + (safe || 'item');
+    }
+
+    function renderFormsList() {
+      if (!formsListEl) return;
+      const total = state.forms.length;
+      const searchTerm = state.formSearch;
+      const sorted = sortFormsList(state.forms);
+      const filtered = searchTerm
+        ? sorted.filter(function (form) {
+            const name = (form.Name || form.name || '').toLowerCase();
+            const description = (form.Description || form.description || '').toLowerCase();
+            return name.indexOf(searchTerm) !== -1 || description.indexOf(searchTerm) !== -1;
+          })
+        : sorted;
+
+      formsListEl.innerHTML = '';
+      let activeButtonId = '';
+
+      filtered.forEach(function (form) {
+        if (!form) return;
+        const formId = getFormId(form);
+        if (!formId) return;
+
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'form-list-item';
+        button.setAttribute('role', 'option');
+        button.setAttribute('data-form-id', formId);
+        button.id = toDomId('form-option', formId);
+
+        const isActive = formId === state.selectedFormId;
+        if (isActive) {
+          button.classList.add('is-active');
+          button.setAttribute('aria-selected', 'true');
+          activeButtonId = button.id;
+        } else {
+          button.setAttribute('aria-selected', 'false');
+        }
+
+        const nameEl = document.createElement('div');
+        nameEl.className = 'form-list-item__name';
+        nameEl.textContent = form.Name || form.name || 'Untitled form';
+        button.appendChild(nameEl);
+
+        const metaEl = document.createElement('div');
+        metaEl.className = 'form-list-item__meta';
+
+        const fields = Array.isArray(form.Fields) ? form.Fields : [];
+        const fieldSpan = document.createElement('span');
+        fieldSpan.textContent = fields.length === 1 ? '1 field' : fields.length + ' fields';
+        metaEl.appendChild(fieldSpan);
+
+        const updated = getTimestampValue([form.UpdatedAt, form.updatedAt, form.CreatedAt, form.createdAt]);
+        if (updated) {
+          const updatedSpan = document.createElement('span');
+          const prefix = form.UpdatedAt || form.updatedAt ? 'Updated ' : 'Created ';
+          updatedSpan.textContent = prefix + formatRelativeTimestamp(updated);
+          metaEl.appendChild(updatedSpan);
+        }
+
+        button.appendChild(metaEl);
+
+        button.addEventListener('click', function () {
+          selectForm(formId);
+        });
+
+        formsListEl.appendChild(button);
+      });
+
+      if (formsCountEl) {
+        formsCountEl.textContent = total === 1 ? '1 form' : total + ' forms';
+      }
+
+      if (formsEmptyEl) {
+        if (!total) {
+          formsEmptyEl.textContent = 'No dynamic forms have been created yet.';
+          formsEmptyEl.classList.remove('hidden');
+        } else if (!filtered.length) {
+          formsEmptyEl.textContent = 'No forms match your search.';
+          formsEmptyEl.classList.remove('hidden');
+        } else {
+          formsEmptyEl.classList.add('hidden');
+        }
+      }
+
+      if (formsListEl) {
+        if (activeButtonId) {
+          formsListEl.setAttribute('aria-activedescendant', activeButtonId);
+        } else {
+          formsListEl.removeAttribute('aria-activedescendant');
+        }
+      }
+    }
+
+    function renderSelectedFormSummary() {
+      if (!responsesTitleEl || !fieldsCountEl || !responsesCountEl || !lastFetchedEl) return;
+      const form = getFormById(state.selectedFormId);
+      if (!form) {
+        responsesTitleEl.textContent = 'Select a form';
+        if (responsesDescriptionEl) {
+          responsesDescriptionEl.textContent = '';
+          responsesDescriptionEl.classList.add('hidden');
+        }
+        fieldsCountEl.textContent = '0';
+        responsesCountEl.textContent = '0';
+        lastFetchedEl.textContent = '—';
+        return;
+      }
+
+      const name = form.Name || form.name || 'Untitled form';
+      responsesTitleEl.textContent = name;
+
+      if (responsesDescriptionEl) {
+        const description = form.Description || form.description || '';
+        responsesDescriptionEl.textContent = description;
+        if (description && description.trim()) {
+          responsesDescriptionEl.classList.remove('hidden');
+        } else {
+          responsesDescriptionEl.classList.add('hidden');
+        }
+      }
+
+      const fields = Array.isArray(form.Fields) ? form.Fields : [];
+      fieldsCountEl.textContent = String(fields.length);
+
+      const responses = getResponsesForForm(state.selectedFormId);
+      responsesCountEl.textContent = String(responses.length);
+
+      const fetchedAt = state.lastFetchedByForm[state.selectedFormId];
+      lastFetchedEl.textContent = fetchedAt ? formatTimestamp(fetchedAt) : '—';
+    }
+
+    function renderResponses(formId) {
+      if (!responsesContainerEl || !responsesEmptyEl || !responsesCountEl || !lastFetchedEl) return;
+      const form = getFormById(formId);
+      if (!form) {
+        responsesContainerEl.innerHTML = '';
+        responsesEmptyEl.textContent = 'Select a form to review responses.';
+        responsesEmptyEl.classList.remove('hidden');
+        responsesCountEl.textContent = '0';
+        lastFetchedEl.textContent = '—';
+        return;
+      }
+
+      const responses = getResponsesForForm(formId);
+      const searchTerm = state.responseSearch;
+      const filtered = !searchTerm
+        ? responses
+        : responses.filter(function (response) {
+            const summary = resolveUserSummary(response && (response.UserID || response.userId || response.userID));
+            let haystack = '';
+            if (summary.name) haystack += ' ' + summary.name;
+            if (summary.email) haystack += ' ' + summary.email;
+            if (response && response.SubmittedBy) haystack += ' ' + response.SubmittedBy;
+            const answers = response && Array.isArray(response.Responses) ? response.Responses : [];
+            answers.forEach(function (answer) {
+              if (!answer) return;
+              if (answer.label) haystack += ' ' + String(answer.label);
+              if (typeof answer.value !== 'undefined' && answer.value !== null) {
+                haystack += ' ' + formatAnswerValue(answer.value);
+              }
+            });
+            return haystack.toLowerCase().indexOf(searchTerm) !== -1;
+          });
+
+      responsesContainerEl.innerHTML = '';
+
+      if (!responses.length) {
+        responsesEmptyEl.textContent = 'No responses recorded for this form yet.';
+        responsesEmptyEl.classList.remove('hidden');
+      } else if (!filtered.length) {
+        responsesEmptyEl.textContent = 'No responses match the current search.';
+        responsesEmptyEl.classList.remove('hidden');
+      } else {
+        responsesEmptyEl.classList.add('hidden');
+      }
+
+      filtered.forEach(function (response) {
+        if (!response) return;
+        const card = document.createElement('article');
+        card.className = 'response-card';
+
+        const header = document.createElement('header');
+        header.className = 'response-card__header';
+        card.appendChild(header);
+
+        const identity = document.createElement('div');
+        identity.className = 'response-card__identity';
+        header.appendChild(identity);
+
+        const summary = resolveUserSummary(response.UserID || response.userId || response.userID);
+
+        const title = document.createElement('div');
+        title.className = 'response-card__title';
+        title.textContent = summary.name;
+        identity.appendChild(title);
+
+        if (summary.email) {
+          const submittedByEl = document.createElement('div');
+          submittedByEl.className = 'response-card__submitted-by';
+          submittedByEl.textContent = summary.email;
+          identity.appendChild(submittedByEl);
+        }
+
+        const meta = document.createElement('div');
+        meta.className = 'response-card__meta';
+        header.appendChild(meta);
+
+        const submittedAt = getTimestampValue([
+          response.UpdatedAt,
+          response.updatedAt,
+          response.CreatedAt,
+          response.createdAt
+        ]);
+        const submittedSpan = document.createElement('span');
+        submittedSpan.textContent = submittedAt
+          ? 'Submitted ' + formatTimestamp(submittedAt)
+          : 'Submission time unavailable';
+        meta.appendChild(submittedSpan);
+
+        if (response.ID || response.id) {
+          const idSpan = document.createElement('span');
+          idSpan.textContent = 'ID ' + String(response.ID || response.id);
+          meta.appendChild(idSpan);
+        }
+
+        if (response.SubmittedBy) {
+          const bySpan = document.createElement('span');
+          bySpan.textContent = 'By ' + String(response.SubmittedBy);
+          meta.appendChild(bySpan);
+        }
+
+        const answersList = document.createElement('dl');
+        answersList.className = 'response-card__answers';
+        const answers = Array.isArray(response.Responses) ? response.Responses : [];
+        answers.forEach(function (answer) {
+          if (!answer) return;
+          const dt = document.createElement('dt');
+          dt.textContent = answer.label || answer.id || 'Field';
+          answersList.appendChild(dt);
+
+          const dd = document.createElement('dd');
+          dd.textContent = formatAnswerValue(answer.value);
+          answersList.appendChild(dd);
+        });
+        card.appendChild(answersList);
+
+        if (Array.isArray(response.UserUpdates) && response.UserUpdates.length) {
+          const updates = document.createElement('div');
+          updates.className = 'response-card__updates';
+          response.UserUpdates.forEach(function (update) {
+            if (!update) return;
+            const pill = document.createElement('span');
+            pill.className = 'response-card__update-pill';
+            const column = update.column || update.field || update.fieldId || 'Field';
+            const value = typeof update.value === 'undefined' || update.value === null
+              ? ''
+              : String(update.value);
+            pill.textContent = column + (value ? ': ' + value : '');
+            updates.appendChild(pill);
+          });
+          card.appendChild(updates);
+        }
+
+        responsesContainerEl.appendChild(card);
+      });
+
+      responsesCountEl.textContent = String(responses.length);
+      const fetchedAt = state.lastFetchedByForm[state.selectedFormId];
+      lastFetchedEl.textContent = fetchedAt ? formatTimestamp(fetchedAt) : '—';
+    }
+
+    function setStatus(type, message) {
+      if (!responsesStatusEl) return;
+      responsesStatusEl.textContent = message || '';
+      responsesStatusEl.className = 'status-banner';
+      if (!message) {
+        responsesStatusEl.classList.add('hidden');
+        return;
+      }
+      responsesStatusEl.classList.remove('hidden');
+      if (type) {
+        responsesStatusEl.classList.add('status-banner--' + type);
+      }
+    }
+
+    function setBusy(isBusy) {
+      if (!responsesContainerEl) return;
+      responsesContainerEl.setAttribute('aria-busy', isBusy ? 'true' : 'false');
+    }
+
+    function selectForm(formId, options) {
+      if (!formId) return;
+      const normalizedId = String(formId);
+      const force = options && options.force;
+      const changed = state.selectedFormId !== normalizedId;
+      state.selectedFormId = normalizedId;
+
+      if (changed || force) {
+        state.responseSearch = '';
+        if (responseSearchEl) {
+          responseSearchEl.value = '';
+        }
+      }
+
+      renderFormsList();
+      renderSelectedFormSummary();
+
+      if (!state.responsesByForm[normalizedId] || force) {
+        fetchResponses(normalizedId);
+      } else {
+        renderResponses(normalizedId);
+      }
+    }
+
+    function fetchResponses(formId) {
+      if (!formId) {
+        setStatus('warning', 'Select a form to load responses.');
+        return;
+      }
+      if (!canUseGoogleScript()) {
+        setStatus('warning', 'Unable to reach Apps Script. Showing cached data only.');
+        renderResponses(formId);
+        return;
+      }
+
+      setStatus('loading', 'Loading responses…');
+      setBusy(true);
+
+      google.script.run
+        .withSuccessHandler(function (rows) {
+          const list = Array.isArray(rows) ? rows.map(normalizeResponse) : [];
+          state.responsesByForm[formId] = sortResponses(list);
+          state.lastFetchedByForm[formId] = new Date().toISOString();
+          setBusy(false);
+          setStatus(null, '');
+          if (formId === state.selectedFormId) {
+            renderSelectedFormSummary();
+            renderResponses(formId);
+          }
+        })
+        .withFailureHandler(function (error) {
+          setBusy(false);
+          const message = error && error.message ? error.message : String(error || 'Unknown error');
+          setStatus('error', 'Failed to load responses: ' + message);
+          if (formId === state.selectedFormId) {
+            renderResponses(formId);
+          }
+        })
+        .listDynamicFormResponsesByForm(formId, {
+          query: {
+            orderBy: 'CreatedAt',
+            orderDesc: true
+          }
+        });
+    }
+
+    function canUseGoogleScript() {
+      return typeof google !== 'undefined' && google && google.script && google.script.run;
+    }
+  })();
+</script>
