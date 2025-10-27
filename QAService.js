@@ -203,40 +203,63 @@ function clientUploadAudioAndSaveQA(formData) {
     // Step 6: Save to sheet
     const saveResult = saveQARecord_(qaData, audioResult, scoreResult);
     console.log('Record saved with ID:', saveResult.qaId);
-    
+
     // Step 7: Generate PDF (optional, don't fail if this errors)
     let pdfResult = null;
     try {
-      pdfResult = generateQAPDF_(saveResult.record, scoreResult);
+      pdfResult = generateQAPDF_(saveResult.record, scoreResult, qaData);
     } catch (pdfError) {
       console.warn('PDF generation failed (non-critical):', pdfError.message);
     }
-    
-    // Step 8: Return success response
+
+    // Step 8: Prepare latest record details
+    let finalRecord = saveResult.record || {};
+
+    if (pdfResult && pdfResult.success) {
+      const updatedRecord = updateQaRecordPdfInfo_(saveResult.qaId, pdfResult);
+      if (updatedRecord) {
+        finalRecord = updatedRecord;
+      } else {
+        const refreshed = getQARecordById(saveResult.qaId);
+        if (refreshed) {
+          finalRecord = refreshed;
+        }
+      }
+    } else {
+      const refreshed = getQARecordById(saveResult.qaId);
+      if (refreshed) {
+        finalRecord = refreshed;
+      }
+    }
+
+    // Step 9: Return success response (sanitized for client)
     const response = {
       success: true,
-      qaId: saveResult.qaId,
-      audioUrl: audioResult.url,
+      qaId: String(saveResult.qaId || ''),
+      audioUrl: resolveAudioUrlFromRecord_(finalRecord, audioResult && audioResult.url),
+      audioId: resolveAudioIdFromRecord_(finalRecord, audioResult && audioResult.id),
+      audioName: resolveAudioNameFromRecord_(finalRecord, audioResult && audioResult.name),
       scoreResult: scoreResult,
-      record: saveResult.record,
+      record: finalRecord,
       timestamp: new Date().toISOString()
     };
-    
+
     if (pdfResult && pdfResult.success) {
-      response.qaPdfUrl = pdfResult.fileUrl;
-      response.qaPdfId = pdfResult.fileId;
+      response.qaPdfUrl = pdfResult.fileUrl || '';
+      response.qaPdfId = pdfResult.fileId || '';
+      response.qaPdfName = pdfResult.fileName || '';
     }
-    
+
     console.log('=== QA SUBMISSION COMPLETED SUCCESSFULLY ===');
-    return response;
-    
+    return sanitizeForClient_(response);
+
   } catch (error) {
     console.error('=== QA SUBMISSION FAILED ===');
     console.error('Error:', error.message);
     console.error('Stack:', error.stack);
-    
+
     // Return a proper error response
-    return {
+    return sanitizeForClient_({
       success: false,
       error: error.message,
       timestamp: new Date().toISOString(),
@@ -244,7 +267,7 @@ function clientUploadAudioAndSaveQA(formData) {
         function: 'clientUploadAudioAndSaveQA',
         stack: error.stack
       }
-    };
+    });
   }
 }
 
@@ -482,97 +505,437 @@ function calculateQAScore_(data) {
 function saveQARecord_(data, audioResult, scoreResult) {
   try {
     console.log('Saving QA record...');
-    
-    const qaId = Utilities.getUuid();
+
+    const safeData = data || {};
+    const safeAudio = audioResult || {};
     const timestamp = new Date().toISOString();
-    
-    // Get sheet and headers
+
+    const providedIdRaw = safeData.recordId || safeData.qaId || safeData.id || '';
+    const providedId = providedIdRaw ? String(providedIdRaw).trim() : '';
+    const existingRowInfo = providedId ? findQaRecordRow_(providedId) : null;
+
+    const qaId = existingRowInfo && existingRowInfo.record && existingRowInfo.record.ID
+      ? existingRowInfo.record.ID
+      : (providedId || Utilities.getUuid());
+
     const sheet = getQaSheet_();
     const headers = getQaHeaders_();
-    
-    // Build row data
-    const rowData = headers.map(col => {
-      switch (col) {
-        case 'ID': return qaId;
-        case 'Timestamp': return timestamp;
-        case 'CallerName': return data.callerName || '';
-        case 'AgentName': return data.agentName || '';
-        case 'AgentEmail': return data.agentEmail || '';
-        case 'ClientName': return data.clientName || '';
-        case 'CallDate': return data.callDate || '';
-        case 'CaseNumber': return data.caseNumber || '';
-        case 'CallLink': return audioResult.url || '';
-        case 'AuditorName': return data.auditorName || '';
-        case 'AuditDate': return data.auditDate || '';
-        case 'FeedbackShared': return data.feedbackShared ? 'Yes' : 'No';
-        case 'TotalScore': return scoreResult.earned || 0;
-        case 'Percentage': return scoreResult.percentage || 0;
-        case 'OverallFeedback': return data.overallFeedback || '';
-        case 'Notes': return data.notes || '';
-        case 'AgentFeedback': return data.agentFeedback || '';
-        case 'CoachingProvided': return 'No';
+    const baseRowValues = existingRowInfo ? existingRowInfo.rowValues.slice() : new Array(headers.length).fill('');
+
+    const lowerCaseDataMap = {};
+    Object.keys(safeData).forEach(key => {
+      lowerCaseDataMap[key.toLowerCase()] = safeData[key];
+    });
+
+    const hasOwn = (obj, key) => Object.prototype.hasOwnProperty.call(obj, key);
+
+    const getDataValue = key => {
+      if (!key) return undefined;
+      if (hasOwn(safeData, key)) {
+        return safeData[key];
+      }
+      const lowerKey = key.toLowerCase();
+      if (hasOwn(lowerCaseDataMap, lowerKey)) {
+        return lowerCaseDataMap[lowerKey];
+      }
+      return undefined;
+    };
+
+    const normalizeAnswer = (value, fallback) => {
+      if (value === undefined || value === null) {
+        return fallback;
+      }
+      const str = String(value).trim();
+      if (!str) {
+        return fallback;
+      }
+      const lower = str.toLowerCase();
+      if (lower === 'na' || lower === 'n/a' || lower === 'n\\a') {
+        return 'N/A';
+      }
+      if (lower === 'yes' || lower === 'y') {
+        return 'Yes';
+      }
+      if (lower === 'no' || lower === 'n') {
+        return 'No';
+      }
+      return str;
+    };
+
+    const resolveNoteValue = (number, existingValue) => {
+      const candidates = [
+        'q' + number + 'Note',
+        'q' + number + 'note',
+        'Q' + number + ' Note',
+        'Q' + number + ' note',
+        'Q' + number + 'Note',
+        'c' + number,
+        'C' + number
+      ];
+
+      for (let i = 0; i < candidates.length; i++) {
+        const candidate = candidates[i];
+        const candidateValue = getDataValue(candidate);
+        if (candidateValue !== undefined) {
+          return candidateValue;
+        }
+      }
+
+      return existingValue || '';
+    };
+
+    const rowData = headers.map((col, index) => {
+      const header = col || '';
+      const normalized = header.toString().toLowerCase().replace(/\s+/g, '');
+      const existingValue = baseRowValues[index] !== undefined ? baseRowValues[index] : '';
+
+      if (/^q\d+$/.test(normalized)) {
+        const questionNumber = normalized.replace('q', '');
+        const answerKey = 'q' + questionNumber;
+        const answerValue = getDataValue(answerKey);
+        const fallback = existingValue || 'N/A';
+        return normalizeAnswer(answerValue, fallback);
+      }
+
+      if (/^q\d+note$/.test(normalized)) {
+        const number = normalized.replace('q', '').replace('note', '');
+        return resolveNoteValue(number, existingValue);
+      }
+
+      if (/^c\d+$/.test(normalized)) {
+        const number = normalized.replace(/[^0-9]/g, '');
+        return resolveNoteValue(number, existingValue);
+      }
+
+      switch (normalized) {
+        case 'id':
+          return qaId;
+        case 'timestamp':
+          return timestamp;
+        case 'callername': {
+          const value = getDataValue('callerName');
+          return value !== undefined ? value : existingValue || '';
+        }
+        case 'agentname': {
+          const value = getDataValue('agentName');
+          return value !== undefined ? value : existingValue || '';
+        }
+        case 'agentemail': {
+          const value = getDataValue('agentEmail');
+          return value !== undefined ? value : existingValue || '';
+        }
+        case 'clientname': {
+          const value = getDataValue('clientName');
+          return value !== undefined ? value : existingValue || '';
+        }
+        case 'calldate': {
+          const value = getDataValue('callDate');
+          return value !== undefined ? value : existingValue || '';
+        }
+        case 'casenumber': {
+          const value = getDataValue('caseNumber');
+          return value !== undefined ? value : existingValue || '';
+        }
+        case 'calllink': {
+          const audioUrl = safeAudio && safeAudio.url ? String(safeAudio.url).trim() : '';
+          const linkCandidates = ['callLink', 'callRecordingUrl', 'callUrl', 'recordingLink'];
+          let linkValue = '';
+          for (let i = 0; i < linkCandidates.length; i++) {
+            const candidate = getDataValue(linkCandidates[i]);
+            if (candidate !== undefined) {
+              linkValue = String(candidate || '').trim();
+              break;
+            }
+          }
+          return audioUrl || linkValue || existingValue || '';
+        }
+        case 'callrecordingid':
+        case 'callrecordingfileid':
+        case 'callrecordingdriveid':
+        case 'callrecordinggid':
+        case 'audiorecordingid':
+        case 'audiofileid': {
+          const audioId = safeAudio && safeAudio.id ? String(safeAudio.id) : '';
+          const idValue = getDataValue('callRecordingId');
+          const fallbackId = idValue !== undefined ? idValue : getDataValue('audioFileId');
+          return audioId || (fallbackId !== undefined ? fallbackId : existingValue || '');
+        }
+        case 'callrecordingname':
+        case 'audiorecordingname':
+        case 'audiofilename': {
+          const audioName = safeAudio && safeAudio.name ? safeAudio.name : '';
+          const nameValue = getDataValue('callRecordingName');
+          const fallbackName = nameValue !== undefined ? nameValue : getDataValue('audioFileName');
+          return audioName || (fallbackName !== undefined ? fallbackName : existingValue || '');
+        }
+        case 'auditorname': {
+          const value = getDataValue('auditorName');
+          return value !== undefined ? value : existingValue || '';
+        }
+        case 'auditdate': {
+          const value = getDataValue('auditDate');
+          return value !== undefined ? value : existingValue || '';
+        }
+        case 'feedbackshared': {
+          const feedbackValue = getDataValue('feedbackShared');
+          if (feedbackValue !== undefined) {
+            if (typeof feedbackValue === 'string') {
+              const normalizedFeedback = feedbackValue.trim().toLowerCase();
+              if (['yes', 'true', '1'].indexOf(normalizedFeedback) !== -1) {
+                return 'Yes';
+              }
+              if (['no', 'false', '0'].indexOf(normalizedFeedback) !== -1) {
+                return 'No';
+              }
+            }
+            return feedbackValue ? 'Yes' : 'No';
+          }
+          const flagValue = getDataValue('feedbackSharedFlag');
+          if (flagValue !== undefined) {
+            if (typeof flagValue === 'string') {
+              const normalizedFlag = flagValue.trim().toLowerCase();
+              if (['yes', 'true', '1'].indexOf(normalizedFlag) !== -1) {
+                return 'Yes';
+              }
+              if (['no', 'false', '0'].indexOf(normalizedFlag) !== -1) {
+                return 'No';
+              }
+            }
+            return flagValue ? 'Yes' : 'No';
+          }
+          return existingValue || '';
+        }
+        case 'feedbacksharedat': {
+          const value = getDataValue('feedbackSharedAt');
+          return value !== undefined ? value : existingValue || '';
+        }
+        case 'totalscore':
+          return (typeof scoreResult.earned === 'number') ? scoreResult.earned : (existingValue || 0);
+        case 'percentage':
+          return (typeof scoreResult.percentage === 'number') ? scoreResult.percentage : (existingValue || 0);
+        case 'overallfeedback': {
+          const value = getDataValue('overallFeedback');
+          return value !== undefined ? value : existingValue || '';
+        }
+        case 'notes': {
+          const value = getDataValue('notes');
+          return value !== undefined ? value : existingValue || '';
+        }
+        case 'agentfeedback': {
+          const value = getDataValue('agentFeedback');
+          return value !== undefined ? value : existingValue || '';
+        }
+        case 'coachingprovided':
+          return existingValue || 'No';
         default:
-          // Handle Q1-Q19 answers and their note columns
-          const questionMatch = col.match(/^Q(\d+)$/i);
-          if (questionMatch) {
-            const qKey = ('q' + questionMatch[1]).toLowerCase();
-            const val = data[qKey];
-            if (!val || val === 'na') return 'N/A';
-            return val === 'yes' ? 'Yes' : 'No';
+          if (normalized.indexOf('pdf') !== -1) {
+            return existingValue || '';
           }
-          const noteMatch = col.match(/^Q(\d+)\s+Note$/i);
-          if (noteMatch) {
-            const number = noteMatch[1];
-            const camelKey = 'q' + number + 'Note';
-            const lowerKey = ('q' + number + 'note');
-            const legacyKey = 'c' + number;
-            return data[camelKey] || data[lowerKey] || data[legacyKey] || '';
+
+          const camelKey = header.charAt(0).toLowerCase() + header.slice(1);
+          const value = getDataValue(camelKey);
+          if (value !== undefined) {
+            return value;
           }
-          if (/^C\d+$/i.test(col)) {
-            const number = col.replace(/[^0-9]/g, '');
-            const camelKey = number ? ('q' + number + 'Note') : '';
-            const lowerKey = number ? ('q' + number + 'note') : '';
-            const legacyKey = col.toLowerCase();
-            return (camelKey && data[camelKey]) || (lowerKey && data[lowerKey]) || data[legacyKey] || '';
-          }
-          // Other fields
-          return data[col.charAt(0).toLowerCase() + col.slice(1)] || '';
+          return existingValue || '';
       }
     });
-    
-    // Append row
-    sheet.appendRow(rowData);
-    
-    // Build record object
+
+    if (existingRowInfo) {
+      sheet.getRange(existingRowInfo.rowIndex, 1, 1, headers.length).setValues([rowData]);
+    } else {
+      sheet.appendRow(rowData);
+    }
+
     const record = {};
     headers.forEach((header, index) => {
       record[header] = rowData[index];
     });
-    
+
     console.log('QA record saved with ID:', qaId);
     return {
       qaId,
       record
     };
-    
+
   } catch (error) {
     console.error('Save record error:', error);
     throw new Error('Failed to save QA record: ' + error.message);
   }
 }
 
-function generateQAPDF_(record, scoreResult) {
+function normalizeBooleanOption_(value, defaultValue) {
+  if (value === undefined || value === null || value === '') {
+    return defaultValue;
+  }
+
+  if (typeof value === 'boolean') {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (['false', '0', 'no', 'off'].indexOf(normalized) !== -1) {
+      return false;
+    }
+    if (['true', '1', 'yes', 'on'].indexOf(normalized) !== -1) {
+      return true;
+    }
+  }
+
+  return Boolean(value);
+}
+
+function generateQAPDF_(record, scoreResult, formData = {}) {
   try {
     if (typeof generateQaPdfReport === 'function') {
-      return generateQaPdfReport(record, scoreResult, {
-        template: 'standard',
-        theme: 'professional'
-      });
+      const pdfOptions = {
+        template: formData.pdfTemplate || 'standard',
+        theme: formData.pdfTheme || 'professional',
+        includeCharts: normalizeBooleanOption_(formData.includeCharts, true),
+        includeRecommendations: normalizeBooleanOption_(formData.includeRecommendations, true),
+        includeFullSnapshot: normalizeBooleanOption_(formData.includeFullSnapshot, true)
+      };
+
+      const existingPdfId = extractPdfIdFromRecord_(record);
+      if (existingPdfId) {
+        pdfOptions.existingFileId = existingPdfId;
+      }
+
+      return generateQaPdfReport(record, scoreResult, pdfOptions);
     }
     return { success: false, error: 'PDF generation not available' };
   } catch (error) {
     return { success: false, error: error.message };
   }
+}
+
+function resolveAudioUrlFromRecord_(record, explicitUrl) {
+  const direct = (explicitUrl || '').toString().trim();
+  if (direct) {
+    return direct;
+  }
+
+  if (!record || typeof record !== 'object') {
+    return '';
+  }
+
+  const keys = Object.keys(record);
+  for (let i = 0; i < keys.length; i++) {
+    const key = keys[i];
+    const value = record[key];
+    if (!value) {
+      continue;
+    }
+    const normalized = String(key || '').toLowerCase();
+    if ((normalized.indexOf('call') !== -1 || normalized.indexOf('audio') !== -1 || normalized.indexOf('recording') !== -1) &&
+        (normalized.indexOf('url') !== -1 || normalized.indexOf('link') !== -1)) {
+      const url = String(value).trim();
+      if (url) {
+        return url;
+      }
+    }
+  }
+
+  return '';
+}
+
+function resolveAudioIdFromRecord_(record, explicitId) {
+  const direct = (explicitId || '').toString().trim();
+  if (direct) {
+    return direct;
+  }
+
+  if (!record || typeof record !== 'object') {
+    return '';
+  }
+
+  const keys = Object.keys(record);
+  for (let i = 0; i < keys.length; i++) {
+    const key = keys[i];
+    const value = record[key];
+    if (!value) {
+      continue;
+    }
+    const normalized = String(key || '').toLowerCase();
+    if ((normalized.indexOf('call') !== -1 || normalized.indexOf('audio') !== -1 || normalized.indexOf('recording') !== -1) &&
+        (normalized.indexOf('id') !== -1 || normalized.indexOf('file') !== -1)) {
+      const id = String(value).trim();
+      if (id) {
+        return id;
+      }
+    }
+  }
+
+  return '';
+}
+
+function resolveAudioNameFromRecord_(record, explicitName) {
+  const direct = (explicitName || '').toString().trim();
+  if (direct) {
+    return direct;
+  }
+
+  if (!record || typeof record !== 'object') {
+    return '';
+  }
+
+  const keys = Object.keys(record);
+  for (let i = 0; i < keys.length; i++) {
+    const key = keys[i];
+    const value = record[key];
+    if (!value) {
+      continue;
+    }
+    const normalized = String(key || '').toLowerCase();
+    if ((normalized.indexOf('call') !== -1 || normalized.indexOf('audio') !== -1 || normalized.indexOf('recording') !== -1) &&
+        (normalized.indexOf('name') !== -1 || normalized.indexOf('title') !== -1)) {
+      const name = String(value).trim();
+      if (name) {
+        return name;
+      }
+    }
+  }
+
+  return '';
+}
+
+function sanitizeForClient_(value) {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (value === null) {
+    return null;
+  }
+
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+
+  if (Array.isArray(value)) {
+    return value.map(item => {
+      const sanitized = sanitizeForClient_(item);
+      return sanitized === undefined ? null : sanitized;
+    });
+  }
+
+  if (typeof value === 'number') {
+    return isFinite(value) ? value : null;
+  }
+
+  if (typeof value === 'object') {
+    const sanitizedObject = {};
+    Object.keys(value).forEach(key => {
+      const sanitizedValue = sanitizeForClient_(value[key]);
+      if (sanitizedValue !== undefined) {
+        sanitizedObject[key] = sanitizedValue;
+      }
+    });
+    return sanitizedObject;
+  }
+
+  return value;
 }
 
 // ============================================================================
@@ -2847,92 +3210,174 @@ function qaCategories_() {
 }
 
 // ============================================================================
-// ENHANCED PDF INTEGRATION UPDATE
-// ============================================================================
-
-// Update the generateQAPDF_ function in QAService.gs to pass form options
-function generateQAPDF_(record, scoreResult, formData = {}) {
-  try {
-    if (typeof generateQaPdfReport === 'function') {
-      // Extract PDF options from form data
-      const pdfOptions = {
-        template: formData.pdfTemplate || 'standard',
-        theme: formData.pdfTheme || 'professional',
-        includeCharts: formData.includeCharts !== false,
-        includeRecommendations: formData.includeRecommendations !== false,
-        includeFullSnapshot: formData.includeFullSnapshot === true
-      };
-      
-      console.log('Generating PDF with options:', pdfOptions);
-      return generateQaPdfReport(record, scoreResult, pdfOptions);
-    }
-    return { success: false, error: 'PDF generation not available' };
-  } catch (error) {
-    console.error('PDF generation error:', error);
-    return { success: false, error: error.message };
-  }
-}
-
-// ============================================================================
-// UPDATE TO MAIN SUBMISSION FUNCTION
-// ============================================================================
-
-// Update the clientUploadAudioAndSaveQA function to pass form data to PDF generation
-// Replace step 7 in your existing function with this:
-
-/*
-// Step 7: Generate PDF with form options
-let pdfResult = null;
-try {
-  pdfResult = generateQAPDF_(saveResult.record, scoreResult, qaData);
-  if (pdfResult && pdfResult.success) {
-    console.log('PDF generated successfully:', pdfResult.fileName);
-  }
-} catch (pdfError) {
-  console.warn('PDF generation failed (non-critical):', pdfError.message);
-}
-*/
-
-// ============================================================================
 // ADDITIONAL UTILITY FUNCTION FOR QA RECORD RETRIEVAL
-// ============================================================================
+// ==============================================================
 
-function getQARecordById(qaId) {
+function findQaRecordRow_(qaId) {
   try {
+    if (!qaId && qaId !== 0) {
+      return null;
+    }
+
+    const targetId = String(qaId).trim();
+    if (!targetId) {
+      return null;
+    }
+
     const sheet = getQaSheet_();
     const data = sheet.getDataRange().getValues();
-    if (data.length < 2) return null;
-    
+    if (data.length < 2) {
+      return null;
+    }
+
     const headers = data[0];
-    const idColumnIndex = headers.findIndex(h => h.toLowerCase() === 'id');
-    
+    const idColumnIndex = headers.findIndex(h => String(h).toLowerCase() === 'id');
+
     if (idColumnIndex === -1) {
       console.error('ID column not found in QA sheet');
       return null;
     }
-    
-    // Find the row with matching ID
-    const rowIndex = data.findIndex((row, index) => 
-      index > 0 && row[idColumnIndex] === qaId
-    );
-    
-    if (rowIndex === -1) {
-      console.warn('QA record not found for ID:', qaId);
-      return null;
+
+    for (let i = 1; i < data.length; i++) {
+      const rowId = String(data[i][idColumnIndex] || '').trim();
+      if (rowId === targetId) {
+        const rowValues = data[i].slice();
+        const record = {};
+        headers.forEach((header, index) => {
+          record[header] = rowValues[index];
+        });
+
+        return {
+          rowIndex: i + 1,
+          headers,
+          rowValues,
+          record
+        };
+      }
     }
-    
-    // Build record object
-    const record = {};
-    headers.forEach((header, index) => {
-      record[header] = data[rowIndex][index];
-    });
-    
-    return record;
-    
+
+    console.warn('QA record not found for ID:', targetId);
+    return null;
+
+  } catch (error) {
+    console.error('Error locating QA record row:', error);
+    return null;
+  }
+}
+
+function getQARecordById(qaId) {
+  try {
+    const info = findQaRecordRow_(qaId);
+    return info ? info.record : null;
   } catch (error) {
     console.error('Error retrieving QA record by ID:', error);
     return null;
   }
+}
+
+function updateQaRecordPdfInfo_(qaId, pdfResult) {
+  try {
+    if (!pdfResult || !pdfResult.success) {
+      return null;
+    }
+
+    const info = findQaRecordRow_(qaId);
+    if (!info) {
+      return null;
+    }
+
+    const sheet = getQaSheet_();
+    const headers = info.headers;
+    const updatedValues = info.rowValues.slice();
+
+    const pdfUrl = pdfResult.fileUrl || '';
+    const pdfId = pdfResult.fileId || '';
+    const pdfName = pdfResult.fileName || '';
+    let changed = false;
+
+    headers.forEach((header, index) => {
+      const normalized = String(header || '').toLowerCase();
+      if (pdfUrl && normalized.indexOf('pdf') !== -1 && normalized.indexOf('url') !== -1) {
+        if (updatedValues[index] !== pdfUrl) {
+          updatedValues[index] = pdfUrl;
+          changed = true;
+        }
+      }
+      if (pdfId && normalized.indexOf('pdf') !== -1 && normalized.indexOf('id') !== -1) {
+        if (updatedValues[index] !== pdfId) {
+          updatedValues[index] = pdfId;
+          changed = true;
+        }
+      }
+      if (pdfName && normalized.indexOf('pdf') !== -1 && normalized.indexOf('name') !== -1) {
+        if (updatedValues[index] !== pdfName) {
+          updatedValues[index] = pdfName;
+          changed = true;
+        }
+      }
+    });
+
+    if (changed) {
+      sheet.getRange(info.rowIndex, 1, 1, headers.length).setValues([updatedValues]);
+    }
+
+    const record = {};
+    headers.forEach((header, index) => {
+      record[header] = updatedValues[index];
+    });
+
+    return record;
+
+  } catch (error) {
+    console.error('Error updating QA PDF info:', error);
+    return null;
+  }
+}
+
+
+function extractPdfIdFromRecord_(record) {
+  if (!record || typeof record !== 'object') {
+    return '';
+  }
+
+  const keys = Object.keys(record);
+  for (let i = 0; i < keys.length; i++) {
+    const key = keys[i];
+    const value = record[key];
+    if (!value) {
+      continue;
+    }
+    const normalized = String(key || '').toLowerCase();
+    if (normalized.indexOf('pdf') !== -1 && normalized.indexOf('id') !== -1) {
+      return String(value).trim();
+    }
+  }
+
+  for (let i = 0; i < keys.length; i++) {
+    const key = keys[i];
+    const value = record[key];
+    if (!value) {
+      continue;
+    }
+    const normalized = String(key || '').toLowerCase();
+    if (normalized.indexOf('pdf') !== -1 && normalized.indexOf('url') !== -1) {
+      const url = String(value);
+      let match = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
+      if (match && match[1]) {
+        return match[1];
+      }
+      match = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+      if (match && match[1]) {
+        return match[1];
+      }
+      match = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+      if (match && match[1]) {
+        return match[1];
+      }
+    }
+  }
+
+  return '';
 }
 
 // ============================================================================
