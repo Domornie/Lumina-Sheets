@@ -17,6 +17,9 @@
   var __escapedDynamicFormsSelectedId = __dynamicFormsSelectedId
     .replace(/\\/g, '\\\\')
     .replace(/'/g, "\\'");
+  var __pageRoot = (typeof baseUrl !== 'undefined' && baseUrl)
+    ? baseUrl
+    : ((typeof scriptUrl !== 'undefined' && scriptUrl) ? scriptUrl : '');
 ?>
 
 <style>
@@ -377,6 +380,24 @@
     color: var(--df-heading);
   }
 
+  .responses-meta__value--link a {
+    color: var(--df-primary);
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-weight: 600;
+  }
+
+  .responses-meta__value--link a i {
+    font-size: 0.85rem;
+  }
+
+  .responses-meta__value--link a:hover,
+  .responses-meta__value--link a:focus {
+    text-decoration: underline;
+  }
+
   .responses-toolbar {
     display: flex;
     justify-content: flex-end;
@@ -568,6 +589,10 @@
       </p>
     </div>
     <div class='heading-actions'>
+      <a id='openResponsesDashboard' class='btn btn-outline-secondary' href='<?= __pageRoot ?>?page=dynamic-form-dashboard'>
+        <i class='fas fa-chart-line'></i>
+        <span>Dashboard</span>
+      </a>
       <button id='openCreateForm' type='button' class='btn btn-primary'>
         <i class='fas fa-plus'></i>
         <span>Create form</span>
@@ -608,6 +633,10 @@
           <div class='responses-meta__block'>
             <span class='responses-meta__label'>Responses</span>
             <span id='responsesCount' class='responses-meta__value'>0</span>
+          </div>
+          <div class='responses-meta__block'>
+            <span class='responses-meta__label'>Response sheet</span>
+            <span id='responseSheetLink' class='responses-meta__value responses-meta__value--link'>—</span>
           </div>
           <div class='responses-meta__block'>
             <span class='responses-meta__label'>Last fetched</span>
@@ -763,6 +792,7 @@
     const fieldsCountEl = document.getElementById('fieldsCount');
     const responsesCountEl = document.getElementById('responsesCount');
     const lastFetchedEl = document.getElementById('lastFetched');
+    const responseSheetLinkEl = document.getElementById('responseSheetLink');
     const responseSearchEl = document.getElementById('responseSearch');
     const responsesStatusEl = document.getElementById('responsesStatus');
     const responsesEmptyEl = document.getElementById('responsesEmpty');
@@ -1406,7 +1436,11 @@
       selectForm(formId);
 
       var formName = normalized.Name || normalized.name || (payload && payload.name) || 'Form';
-      setStatus('info', 'Form “' + formName + '” created. Share it to start collecting responses.');
+      const sheetName = normalized.ResponseSheetName || normalized.responseSheetName || '';
+      const sheetStatusMessage = sheetName
+        ? ' Responses will also sync to the “' + sheetName + '” sheet.'
+        : ' Responses will also be recorded in the response log.';
+      setStatus('info', 'Form “' + formName + '” created. Share it to start collecting responses.' + sheetStatusMessage);
     }
 
     function normalizeForm(form) {
@@ -1419,6 +1453,15 @@
       }
       if (typeof form.Description === 'undefined' && typeof form.description !== 'undefined') {
         form.Description = form.description;
+      }
+      if (typeof form.ResponseSheetName === 'undefined' && typeof form.responseSheetName !== 'undefined') {
+        form.ResponseSheetName = form.responseSheetName;
+      }
+      if (typeof form.ResponseSheetId === 'undefined' && typeof form.responseSheetId !== 'undefined') {
+        form.ResponseSheetId = form.responseSheetId;
+      }
+      if (typeof form.ResponseSheetUrl === 'undefined' && typeof form.responseSheetUrl !== 'undefined') {
+        form.ResponseSheetUrl = form.responseSheetUrl;
       }
       return form;
     }
@@ -1659,6 +1702,41 @@
       }
     }
 
+    function renderResponseSheetLink(form) {
+      if (!responseSheetLinkEl) return;
+      responseSheetLinkEl.innerHTML = '';
+      if (!form) {
+        responseSheetLinkEl.textContent = '—';
+        return;
+      }
+
+      const sheetName = form.ResponseSheetName || form.responseSheetName || '';
+      const sheetUrl = form.ResponseSheetUrl || form.responseSheetUrl || '';
+
+      if (sheetUrl) {
+        const link = document.createElement('a');
+        link.href = sheetUrl;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        if (sheetName) {
+          link.title = sheetName;
+        } else {
+          link.title = 'Open response sheet';
+        }
+        const text = document.createElement('span');
+        text.textContent = 'Open sheet';
+        link.appendChild(text);
+        const icon = document.createElement('i');
+        icon.className = 'fas fa-external-link-alt';
+        link.appendChild(icon);
+        responseSheetLinkEl.appendChild(link);
+      } else if (sheetName) {
+        responseSheetLinkEl.textContent = sheetName;
+      } else {
+        responseSheetLinkEl.textContent = '—';
+      }
+    }
+
     function renderSelectedFormSummary() {
       if (!responsesTitleEl || !fieldsCountEl || !responsesCountEl || !lastFetchedEl) return;
       const form = getFormById(state.selectedFormId);
@@ -1671,6 +1749,7 @@
         fieldsCountEl.textContent = '0';
         responsesCountEl.textContent = '0';
         lastFetchedEl.textContent = '—';
+        renderResponseSheetLink(null);
         return;
       }
 
@@ -1695,6 +1774,7 @@
 
       const fetchedAt = state.lastFetchedByForm[state.selectedFormId];
       lastFetchedEl.textContent = fetchedAt ? formatTimestamp(fetchedAt) : '—';
+      renderResponseSheetLink(form);
     }
 
     function renderResponses(formId) {

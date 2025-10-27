@@ -6066,6 +6066,14 @@ function listDynamicFormResponsesByForm(formId, options) {
   return DynamicFormService.listResponsesForForm(context, formId, query);
 }
 
+function getDynamicFormDashboardData(options) {
+  var context = options && options.context ? options.context : null;
+  if (typeof DynamicFormService === 'undefined' || !DynamicFormService || typeof DynamicFormService.getDashboardSummary !== 'function') {
+    throw new Error('DynamicFormService is not available.');
+  }
+  return DynamicFormService.getDashboardSummary(context, options || {});
+}
+
 console.log('Enhanced Multi-Campaign Code.gs with Simplified Authentication loaded successfully');
 console.log('Features: Token-based authentication, Campaign-aware routing, Enhanced access control');
 console.log('Base URL:', SCRIPT_URL);

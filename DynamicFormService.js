@@ -13,6 +13,7 @@ var DynamicFormService = (function (global) {
   var USERS_TABLE = (typeof USERS_SHEET === 'string' && USERS_SHEET) ? USERS_SHEET : 'Users';
   var FORMS_TABLE = 'DynamicForms';
   var RESPONSES_TABLE = 'DynamicFormResponses';
+  var RESPONSE_SHEET_BASE_HEADERS = ['SubmissionID', 'FormID', 'FormName', 'SubmittedAt', 'UserID', 'UserName', 'SubmittedBy'];
   var safeConsole = (typeof console !== 'undefined' && console) ? console : {
     log: function () { },
     warn: function () { },
@@ -47,7 +48,7 @@ var DynamicFormService = (function (global) {
 
     if (!ensureTables.initialized) {
       DatabaseManager.defineTable(FORMS_TABLE, {
-        headers: ['ID', 'CampaignID', 'Name', 'Description', 'Fields', 'CreatedBy', 'CreatedAt', 'UpdatedAt'],
+        headers: ['ID', 'CampaignID', 'Name', 'Description', 'Fields', 'ResponseSheetId', 'ResponseSheetName', 'CreatedBy', 'CreatedAt', 'UpdatedAt'],
         idColumn: 'ID',
         tenantColumn: 'CampaignID',
         requireTenant: false
@@ -78,6 +79,19 @@ var DynamicFormService = (function (global) {
   function toStringValue(value) {
     if (value === null || typeof value === 'undefined') return '';
     return String(value);
+  }
+
+  function toDateValue(value) {
+    if (!value && value !== 0) return null;
+    if (value instanceof Date) return value;
+    var asDate = new Date(value);
+    if (isNaN(asDate.getTime())) return null;
+    return asDate;
+  }
+
+  function toIsoString(value) {
+    var date = toDateValue(value);
+    return date ? date.toISOString() : null;
   }
 
   function safeJsonParse(value, fallback) {
@@ -114,6 +128,342 @@ var DynamicFormService = (function (global) {
       return String(context.tenantIds[0]);
     }
     return '';
+  }
+
+  function getActiveSpreadsheet() {
+    if (typeof SpreadsheetApp === 'undefined' || !SpreadsheetApp || typeof SpreadsheetApp.getActiveSpreadsheet !== 'function') {
+      return null;
+    }
+    try {
+      return SpreadsheetApp.getActiveSpreadsheet();
+    } catch (err) {
+      if (safeConsole && typeof safeConsole.warn === 'function') {
+        safeConsole.warn('DynamicFormService: Failed to access active spreadsheet', err);
+      }
+      return null;
+    }
+  }
+
+  function sanitizeSheetName(name) {
+    var sanitized = toStringValue(name || '');
+    sanitized = sanitized.replace(/[\[\]\*\/\\\?:]/g, ' ');
+    sanitized = sanitized.replace(/\s+/g, ' ').trim();
+    return sanitized;
+  }
+
+  function ensureUniqueSheetName(ss, desiredName) {
+    if (!ss) return desiredName || 'Dynamic Form Responses';
+    var base = desiredName && desiredName.trim() ? desiredName.trim() : 'Dynamic Form Responses';
+    if (base.length > 99) {
+      base = base.substring(0, 99);
+    }
+    var candidate = base;
+    var attempt = 2;
+    while (ss.getSheetByName(candidate)) {
+      var suffix = ' (' + attempt + ')';
+      var maxLength = 99 - suffix.length;
+      var shortened = base;
+      if (shortened.length > maxLength) {
+        shortened = shortened.substring(0, maxLength);
+      }
+      candidate = shortened + suffix;
+      attempt += 1;
+    }
+    return candidate;
+  }
+
+  function buildResponseSheetHeaders(fields) {
+    var headers = RESPONSE_SHEET_BASE_HEADERS.slice();
+    var seen = {};
+    for (var i = 0; i < headers.length; i++) {
+      seen[headers[i]] = true;
+    }
+    if (Array.isArray(fields)) {
+      for (var j = 0; j < fields.length; j++) {
+        var field = fields[j];
+        if (!field) continue;
+        var label = toStringValue(field.label || field.title || field.name || ('Field ' + (j + 1)));
+        if (!label) {
+          label = 'Field ' + (j + 1);
+        }
+        var candidate = label;
+        var counter = 2;
+        while (seen[candidate]) {
+          candidate = label + ' (' + counter + ')';
+          counter += 1;
+        }
+        seen[candidate] = true;
+        headers.push(candidate);
+      }
+    }
+    return headers;
+  }
+
+  function ensureResponseSheetHeaders(sheet, fields) {
+    if (!sheet) return;
+    try {
+      var headers = buildResponseSheetHeaders(fields);
+      var range = sheet.getRange(1, 1, 1, headers.length);
+      var current = range.getValues();
+      var needsUpdate = true;
+      if (current && current.length) {
+        var row = current[0];
+        needsUpdate = row.length !== headers.length;
+        if (!needsUpdate) {
+          needsUpdate = false;
+          for (var i = 0; i < headers.length; i++) {
+            if (toStringValue(row[i]) !== toStringValue(headers[i])) {
+              needsUpdate = true;
+              break;
+            }
+          }
+        }
+      }
+      if (needsUpdate) {
+        range.setValues([headers]);
+      }
+      if (typeof sheet.getFrozenRows === 'function' && sheet.getFrozenRows() < 1 && typeof sheet.setFrozenRows === 'function') {
+        sheet.setFrozenRows(1);
+      }
+    } catch (err) {
+      if (safeConsole && typeof safeConsole.warn === 'function') {
+        safeConsole.warn('DynamicFormService: Failed to ensure response sheet headers', err);
+      }
+    }
+  }
+
+  function createResponseSheet(formRecord, fields) {
+    var ss = getActiveSpreadsheet();
+    if (!ss || !formRecord) return null;
+    try {
+      var baseName = sanitizeSheetName((formRecord && (formRecord.Name || formRecord.name)) || 'Dynamic Form');
+      if (!baseName) {
+        baseName = 'Dynamic Form';
+      }
+      var suffix = '';
+      if (formRecord.ID || formRecord.id) {
+        var idFragment = String(formRecord.ID || formRecord.id).replace(/[^a-zA-Z0-9]/g, '').substring(0, 6).toUpperCase();
+        if (idFragment) {
+          suffix = ' [' + idFragment + ']';
+        }
+      }
+      var desiredName = sanitizeSheetName(baseName + ' Responses' + suffix);
+      var sheetName = ensureUniqueSheetName(ss, desiredName);
+      var sheet = ss.insertSheet(sheetName);
+      ensureResponseSheetHeaders(sheet, fields);
+      return {
+        id: sheet.getSheetId(),
+        name: sheetName,
+        sheet: sheet
+      };
+    } catch (err) {
+      if (safeConsole && typeof safeConsole.error === 'function') {
+        safeConsole.error('DynamicFormService: Failed to create response sheet for form ' + (formRecord.ID || ''), err);
+      }
+      return null;
+    }
+  }
+
+  function normalizeSheetValue(value) {
+    if (value === null || typeof value === 'undefined') return '';
+    if (value instanceof Date) return value;
+    if (Array.isArray(value)) {
+      var joined = [];
+      for (var i = 0; i < value.length; i++) {
+        if (value[i] === null || typeof value[i] === 'undefined') continue;
+        joined.push(String(value[i]));
+      }
+      return joined.length ? joined.join(', ') : '';
+    }
+    if (typeof value === 'object') {
+      try {
+        return JSON.stringify(value);
+      } catch (err) {
+        return String(value);
+      }
+    }
+    return value;
+  }
+
+  function resolveResponseSheetUrl(formRecord) {
+    if (!formRecord || typeof formRecord !== 'object') return '';
+    var ss = getActiveSpreadsheet();
+    if (!ss || typeof ss.getUrl !== 'function') return '';
+    var baseUrl = ss.getUrl();
+    if (!baseUrl) return '';
+    var sheetIdRaw = formRecord.ResponseSheetId || formRecord.responseSheetId;
+    var sheetName = formRecord.ResponseSheetName || formRecord.responseSheetName;
+    var sheetId = sheetIdRaw;
+    if (!sheetIdRaw && sheetName) {
+      var sheet = ss.getSheetByName(sheetName);
+      if (sheet) {
+        sheetId = sheet.getSheetId();
+        formRecord.ResponseSheetId = String(sheetId);
+      }
+    }
+    if (sheetId && typeof sheetId === 'number') {
+      sheetId = String(sheetId);
+    }
+    if (sheetId) {
+      return baseUrl + '#gid=' + sheetId;
+    }
+    return '';
+  }
+
+  function persistResponseSheetMetadata(formsTable, formRecord, updates) {
+    if (!formsTable || !formRecord || !formRecord.ID) return;
+    try {
+      formsTable.update(formRecord.ID, updates);
+    } catch (err) {
+      if (safeConsole && typeof safeConsole.warn === 'function') {
+        safeConsole.warn('DynamicFormService: Failed to persist response sheet metadata for form ' + formRecord.ID, err);
+      }
+    }
+  }
+
+  function ensureResponseSheetForForm(formRecord, fields, formsTable) {
+    if (!formRecord) return null;
+    var ss = getActiveSpreadsheet();
+    if (!ss) return null;
+
+    var sheetName = formRecord.ResponseSheetName || formRecord.responseSheetName || '';
+    var sheetIdRaw = formRecord.ResponseSheetId || formRecord.responseSheetId || '';
+    var sheet = sheetName ? ss.getSheetByName(sheetName) : null;
+    var numericId = sheetIdRaw ? Number(sheetIdRaw) : NaN;
+
+    if (!sheet && sheetIdRaw && !isNaN(numericId)) {
+      var sheets = ss.getSheets();
+      for (var i = 0; i < sheets.length; i++) {
+        if (sheets[i] && typeof sheets[i].getSheetId === 'function' && sheets[i].getSheetId() === numericId) {
+          sheet = sheets[i];
+          break;
+        }
+      }
+      if (sheet && !sheetName) {
+        sheetName = sheet.getName();
+        formRecord.ResponseSheetName = sheetName;
+        persistResponseSheetMetadata(formsTable, formRecord, { ResponseSheetName: sheetName });
+      }
+    }
+
+    if (!sheet) {
+      var created = createResponseSheet(formRecord, fields);
+      if (!created || !created.sheet) {
+        return null;
+      }
+      sheet = created.sheet;
+      sheetName = created.name;
+      numericId = created.id;
+      formRecord.ResponseSheetName = sheetName;
+      formRecord.ResponseSheetId = String(numericId);
+      persistResponseSheetMetadata(formsTable, formRecord, {
+        ResponseSheetName: sheetName,
+        ResponseSheetId: String(numericId)
+      });
+    } else {
+      ensureResponseSheetHeaders(sheet, fields);
+      if (!sheetName) {
+        sheetName = sheet.getName();
+        formRecord.ResponseSheetName = sheetName;
+        persistResponseSheetMetadata(formsTable, formRecord, { ResponseSheetName: sheetName });
+      }
+      if (!sheetIdRaw || isNaN(numericId)) {
+        numericId = sheet.getSheetId();
+        formRecord.ResponseSheetId = String(numericId);
+        persistResponseSheetMetadata(formsTable, formRecord, { ResponseSheetId: String(numericId) });
+      }
+    }
+
+    ensureResponseSheetHeaders(sheet, fields);
+    formRecord.ResponseSheetUrl = resolveResponseSheetUrl(formRecord);
+
+    return {
+      sheet: sheet,
+      name: sheetName,
+      id: sheet.getSheetId()
+    };
+  }
+
+  function appendResponseToSheet(formRecord, responseRecord, normalizedAnswers, existingUser, formsTable, fields) {
+    if (!formRecord || !responseRecord) return;
+    var sheetMeta = ensureResponseSheetForForm(formRecord, fields, formsTable);
+    if (!sheetMeta || !sheetMeta.sheet) return;
+    try {
+      var sheet = sheetMeta.sheet;
+      ensureResponseSheetHeaders(sheet, fields);
+      var submittedAt = toDateValue(responseRecord.CreatedAt || responseRecord.createdAt || responseRecord.UpdatedAt || responseRecord.updatedAt || new Date());
+      if (!submittedAt) {
+        submittedAt = new Date();
+      }
+      var existingName = existingUser && (existingUser.FullName || existingUser.UserName || existingUser.Email || existingUser.fullName || existingUser.userName || existingUser.email);
+      var answersList = normalizedAnswers && Array.isArray(normalizedAnswers.list) ? normalizedAnswers.list : [];
+      var row = [
+        responseRecord.ID || responseRecord.Id || responseRecord.id || '',
+        formRecord.ID || formRecord.Id || formRecord.id || '',
+        formRecord.Name || formRecord.name || 'Untitled form',
+        submittedAt,
+        responseRecord.UserID || responseRecord.userId || responseRecord.userID || '',
+        existingName ? existingName : '',
+        responseRecord.SubmittedBy || responseRecord.submittedBy || ''
+      ];
+      for (var i = 0; i < answersList.length; i++) {
+        var answer = answersList[i];
+        row.push(normalizeSheetValue(answer ? answer.value : ''));
+      }
+      sheet.appendRow(row);
+    } catch (err) {
+      if (safeConsole && typeof safeConsole.error === 'function') {
+        safeConsole.error('DynamicFormService: Failed to append response to sheet for form ' + (formRecord.ID || ''), err);
+      }
+    }
+  }
+
+  function applyResponseSheetMetadata(formRecord) {
+    if (!formRecord || typeof formRecord !== 'object') return formRecord;
+    if (formRecord.ResponseSheetId && typeof formRecord.ResponseSheetId === 'number') {
+      formRecord.ResponseSheetId = String(formRecord.ResponseSheetId);
+    }
+    if (formRecord.responseSheetId && typeof formRecord.responseSheetId === 'number' && !formRecord.ResponseSheetId) {
+      formRecord.ResponseSheetId = String(formRecord.responseSheetId);
+    }
+    if (formRecord.responseSheetName && !formRecord.ResponseSheetName) {
+      formRecord.ResponseSheetName = formRecord.responseSheetName;
+    }
+    var url = resolveResponseSheetUrl(formRecord);
+    if (url) {
+      formRecord.ResponseSheetUrl = url;
+    }
+    return formRecord;
+  }
+
+  function resolveUserDisplay(usersTable, cache, userId) {
+    var key = userId ? String(userId) : '';
+    if (!key) {
+      return { name: '', email: '' };
+    }
+    if (cache && Object.prototype.hasOwnProperty.call(cache, key)) {
+      return cache[key];
+    }
+    var summary = { name: '', email: '' };
+    if (!usersTable || typeof usersTable.findById !== 'function') {
+      if (cache) cache[key] = summary;
+      return summary;
+    }
+    try {
+      var user = usersTable.findById(key);
+      if (user) {
+        summary.name = toStringValue(user.FullName || user.UserName || user.DisplayName || '');
+        summary.email = toStringValue(user.Email || '');
+      }
+    } catch (err) {
+      if (safeConsole && typeof safeConsole.warn === 'function') {
+        safeConsole.warn('DynamicFormService: Unable to resolve user ' + key, err);
+      }
+    }
+    if (cache) {
+      cache[key] = summary;
+    }
+    return summary;
   }
 
   function normalizeField(field, index) {
@@ -338,12 +688,16 @@ var DynamicFormService = (function (global) {
       Name: toStringValue(config.name || config.title),
       Description: toStringValue(config.description || ''),
       Fields: serializeFields(fields),
+      ResponseSheetId: '',
+      ResponseSheetName: '',
       CreatedBy: config.createdBy || ''
     };
 
     var table = getFormsTable(context);
     var inserted = table.insert(record);
     inserted.Fields = fields;
+    ensureResponseSheetForForm(inserted, fields, table);
+    applyResponseSheetMetadata(inserted);
     return inserted;
   };
 
@@ -356,6 +710,8 @@ var DynamicFormService = (function (global) {
     var form = table.findById(formId);
     if (!form) return null;
     form.Fields = parseFields(form.Fields);
+    ensureResponseSheetForForm(form, form.Fields, table);
+    applyResponseSheetMetadata(form);
     return form;
   };
 
@@ -365,6 +721,8 @@ var DynamicFormService = (function (global) {
     var rows = table.read(options || {});
     for (var i = 0; i < rows.length; i++) {
       rows[i].Fields = parseFields(rows[i].Fields);
+      ensureResponseSheetForForm(rows[i], rows[i].Fields, table);
+      applyResponseSheetMetadata(rows[i]);
     }
     return rows;
   };
@@ -415,6 +773,8 @@ var DynamicFormService = (function (global) {
     var stored = responsesTable.insert(responseRecord);
     stored.Responses = normalizedAnswers.list;
     stored.UserUpdates = userUpdatePayload.bindings;
+
+    appendResponseToSheet(form, stored, normalizedAnswers, existingUser, formsTable, fields);
     return stored;
   };
 
@@ -450,6 +810,118 @@ var DynamicFormService = (function (global) {
       rows[i].UserUpdates = safeJsonParse(rows[i].UserUpdates, []);
     }
     return rows;
+  };
+
+  service.getDashboardSummary = function (context, options) {
+    ensureTables();
+    var formsTable = getFormsTable(context);
+    var responsesTable = getResponsesTable(context);
+    var usersTable = getUsersTable(context);
+
+    var forms = formsTable.read(options && options.formsQuery ? options.formsQuery : {});
+    var formsById = {};
+    var formsWithSheets = 0;
+    var formsWithoutSheets = 0;
+    for (var i = 0; i < forms.length; i++) {
+      var form = forms[i];
+      form.Fields = parseFields(form.Fields);
+      ensureResponseSheetForForm(form, form.Fields, formsTable);
+      applyResponseSheetMetadata(form);
+      formsById[String(form.ID)] = form;
+      if (form.ResponseSheetName) {
+        formsWithSheets += 1;
+      } else {
+        formsWithoutSheets += 1;
+      }
+    }
+
+    var responses = responsesTable.read(options && options.responsesQuery ? options.responsesQuery : {});
+    var responsesByFormMap = {};
+    var parsedResponses = [];
+    for (var j = 0; j < responses.length; j++) {
+      var response = responses[j];
+      response.Responses = safeJsonParse(response.Responses, []);
+      response.UserUpdates = safeJsonParse(response.UserUpdates, []);
+      parsedResponses.push(response);
+      var formKey = String(response.FormID || '');
+      if (!responsesByFormMap[formKey]) {
+        responsesByFormMap[formKey] = {
+          formId: formKey,
+          totalResponses: 0,
+          lastSubmissionAt: null
+        };
+      }
+      responsesByFormMap[formKey].totalResponses += 1;
+      var submissionIso = toIsoString(response.CreatedAt || response.createdAt || response.UpdatedAt || response.updatedAt);
+      if (submissionIso && (!responsesByFormMap[formKey].lastSubmissionAt || responsesByFormMap[formKey].lastSubmissionAt < submissionIso)) {
+        responsesByFormMap[formKey].lastSubmissionAt = submissionIso;
+      }
+    }
+
+    var responsesByForm = [];
+    var responseFormKeys = Object.keys(responsesByFormMap);
+    for (var k = 0; k < responseFormKeys.length; k++) {
+      var formId = responseFormKeys[k];
+      var aggregate = responsesByFormMap[formId];
+      var relatedForm = formsById[formId];
+      responsesByForm.push({
+        formId: formId,
+        formName: relatedForm ? (relatedForm.Name || relatedForm.name || 'Untitled form') : 'Untitled form',
+        totalResponses: aggregate.totalResponses,
+        lastSubmissionAt: aggregate.lastSubmissionAt,
+        responseSheetUrl: relatedForm && relatedForm.ResponseSheetUrl ? relatedForm.ResponseSheetUrl : '',
+        responseSheetName: relatedForm && relatedForm.ResponseSheetName ? relatedForm.ResponseSheetName : ''
+      });
+    }
+    responsesByForm.sort(function (a, b) {
+      if (b.totalResponses === a.totalResponses) {
+        var aDate = a.lastSubmissionAt || '';
+        var bDate = b.lastSubmissionAt || '';
+        return bDate < aDate ? -1 : bDate > aDate ? 1 : 0;
+      }
+      return b.totalResponses - a.totalResponses;
+    });
+
+    var recentResponses = [];
+    var sortedResponses = parsedResponses.slice();
+    sortedResponses.sort(function (a, b) {
+      var aDate = toDateValue(a.CreatedAt || a.createdAt || a.UpdatedAt || a.updatedAt || 0);
+      var bDate = toDateValue(b.CreatedAt || b.createdAt || b.UpdatedAt || b.updatedAt || 0);
+      var aTime = aDate ? aDate.getTime() : 0;
+      var bTime = bDate ? bDate.getTime() : 0;
+      return bTime - aTime;
+    });
+
+    var userCache = {};
+    var recentLimit = Math.min(sortedResponses.length, 10);
+    for (var r = 0; r < recentLimit; r++) {
+      var entry = sortedResponses[r];
+      var formEntry = formsById[String(entry.FormID)] || null;
+      var userSummary = resolveUserDisplay(usersTable, userCache, entry.UserID || entry.userId || entry.userID || '');
+      recentResponses.push({
+        submissionId: entry.ID,
+        formId: entry.FormID,
+        formName: formEntry ? (formEntry.Name || formEntry.name || 'Untitled form') : 'Untitled form',
+        userId: entry.UserID || entry.userId || entry.userID || '',
+        userName: userSummary.name,
+        userEmail: userSummary.email,
+        submittedBy: entry.SubmittedBy || entry.submittedBy || '',
+        submittedAt: toIsoString(entry.CreatedAt || entry.createdAt || entry.UpdatedAt || entry.updatedAt),
+        answerCount: Array.isArray(entry.Responses) ? entry.Responses.length : 0
+      });
+    }
+
+    return {
+      generatedAt: new Date().toISOString(),
+      totalForms: forms.length,
+      totalResponses: parsedResponses.length,
+      formsWithSheets: formsWithSheets,
+      formsWithoutSheets: formsWithoutSheets,
+      averageResponsesPerForm: forms.length ? (parsedResponses.length / forms.length) : 0,
+      forms: forms,
+      responsesByForm: responsesByForm,
+      recentResponses: recentResponses
+    };
   };
 
   return service;
