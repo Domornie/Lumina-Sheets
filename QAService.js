@@ -212,41 +212,54 @@ function clientUploadAudioAndSaveQA(formData) {
       console.warn('PDF generation failed (non-critical):', pdfError.message);
     }
 
-    // Step 8: Return success response
+    // Step 8: Prepare latest record details
+    let finalRecord = saveResult.record || {};
+
+    if (pdfResult && pdfResult.success) {
+      const updatedRecord = updateQaRecordPdfInfo_(saveResult.qaId, pdfResult);
+      if (updatedRecord) {
+        finalRecord = updatedRecord;
+      } else {
+        const refreshed = getQARecordById(saveResult.qaId);
+        if (refreshed) {
+          finalRecord = refreshed;
+        }
+      }
+    } else {
+      const refreshed = getQARecordById(saveResult.qaId);
+      if (refreshed) {
+        finalRecord = refreshed;
+      }
+    }
+
+    // Step 9: Return success response (sanitized for client)
     const response = {
       success: true,
-      qaId: saveResult.qaId,
-      audioUrl: audioResult.url,
+      qaId: String(saveResult.qaId || ''),
+      audioUrl: resolveAudioUrlFromRecord_(finalRecord, audioResult && audioResult.url),
+      audioId: resolveAudioIdFromRecord_(finalRecord, audioResult && audioResult.id),
+      audioName: resolveAudioNameFromRecord_(finalRecord, audioResult && audioResult.name),
       scoreResult: scoreResult,
-      record: saveResult.record,
+      record: finalRecord,
       timestamp: new Date().toISOString()
     };
 
     if (pdfResult && pdfResult.success) {
-      response.qaPdfUrl = pdfResult.fileUrl;
-      response.qaPdfId = pdfResult.fileId;
-
-      const updatedRecord = updateQaRecordPdfInfo_(saveResult.qaId, pdfResult);
-      if (updatedRecord) {
-        response.record = updatedRecord;
-      } else {
-        const refreshed = getQARecordById(saveResult.qaId);
-        if (refreshed) {
-          response.record = refreshed;
-        }
-      }
+      response.qaPdfUrl = pdfResult.fileUrl || '';
+      response.qaPdfId = pdfResult.fileId || '';
+      response.qaPdfName = pdfResult.fileName || '';
     }
 
     console.log('=== QA SUBMISSION COMPLETED SUCCESSFULLY ===');
-    return response;
-    
+    return sanitizeForClient_(response);
+
   } catch (error) {
     console.error('=== QA SUBMISSION FAILED ===');
     console.error('Error:', error.message);
     console.error('Stack:', error.stack);
-    
+
     // Return a proper error response
-    return {
+    return sanitizeForClient_({
       success: false,
       error: error.message,
       timestamp: new Date().toISOString(),
@@ -254,7 +267,7 @@ function clientUploadAudioAndSaveQA(formData) {
         function: 'clientUploadAudioAndSaveQA',
         stack: error.stack
       }
-    };
+    });
   }
 }
 
@@ -795,6 +808,134 @@ function generateQAPDF_(record, scoreResult, formData = {}) {
   } catch (error) {
     return { success: false, error: error.message };
   }
+}
+
+function resolveAudioUrlFromRecord_(record, explicitUrl) {
+  const direct = (explicitUrl || '').toString().trim();
+  if (direct) {
+    return direct;
+  }
+
+  if (!record || typeof record !== 'object') {
+    return '';
+  }
+
+  const keys = Object.keys(record);
+  for (let i = 0; i < keys.length; i++) {
+    const key = keys[i];
+    const value = record[key];
+    if (!value) {
+      continue;
+    }
+    const normalized = String(key || '').toLowerCase();
+    if ((normalized.indexOf('call') !== -1 || normalized.indexOf('audio') !== -1 || normalized.indexOf('recording') !== -1) &&
+        (normalized.indexOf('url') !== -1 || normalized.indexOf('link') !== -1)) {
+      const url = String(value).trim();
+      if (url) {
+        return url;
+      }
+    }
+  }
+
+  return '';
+}
+
+function resolveAudioIdFromRecord_(record, explicitId) {
+  const direct = (explicitId || '').toString().trim();
+  if (direct) {
+    return direct;
+  }
+
+  if (!record || typeof record !== 'object') {
+    return '';
+  }
+
+  const keys = Object.keys(record);
+  for (let i = 0; i < keys.length; i++) {
+    const key = keys[i];
+    const value = record[key];
+    if (!value) {
+      continue;
+    }
+    const normalized = String(key || '').toLowerCase();
+    if ((normalized.indexOf('call') !== -1 || normalized.indexOf('audio') !== -1 || normalized.indexOf('recording') !== -1) &&
+        (normalized.indexOf('id') !== -1 || normalized.indexOf('file') !== -1)) {
+      const id = String(value).trim();
+      if (id) {
+        return id;
+      }
+    }
+  }
+
+  return '';
+}
+
+function resolveAudioNameFromRecord_(record, explicitName) {
+  const direct = (explicitName || '').toString().trim();
+  if (direct) {
+    return direct;
+  }
+
+  if (!record || typeof record !== 'object') {
+    return '';
+  }
+
+  const keys = Object.keys(record);
+  for (let i = 0; i < keys.length; i++) {
+    const key = keys[i];
+    const value = record[key];
+    if (!value) {
+      continue;
+    }
+    const normalized = String(key || '').toLowerCase();
+    if ((normalized.indexOf('call') !== -1 || normalized.indexOf('audio') !== -1 || normalized.indexOf('recording') !== -1) &&
+        (normalized.indexOf('name') !== -1 || normalized.indexOf('title') !== -1)) {
+      const name = String(value).trim();
+      if (name) {
+        return name;
+      }
+    }
+  }
+
+  return '';
+}
+
+function sanitizeForClient_(value) {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (value === null) {
+    return null;
+  }
+
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+
+  if (Array.isArray(value)) {
+    return value.map(item => {
+      const sanitized = sanitizeForClient_(item);
+      return sanitized === undefined ? null : sanitized;
+    });
+  }
+
+  if (typeof value === 'number') {
+    return isFinite(value) ? value : null;
+  }
+
+  if (typeof value === 'object') {
+    const sanitizedObject = {};
+    Object.keys(value).forEach(key => {
+      const sanitizedValue = sanitizeForClient_(value[key]);
+      if (sanitizedValue !== undefined) {
+        sanitizedObject[key] = sanitizedValue;
+      }
+    });
+    return sanitizedObject;
+  }
+
+  return value;
 }
 
 // ============================================================================

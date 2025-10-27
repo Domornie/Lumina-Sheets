@@ -2297,6 +2297,7 @@
   let currentQAData = null;
   const recordId = '<?= recordId ?>';
   const record = '<?= record ?>';
+  let currentRecordId = recordId;
   let quill;
   
   console.log('Template-injected recordId=', recordId, 'record=', record);
@@ -2973,7 +2974,7 @@
     }
     
     // Audio requirement validation (only for new records)
-    if (!recordId && !formData.audioFile && !formData.callLink) {
+    if (!currentRecordId && !formData.audioFile && !formData.callLink) {
       showToast('Please provide either an audio file or call link.', true);
       return false;
     }
@@ -3056,7 +3057,7 @@
     // Audio requirement validation (only for new records)
     const audioFile = document.getElementById('audioFile');
     const callLink = document.getElementById('callLink');
-    if (!recordId && (!audioFile.files || audioFile.files.length === 0) && !callLink.value) {
+    if (!currentRecordId && (!audioFile.files || audioFile.files.length === 0) && !callLink.value) {
       showToast('Please provide either an audio file or call link.', true);
       return false;
     }
@@ -3130,8 +3131,8 @@
 
       const formData = {};
 
-      if (recordId) {
-        formData.recordId = recordId;
+      if (currentRecordId) {
+        formData.recordId = currentRecordId;
       }
 
       // Basic information fields
@@ -3356,10 +3357,55 @@
     }
   }
 
+  function extractAudioLinkFromRecord(record) {
+    if (!record || typeof record !== 'object') {
+      return '';
+    }
+
+    const keys = Object.keys(record);
+    for (let i = 0; i < keys.length; i++) {
+      const key = keys[i];
+      const value = record[key];
+      if (!value) continue;
+      const normalized = String(key || '').toLowerCase();
+      if ((normalized.includes('call') || normalized.includes('audio') || normalized.includes('recording')) &&
+          (normalized.includes('link') || normalized.includes('url'))) {
+        const link = String(value).trim();
+        if (link) {
+          return link;
+        }
+      }
+    }
+
+    return '';
+  }
+
+  function extractPdfLinkFromRecord(record) {
+    if (!record || typeof record !== 'object') {
+      return '';
+    }
+
+    const keys = Object.keys(record);
+    for (let i = 0; i < keys.length; i++) {
+      const key = keys[i];
+      const value = record[key];
+      if (!value) continue;
+      const normalized = String(key || '').toLowerCase();
+      if (normalized.includes('pdf') && (normalized.includes('url') || normalized.includes('link'))) {
+        const link = String(value).trim();
+        if (link) {
+          return link;
+        }
+      }
+    }
+
+    return '';
+  }
+
   function handleSuccessResponse(result) {
     try {
       console.log('Handling server response:', result);
-      
+
       if (!result) {
         throw new Error('No response from server');
       }
@@ -3368,17 +3414,34 @@
         console.log('✅ QA SUBMISSION SUCCESSFUL');
         console.log('QA ID:', result.qaId);
         console.log('Score:', result.scoreResult?.finalScore || 'N/A');
-        
+
+        if (result.qaId) {
+          currentRecordId = result.qaId;
+          window.latestQARecordId = currentRecordId;
+        }
+
+        if (result.record) {
+          currentQAData = result.record;
+          window.latestQARecord = result.record;
+        }
+
+        const audioInput = document.getElementById('audioFile');
+        if (audioInput && audioInput.hasAttribute('required')) {
+          audioInput.removeAttribute('required');
+        }
+
         const status = document.getElementById('uploadStatus');
         if (status) {
           let linksHTML = '';
-          if (result.audioUrl) {
-            linksHTML += `<div style="margin-top: 0.5rem;"><a href="${result.audioUrl}" target="_blank" style="color: #28a745; text-decoration: none; font-weight: 600;">📞 View Recording</a></div>`;
+          const resolvedAudioUrl = result.audioUrl || extractAudioLinkFromRecord(result.record);
+          if (resolvedAudioUrl) {
+            linksHTML += `<div style="margin-top: 0.5rem;"><a href="${resolvedAudioUrl}" target="_blank" style="color: #28a745; text-decoration: none; font-weight: 600;">📞 View Recording</a></div>`;
           }
-          if (result.qaPdfUrl) {
-            linksHTML += `<div style="margin-top: 0.5rem;"><a href="${result.qaPdfUrl}" target="_blank" style="color: #28a745; text-decoration: none; font-weight: 600;">📄 Download Report PDF</a></div>`;
+          const resolvedPdfUrl = result.qaPdfUrl || extractPdfLinkFromRecord(result.record);
+          if (resolvedPdfUrl) {
+            linksHTML += `<div style="margin-top: 0.5rem;"><a href="${resolvedPdfUrl}" target="_blank" style="color: #28a745; text-decoration: none; font-weight: 600;">📄 Download Report PDF</a></div>`;
           }
-          
+
           status.innerHTML = `
             <div style="padding: 1rem; background: #d4edda; border-radius: 8px; border-left: 4px solid #28a745;">
               <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
