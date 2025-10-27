@@ -1,3326 +1,543 @@
-<!-- CollaborationReporting.html -->
 <?!= include('layout', {
-   baseUrl: baseUrl || '',
-   scriptUrl: scriptUrl,
-   user: user || {},
-   currentPage: currentPage || 'collaboration-reporting',
-   pageTitle: 'Collaboration & Reporting Hub',
-   pageDescription: 'Unify quality, attendance, executive intelligence, and collaboration workflows in one command center.'
- }) ?>
-
-<? var collabCurrentUserJson = currentUserJson || '{}'; ?>
+  baseUrl: baseUrl || '',
+  scriptUrl: scriptUrl,
+  user: user || {},
+  currentPage: currentPage || 'collaboration-reporting',
+  pageTitle: 'Collaboration & Reporting Hub',
+  pageDescription: 'Unified overview of QA, attendance, coaching, and escalation activity.'
+}) ?>
 
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Sora:wght@500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
 <style>
-  :root {
-    --page-background: #f5f7ff;
-    --page-gradient: linear-gradient(180deg, #f7f9ff 0%, #ffffff 65%);
-    --surface-card: #ffffff;
-    --surface-soft: #f1f5ff;
-    --surface-muted: #eef2fb;
-    --surface-pill: #ecf2ff;
-    --border-soft: #d8e3ff;
-    --border-strong: #b9cdf6;
-    --shadow-sm: 0 12px 24px rgba(15, 23, 42, 0.05);
-    --shadow-md: 0 20px 45px rgba(15, 23, 42, 0.08);
-    --shadow-lg: 0 32px 60px rgba(15, 23, 42, 0.12);
-    --text-primary: #1f2937;
-    --text-secondary: #4b5565;
-    --text-muted: #7b8ba6;
-    --accent-primary: #2563eb;
-    --accent-secondary: #0ea5e9;
-    --accent-success: #059669;
-    --accent-warning: #d97706;
-    --accent-danger: #dc2626;
-    --radius-xl: 28px;
-    --radius-lg: 20px;
-    --radius-md: 16px;
-    --radius-sm: 12px;
-  }
-
   body {
-    min-height: 100vh;
-    background: var(--page-gradient);
-    color: var(--text-primary);
-    font-family: 'Plus Jakarta Sans', 'Inter', system-ui, -apple-system, sans-serif;
-    padding-bottom: clamp(9rem, 12vw, 14rem);
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #f6f7fb;
+    color: #1f2937;
   }
 
-  body::before {
-    content: none;
+  .hub-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2.5rem 1.5rem 4rem;
   }
 
-  .collab-galaxy {
-    position: relative;
-    width: 100%;
-    max-width: none;
-    margin: 0;
-    padding: clamp(2.5rem, 5vw, 4rem) clamp(1.5rem, 4vw, 3rem) clamp(4rem, 6vw, 5rem);
+  .hub-header {
     display: flex;
     flex-direction: column;
-    gap: clamp(2rem, 4vw, 3rem);
+    gap: 1rem;
+    margin-bottom: 2rem;
   }
 
-  .alert-stack {
-    display: grid;
-    gap: 0.75rem;
-  }
-
-  .alert-stack .alert {
-    border-radius: var(--radius-sm);
-    border: 1px solid var(--border-soft);
-    background: var(--surface-card);
-    color: var(--text-primary);
-    box-shadow: var(--shadow-sm);
-  }
-
-  .observatory {
-    display: grid;
-    gap: 1.4rem;
-    padding: 0;
-    margin: 0;
-    border: 0;
-    background: transparent;
-    box-shadow: none;
-  }
-
-  .observatory__eyebrow {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.45rem 1.2rem;
-    border-radius: 999px;
-    border: 1px solid var(--border-soft);
-    background: var(--surface-pill);
-    color: var(--accent-primary);
-    font-size: 0.75rem;
-    font-weight: 600;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-  }
-
-  .observatory__title {
-    font-family: 'Sora', 'Plus Jakarta Sans', sans-serif;
-    font-weight: 600;
-    font-size: clamp(2.2rem, 5vw, 3.4rem);
-    letter-spacing: -0.01em;
+  .hub-header h1 {
+    font-size: clamp(2rem, 4vw, 2.6rem);
+    font-weight: 700;
     margin: 0;
   }
 
-  .observatory__lead {
+  .hub-header p {
     margin: 0;
-    color: var(--text-secondary);
-    font-size: 1.05rem;
-    max-width: 640px;
-    line-height: 1.6;
-  }
-
-  .observatory__chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.6rem;
-  }
-
-  .hero-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.45rem;
-    padding: 0.55rem 1rem;
-    border-radius: 999px;
-    border: 1px solid var(--border-soft);
-    background: var(--surface-soft);
-    color: var(--accent-primary);
-    font-size: 0.85rem;
-    font-weight: 500;
-  }
-
-  .hero-chip i {
-    color: var(--accent-secondary);
-  }
-
-  .summary-tiles {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: clamp(1rem, 2.5vw, 1.6rem);
-  }
-
-  .summary-tile {
-    position: relative;
-    border-radius: var(--radius-lg);
-    padding: 1.6rem 1.8rem;
-    background: var(--surface-card);
-    border: 1px solid var(--border-soft);
-    box-shadow: var(--shadow-sm);
-    display: grid;
-    gap: 0.55rem;
-    overflow: hidden;
-  }
-
-  .summary-tile::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: radial-gradient(circle at 80% 20%, rgba(37, 99, 235, 0.12), transparent 60%);
-    pointer-events: none;
-  }
-
-  .summary-tile .tile-icon {
-    position: relative;
-    z-index: 1;
-    width: 48px;
-    height: 48px;
-    border-radius: 16px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--surface-soft);
-    color: var(--accent-secondary);
-    font-size: 1.25rem;
-  }
-
-  .summary-tile .tile-label {
-    position: relative;
-    z-index: 1;
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
-    color: var(--text-muted);
-    font-size: 0.7rem;
-    font-weight: 600;
-  }
-
-  .summary-tile .tile-value {
-    position: relative;
-    z-index: 1;
-    font-size: clamp(1.9rem, 4vw, 2.6rem);
-    font-weight: 600;
-    color: var(--text-primary);
-  }
-
-  .summary-tile .tile-subtext {
-    position: relative;
-    z-index: 1;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    color: var(--text-secondary);
-    font-size: 0.9rem;
-  }
-
-  .module.panel {
-    border-radius: var(--radius-xl);
-    background: var(--surface-card);
-    border: 1px solid var(--border-soft);
-    box-shadow: var(--shadow-sm);
-    overflow: hidden;
-  }
-
-  .panel-header {
-    padding: clamp(1.6rem, 3vw, 2.2rem) clamp(1.6rem, 3vw, 2.4rem);
-    background: linear-gradient(180deg, #ffffff 0%, #f0f4ff 100%);
-    border-bottom: 1px solid var(--border-soft);
-  }
-
-  .panel-eyebrow {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.45rem;
-    padding: 0.4rem 1.05rem;
-    border-radius: 999px;
-    background: var(--surface-pill);
-    color: var(--accent-primary);
-    font-size: 0.75rem;
-    font-weight: 600;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-  }
-
-  .panel-header h2 {
-    margin: 1.1rem 0 0.5rem;
-    font-family: 'Sora', 'Plus Jakarta Sans', sans-serif;
-    font-weight: 600;
-    letter-spacing: -0.01em;
-  }
-
-  .panel-header p {
-    margin: 0;
-    color: var(--text-secondary);
+    color: #4b5563;
     max-width: 720px;
   }
 
-  .panel-body {
-    padding: clamp(1.7rem, 3vw, 2.3rem);
-    display: grid;
-    gap: clamp(1.4rem, 3vw, 2rem);
-    background: var(--surface-card);
+  .hub-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
   }
 
-  .module-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-    gap: clamp(1.4rem, 3vw, 2rem);
+  .hub-card {
+    background: #ffffff;
+    border-radius: 20px;
+    padding: 1.75rem;
+    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+    border: 1px solid rgba(148, 163, 184, 0.25);
   }
 
-  .ai-suite .panel-body {
-    gap: clamp(1.2rem, 3vw, 1.8rem);
+  .hub-card + .hub-card {
+    margin-top: 1.75rem;
   }
 
-  .ai-summary {
-    border-radius: var(--radius-lg);
-    background: var(--surface-soft);
-    border: 1px solid var(--border-soft);
-    padding: clamp(1.4rem, 3vw, 1.8rem);
-  }
-
-  .ai-summary h3 {
-    margin-bottom: 0.6rem;
-    font-size: 1.1rem;
-    font-weight: 600;
-    color: var(--accent-primary);
-  }
-
-  .ai-summary p {
-    margin: 0;
-    color: var(--text-secondary);
-    line-height: 1.6;
-  }
-
-  .ai-streams {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-    gap: clamp(1rem, 2.5vw, 1.5rem);
-  }
-
-  .ai-block {
-    border-radius: var(--radius-md);
-    background: var(--surface-card);
-    border: 1px solid var(--border-soft);
-    padding: 1.4rem 1.6rem;
-    box-shadow: var(--shadow-sm);
-  }
-
-  .ai-block h3 {
+  .hub-card h2 {
+    font-size: 1.4rem;
+    margin-bottom: 1rem;
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    font-size: 1rem;
-    font-weight: 600;
-    color: var(--text-primary);
-    margin-bottom: 0.75rem;
-  }
-
-  .ai-block ul {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-    display: grid;
     gap: 0.6rem;
-    color: var(--text-secondary);
-    font-size: 0.95rem;
-  }
-
-  .ai-block li i {
-    color: var(--accent-secondary);
-    margin-right: 0.35rem;
   }
 
   .metric-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
     gap: 1rem;
+    margin-bottom: 1.5rem;
   }
 
   .metric-card {
-    border-radius: var(--radius-md);
-    background: var(--surface-card);
-    border: 1px solid var(--border-soft);
-    padding: 1.2rem 1.35rem;
-    box-shadow: var(--shadow-sm);
-    display: grid;
-    gap: 0.45rem;
+    background: linear-gradient(180deg, rgba(37, 99, 235, 0.08) 0%, rgba(37, 99, 235, 0.03) 100%);
+    border: 1px solid rgba(37, 99, 235, 0.15);
+    border-radius: 16px;
+    padding: 1rem 1.25rem;
   }
 
-  .metric-card .metric-label {
+  .metric-card h3 {
+    font-size: 0.8rem;
     text-transform: uppercase;
     letter-spacing: 0.08em;
-    font-size: 0.72rem;
-    color: var(--text-muted);
-    font-weight: 600;
+    margin: 0;
+    color: #1d4ed8;
   }
 
-  .metric-card .metric-value {
+  .metric-card .value {
     font-size: 1.7rem;
+    font-weight: 700;
+    margin-top: 0.35rem;
+  }
+
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .data-table thead th {
+    font-size: 0.8rem;
     font-weight: 600;
-    color: var(--text-primary);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 0.75rem 0.5rem;
+    color: #6b7280;
+    border-bottom: 1px solid #e5e7eb;
   }
 
-  .metric-card .metric-note {
-    font-size: 0.86rem;
-    color: var(--text-secondary);
+  .data-table tbody td {
+    padding: 0.65rem 0.5rem;
+    border-bottom: 1px solid #f1f5f9;
+    font-size: 0.95rem;
   }
 
-  .metric-badge {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0.35rem 0.8rem;
-    border-radius: 999px;
-    background: rgba(37, 99, 235, 0.12);
-    color: var(--accent-primary);
-    font-size: 0.78rem;
-    font-weight: 600;
+  .data-table tbody tr:last-child td {
+    border-bottom: none;
   }
 
-  .metric-badge.bg-success {
-    background: rgba(5, 150, 105, 0.12) !important;
-    color: var(--accent-success) !important;
-  }
-
-  .metric-badge.bg-danger {
-    background: rgba(220, 38, 38, 0.12) !important;
-    color: var(--accent-danger) !important;
-  }
-
-  .chart-shell {
-    border-radius: var(--radius-md);
-    background: var(--surface-soft);
-    border: 1px solid var(--border-soft);
-    padding: 1.5rem;
-    box-shadow: var(--shadow-sm);
-  }
-
-  .chart-title {
-    font-size: 1.05rem;
-    font-weight: 600;
-    margin-bottom: 0.4rem;
-  }
-
-  .chart-empty {
-    border-radius: var(--radius-sm);
-    background: var(--surface-muted);
-    padding: 2rem 1rem;
-    color: var(--text-muted);
-    margin-top: 1rem;
+  .empty-state {
+    padding: 1.25rem;
+    border-radius: 16px;
+    background: #f8fafc;
+    border: 1px dashed #cbd5f5;
+    color: #475569;
     text-align: center;
   }
 
-  .qa-form {
-    border-radius: var(--radius-md);
-    background: var(--surface-card);
-    border: 1px solid var(--border-soft);
-    padding: clamp(1.6rem, 3vw, 2rem);
-    box-shadow: var(--shadow-sm);
-  }
-
-  .qa-form label {
-    font-weight: 600;
-    color: var(--text-secondary);
-  }
-
-  .qa-form .form-section-label {
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--text-muted);
-    font-size: 0.74rem;
-  }
-
-  .qa-form .form-control,
-  .qa-form .form-select {
-    background: #ffffff;
-    border: 1px solid var(--border-soft);
-    border-radius: var(--radius-sm);
-    color: var(--text-primary);
-  }
-
-  .qa-form .form-control:focus,
-  .qa-form .form-select:focus {
-    border-color: var(--accent-primary);
-    box-shadow: 0 0 0 0.2rem rgba(37, 99, 235, 0.16);
-  }
-
-  .qa-form .btn-primary {
-    border-radius: 999px;
-    background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
-    border: none;
-    box-shadow: 0 12px 24px rgba(14, 165, 233, 0.25);
-    font-weight: 600;
-    padding: 0.85rem 2.1rem;
-  }
-
-  .qa-form .btn-outline-secondary {
-    border-radius: 999px;
-    border: 1px solid var(--border-soft);
-    color: var(--text-secondary);
-    padding: 0.85rem 1.8rem;
-  }
-
-  .qa-table thead th {
-    border: none;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    font-size: 0.72rem;
-    color: var(--text-muted);
-    background: var(--surface-soft);
-  }
-
-  .qa-table tbody tr {
-    background: var(--surface-card);
-  }
-
-  .qa-table tbody tr + tr td {
-    border-top: 1px solid var(--border-soft);
-  }
-
-  .attendance-metrics {
-    display: grid;
-    gap: 1rem;
-  }
-
-  .attendance-metrics .metric-card {
-    background: var(--surface-card);
-  }
-
-  .attendance-table thead th {
-    border: none;
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--text-muted);
-    background: var(--surface-soft);
-  }
-
-  .attendance-table tbody tr {
-    background: var(--surface-card);
-  }
-
-  .progress {
-    background-color: var(--surface-muted);
-    border-radius: 999px;
-  }
-
-  .progress-bar {
-    border-radius: 999px;
-    background-color: var(--accent-primary);
-  }
-
-  .floating-docks {
-    position: fixed;
-    bottom: clamp(1rem, 4vw, 2.5rem);
-    left: 0;
-    right: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 1.1rem;
-    padding: 0 clamp(1rem, 4vw, 3rem);
-    pointer-events: none;
-    z-index: 1040;
-  }
-
-  .floating-bar {
-    flex: 0 1 520px;
-    width: min(520px, 100%);
-    max-width: 520px;
-    pointer-events: auto;
-    transition: transform 0.35s ease, opacity 0.35s ease;
-  }
-
-  .floating-bar.is-hidden {
-    display: none !important;
-  }
-
-  .floating-toggle {
-    width: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
-    border-radius: 999px;
-    padding: 1rem 1.4rem;
-    border: 1px solid var(--border-soft);
-    background: var(--surface-card);
-    color: var(--text-primary);
-    font-weight: 600;
-    box-shadow: var(--shadow-sm);
-  }
-
-  .floating-toggle .toggle-icon {
-    width: 42px;
-    height: 42px;
-    border-radius: 50%;
-    background: var(--surface-soft);
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--accent-secondary);
-  }
-
-  .floating-toggle .toggle-caret {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    background: var(--surface-soft);
-    color: var(--accent-primary);
-  }
-
-  .floating-panel {
-    margin-top: 0.9rem;
-    border-radius: var(--radius-lg);
-    background: var(--surface-card);
-    border: 1px solid var(--border-soft);
-    box-shadow: var(--shadow-lg);
-    overflow: hidden;
-    transition: max-height 0.35s ease, opacity 0.35s ease;
-  }
-
-  .floating-panel.collapsed,
-  .floating-bar.collapsed .floating-panel {
-    max-height: 0;
-    opacity: 0;
-    pointer-events: none;
-  }
-
-  .floating-panel-header {
-    padding: 1.6rem 1.8rem 1.2rem;
-    border-bottom: 1px solid var(--border-soft);
-    background: linear-gradient(180deg, #ffffff 0%, #f0f4ff 100%);
-  }
-
-  .floating-panel-body {
-    padding: 1.8rem;
-    max-height: 540px;
-    overflow: hidden;
-  }
-
-  .floating-panel-body:hover {
-    overflow-y: auto;
-  }
-
-  .floating-panel-body::-webkit-scrollbar {
-    width: 8px;
-  }
-
-  .floating-panel-body::-webkit-scrollbar-thumb {
-    background: var(--border-soft);
-    border-radius: 999px;
-  }
-
-  @media (max-width: 992px) {
-    .floating-docks {
-      align-items: stretch;
-    }
-
-    .floating-bar {
-      flex-basis: auto;
-      max-width: none;
-      width: 100%;
-    }
-  }
-
-  @media (max-width: 576px) {
-    .floating-docks {
-      bottom: clamp(0.75rem, 5vw, 1.5rem);
-      padding: 0 0.9rem;
-    }
-  }
-
-  .persona-chip {
-    width: 100%;
-    text-align: left;
-    border-radius: var(--radius-sm);
-    border: 1px solid var(--border-soft);
-    background: var(--surface-card);
-    color: var(--text-secondary);
-    font-weight: 600;
-    padding: 0.85rem 1.05rem;
-    transition: transform 0.2s ease, border 0.2s ease, background 0.2s ease;
-  }
-
-  .persona-chip.active,
-  .persona-chip:hover {
-    background: var(--surface-soft);
-    color: var(--text-primary);
-    border-color: var(--accent-primary);
-    transform: translateY(-2px);
-  }
-
-  .chat-thread-list {
-    border-radius: var(--radius-md);
-    background: var(--surface-soft);
-    border: 1px solid var(--border-soft);
-    padding: 1.1rem;
-    max-height: 360px;
-    overflow-y: auto;
-  }
-
-  .thread-card {
-    border-radius: var(--radius-sm);
-    padding: 1rem 1.1rem;
-    margin-bottom: 0.7rem;
-    border: 1px solid var(--border-soft);
-    background: var(--surface-card);
-    cursor: pointer;
-    transition: transform 0.2s ease, border 0.2s ease, background 0.2s ease;
-  }
-
-  .thread-card:hover {
-    transform: translateY(-2px);
-    border-color: var(--accent-primary);
-  }
-
-  .thread-card.active {
-    background: rgba(37, 99, 235, 0.08);
-    border-color: var(--accent-primary);
-  }
-
-  .thread-card .title {
-    font-weight: 600;
-    margin-bottom: 0.35rem;
-    color: var(--text-primary);
-  }
-
-  .thread-card .thread-meta {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    font-size: 0.76rem;
-    color: var(--text-muted);
-  }
-
-  .chat-stream {
-    display: grid;
-    gap: 1rem;
-    max-height: 380px;
-    overflow-y: auto;
-    padding-right: 0.4rem;
-  }
-
-  .chat-message {
-    display: flex;
-    align-items: flex-start;
-    gap: 0.9rem;
-  }
-
-  .chat-message .avatar {
-    width: 44px;
-    height: 44px;
-    border-radius: 50%;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--surface-soft);
-    color: var(--accent-primary);
-    font-weight: 600;
-  }
-
-  .chat-message .bubble {
-    flex: 1;
-    border-radius: 20px;
-    background: var(--surface-card);
-    border: 1px solid var(--border-soft);
-    padding: 1rem 1.2rem;
-    box-shadow: var(--shadow-sm);
-  }
-
-  .chat-message .author {
-    font-weight: 600;
-    color: var(--text-primary);
-  }
-
-  .chat-message .timestamp {
-    font-size: 0.75rem;
-    color: var(--text-muted);
-  }
-
-  .chat-tag {
+  .badge-soft {
     display: inline-flex;
     align-items: center;
     gap: 0.35rem;
+    background: rgba(59, 130, 246, 0.12);
+    color: #2563eb;
     border-radius: 999px;
-    background: var(--surface-soft);
-    color: var(--text-muted);
-    font-size: 0.7rem;
-    padding: 0.25rem 0.6rem;
+    padding: 0.35rem 0.75rem;
+    font-size: 0.8rem;
+    font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.06em;
   }
 
-  .chat-composer .form-control {
-    background: #ffffff;
-    border: 1px solid var(--border-soft);
-    color: var(--text-primary);
-  }
-
-  .chat-composer .form-control:focus {
-    border-color: var(--accent-primary);
-    box-shadow: 0 0 0 0.2rem rgba(37, 99, 235, 0.16);
-  }
-
-  .team-pagination-bar {
-    margin-top: 1.1rem;
-    padding-top: 1.1rem;
-    border-top: 1px solid var(--border-soft);
-  }
-
-  .team-member-name {
-    font-weight: 600;
-    color: var(--text-primary);
-  }
-
-  .team-member-meta {
-    color: var(--text-muted);
-    font-size: 0.78rem;
-  }
-
-  @media (max-width: 992px) {
-    .collab-galaxy {
-      padding: 2.4rem 1.5rem 5rem;
-    }
-
-    .floating-docks {
-      justify-content: center;
-    }
-
-  @media (max-width: 768px) {
-    .module-grid {
-      grid-template-columns: 1fr;
-    }
-
-    .floating-docks {
-      flex-direction: column;
-      align-items: stretch;
-    }
-  }
-  .hero-summary {
-    border-radius: var(--radius-xl);
-    background: var(--surface-card);
-    border: 1px solid var(--border-soft);
-    box-shadow: var(--shadow-md);
-    padding: clamp(2.3rem, 4vw, 3.2rem);
-  }
-
-  .hero-summary__header {
+  .section-footer {
     display: flex;
-    align-items: center;
     justify-content: space-between;
-    gap: 1.2rem;
-    margin-bottom: clamp(1.4rem, 3vw, 2rem);
+    align-items: center;
+    margin-top: 1.25rem;
+    font-size: 0.85rem;
+    color: #6b7280;
   }
 
-  .hero-summary__title {
-    font-family: 'Sora', 'Plus Jakarta Sans', sans-serif;
-    font-size: 1.35rem;
-    font-weight: 600;
-    margin: 0;
-  }
-
-  .hero-summary__meta {
-    color: var(--text-muted);
-    font-size: 0.9rem;
+  .loading-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    padding: 3rem 1rem;
+    color: #1d4ed8;
   }
 
   @media (max-width: 768px) {
-    .hero-summary__header {
-      flex-direction: column;
-      align-items: flex-start;
+    .hub-container {
+      padding: 1.5rem 1rem 3rem;
+    }
+
+    .hub-card {
+      border-radius: 16px;
+      padding: 1.4rem;
     }
   }
 </style>
 
-<div class="collab-galaxy">
-  <div id="collabAlerts" class="alert-stack"></div>
-
-  <header class="observatory" data-banner-source>
-    <span class="observatory__eyebrow" data-banner-eyebrow><i class="fa-solid fa-microchip"></i> Lumina Collaboration Sphere</span>
-    <h1 class="observatory__title" data-banner-title>Collaboration &amp; Reporting Hub</h1>
-    <p class="observatory__lead" data-banner-description>Orchestrate quality, attendance, and executive workflows from a luminous control center designed for hybrid teams.</p>
-    <div class="observatory__chips" id="heroMeta">
-      <span class="hero-chip"><i class="fa-solid fa-user-astronaut"></i><span id="heroPersonaLabel">Persona syncing…</span></span>
-      <span class="hero-chip"><i class="fa-solid fa-diagram-project"></i><span id="heroCampaignLabel">Campaigns calibrating…</span></span>
-      <span class="hero-chip"><i class="fa-solid fa-clock"></i><span id="heroUpdatedLabel">Awaiting timestamp…</span></span>
+<div class="hub-container" id="collaborationHub">
+  <div class="hub-header">
+    <div>
+      <span class="badge-soft" id="hubTimestamp">Loading…</span>
+      <h1>Collaboration &amp; Reporting Hub</h1>
+      <p>Track quality reviews, attendance adherence, coaching momentum, and escalations with a clear digest powered directly from your Google Sheets data.</p>
     </div>
-  </header>
-
-  <section class="hero-summary" aria-labelledby="heroSummaryTitle">
-    <div class="hero-summary__header">
-      <h2 class="hero-summary__title" id="heroSummaryTitle">Operational pulse</h2>
-      <p class="hero-summary__meta" id="heroSummaryMeta">Refreshed from quality, attendance, and collaboration activity.</p>
+    <div class="hub-actions">
+      <button type="button" class="btn btn-primary" id="refreshHub">Refresh data</button>
     </div>
-    <div class="summary-tiles">
-      <article class="summary-tile is-quality">
-        <div class="tile-icon"><i class="fa-solid fa-sparkles"></i></div>
-        <div class="tile-label">Quality average</div>
-        <div class="tile-value" id="summaryQaAverage">—</div>
-        <div class="tile-subtext" id="summaryQaTrend">
-          <i class="fa-solid fa-arrow-trend-up"></i>
-          <span>Awaiting quality insights</span>
-        </div>
-      </article>
-      <article class="summary-tile is-attendance">
-        <div class="tile-icon"><i class="fa-solid fa-calendar-check"></i></div>
-        <div class="tile-label">Attendance health</div>
-        <div class="tile-value" id="summaryAttendanceRate">—</div>
-        <div class="tile-subtext" id="summaryAttendanceTrend">
-          <i class="fa-solid fa-chart-line"></i>
-          <span>Attendance variance unavailable</span>
-        </div>
-      </article>
-      <article class="summary-tile is-threads">
-        <div class="tile-icon"><i class="fa-solid fa-comments"></i></div>
-        <div class="tile-label">Collaboration threads</div>
-        <div class="tile-value" id="summaryThreads">0</div>
-        <div class="tile-subtext" id="summaryThreadsHint">
-          <i class="fa-solid fa-user-group"></i>
-          <span>Invite teams to collaborate</span>
-        </div>
-      </article>
-      <article class="summary-tile is-actions">
-        <div class="tile-icon"><i class="fa-solid fa-list-check"></i></div>
-        <div class="tile-label">Action items</div>
-        <div class="tile-value" id="summaryFollowUps">0</div>
-        <div class="tile-subtext" id="summaryFollowUpsHint">
-          <i class="fa-solid fa-bolt"></i>
-          <span>No action items yet</span>
-        </div>
-      </article>
+  </div>
+
+  <div class="hub-card" id="hubStatus">
+    <div class="loading-card">
+      <div class="spinner-border text-primary" role="status" aria-hidden="true"></div>
+      <div>Loading collaboration data…</div>
+    </div>
+  </div>
+
+  <section class="hub-card d-none" id="qaSection">
+    <h2><i class="fa-solid fa-clipboard-check text-primary"></i> Quality collaboration</h2>
+    <div class="metric-grid">
+      <div class="metric-card">
+        <h3>Total audits</h3>
+        <div class="value" data-qa-total>0</div>
+      </div>
+      <div class="metric-card">
+        <h3>Average score</h3>
+        <div class="value" data-qa-score>–</div>
+      </div>
+      <div class="metric-card">
+        <h3>Feedback shared</h3>
+        <div class="value" data-qa-feedback>0</div>
+      </div>
+      <div class="metric-card">
+        <h3>Unique agents</h3>
+        <div class="value" data-qa-agents>0</div>
+      </div>
+    </div>
+    <div class="table-responsive">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Agent</th>
+            <th>Client</th>
+            <th>Score</th>
+            <th>Audit date</th>
+            <th>Feedback shared</th>
+            <th>Notes</th>
+          </tr>
+        </thead>
+        <tbody id="qaTableBody"></tbody>
+      </table>
+    </div>
+    <div class="empty-state d-none" data-qa-empty>No collaboration audits found.</div>
+    <div class="section-footer">
+      <span>Showing the 15 most recent audits.</span>
+      <span>Source: <strong>QACollab</strong> sheet</span>
     </div>
   </section>
 
-  <section class="module panel ai-suite">
-    <div class="panel-header">
-      <span class="panel-eyebrow"><i class="fa-solid fa-robot"></i> AI Collaboration Co-Pilot</span>
-      <h2>Intelligence generated for every stakeholder</h2>
-      <p>Let Lumina AI distill momentum, risks, and suggested moves across quality, attendance, and live collaboration threads.</p>
+  <section class="hub-card d-none" id="attendanceSection">
+    <h2><i class="fa-solid fa-user-clock text-primary"></i> Attendance pulse</h2>
+    <div class="metric-grid">
+      <div class="metric-card">
+        <h3>Entries captured</h3>
+        <div class="value" data-attendance-entries>0</div>
+      </div>
+      <div class="metric-card">
+        <h3>Team members tracked</h3>
+        <div class="value" data-attendance-users>0</div>
+      </div>
+      <div class="metric-card">
+        <h3>Total hours logged</h3>
+        <div class="value" data-attendance-hours>0</div>
+      </div>
     </div>
-    <div class="panel-body">
-      <div class="ai-summary">
-        <h3><i class="fa-solid fa-bolt"></i> AI Pulse</h3>
-        <p id="aiPulseSummary">AI summary will populate after data sync.</p>
-      </div>
-      <div class="ai-streams">
-        <div class="ai-block">
-          <h3><i class="fa-solid fa-chart-pie"></i> AI Report</h3>
-          <ul id="aiReportList">
-            <li><i class="fa-solid fa-spinner fa-spin"></i>Calibrating executive snapshot…</li>
-          </ul>
-        </div>
-        <div class="ai-block">
-          <h3><i class="fa-solid fa-lightbulb"></i> AI Suggestions</h3>
-          <ul id="aiSuggestionList">
-            <li><i class="fa-solid fa-spinner fa-spin"></i>Generating suggestions…</li>
-          </ul>
-        </div>
-        <div class="ai-block">
-          <h3><i class="fa-solid fa-handshake-angle"></i> AI Collaboration Notes</h3>
-          <ul id="aiCollaborationNotes">
-            <li><i class="fa-solid fa-spinner fa-spin"></i>Mapping collaboration notes…</li>
-          </ul>
+    <div class="row g-3">
+      <div class="col-12 col-lg-6">
+        <div class="card border-0 shadow-sm h-100">
+          <div class="card-body">
+            <h5 class="card-title">Recent activity</h5>
+            <ul class="list-group list-group-flush" id="attendanceList"></ul>
+          </div>
         </div>
       </div>
+      <div class="col-12 col-lg-6">
+        <div class="card border-0 shadow-sm h-100">
+          <div class="card-body">
+            <h5 class="card-title">Time by state</h5>
+            <ul class="list-group list-group-flush" id="attendanceStates"></ul>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="empty-state d-none" data-attendance-empty>No attendance entries found.</div>
+    <div class="section-footer">
+      <span>Recent entries pulled directly from <strong>AttendanceLog</strong>.</span>
     </div>
   </section>
 
-  <section class="module panel" id="teamIntelligenceCard">
-      <div class="panel-header">
-        <span class="panel-eyebrow"><i class="fa-solid fa-users-gear"></i> Team Collaboration Intelligence</span>
-        <h2>Managers, clients, and cross-functional squads</h2>
-        <p>Navigate workstreams by persona to monitor quality and attendance outcomes while staying aligned with executive initiatives.</p>
+  <section class="hub-card d-none" id="coachingSection">
+    <h2><i class="fa-solid fa-chalkboard-user text-primary"></i> Coaching momentum</h2>
+    <div class="metric-grid">
+      <div class="metric-card">
+        <h3>Coaching sessions</h3>
+        <div class="value" data-coaching-total>0</div>
       </div>
-      <div class="panel-body">
-        <div id="teamIntelligenceSection" class="team-intelligence">
-          <ul class="nav nav-pills" id="teamTabs" role="tablist"></ul>
-          <div class="tab-content mt-4" id="teamTabContent"></div>
-        </div>
-      </div>
-    </section>
-
-  <div class="module-grid">
-    <section class="module panel">
-          <div class="panel-header">
-            <span class="panel-eyebrow"><i class="fa-solid fa-sparkles"></i> Quality Collaboration Workspace</span>
-            <h2>QA outcomes &amp; coaching actions</h2>
-            <p>Track QA trends, capture follow-ups, and log collaboration threads without breaking focus.</p>
-          </div>
-          <div class="panel-body">
-            <div class="metric-grid">
-              <div class="metric-card">
-                <div class="metric-label">Average QA</div>
-                <div class="metric-value" id="qaAverageScore">—</div>
-                <div class="metric-note">Delta vs target <span id="qaScoreTrend" class="metric-badge">—</span></div>
-              </div>
-              <div class="metric-card">
-                <div class="metric-label">Follow ups</div>
-                <div class="metric-value" id="qaFollowUps">0</div>
-                <div class="metric-note">Collaboration backlog</div>
-              </div>
-              <div class="metric-card">
-                <div class="metric-label">Threads engaged</div>
-                <div class="metric-value" id="qaThreads">0</div>
-                <div class="metric-note">Cross-team conversations</div>
-              </div>
-              <div class="metric-card">
-                <div class="metric-label">Coverage</div>
-                <div class="metric-value" id="qaCoverageRate">—</div>
-                <div class="metric-note">QA coverage this cycle</div>
-              </div>
-            </div>
-            <div class="chart-shell">
-              <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
-                <div>
-                  <div class="chart-title">QA score trend</div>
-                  <div class="text-secondary">Six-week quality trajectory</div>
-                </div>
-                <span class="badge bg-light text-dark opacity-75">Auto-refreshing</span>
-              </div>
-              <canvas id="qaTrendChart" height="220"></canvas>
-            </div>
-            <form id="qaCollaborationForm" class="qa-form" novalidate>
-              <div class="row g-3">
-                <div class="col-md-6">
-                  <label for="qaAgent" class="form-label">Agent</label>
-                  <select class="form-select" id="qaAgent" name="qaAgent" required></select>
-                </div>
-                <div class="col-md-6">
-                  <label for="qaCampaign" class="form-label">Campaign</label>
-                  <select class="form-select" id="qaCampaign" name="qaCampaign" required></select>
-                </div>
-                <div class="col-md-6">
-                  <label for="qaReviewer" class="form-label">Reviewer</label>
-                  <select class="form-select" id="qaReviewer" name="qaReviewer" required></select>
-                </div>
-                <div class="col-md-6">
-                  <label for="qaCollaborators" class="form-label">QA collaborators</label>
-                  <select class="form-select" id="qaCollaborators" name="qaCollaborators" multiple title="Select QA leads"></select>
-                </div>
-                <div class="col-sm-4">
-                  <label for="qaScore" class="form-label">Score</label>
-                  <input type="number" class="form-control" id="qaScore" name="qaScore" min="0" max="100" step="0.1" placeholder="92.5">
-                </div>
-                <div class="col-sm-4">
-                  <label for="qaFocusArea" class="form-label">Focus area</label>
-                  <select class="form-select" id="qaFocusArea" name="qaFocusArea" required>
-                    <option value="">Select focus</option>
-                    <option>Call Control</option>
-                    <option>Compliance</option>
-                    <option>Rapport &amp; Empathy</option>
-                    <option>Product Knowledge</option>
-                    <option>Objection Handling</option>
-                  </select>
-                </div>
-                <div class="col-sm-4">
-                  <label for="qaStatus" class="form-label">Status</label>
-                  <select class="form-select" id="qaStatus" name="qaStatus" required>
-                    <option value="Published">Published</option>
-                    <option value="Draft">Draft</option>
-                    <option value="Follow-up">Follow-up Scheduled</option>
-                  </select>
-                </div>
-                <div class="col-12">
-                  <label for="qaHighlights" class="form-label">Highlights &amp; coaching actions</label>
-                  <textarea class="form-control" id="qaHighlights" name="qaHighlights" placeholder="Document key wins, risks, and next steps" required></textarea>
-                </div>
-                <div class="col-12 pt-2">
-                  <span class="form-section-label">Next touch planning</span>
-                </div>
-                <div class="col-md-6">
-                  <label for="qaNextTouch" class="form-label">Next touchpoint</label>
-                  <input type="date" class="form-control" id="qaNextTouch" name="qaNextTouch">
-                </div>
-                <div class="col-md-6">
-                  <label for="qaChannel" class="form-label">Channel</label>
-                  <select class="form-select" id="qaChannel" name="qaChannel" required>
-                    <option>Voice</option>
-                    <option>Email</option>
-                    <option>Chat</option>
-                    <option>Social</option>
-                  </select>
-                </div>
-                <div class="col-12 d-flex gap-3 flex-wrap">
-                  <button type="submit" class="btn btn-primary"><i class="fas fa-paper-plane me-2"></i>Log QA Collaboration</button>
-                  <button type="reset" class="btn btn-outline-secondary" id="qaResetBtn"><i class="fas fa-rotate-left me-1"></i>Reset</button>
-                </div>
-              </div>
-            </form>
-            <div class="table-responsive">
-              <table class="table table-hover align-middle qa-table" id="qaReviewTable">
-                <thead>
-                  <tr>
-                    <th>Audit ID</th>
-                    <th>Agent</th>
-                    <th>Campaign</th>
-                    <th>Score</th>
-                    <th>Focus</th>
-                    <th>Collaborators</th>
-                    <th>Status</th>
-                    <th>Updated</th>
-                  </tr>
-                </thead>
-                <tbody></tbody>
-              </table>
-            </div>
-          </div>
-        </section>
-    <section class="module panel">
-          <div class="panel-header">
-            <span class="panel-eyebrow"><i class="fa-solid fa-chart-line"></i> Executive KPI Pulse</span>
-            <h2>Multi-campaign leadership summary</h2>
-            <p>Blended KPIs across managed campaigns with proactive signal for strategy conversations.</p>
-          </div>
-          <div class="panel-body">
-            <div class="metric-grid">
-              <div class="metric-card text-center">
-                <div class="metric-label">Average QA score</div>
-                <div class="metric-value" id="kpiQualityAverage">—</div>
-                <div class="metric-note" id="kpiQualityTrend">Awaiting data</div>
-              </div>
-              <div class="metric-card text-center">
-                <div class="metric-label">Attendance rate</div>
-                <div class="metric-value" id="kpiAttendanceRate">—</div>
-                <div class="metric-note" id="kpiAttendanceTrend">Awaiting data</div>
-              </div>
-            </div>
-            <div class="chart-shell">
-              <div class="d-flex justify-content-between flex-wrap align-items-start gap-3 mb-3">
-                <div>
-                  <div class="chart-title">Campaign health mix</div>
-                  <div class="text-secondary">Distribution of KPI attainment vs executive targets.</div>
-                </div>
-                <div class="text-end">
-                  <span class="badge bg-info-subtle text-info" id="execTimeframe">—</span>
-                  <div class="small text-secondary mt-1" id="execPeriodRange">—</div>
-                  <div class="small text-secondary" id="execPayDate">Pay date —</div>
-                </div>
-              </div>
-              <canvas id="execBlendChart" height="200"></canvas>
-              <div class="mt-3" id="execCampaignBullets"></div>
-            </div>
-            <div class="ai-block">
-              <h3><i class="fa-solid fa-briefcase"></i> Executive brief</h3>
-              <ul class="mb-0" id="executiveBrief"></ul>
-            </div>
-          </div>
-        </section>
-  </div>
-
-  <section class="module panel">
-      <div class="panel-header">
-        <span class="panel-eyebrow"><i class="fa-solid fa-user-check"></i> Attendance &amp; Adherence</span>
-        <h2>Shift coverage &amp; schedule fidelity</h2>
-        <p>Track adherence trends and shrinkage across campaigns to keep customer experience on pace.</p>
-      </div>
-      <div class="panel-body">
-        <div class="d-flex flex-column flex-lg-row gap-3">
-          <div class="flex-grow-1">
-            <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-              <div>
-                <div class="chart-title mb-0">Adherence trend</div>
-                <div class="text-secondary">Rolling six weeks</div>
-              </div>
-              <select class="form-select form-select-sm w-auto" id="attendanceCampaignFilter"></select>
-            </div>
-            <div class="chart-shell">
-              <canvas id="attendanceTrendChart" height="220"></canvas>
-            </div>
-          </div>
-          <div class="attendance-metrics" style="min-width: 280px;">
-            <div class="metric-card">
-              <div class="metric-label">Average adherence</div>
-              <div class="metric-value" id="attendanceAverage">—</div>
-              <div class="metric-note">Across all campaigns this month</div>
-            </div>
-            <div class="table-responsive">
-              <table class="table table-sm align-middle attendance-table">
-                <thead>
-                  <tr>
-                    <th>Week</th>
-                    <th>Adherence</th>
-                    <th>Absenteeism</th>
-                  </tr>
-                </thead>
-                <tbody id="attendanceTableBody"></tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-  </div>
-
-  <div class="floating-docks">
-    <div class="floating-bar collapsed" id="campaignFloatingBar" aria-expanded="false">
-      <button type="button" class="floating-toggle" id="campaignFloatingToggle" aria-expanded="false" aria-controls="campaignConnectivitySection">
-        <span class="toggle-icon"><i class="fas fa-network-wired"></i></span>
-        <span class="toggle-label">Connected campaign workflows</span>
-        <span class="toggle-caret"><i class="fas fa-chevron-up"></i></span>
-      </button>
-      <div class="floating-panel" id="campaignConnectivitySection">
-        <div class="floating-panel-header">
-          <div class="panel-eyebrow"><i class="fas fa-network-wired"></i> Connected campaign workflows</div>
-          <h3 class="mt-3">Navigate the workspace by campaign</h3>
-          <p class="text-secondary">Jump into quality, coaching, attendance, and collaboration views powered by the same data fabric.</p>
-        </div>
-        <div class="floating-panel-body">
-          <div id="campaignConnectivity"></div>
-        </div>
+      <div class="metric-card">
+        <h3>Acknowledged</h3>
+        <div class="value" data-coaching-ack>0</div>
       </div>
     </div>
+    <div class="table-responsive">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Coachee</th>
+            <th>Session date</th>
+            <th>Follow-up</th>
+            <th>Highlights</th>
+          </tr>
+        </thead>
+        <tbody id="coachingTableBody"></tbody>
+      </table>
+    </div>
+    <div class="empty-state d-none" data-coaching-empty>No coaching records found.</div>
+    <div class="section-footer">
+      <span>Summaries retrieved from the <strong>CoachingRecords</strong> sheet.</span>
+    </div>
+  </section>
 
-    <div class="floating-bar collapsed" id="leadershipChatBar" aria-expanded="false">
-      <button type="button" class="floating-toggle" id="leadershipChatToggle" aria-expanded="false" aria-controls="leadershipChatPanel">
-        <span class="toggle-icon"><i class="fas fa-headset"></i></span>
-        <span class="toggle-text">
-          <span class="toggle-label" id="leadershipChatToggleLabel">Precision chat for leadership huddles</span>
-          <span class="text-secondary small" id="leadershipChatToggleMeta">Loading…</span>
-        </span>
-        <span class="toggle-caret"><i class="fas fa-chevron-up"></i></span>
-      </button>
-      <div class="floating-panel" id="leadershipChatPanel" role="dialog" aria-modal="false" aria-labelledby="leadershipChatTitle" aria-hidden="true">
-        <div class="floating-panel-header d-flex justify-content-between align-items-start">
-          <div>
-            <div class="panel-eyebrow"><i class="fas fa-headset"></i> Targeted collaboration threads</div>
-            <h3 class="mt-3 mb-2" id="leadershipChatTitle">Precision chat for leadership huddles</h3>
-            <p class="text-secondary mb-0">Spin up focused conversations for managers, agents, and executives to accelerate outcomes.</p>
-          </div>
-          <button type="button" class="btn btn-outline-secondary btn-sm rounded-circle" id="leadershipChatClose" aria-label="Collapse leadership chat">
-            <i class="fas fa-xmark"></i>
-          </button>
-        </div>
-        <div class="floating-panel-body">
-          <div class="row g-3">
-            <div class="col-12 col-lg-3">
-              <div class="d-flex flex-column gap-2" id="chatPersonaFilters"></div>
-            </div>
-            <div class="col-12 col-lg-4">
-              <div id="chatThreadList" class="chat-thread-list"></div>
-            </div>
-            <div class="col-12 col-lg-5 d-flex flex-column gap-3">
-              <div class="chat-stream" id="chatMessageStream"></div>
-              <form id="chatComposer" class="chat-composer">
-                <div class="input-group">
-                  <input type="text" id="chatMessageInput" class="form-control" placeholder="Share an update" required>
-                  <button class="btn btn-primary" type="submit"><i class="fas fa-paper-plane"></i></button>
-                </div>
-                <div class="form-text text-secondary">Visible to <span id="chatAudienceLabel" class="fw-semibold text-primary">all participants</span></div>
-              </form>
-            </div>
-          </div>
-        </div>
+  <section class="hub-card d-none" id="escalationSection">
+    <h2><i class="fa-solid fa-triangle-exclamation text-primary"></i> Escalation watch</h2>
+    <div class="metric-grid">
+      <div class="metric-card">
+        <h3>Open items</h3>
+        <div class="value" data-escalation-total>0</div>
       </div>
     </div>
-  </div>
+    <div class="table-responsive">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Type</th>
+            <th>Owner</th>
+            <th>Created</th>
+            <th>Notes</th>
+          </tr>
+        </thead>
+        <tbody id="escalationTableBody"></tbody>
+      </table>
+    </div>
+    <div class="empty-state d-none" data-escalation-empty>No escalations recorded.</div>
+    <div class="section-footer">
+      <span>Escalation log synced from the <strong>Escalations</strong> sheet.</span>
+    </div>
+  </section>
 </div>
 
-
-  <script>
-    const CURRENT_USER_BOOTSTRAP = <?!= collabCurrentUserJson ?>;
-    const hasWindowUser = typeof window !== 'undefined' && window.CURRENT_USER && typeof window.CURRENT_USER === 'object';
-    const windowUserIsEmpty = !hasWindowUser || Object.keys(window.CURRENT_USER).length === 0;
-
-    if (windowUserIsEmpty) {
-      window.CURRENT_USER = CURRENT_USER_BOOTSTRAP && typeof CURRENT_USER_BOOTSTRAP === 'object' ? CURRENT_USER_BOOTSTRAP : {};
-    }
-
-    const currentUser = window.CURRENT_USER && typeof window.CURRENT_USER === 'object' ? window.CURRENT_USER : {};
-  </script>
-
 <script>
-  document.addEventListener('DOMContentLoaded', function () {
-    const state = {
-      qa: {
-        records: [],
-        directory: { agents: [], reviewers: [], collaborators: [], campaigns: [] },
-        metrics: {},
-        trend: { labels: [], values: [] }
-      },
-      attendance: { campaigns: [], history: {}, summary: {} },
-      executive: { summary: null, campaigns: [], brief: [], timeframeLabel: '', payPeriod: null },
-      chat: { personas: [], threads: {} },
-      teams: { overview: null, managers: [], guests: [], managerTabs: [], pagination: { pageSize: 8, scopes: {} } },
-      banner: {
-        persona: 'Operations Hub',
-        userName: 'Team member',
-        campaignsText: 'No campaigns connected',
-        lastUpdatedText: 'Updated —',
-        insights: [
-          { key: 'quality', label: 'Quality pulse', value: '—', hint: 'QA average this cycle', icon: 'fa-solid fa-sparkles' },
-          { key: 'attendance', label: 'Attendance', value: '—', hint: 'Attendance this cycle', icon: 'fa-solid fa-user-check' },
-          { key: 'campaigns', label: 'Active campaigns', value: '0', hint: 'Workspace connections', icon: 'fa-solid fa-diagram-project' }
-        ]
-      },
-      ai: { summary: '', report: [], suggestions: [], notes: [] },
-      charts: { qaTrend: null, attendance: null, executive: null },
-      campaigns: [],
-      activePersona: null,
-      activeThreadId: null,
-      isLoading: false
-    };
+  (function () {
+    var hubStatus = document.getElementById('hubStatus');
+    var hubTimestamp = document.getElementById('hubTimestamp');
+    var refreshButton = document.getElementById('refreshHub');
 
-    const qaTableBody = document.querySelector('#qaReviewTable tbody');
-    const qaAgentSelect = document.getElementById('qaAgent');
-    const qaCampaignSelect = document.getElementById('qaCampaign');
-    const qaReviewerSelect = document.getElementById('qaReviewer');
-    const qaCollaboratorSelect = document.getElementById('qaCollaborators');
-    const qaScoreInput = document.getElementById('qaScore');
-    const qaFocusAreaSelect = document.getElementById('qaFocusArea');
-    const qaStatusSelect = document.getElementById('qaStatus');
-    const qaHighlightsField = document.getElementById('qaHighlights');
-    const qaNextTouchInput = document.getElementById('qaNextTouch');
-    const qaChannelSelect = document.getElementById('qaChannel');
-    const qaForm = document.getElementById('qaCollaborationForm');
-    const qaSubmitButton = qaForm.querySelector('button[type="submit"]');
-    const qaResetButton = document.getElementById('qaResetBtn');
-    const qaTrendChartCanvas = document.getElementById('qaTrendChart');
-
-    const attendanceCampaignSelect = document.getElementById('attendanceCampaignFilter');
-    const attendanceTableBody = document.getElementById('attendanceTableBody');
-    const attendanceChartCanvas = document.getElementById('attendanceTrendChart');
-
-    const execBlendChartCanvas = document.getElementById('execBlendChart');
-    const execCampaignBullets = document.getElementById('execCampaignBullets');
-    const execBriefList = document.getElementById('executiveBrief');
-    const execTimeframeEl = document.getElementById('execTimeframe');
-    const execPeriodRangeEl = document.getElementById('execPeriodRange');
-    const execPayDateEl = document.getElementById('execPayDate');
-
-    const kpiQualityAverage = document.getElementById('kpiQualityAverage');
-    const kpiQualityTrend = document.getElementById('kpiQualityTrend');
-    const kpiAttendanceRate = document.getElementById('kpiAttendanceRate');
-    const kpiAttendanceTrend = document.getElementById('kpiAttendanceTrend');
-    const qaAverageEl = document.getElementById('qaAverageScore');
-    const qaFollowUpsEl = document.getElementById('qaFollowUps');
-    const qaThreadsEl = document.getElementById('qaThreads');
-    const qaCoverageEl = document.getElementById('qaCoverageRate');
-    const qaScoreTrendEl = document.getElementById('qaScoreTrend');
-    const aiPulseSummaryEl = document.getElementById('aiPulseSummary');
-    const aiReportList = document.getElementById('aiReportList');
-    const aiSuggestionList = document.getElementById('aiSuggestionList');
-    const aiCollaborationNotes = document.getElementById('aiCollaborationNotes');
-    const heroPersonaLabel = document.getElementById('heroPersonaLabel');
-    const heroCampaignLabel = document.getElementById('heroCampaignLabel');
-    const heroUpdatedLabel = document.getElementById('heroUpdatedLabel');
-    const attendanceAverageEl = document.getElementById('attendanceAverage');
-
-    const summaryQaAverageEl = document.getElementById('summaryQaAverage');
-    const summaryQaTrendEl = document.getElementById('summaryQaTrend');
-    const summaryAttendanceRateEl = document.getElementById('summaryAttendanceRate');
-    const summaryAttendanceTrendEl = document.getElementById('summaryAttendanceTrend');
-    const summaryThreadsEl = document.getElementById('summaryThreads');
-    const summaryThreadsHintEl = document.getElementById('summaryThreadsHint');
-    const summaryFollowUpsEl = document.getElementById('summaryFollowUps');
-    const summaryFollowUpsHintEl = document.getElementById('summaryFollowUpsHint');
-
-    const personaFiltersContainer = document.getElementById('chatPersonaFilters');
-    const chatThreadList = document.getElementById('chatThreadList');
-    const chatStream = document.getElementById('chatMessageStream');
-    const chatComposer = document.getElementById('chatComposer');
-    const chatMessageInput = document.getElementById('chatMessageInput');
-    const chatAudienceLabel = document.getElementById('chatAudienceLabel');
-    const chatSubmitButton = chatComposer.querySelector('button[type="submit"]');
-    const chatFloatingBar = document.getElementById('leadershipChatBar');
-    const chatFloatingToggle = document.getElementById('leadershipChatToggle');
-    const chatFloatingPanel = document.getElementById('leadershipChatPanel');
-    const chatFloatingClose = document.getElementById('leadershipChatClose');
-    const chatToggleMeta = document.getElementById('leadershipChatToggleMeta');
-
-    const campaignConnectivitySection = document.getElementById('campaignConnectivitySection');
-    const campaignConnectivityContainer = document.getElementById('campaignConnectivity');
-    const campaignFloatingBar = document.getElementById('campaignFloatingBar');
-    const campaignFloatingToggle = document.getElementById('campaignFloatingToggle');
-
-    const teamTabsNav = document.getElementById('teamTabs');
-    const teamTabContent = document.getElementById('teamTabContent');
-    const teamSection = document.getElementById('teamIntelligenceSection');
-
-    if (teamTabContent) {
-      teamTabContent.addEventListener('click', function (event) {
-        const trigger = event.target.closest('[data-team-page-key]');
-        if (!trigger) return;
-        const scope = trigger.getAttribute('data-team-page-key');
-        const direction = trigger.getAttribute('data-team-page-direction');
-        if (!scope || !direction) return;
-        event.preventDefault();
-        adjustTeamPagination(scope, direction === 'next' ? 1 : -1);
-        rerenderAllTeamPanes();
-      });
+    function toggleLoading(isLoading) {
+      if (isLoading) {
+        hubStatus.classList.remove('d-none');
+        hubStatus.innerHTML = '\n        <div class="loading-card">\n          <div class="spinner-border text-primary" role="status" aria-hidden="true"></div>\n          <div>Loading collaboration data…</div>\n        </div>\n      ';
+        refreshButton.disabled = true;
+      } else {
+        refreshButton.disabled = false;
+      }
     }
 
-    const alertsContainer = document.getElementById('collabAlerts');
-    const loadingMessage = '<div class="text-secondary py-4 text-center small">Loading…</div>';
-    const chartColors = ['#38bdf8', '#34d399', '#facc15', '#f97316', '#8b5cf6', '#f472b6'];
-    const TEAM_TABLE_PAGE_SIZE = 8;
-
-    const campaignActions = [
-      { key: 'dashboard', label: 'Dashboard', icon: 'fas fa-chart-line' },
-      { key: 'qualitylist', label: 'Quality', icon: 'fas fa-star' },
-      { key: 'coachingdashboard', label: 'Coaching', icon: 'fas fa-chalkboard-user' },
-      { key: 'attendancereports', label: 'Attendance', icon: 'fas fa-calendar-check' },
-      { key: 'qacollablist', label: 'Collab', icon: 'fas fa-people-arrows' }
-    ];
-
-    const navigationBaseUrl = computeNavigationBase();
-    const baseRoles = extractRoles(currentUser);
-    let activeUserRoles = baseRoles.slice();
-    let isGuestView = rolesIndicateGuest(activeUserRoles);
-
-    const bannerDescriptionLead = 'Coordinate quality, attendance, and executive conversations from one modern workspace.';
-
-    state.banner.persona = determinePersona(activeUserRoles, isGuestView);
-    state.banner.campaignsText = formatHeroCampaignCount(state.campaigns.length, isGuestView);
-    updateBannerMetrics();
-
-    function clearAlerts() {
-      alertsContainer.innerHTML = '';
-    }
-
-    function showAlert(message, type) {
-      const alert = document.createElement('div');
-      const tone = type === 'success' ? 'success' : type === 'warning' ? 'warning' : type === 'danger' ? 'danger' : 'info';
-      alert.className = 'alert alert-' + tone + ' alert-dismissible fade show';
-      alert.role = 'alert';
-      alert.innerHTML = `
-        ${message}
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-      `;
-      alertsContainer.appendChild(alert);
-    }
-
-    function formatPercent(value, decimals) {
-      if (value === null || value === undefined || value === '') return '—';
-      const num = Number(value);
-      if (isNaN(num)) return '—';
-      const fixed = num.toFixed(decimals != null ? decimals : 1);
-      return fixed + '%';
+    function showError(message) {
+      hubStatus.classList.remove('d-none');
+      hubStatus.innerHTML = '\n        <div class="alert alert-danger mb-0">\n          <strong>Unable to load data.</strong> ' + (message || 'Please try again in a moment.') + '\n        </div>\n      ';
     }
 
     function formatNumber(value, decimals) {
-      if (value === null || value === undefined || value === '') return '—';
-      const num = Number(value);
-      if (isNaN(num)) return '—';
-      return num.toFixed(decimals != null ? decimals : 0);
+      if (value === null || value === undefined || value === '') return '–';
+      var number = Number(value);
+      if (!isFinite(number)) return '–';
+      return number.toLocaleString(undefined, { maximumFractionDigits: decimals || 0, minimumFractionDigits: decimals || 0 });
     }
 
-    function formatDateTime(isoString) {
-      if (!isoString) return '—';
-      const date = new Date(isoString);
-      if (Number.isNaN(date.getTime())) return '—';
-      return date.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    function formatDate(value) {
+      if (!value) return '';
+      var date = new Date(value);
+      if (isNaN(date.getTime())) return value;
+      return date.toLocaleString();
     }
 
-    function formatRelativeTime(isoString) {
-      if (!isoString) return '';
-      const date = new Date(isoString);
-      if (Number.isNaN(date.getTime())) return '';
-      const diffMs = Date.now() - date.getTime();
-      const diffMinutes = Math.round(diffMs / 60000);
-      if (diffMinutes < 1) return 'just now';
-      if (diffMinutes < 60) return diffMinutes + 'm ago';
-      const diffHours = Math.round(diffMinutes / 60);
-      if (diffHours < 24) return diffHours + 'h ago';
-      const diffDays = Math.round(diffHours / 24);
-      if (diffDays < 7) return diffDays + 'd ago';
+    function formatDateOnly(value) {
+      if (!value) return '';
+      var date = new Date(value);
+      if (isNaN(date.getTime())) return value;
       return date.toLocaleDateString();
     }
 
-    function extractRoles(user) {
-      if (!user) return [];
-      const sources = [user.roleNames, user.roles, user.Roles, user.RoleNames];
-      const roles = [];
-      sources.forEach(function (source) {
-        if (!source) return;
-        if (Array.isArray(source)) {
-          source.forEach(function (role) {
-            const value = (role || '').toString().trim();
-            if (value) roles.push(value);
-          });
-        } else {
-          const value = source.toString().trim();
-          if (value) roles.push(value);
-        }
-      });
-      const singleSources = [user.Role, user.RoleName, user.Title, user.PrimaryRole];
-      singleSources.forEach(function (value) {
-        if (!value) return;
-        const normalized = value.toString().trim();
-        if (normalized) roles.push(normalized);
-      });
-      const unique = {};
-      const cleaned = [];
-      roles.forEach(function (role) {
-        const lower = role.toLowerCase();
-        if (!unique[lower]) {
-          unique[lower] = true;
-          cleaned.push(role);
-        }
-      });
-      return cleaned;
-    }
-
-    function rolesIndicateGuest(roles) {
-      return roles.some(function (role) {
-        const text = (role || '').toString().toLowerCase();
-        return text.indexOf('guest') >= 0 || text.indexOf('client') >= 0 || text.indexOf('partner') >= 0;
-      });
-    }
-
-    function determinePersona(roles, guestFlag) {
-      if (guestFlag) return 'Client Guest';
-      const normalized = roles.map(function (role) { return role.toString().toLowerCase(); });
-      if (normalized.some(function (role) { return role.indexOf('executive') >= 0; })) return 'Executive Leader';
-      if (normalized.some(function (role) { return role.indexOf('manager') >= 0; })) return 'Team Manager';
-      if (normalized.some(function (role) { return role.indexOf('qa') >= 0 || role.indexOf('quality') >= 0; })) return 'Quality Leader';
-      return 'Operations Hub';
-    }
-
-    function formatHeroTimestamp(isoString) {
-      if (!isoString) return 'Updated —';
-      const date = new Date(isoString);
-      if (Number.isNaN(date.getTime())) return 'Updated —';
-      return 'Updated ' + date.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-    }
-
-    function formatHeroCampaignCount(count, guestFlag) {
-      if (!count) {
-        return guestFlag ? 'No assigned campaigns yet' : 'No campaigns connected';
-      }
-      if (count === 1) {
-        return guestFlag ? '1 assigned campaign' : '1 campaign connected';
-      }
-      return guestFlag ? count + ' assigned campaigns' : count + ' campaigns connected';
-    }
-
-    function computeThreadStats() {
-      const stats = { total: 0, active: 0 };
-      const threadsByPersona = (state.chat && state.chat.threads) || {};
-      const now = Date.now();
-      Object.keys(threadsByPersona).forEach(function (key) {
-        const threads = threadsByPersona[key] || [];
-        threads.forEach(function (thread) {
-          if (!thread) return;
-          stats.total += 1;
-          if (thread.updated) {
-            const updated = new Date(thread.updated);
-            if (!Number.isNaN(updated.getTime()) && now - updated.getTime() <= 86400000) {
-              stats.active += 1;
-            }
-          }
-        });
-      });
-      return stats;
-    }
-
-    function syncToplineCards() {
-      const qaMetrics = (state.qa && state.qa.metrics) || {};
-      if (summaryQaAverageEl) {
-        summaryQaAverageEl.textContent = qaMetrics.averageScore != null ? formatPercent(qaMetrics.averageScore, 1) : '—';
-      }
-      if (summaryQaTrendEl) {
-        const trendSpan = summaryQaTrendEl.querySelector('span');
-        summaryQaTrendEl.classList.remove('text-success', 'text-danger');
-        if (trendSpan) {
-          if (qaMetrics.deltaVsTarget != null && !Number.isNaN(qaMetrics.deltaVsTarget)) {
-            const delta = Number(qaMetrics.deltaVsTarget);
-            trendSpan.textContent = (delta >= 0 ? '+' : '') + delta.toFixed(1) + ' pts vs target';
-            summaryQaTrendEl.classList.add(delta >= 0 ? 'text-success' : 'text-danger');
-          } else {
-            trendSpan.textContent = 'Awaiting quality insights';
-          }
-        }
-      }
-
-      const attendanceSummary = (state.attendance && state.attendance.summary) || {};
-      const attendanceValue = attendanceSummary.averageAdherence != null
-        ? attendanceSummary.averageAdherence
-        : attendanceSummary.attendanceRate;
-      if (summaryAttendanceRateEl) {
-        summaryAttendanceRateEl.textContent = attendanceValue != null ? formatPercent(attendanceValue, 1) : '—';
-      }
-      if (summaryAttendanceTrendEl) {
-        const attendanceSpan = summaryAttendanceTrendEl.querySelector('span');
-        summaryAttendanceTrendEl.classList.remove('text-success', 'text-danger');
-        if (attendanceSpan) {
-          if (attendanceSummary.absenceRate != null && !Number.isNaN(attendanceSummary.absenceRate)) {
-            const absence = Number(attendanceSummary.absenceRate);
-            attendanceSpan.textContent = 'Absence ' + formatPercent(absence, 1);
-            summaryAttendanceTrendEl.classList.add(absence <= 5 ? 'text-success' : 'text-danger');
-          } else {
-            attendanceSpan.textContent = 'Attendance variance unavailable';
-          }
-        }
-      }
-
-      if (summaryThreadsEl) {
-        const threadStats = computeThreadStats();
-        summaryThreadsEl.textContent = threadStats.total ? threadStats.total.toString() : '0';
-        if (summaryThreadsHintEl) {
-          const hintSpan = summaryThreadsHintEl.querySelector('span');
-          summaryThreadsHintEl.classList.remove('text-success', 'text-danger');
-          if (hintSpan) {
-            const segments = [];
-            if (threadStats.active) {
-              segments.push(threadStats.active + ' active in 24h');
-            }
-            const personaCount = Array.isArray(state.chat.personas) ? state.chat.personas.length : 0;
-            if (personaCount) {
-              segments.push(personaCount + ' ' + (personaCount === 1 ? 'audience' : 'audiences'));
-            }
-            hintSpan.textContent = segments.length ? segments.join(' • ') : 'Invite teams to collaborate';
-          }
-        }
-      }
-
-      const followUpsValue = qaMetrics.followUps != null && !Number.isNaN(Number(qaMetrics.followUps))
-        ? Number(qaMetrics.followUps)
-        : 0;
-      if (summaryFollowUpsEl) {
-        summaryFollowUpsEl.textContent = followUpsValue ? followUpsValue.toString() : '0';
-      }
-      if (summaryFollowUpsHintEl) {
-        const followSpan = summaryFollowUpsHintEl.querySelector('span');
-        summaryFollowUpsHintEl.classList.remove('text-success', 'text-danger');
-        if (followSpan) {
-          const segments = [];
-          if (qaMetrics.coverageRate != null && !Number.isNaN(qaMetrics.coverageRate)) {
-            const coverageText = formatPercent(Number(qaMetrics.coverageRate), 1);
-            if (coverageText && coverageText !== '—') {
-              segments.push('Coverage ' + coverageText);
-            }
-          }
-          const campaignCount = Array.isArray(state.campaigns) ? state.campaigns.length : 0;
-          if (campaignCount) {
-            segments.push(campaignCount + ' ' + (campaignCount === 1 ? 'campaign' : 'campaigns'));
-          }
-          followSpan.textContent = segments.length ? segments.join(' • ') : 'No action items yet';
-          summaryFollowUpsHintEl.classList.add(followUpsValue ? 'text-danger' : 'text-success');
-        }
-      }
-    }
-
-    function syncHeroChips() {
-      if (heroPersonaLabel) {
-        heroPersonaLabel.textContent = state.banner.persona || 'Persona syncing…';
-      }
-      if (heroCampaignLabel) {
-        heroCampaignLabel.textContent = state.banner.campaignsText || 'Campaigns calibrating…';
-      }
-      if (heroUpdatedLabel) {
-        heroUpdatedLabel.textContent = state.banner.lastUpdatedText || 'Awaiting timestamp…';
-      }
-    }
-
-    function renderAiList(container, items, emptyText, iconClass) {
-      if (!container) return;
-      container.innerHTML = '';
-      const list = Array.isArray(items) ? items.filter(Boolean) : [];
-      if (!list.length) {
-        const li = document.createElement('li');
-        const icon = document.createElement('i');
-        icon.className = 'fa-solid fa-circle-info';
-        li.appendChild(icon);
-        const span = document.createElement('span');
-        span.textContent = emptyText || 'Insights will display when data is available.';
-        li.appendChild(span);
-        container.appendChild(li);
+    function renderQaSection(data) {
+      var section = document.getElementById('qaSection');
+      if (!data || !data.summary) {
+        section.classList.add('d-none');
         return;
       }
-      list.forEach(function (entry) {
-        const li = document.createElement('li');
-        const icon = document.createElement('i');
-        icon.className = 'fa-solid ' + (iconClass || 'fa-circle-check');
-        li.appendChild(icon);
-        const span = document.createElement('span');
-        span.textContent = entry;
-        li.appendChild(span);
-        container.appendChild(li);
+
+      section.classList.remove('d-none');
+      document.querySelector('[data-qa-total]').textContent = formatNumber(data.summary.totalAudits);
+      document.querySelector('[data-qa-score]').textContent = formatNumber(data.summary.avgScore, 1);
+      document.querySelector('[data-qa-feedback]').textContent = formatNumber(data.summary.feedbackShared);
+      document.querySelector('[data-qa-agents]').textContent = formatNumber(data.summary.uniqueAgents);
+
+      var tbody = document.getElementById('qaTableBody');
+      tbody.innerHTML = '';
+      var emptyState = section.querySelector('[data-qa-empty]');
+      if (!data.recent || !data.recent.length) {
+        emptyState.classList.remove('d-none');
+        return;
+      }
+      emptyState.classList.add('d-none');
+
+      data.recent.forEach(function (row) {
+        var tr = document.createElement('tr');
+        tr.innerHTML = '\n          <td>' + (row.agent || '') + '</td>\n          <td>' + (row.client || '') + '</td>\n          <td>' + (row.score !== null && row.score !== undefined ? formatNumber(row.score, 1) : '–') + '</td>\n          <td>' + formatDateOnly(row.auditDate) + '</td>\n          <td>' + (row.feedbackShared || '') + '</td>\n          <td>' + (row.notes || '') + '</td>\n        ';
+        tbody.appendChild(tr);
       });
     }
 
-    function buildAiNarrative() {
-      const qaMetrics = state.qa && state.qa.metrics ? state.qa.metrics : {};
-      const attendanceSummary = state.attendance && state.attendance.summary ? state.attendance.summary : {};
-      const execSummary = state.executive && state.executive.summary ? state.executive.summary : {};
-      const persona = state.banner && state.banner.persona ? state.banner.persona : 'Operations Hub';
-      const qaAverage = qaMetrics.averageScore != null ? Number(qaMetrics.averageScore) : null;
-      const qaDelta = qaMetrics.deltaVsTarget != null ? Number(qaMetrics.deltaVsTarget) : null;
-      const attendanceRate = attendanceSummary.attendanceRate != null
-        ? Number(attendanceSummary.attendanceRate)
-        : (attendanceSummary.averageAdherence != null ? Number(attendanceSummary.averageAdherence) : null);
-      const absenceRate = attendanceSummary.absenceRate != null ? Number(attendanceSummary.absenceRate) : null;
-      const coverageRate = qaMetrics.coverageRate != null ? Number(qaMetrics.coverageRate) : null;
-      const followUps = qaMetrics.followUps != null ? Number(qaMetrics.followUps) : 0;
-      const campaigns = Array.isArray(state.campaigns) ? state.campaigns.length : 0;
-      const threadStats = computeThreadStats();
-
-      function listJoin(items) {
-        if (!items || !items.length) return '';
-        if (items.length === 1) return items[0];
-        if (items.length === 2) return items[0] + ' and ' + items[1];
-        return items.slice(0, -1).join(', ') + ', and ' + items[items.length - 1];
+    function renderAttendanceSection(data) {
+      var section = document.getElementById('attendanceSection');
+      if (!data || !data.summary) {
+        section.classList.add('d-none');
+        return;
       }
 
-      const summaryPieces = [];
-      if (qaAverage != null && !Number.isNaN(qaAverage)) {
-        summaryPieces.push('quality at ' + formatPercent(qaAverage, 1));
-      }
-      if (attendanceRate != null && !Number.isNaN(attendanceRate)) {
-        summaryPieces.push('attendance at ' + formatPercent(attendanceRate, 1));
-      }
-      if (threadStats.total) {
-        summaryPieces.push(threadStats.total + ' collaboration thread' + (threadStats.total === 1 ? '' : 's'));
-      }
-      const summary = summaryPieces.length
-        ? 'AI sees ' + listJoin(summaryPieces) + ' for the ' + persona + ' workspace.'
-        : '';
+      section.classList.remove('d-none');
+      document.querySelector('[data-attendance-entries]').textContent = formatNumber(data.summary.entries);
+      document.querySelector('[data-attendance-users]').textContent = formatNumber(data.summary.usersTracked);
+      document.querySelector('[data-attendance-hours]').textContent = formatNumber(data.summary.totalHours, 2);
 
-      const report = [];
-      if (qaAverage != null && !Number.isNaN(qaAverage)) {
-        let text = 'Quality average ' + formatPercent(qaAverage, 1);
-        if (qaDelta != null && !Number.isNaN(qaDelta)) {
-          text += ' (' + (qaDelta >= 0 ? '+' : '') + qaDelta.toFixed(1) + ' pts vs target)';
-        }
-        report.push(text);
-      }
-      if (attendanceRate != null && !Number.isNaN(attendanceRate)) {
-        let text = 'Attendance rate ' + formatPercent(attendanceRate, 1);
-        if (absenceRate != null && !Number.isNaN(absenceRate)) {
-          text += ', absence ' + formatPercent(absenceRate, 1);
-        }
-        report.push(text);
-      }
-      if (coverageRate != null && !Number.isNaN(coverageRate)) {
-        report.push('QA coverage ' + formatPercent(coverageRate, 1));
-      }
-      if (execSummary && execSummary.campaignsAchievingTarget != null) {
-        const achieving = Number(execSummary.campaignsAchievingTarget);
-        if (!Number.isNaN(achieving)) {
-          report.push(achieving + ' campaign' + (achieving === 1 ? '' : 's') + ' hitting targets');
-        }
-      }
-      if (campaigns) {
-        report.push(campaigns + ' connected campaign' + (campaigns === 1 ? '' : 's'));
-      }
-
-      const suggestions = [];
-      if (qaDelta != null && !Number.isNaN(qaDelta)) {
-        if (qaDelta < 0) {
-          suggestions.push('Deploy a coaching sprint to recover ' + Math.abs(qaDelta).toFixed(1) + ' pts toward the quality target.');
-        } else if (qaDelta > 1) {
-          suggestions.push('Highlight quality gains with leadership to reinforce winning behaviors.');
-        }
-      }
-      if (attendanceRate != null && !Number.isNaN(attendanceRate)) {
-        if (attendanceRate < 95) {
-          suggestions.push('Audit schedule adherence for the lowest-performing campaign to protect coverage.');
-        } else if (attendanceRate >= 97) {
-          suggestions.push('Leverage attendance strength to back upcoming volume spikes.');
-        }
-      }
-      if (followUps > 0) {
-        suggestions.push('Work through ' + followUps + ' open follow-up action' + (followUps === 1 ? '' : 's') + ' with QA leads.');
-      }
-      if (!threadStats.total) {
-        suggestions.push('Launch the first collaboration thread to activate cross-team problem solving.');
-      } else if (threadStats.active === 0) {
-        suggestions.push('Nudge participants in dormant threads to keep momentum in the last 24 hours.');
-      }
-
-      const notes = [];
-      if (threadStats.total) {
-        notes.push(threadStats.total + ' thread' + (threadStats.total === 1 ? '' : 's') + ' live, ' + threadStats.active + ' active in 24h.');
-      }
-      const personaCount = state.chat && Array.isArray(state.chat.personas) ? state.chat.personas.length : 0;
-      if (personaCount) {
-        notes.push(personaCount + ' collaboration audience' + (personaCount === 1 ? '' : 's') + ' configured.');
-      }
-      if (coverageRate != null && !Number.isNaN(coverageRate) && coverageRate < 75) {
-        notes.push('QA coverage below 75% — prioritize sampling to stabilize insight quality.');
-      }
-      if (execSummary && execSummary.alert) {
-        notes.push(execSummary.alert);
-      }
-
-      return {
-        summary: summary,
-        report: report,
-        suggestions: suggestions,
-        notes: notes
-      };
-    }
-
-    function renderAiAssistant() {
-      const narrative = buildAiNarrative();
-      state.ai = narrative;
-      if (aiPulseSummaryEl) {
-        aiPulseSummaryEl.textContent = narrative.summary || 'AI summary will populate after data sync.';
-      }
-      renderAiList(aiReportList, narrative.report, 'Waiting for campaign metrics…', 'fa-chart-line');
-      renderAiList(aiSuggestionList, narrative.suggestions, 'Suggestions will surface after data sync.', 'fa-lightbulb');
-      renderAiList(aiCollaborationNotes, narrative.notes, 'Collaboration notes appear once chat threads load.', 'fa-handshake-angle');
-    }
-
-    function buildBannerDescription() {
-      const descriptionParts = [];
-      if (typeof bannerDescriptionLead === 'string' && bannerDescriptionLead.trim()) {
-        descriptionParts.push(bannerDescriptionLead);
-      }
-
-      const meta = [];
-      if (state.banner.userName) {
-        meta.push('Workspace lead: ' + state.banner.userName);
-      }
-      if (state.banner.campaignsText) {
-        meta.push(state.banner.campaignsText);
-      }
-      if (state.banner.lastUpdatedText) {
-        meta.push(state.banner.lastUpdatedText);
-      }
-
-      if (meta.length) {
-        descriptionParts.push(meta.join(' • '));
-      }
-
-      return descriptionParts.join(' ').trim();
-    }
-
-    function syncBanner() {
-      const insights = (state.banner.insights || []).map(function (item) {
-        return {
-          label: item && item.label ? item.label : '',
-          value: item && item.value ? item.value : '—',
-          hint: item && item.hint ? item.hint : '',
-          icon: item && item.icon ? item.icon : ''
-        };
-      });
-
-      const config = {
-        eyebrow: state.banner.persona,
-        title: 'Collaboration Intelligence Hub',
-        description: buildBannerDescription(),
-        insights: insights,
-        insightsMeta: { pageKey: 'collaboration-reporting' }
-      };
-
-      if (typeof initializeGlobalBanner === 'function') {
-        initializeGlobalBanner(config);
+      var list = document.getElementById('attendanceList');
+      var emptyState = section.querySelector('[data-attendance-empty]');
+      list.innerHTML = '';
+      if (!data.recent || !data.recent.length) {
+        emptyState.classList.remove('d-none');
       } else {
-        window.__pendingBannerData = Object.assign({}, config);
-      }
-      return config;
-    }
-
-    function updateBannerMetrics() {
-      const insights = [];
-
-      const qaAverage = state.qa.metrics && state.qa.metrics.averageScore;
-      const qaDelta = state.qa.metrics && state.qa.metrics.deltaVsTarget;
-      insights.push({
-        key: 'quality',
-        label: 'Quality pulse',
-        value: formatPercent(qaAverage, 1),
-        hint: qaDelta != null && !Number.isNaN(qaDelta)
-          ? (qaDelta >= 0 ? '+' : '') + qaDelta.toFixed(1) + ' pts vs target'
-          : 'QA average this cycle',
-        icon: 'fa-solid fa-sparkles'
-      });
-
-      const attendanceRate = state.attendance.summary && state.attendance.summary.attendanceRate;
-      const absenceRate = state.attendance.summary && state.attendance.summary.absenceRate;
-      insights.push({
-        key: 'attendance',
-        label: 'Attendance',
-        value: formatPercent(attendanceRate, 1),
-        hint: absenceRate != null ? 'Absence ' + formatPercent(absenceRate, 1) : 'Attendance this cycle',
-        icon: 'fa-solid fa-user-check'
-      });
-
-      const campaignCount = state.campaigns.length;
-      insights.push({
-        key: 'campaigns',
-        label: isGuestView ? 'Assigned campaigns' : 'Active campaigns',
-        value: campaignCount ? String(campaignCount) : '0',
-        hint: isGuestView
-          ? 'Guest access level'
-          : (state.executive.timeframeLabel ? 'Cycle ' + state.executive.timeframeLabel : 'Workspace connections'),
-        icon: 'fa-solid fa-diagram-project'
-      });
-
-      state.banner.campaignsText = formatHeroCampaignCount(state.campaigns.length, isGuestView);
-      state.banner.insights = insights;
-      syncHeroChips();
-      syncBanner();
-      syncToplineCards();
-      renderAiAssistant();
-    }
-
-    function updateBannerFromResponse(response) {
-      response = response || {};
-      const userInfo = response.user || currentUser || {};
-      const resolvedRoles = extractRoles(userInfo);
-      if (resolvedRoles.length) {
-        activeUserRoles = resolvedRoles;
-      }
-      isGuestView = rolesIndicateGuest(activeUserRoles);
-      state.banner.persona = determinePersona(activeUserRoles, isGuestView);
-
-      const displayName = userInfo.name || userInfo.displayName || userInfo.FullName || userInfo.UserName || userInfo.email || userInfo.Email || 'Lumina team member';
-      state.banner.userName = displayName;
-
-      state.banner.lastUpdatedText = formatHeroTimestamp(response.generatedAt || new Date().toISOString());
-      state.banner.campaignsText = formatHeroCampaignCount(state.campaigns.length, isGuestView);
-
-      syncHeroChips();
-      updateBannerMetrics();
-    }
-
-    function statusClass(status) {
-      const normalized = (status || '').toLowerCase();
-      if (normalized.indexOf('follow') >= 0) return 'status-pill status-followup';
-      if (normalized.indexOf('publish') >= 0) return 'status-pill status-published';
-      return 'status-pill status-draft';
-    }
-
-    function stripHash(url) {
-      if (!url) return '';
-      return String(url).replace(/#.*$/, '');
-    }
-
-    function removeExistingPageParam(url) {
-      if (!url) return '';
-      return url
-        .replace(/([?&])(page|campaign)=[^&#]*(&)?/gi, function (match, prefix, _key, suffix) {
-          if (prefix === '?') {
-            return suffix ? '?' : '';
-          }
-          return suffix ? prefix : '';
-        })
-        .replace(/[?&]$/, '');
-    }
-
-    function computeNavigationBase() {
-      const scriptCandidate = removeExistingPageParam(stripHash(typeof SCRIPT_URL !== 'undefined' && SCRIPT_URL ? SCRIPT_URL : ''));
-      if (scriptCandidate) return scriptCandidate;
-      return removeExistingPageParam(stripHash(typeof BASE_URL !== 'undefined' && BASE_URL ? BASE_URL : ''));
-    }
-
-    function buildCampaignUrl(pageKey, campaignId) {
-      const page = pageKey || 'dashboard';
-      const base = navigationBaseUrl;
-      if (!base) {
-        let query = '?page=' + encodeURIComponent(page);
-        if (campaignId) {
-          query += '&campaign=' + encodeURIComponent(campaignId);
-        }
-        return query;
-      }
-      const hasQuery = base.indexOf('?') !== -1;
-      const separator = hasQuery ? (/[?&]$/.test(base) ? '' : '&') : '?';
-      let url = base + separator + 'page=' + encodeURIComponent(page);
-      if (campaignId) {
-        url += '&campaign=' + encodeURIComponent(campaignId);
-      }
-      return url;
-    }
-
-    function populateSelectOptions(select, items, placeholder, isMultiple) {
-      select.innerHTML = '';
-      if (!isMultiple) {
-        const opt = document.createElement('option');
-        opt.value = '';
-        opt.textContent = placeholder || 'Select';
-        select.appendChild(opt);
-      }
-      (items || []).forEach(function (item) {
-        const option = document.createElement('option');
-        const id = item && typeof item === 'object' ? (item.id || item.value || item.name) : item;
-        const name = item && typeof item === 'object' ? (item.name || item.label || item.id) : item;
-        option.value = id || '';
-        option.textContent = name || id || '';
-        select.appendChild(option);
-      });
-    }
-
-    function ensureEmptyState(container, message) {
-      let placeholder = container.querySelector('.chart-empty');
-      if (!message) {
-        if (placeholder) placeholder.remove();
-        return;
-      }
-      if (!placeholder) {
-        placeholder = document.createElement('div');
-        placeholder.className = 'chart-empty text-secondary small text-center py-4';
-        container.appendChild(placeholder);
-      }
-      placeholder.textContent = message;
-    }
-
-    function setFormSubmitting(submitting) {
-      qaSubmitButton.disabled = submitting;
-      qaResetButton.disabled = submitting;
-    }
-
-    function setChatComposerEnabled(enabled) {
-      chatMessageInput.disabled = !enabled;
-      chatSubmitButton.disabled = !enabled;
-    }
-
-    function setChatFloatingExpanded(expanded) {
-      if (!chatFloatingBar || !chatFloatingToggle) return;
-      if (expanded) {
-        chatFloatingBar.classList.remove('collapsed');
-      } else {
-        chatFloatingBar.classList.add('collapsed');
-      }
-      const expandedAttr = expanded ? 'true' : 'false';
-      chatFloatingBar.setAttribute('aria-expanded', expandedAttr);
-      chatFloatingToggle.setAttribute('aria-expanded', expandedAttr);
-      if (chatFloatingPanel) {
-        chatFloatingPanel.setAttribute('aria-hidden', expanded ? 'false' : 'true');
-        chatFloatingPanel.setAttribute('aria-modal', expanded ? 'true' : 'false');
-      }
-      const caretIcon = chatFloatingToggle.querySelector('.toggle-caret i');
-      if (caretIcon) {
-        caretIcon.className = expanded ? 'fas fa-chevron-down' : 'fas fa-chevron-up';
-      }
-      if (expanded && chatMessageInput && !chatMessageInput.disabled) {
-        setTimeout(function () { chatMessageInput.focus(); }, 140);
-      }
-    }
-
-    function updateChatFloatingVisibility() {
-      if (!chatFloatingBar) return;
-      const hasPersonas = Array.isArray(state.chat.personas) && state.chat.personas.length > 0;
-      if (!hasPersonas) {
-        chatFloatingBar.classList.add('is-hidden');
-        chatFloatingBar.setAttribute('aria-hidden', 'true');
-        setChatFloatingExpanded(false);
-        if (chatFloatingPanel) {
-          chatFloatingPanel.setAttribute('aria-hidden', 'true');
-          chatFloatingPanel.setAttribute('aria-modal', 'false');
-        }
-      } else {
-        chatFloatingBar.classList.remove('is-hidden');
-        chatFloatingBar.removeAttribute('aria-hidden');
-      }
-    }
-
-    function updateChatFloatingMeta() {
-      if (!chatToggleMeta) return;
-      const personas = state.chat.personas || [];
-      if (!personas.length) {
-        chatToggleMeta.textContent = 'No audiences available';
-        return;
-      }
-      const threadsMap = state.chat.threads || {};
-      const totalThreads = personas.reduce(function (total, persona) {
-        const key = persona && persona.key ? persona.key : persona;
-        const list = threadsMap[key] || [];
-        return total + (Array.isArray(list) ? list.length : 0);
-      }, 0);
-      chatToggleMeta.textContent = totalThreads
-        ? totalThreads + ' active thread' + (totalThreads === 1 ? '' : 's')
-        : 'No active threads';
-    }
-
-    function initializeChatFloatingBar() {
-      if (!chatFloatingBar || !chatFloatingToggle) return;
-      setChatFloatingExpanded(false);
-      chatFloatingToggle.addEventListener('click', function () {
-        const shouldExpand = chatFloatingBar.classList.contains('collapsed');
-        setChatFloatingExpanded(shouldExpand);
-      });
-      if (chatFloatingClose) {
-        chatFloatingClose.addEventListener('click', function () {
-          setChatFloatingExpanded(false);
-          chatFloatingToggle.focus();
-        });
-      }
-      document.addEventListener('keydown', function (event) {
-        if (event.key === 'Escape' && chatFloatingBar && !chatFloatingBar.classList.contains('collapsed')) {
-          setChatFloatingExpanded(false);
-          if (chatFloatingToggle) {
-            chatFloatingToggle.focus();
-          }
-        }
-      });
-    }
-
-    function setCampaignFloatingExpanded(expanded) {
-      if (!campaignFloatingBar || !campaignFloatingToggle) return;
-      if (expanded) {
-        campaignFloatingBar.classList.remove('collapsed');
-      } else {
-        campaignFloatingBar.classList.add('collapsed');
-      }
-      const expandedAttr = expanded ? 'true' : 'false';
-      campaignFloatingBar.setAttribute('aria-expanded', expandedAttr);
-      campaignFloatingToggle.setAttribute('aria-expanded', expandedAttr);
-      const caretIcon = campaignFloatingToggle.querySelector('.toggle-caret i');
-      if (caretIcon) {
-        caretIcon.className = expanded ? 'fas fa-chevron-down' : 'fas fa-chevron-up';
-      }
-    }
-
-    function initializeCampaignFloatingBar() {
-      if (!campaignFloatingBar || !campaignFloatingToggle) return;
-      setCampaignFloatingExpanded(false);
-      campaignFloatingToggle.addEventListener('click', function () {
-        const shouldExpand = campaignFloatingBar.classList.contains('collapsed');
-        setCampaignFloatingExpanded(shouldExpand);
-      });
-    }
-
-    function getCampaignOptions() {
-      const options = [];
-      const dedupe = {};
-
-      function registerOption(id, name) {
-        const safeId = id || name || '';
-        const safeName = name || id || '';
-        if (!safeId && !safeName) return;
-        const key = (safeId + '|' + safeName).toLowerCase();
-        if (dedupe[key]) return;
-        dedupe[key] = true;
-        options.push({ id: safeId || safeName, name: safeName || safeId });
-      }
-
-      (state.campaigns || []).forEach(function (campaign) {
-        if (!campaign) return;
-        registerOption(campaign.id, campaign.name);
-      });
-
-      (state.qa.directory.campaigns || []).forEach(function (campaign) {
-        if (!campaign) return;
-        const optionId = campaign.id || campaign.value || campaign.name || campaign.label;
-        const optionName = campaign.name || campaign.label || campaign.id || campaign.value || '';
-        registerOption(optionId, optionName);
-      });
-
-      options.sort(function (a, b) {
-        const nameA = (a.name || '').toLowerCase();
-        const nameB = (b.name || '').toLowerCase();
-        if (nameA < nameB) return -1;
-        if (nameA > nameB) return 1;
-        return 0;
-      });
-
-      return options;
-    }
-
-    function renderCampaignConnectivity() {
-      if (!campaignConnectivityContainer) return;
-      if (isGuestView) {
-        campaignConnectivityContainer.innerHTML = '';
-        campaignConnectivityContainer.classList.remove('connectivity-grid', 'connectivity-empty');
-        if (campaignFloatingBar) {
-          campaignFloatingBar.classList.add('is-hidden');
-          campaignFloatingBar.setAttribute('aria-hidden', 'true');
-        }
-        if (campaignFloatingToggle) {
-          campaignFloatingToggle.setAttribute('aria-expanded', 'false');
-        }
-        if (campaignConnectivitySection) {
-          campaignConnectivitySection.classList.remove('d-none');
-        }
-        setCampaignFloatingExpanded(false);
-        updateBannerMetrics();
-        return;
-      }
-
-      if (campaignFloatingBar) {
-        campaignFloatingBar.classList.remove('is-hidden');
-        campaignFloatingBar.removeAttribute('aria-hidden');
-      }
-
-      const campaigns = state.campaigns || [];
-      if (campaignFloatingToggle) {
-        const labelEl = campaignFloatingToggle.querySelector('.toggle-label');
-        if (labelEl) {
-          labelEl.textContent = campaigns.length
-            ? `Connected Campaign Workflows (${campaigns.length})`
-            : 'Connected Campaign Workflows';
-        }
-      }
-
-      campaignConnectivityContainer.innerHTML = '';
-      campaignConnectivityContainer.classList.remove('connectivity-grid', 'connectivity-empty');
-
-      if (!campaigns.length) {
-        campaignConnectivityContainer.classList.add('connectivity-empty');
-        campaignConnectivityContainer.innerHTML = '<div class="text-secondary small text-center py-3">No campaign access detected yet.</div>';
-        setCampaignFloatingExpanded(false);
-        updateBannerMetrics();
-        return;
-      }
-
-      campaignConnectivityContainer.classList.add('connectivity-grid');
-      const fragment = document.createDocumentFragment();
-
-      campaigns.forEach(function (campaign) {
-        const card = document.createElement('div');
-        card.className = 'connectivity-card';
-        const badges = [];
-        if (campaign.isDefault) badges.push('<span class="badge bg-primary-subtle text-primary">Default</span>');
-        if (campaign.isManaged) badges.push('<span class="badge bg-success-subtle text-success">Managed</span>');
-        if (campaign.isAdmin) badges.push('<span class="badge bg-warning-subtle text-warning">Admin</span>');
-        const description = campaign.description ? `<div class="text-secondary small mt-1">${campaign.description}</div>` : '';
-        const actionsMarkup = campaignActions.map(function (action) {
-          const href = buildCampaignUrl(action.key, campaign.id);
-          return `<a href="${href}" target="_top" class="btn btn-sm"><i class="${action.icon}"></i>${action.label}</a>`;
-        }).join('');
-        card.innerHTML = `
-          <div class="d-flex justify-content-between align-items-start gap-2">
-            <div>
-              <div class="fw-semibold">${campaign.name || 'Campaign'}</div>
-              ${description}
-            </div>
-            <div class="d-flex flex-wrap gap-1">${badges.join('')}</div>
-          </div>
-          <div class="connectivity-actions mt-3">
-            ${actionsMarkup}
-          </div>
-        `;
-        fragment.appendChild(card);
-      });
-
-      campaignConnectivityContainer.appendChild(fragment);
-      updateBannerMetrics();
-    }
-
-    function buildLeadCollaboratorOptions() {
-      const unique = new Map();
-
-      function register(option) {
-        if (!option) return;
-        const name = typeof option === 'object' ? (option.name || option.label || option.id) : option;
-        if (!name) return;
-        const id = typeof option === 'object' ? (option.id || option.value || option.name) : option;
-        const key = String(name).trim().toLowerCase();
-        if (!key || unique.has(key)) return;
-        unique.set(key, { id: id || name, name: name });
-      }
-
-      (state.teams.managers || []).forEach(function (manager) {
-        if (!manager || !manager.name) return;
-        register({ id: manager.email || manager.name, name: manager.name });
-      });
-
-      (state.teams.managerTabs || []).forEach(function (tab) {
-        if (!tab || !tab.name) return;
-        register({ id: tab.managerId || tab.name, name: tab.name });
-      });
-
-      (state.qa.directory.collaborators || []).forEach(function (collab) {
-        if (!collab) return;
-        const name = typeof collab === 'object' ? (collab.name || collab.label || collab.id) : collab;
-        if (isLikelyLeadName(name)) {
-          register({ id: (collab && collab.id) || name, name: name });
-        }
-      });
-
-      if (!unique.size) {
-        (state.qa.directory.reviewers || []).forEach(function (reviewer) {
-          if (!reviewer) return;
-          const name = typeof reviewer === 'object' ? (reviewer.name || reviewer.label || reviewer.id) : reviewer;
-          if (isLikelyLeadName(name)) {
-            register({ id: (reviewer && reviewer.id) || name, name: name });
-          }
+        emptyState.classList.add('d-none');
+        data.recent.forEach(function (item) {
+          var li = document.createElement('li');
+          li.className = 'list-group-item';
+          li.innerHTML = '\n            <div class="fw-semibold">' + (item.user || 'Unknown user') + '</div>\n            <div class="small text-muted">' + (item.state || 'Unknown state') + ' • ' + formatNumber(item.duration, 2) + ' minutes • ' + formatDate(item.timestamp) + '</div>\n          ';
+          list.appendChild(li);
         });
       }
 
-      const leads = Array.from(unique.values());
-      leads.sort(function (a, b) {
-        const nameA = (a.name || '').toLowerCase();
-        const nameB = (b.name || '').toLowerCase();
-        if (nameA < nameB) return -1;
-        if (nameA > nameB) return 1;
-        return 0;
-      });
-      return leads;
-    }
-
-    function isLikelyLeadName(name) {
-      if (!name) return false;
-      return /(lead|manager|supervisor|director|coach)/i.test(String(name));
-    }
-
-    function renderQADirectory() {
-      populateSelectOptions(qaAgentSelect, state.qa.directory.agents, 'Select an agent');
-      populateSelectOptions(qaCampaignSelect, getCampaignOptions(), 'Choose campaign');
-      populateSelectOptions(qaReviewerSelect, state.qa.directory.reviewers, 'Assign reviewer');
-      const leadCollaborators = buildLeadCollaboratorOptions();
-      populateSelectOptions(qaCollaboratorSelect, leadCollaborators, 'Select QA leads', true);
-      if (qaCollaboratorSelect) {
-        qaCollaboratorSelect.title = leadCollaborators.length ? 'Select QA leads to loop into this review' : 'No QA leads available';
-      }
-    }
-
-    function renderQATable() {
-      const records = state.qa.records || [];
-      if (!records.length) {
-        qaTableBody.innerHTML = '<tr><td colspan="8" class="text-center text-secondary py-4">No QA collaboration records found.</td></tr>';
-        return;
-      }
-      qaTableBody.innerHTML = '';
-      records.forEach(function (record) {
-        const tr = document.createElement('tr');
-        const collaborators = (record.collaborators || []).map(function (name) {
-          return `<span class="collaborator"><i class="fas fa-user-circle"></i>${name}</span>`;
-        }).join('');
-        const campaignLabel = record.campaignName || '';
-        const campaignLink = campaignLabel
-          ? `<a href="${buildCampaignUrl('dashboard', record.campaignId)}" target="_top" class="text-decoration-none">${campaignLabel}${record.campaignId ? '<i class="fas fa-arrow-up-right-from-square ms-1 text-primary"></i>' : ''}</a>`
-          : '—';
-        tr.innerHTML = `
-          <td class="fw-semibold">${record.id || '—'}</td>
-          <td>
-            <div class="fw-semibold">${record.agent || '—'}</div>
-            <small class="text-secondary">${record.reviewer || ''}</small>
-          </td>
-          <td>${campaignLink}</td>
-          <td><span class="fw-bold">${record.score != null ? formatNumber(record.score, 1) : '—'}</span></td>
-          <td>${record.focus || '—'}</td>
-          <td>${collaborators}</td>
-          <td><span class="${statusClass(record.status)}">${record.status || 'Draft'}</span></td>
-          <td>${formatDateTime(record.updated)}</td>
-        `;
-        qaTableBody.appendChild(tr);
-      });
-    }
-
-    function renderQAMetrics() {
-      const metrics = state.qa.metrics || {};
-      qaAverageEl.textContent = metrics.averageScore != null ? formatNumber(metrics.averageScore, 1) : '—';
-      qaFollowUpsEl.textContent = metrics.followUps != null ? metrics.followUps : '0';
-      qaThreadsEl.textContent = metrics.collaborativeThreads != null ? metrics.collaborativeThreads : '0';
-      qaCoverageEl.textContent = metrics.coverageRate != null ? formatPercent(metrics.coverageRate, 1) : '—';
-      const delta = metrics.deltaVsTarget;
-      if (delta != null && !Number.isNaN(delta)) {
-        qaScoreTrendEl.textContent = (delta >= 0 ? '+' : '') + delta.toFixed(1) + ' pts';
-        qaScoreTrendEl.classList.toggle('bg-success', delta >= 0);
-        qaScoreTrendEl.classList.toggle('bg-danger', delta < 0);
-      } else {
-        qaScoreTrendEl.textContent = '—';
-        qaScoreTrendEl.classList.remove('bg-success', 'bg-danger');
-      }
-      syncToplineCards();
-    }
-
-    function renderQaTrendChart() {
-      const labels = state.qa.trend.labels || [];
-      const values = (state.qa.trend.values || []).map(function (value) {
-        return value == null ? null : Number(value);
-      });
-      const container = qaTrendChartCanvas.parentElement;
-      const hasData = labels.length && values.some(function (v) { return v != null; });
-      if (!hasData) {
-        if (state.charts.qaTrend) {
-          state.charts.qaTrend.destroy();
-          state.charts.qaTrend = null;
-        }
-        qaTrendChartCanvas.classList.add('d-none');
-        ensureEmptyState(container, 'No QA trend data available yet.');
-        return;
-      }
-      ensureEmptyState(container, '');
-      qaTrendChartCanvas.classList.remove('d-none');
-      const dataset = values.map(function (value) {
-        return value == null ? null : Number(value.toFixed(1));
-      });
-      if (state.charts.qaTrend) {
-        state.charts.qaTrend.data.labels = labels;
-        state.charts.qaTrend.data.datasets[0].data = dataset;
-        state.charts.qaTrend.update();
-      } else {
-        state.charts.qaTrend = new Chart(qaTrendChartCanvas.getContext('2d'), {
-          type: 'line',
-          data: {
-            labels: labels,
-            datasets: [
-              {
-                label: 'QA Score',
-                data: dataset,
-                borderColor: '#2563eb',
-                backgroundColor: 'rgba(37, 99, 235, 0.12)',
-                tension: 0.35,
-                borderWidth: 3,
-                fill: true
-              }
-            ]
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            scales: {
-              y: {
-                ticks: {
-                  callback: function (value) { return value + '%'; }
-                }
-              }
-            }
-          }
+      var statesList = document.getElementById('attendanceStates');
+      statesList.innerHTML = '';
+      if (data.states && data.states.length) {
+        data.states.forEach(function (item) {
+          var li = document.createElement('li');
+          li.className = 'list-group-item d-flex justify-content-between align-items-center';
+          li.innerHTML = '<span>' + item.name + '</span><span class="fw-semibold">' + formatNumber(item.hours, 2) + ' hrs</span>';
+          statesList.appendChild(li);
         });
       }
     }
 
-    function renderExecutiveSection() {
-      const summary = state.executive.summary || {};
-      kpiQualityAverage.textContent = summary.qaAverage != null ? formatPercent(summary.qaAverage, 1) : '—';
-      const qualityDelta = state.qa.metrics && state.qa.metrics.deltaVsTarget != null ? state.qa.metrics.deltaVsTarget : null;
-      if (qualityDelta != null && !Number.isNaN(qualityDelta)) {
-        kpiQualityTrend.textContent = (qualityDelta >= 0 ? '+' : '') + qualityDelta.toFixed(1) + ' pts vs target';
-        kpiQualityTrend.classList.toggle('text-success', qualityDelta >= 0);
-        kpiQualityTrend.classList.toggle('text-danger', qualityDelta < 0);
-      } else {
-        kpiQualityTrend.textContent = 'Target comparison unavailable';
-        kpiQualityTrend.classList.remove('text-success', 'text-danger');
-      }
-
-      const attendanceRate = summary.attendanceAverage != null ? summary.attendanceAverage : state.attendance.summary.attendanceRate;
-      kpiAttendanceRate.textContent = attendanceRate != null ? formatPercent(attendanceRate, 1) : '—';
-      if (state.attendance.summary.absenceRate != null) {
-        const absence = state.attendance.summary.absenceRate;
-        kpiAttendanceTrend.textContent = 'Absence ' + formatPercent(absence, 1);
-        kpiAttendanceTrend.classList.toggle('text-success', absence <= 5);
-        kpiAttendanceTrend.classList.toggle('text-danger', absence > 5);
-      } else {
-        kpiAttendanceTrend.textContent = 'Attendance variance unavailable';
-        kpiAttendanceTrend.classList.remove('text-success', 'text-danger');
-      }
-
-      const payPeriod = state.executive.payPeriod;
-      const timeframeLabel = state.executive.timeframeLabel || '—';
-      if (execTimeframeEl) {
-        execTimeframeEl.textContent = payPeriod && payPeriod.badgeLabel ? payPeriod.badgeLabel : timeframeLabel;
-      }
-      if (execPeriodRangeEl) {
-        execPeriodRangeEl.textContent = payPeriod && payPeriod.rangeLabel ? payPeriod.rangeLabel : timeframeLabel;
-      }
-      if (execPayDateEl) {
-        execPayDateEl.textContent = payPeriod && payPeriod.payDateLabel ? 'Pay date ' + payPeriod.payDateLabel : 'Pay date —';
-      }
-
-      execCampaignBullets.innerHTML = '';
-      const campaigns = state.executive.campaigns || [];
-      if (!campaigns.length) {
-        execCampaignBullets.innerHTML = '<div class="text-secondary small">No campaign mix data available.</div>';
-      } else {
-        campaigns.forEach(function (campaign, index) {
-          const color = chartColors[index % chartColors.length];
-          const qaText = campaign.qa != null ? 'QA ' + campaign.qa + '%' : 'QA n/a';
-          const attText = campaign.attendance != null ? 'Attendance ' + campaign.attendance + '%' : 'Attendance n/a';
-          const wrapper = document.createElement('div');
-          wrapper.className = 'kpi-bullet';
-          wrapper.innerHTML = `<span class="kpi-dot" style="background:${color}"></span> ${campaign.title || 'Campaign'} – ${qaText}, ${attText}`;
-          execCampaignBullets.appendChild(wrapper);
-        });
-      }
-
-      execBriefList.innerHTML = '';
-      if (!state.executive.brief || !state.executive.brief.length) {
-        execBriefList.innerHTML = '<li class="text-secondary">No executive brief notes available.</li>';
-      } else {
-        state.executive.brief.forEach(function (item) {
-          const li = document.createElement('li');
-          li.className = 'mb-3';
-          li.innerHTML = `
-            <div class="d-flex justify-content-between align-items-start">
-              <div>
-                <div class="fw-bold">${item.title || 'Campaign'}</div>
-                <div class="text-secondary">${item.metrics || ''}</div>
-              </div>
-            </div>
-            ${item.note ? `<div class="small text-secondary mt-1">${item.note}</div>` : ''}
-          `;
-          execBriefList.appendChild(li);
-        });
-      }
-
-      const labels = campaigns.map(function (campaign) { return campaign.title || 'Campaign'; });
-      const values = campaigns.map(function (campaign) {
-        const qa = campaign.qa != null ? campaign.qa : null;
-        const att = campaign.attendance != null ? campaign.attendance : null;
-        if (qa == null && att == null) return 0;
-        if (qa != null && att != null) return Number(((qa + att) / 2).toFixed(1));
-        return qa != null ? Number(qa.toFixed(1)) : Number(att.toFixed(1));
-      });
-      if (!labels.length) {
-        if (state.charts.executive) {
-          state.charts.executive.destroy();
-          state.charts.executive = null;
-        }
-        ensureEmptyState(execBlendChartCanvas.parentElement, 'No executive campaign blend data available.');
-      } else {
-        ensureEmptyState(execBlendChartCanvas.parentElement, '');
-        if (state.charts.executive) {
-          state.charts.executive.data.labels = labels;
-          state.charts.executive.data.datasets[0].data = values;
-          state.charts.executive.data.datasets[0].backgroundColor = labels.map(function (_, index) {
-            return chartColors[index % chartColors.length];
-          });
-          state.charts.executive.update();
-        } else {
-          state.charts.executive = new Chart(execBlendChartCanvas, {
-            type: 'doughnut',
-            data: {
-              labels: labels,
-              datasets: [
-                {
-                  data: values,
-                  backgroundColor: labels.map(function (_, index) {
-                    return chartColors[index % chartColors.length];
-                  }),
-                  borderWidth: 0,
-                  hoverOffset: 8
-                }
-              ]
-            },
-            options: {
-              cutout: '68%',
-              plugins: { legend: { display: false } }
-            }
-          });
-        }
-      }
-      syncToplineCards();
-    }
-
-    function renderAttendanceOptions() {
-      populateSelectOptions(attendanceCampaignSelect, state.attendance.campaigns, 'Select campaign');
-      if (state.attendance.campaigns.length) {
-        attendanceCampaignSelect.value = state.attendance.campaigns[0].id || state.attendance.campaigns[0].name;
-      }
-    }
-
-    function renderAttendanceAverage() {
-      if (state.attendance.summary.averageAdherence != null) {
-        attendanceAverageEl.textContent = formatPercent(state.attendance.summary.averageAdherence, 1);
-      } else if (state.attendance.summary.attendanceRate != null) {
-        attendanceAverageEl.textContent = formatPercent(state.attendance.summary.attendanceRate, 1);
-      } else {
-        attendanceAverageEl.textContent = '—';
-      }
-    }
-
-    function renderAttendanceTable(campaignId) {
-      const history = state.attendance.history[campaignId] || [];
-      if (!history.length) {
-        attendanceTableBody.innerHTML = '<tr><td colspan="3" class="text-center text-secondary py-3">No attendance records for this campaign.</td></tr>';
+    function renderCoachingSection(data) {
+      var section = document.getElementById('coachingSection');
+      if (!data || !data.summary) {
+        section.classList.add('d-none');
         return;
       }
-      const recent = history.slice(-6);
-      attendanceTableBody.innerHTML = '';
-      recent.forEach(function (entry) {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td class="fw-semibold">${entry.week}</td>
-          <td>
-            <div class="fw-semibold">${entry.adherence != null ? entry.adherence.toFixed(1) + '%' : '—'}</div>
-            <div class="progress" style="height:6px;">
-              <div class="progress-bar bg-primary" style="width:${entry.adherence != null ? entry.adherence : 0}%"></div>
-            </div>
-          </td>
-          <td class="text-danger">${entry.absenteeism != null ? entry.absenteeism.toFixed(1) + '%' : '—'}</td>
-        `;
-        attendanceTableBody.appendChild(tr);
+
+      section.classList.remove('d-none');
+      document.querySelector('[data-coaching-total]').textContent = formatNumber(data.summary.sessions);
+      document.querySelector('[data-coaching-ack]').textContent = formatNumber(data.summary.acknowledgements);
+
+      var tbody = document.getElementById('coachingTableBody');
+      var emptyState = section.querySelector('[data-coaching-empty]');
+      tbody.innerHTML = '';
+      if (!data.recent || !data.recent.length) {
+        emptyState.classList.remove('d-none');
+        return;
+      }
+      emptyState.classList.add('d-none');
+
+      data.recent.forEach(function (row) {
+        var tr = document.createElement('tr');
+        tr.innerHTML = '\n          <td>' + (row.agent || '') + '</td>\n          <td>' + formatDateOnly(row.sessionDate) + '</td>\n          <td>' + formatDateOnly(row.followUp) + '</td>\n          <td>' + (row.notes || '') + '</td>\n        ';
+        tbody.appendChild(tr);
       });
     }
 
-    function renderAttendanceChart(campaignId) {
-      const history = state.attendance.history[campaignId] || [];
-      const labels = history.slice(-6).map(function (entry) { return entry.week; });
-      const adherence = history.slice(-6).map(function (entry) { return entry.adherence != null ? Number(entry.adherence.toFixed(1)) : null; });
-      const absenteeism = history.slice(-6).map(function (entry) { return entry.absenteeism != null ? Number(entry.absenteeism.toFixed(1)) : null; });
-      const hasData = labels.length && adherence.some(function (v) { return v != null; });
-      const container = attendanceChartCanvas.parentElement;
-      if (!hasData) {
-        if (state.charts.attendance) {
-          state.charts.attendance.destroy();
-          state.charts.attendance = null;
-        }
-        ensureEmptyState(container, 'No adherence trend data available for this campaign.');
+    function renderEscalationSection(data) {
+      var section = document.getElementById('escalationSection');
+      if (!data || !data.summary) {
+        section.classList.add('d-none');
         return;
       }
-      ensureEmptyState(container, '');
-      const adherenceData = adherence.map(function (value) { return value == null ? null : value; });
-      const absenteeismData = absenteeism.map(function (value) { return value == null ? null : value; });
-      if (state.charts.attendance) {
-        state.charts.attendance.data.labels = labels;
-        state.charts.attendance.data.datasets[0].data = adherenceData;
-        state.charts.attendance.data.datasets[1].data = absenteeismData;
-        state.charts.attendance.update();
-      } else {
-        state.charts.attendance = new Chart(attendanceChartCanvas.getContext('2d'), {
-          type: 'line',
-          data: {
-            labels: labels,
-            datasets: [
-              {
-                label: 'Adherence %',
-                data: adherenceData,
-                borderColor: '#10b981',
-                backgroundColor: 'rgba(16, 185, 129, 0.12)',
-                tension: 0.35,
-                borderWidth: 3,
-                fill: true
-              },
-              {
-                label: 'Absenteeism %',
-                data: absenteeismData,
-                borderColor: '#ef4444',
-                backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                tension: 0.35,
-                borderWidth: 2,
-                fill: true
-              }
-            ]
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-              legend: {
-                display: true,
-                position: 'bottom'
-              }
-            },
-            scales: {
-              y: {
-                ticks: {
-                  callback: function (value) { return value + '%'; }
-                }
-              }
-            }
-          }
-        });
-      }
-    }
 
-    function renderAttendanceSection() {
-      renderAttendanceOptions();
-      renderAttendanceAverage();
-      const selected = attendanceCampaignSelect.value || (state.attendance.campaigns[0] && (state.attendance.campaigns[0].id || state.attendance.campaigns[0].name));
-      if (selected) {
-        renderAttendanceTable(selected);
-        renderAttendanceChart(selected);
-      } else {
-        attendanceTableBody.innerHTML = '<tr><td colspan="3" class="text-center text-secondary py-3">No attendance data available.</td></tr>';
-        if (state.charts.attendance) {
-          state.charts.attendance.destroy();
-          state.charts.attendance = null;
-        }
-        ensureEmptyState(attendanceChartCanvas.parentElement, 'No adherence trend data available.');
-      }
-      syncToplineCards();
-    }
+      section.classList.remove('d-none');
+      document.querySelector('[data-escalation-total]').textContent = formatNumber(data.summary.openItems);
 
-    function renderChatPersonaFilters() {
-      personaFiltersContainer.innerHTML = '';
-      const personas = state.chat.personas || [];
-      if (!personas.length) {
-        personaFiltersContainer.innerHTML = '<div class="text-secondary small">No collaboration personas available.</div>';
+      var tbody = document.getElementById('escalationTableBody');
+      var emptyState = section.querySelector('[data-escalation-empty]');
+      tbody.innerHTML = '';
+      if (!data.recent || !data.recent.length) {
+        emptyState.classList.remove('d-none');
         return;
       }
-      personas.forEach(function (persona) {
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'persona-chip btn btn-link text-start ' + (state.activePersona === persona.key ? 'active' : '');
-        button.innerHTML = `<i class="fas ${persona.icon || 'fa-comments'}"></i> ${persona.label || persona.key}`;
-        button.addEventListener('click', function () {
-          setChatFloatingExpanded(true);
-          state.activePersona = persona.key;
-          const threads = state.chat.threads[state.activePersona] || [];
-          state.activeThreadId = threads.length ? threads[0].id : null;
-          renderChatPersonaFilters();
-          renderChatThreads();
-          renderActiveThread();
-        });
-        personaFiltersContainer.appendChild(button);
+      emptyState.classList.add('d-none');
+
+      data.recent.forEach(function (row) {
+        var tr = document.createElement('tr');
+        tr.innerHTML = '\n          <td>' + (row.type || '') + '</td>\n          <td>' + (row.owner || '') + '</td>\n          <td>' + formatDate(row.createdAt) + '</td>\n          <td>' + (row.notes || '') + '</td>\n        ';
+        tbody.appendChild(tr);
       });
     }
 
-    function renderChatThreads() {
-      chatThreadList.innerHTML = '';
-      const threads = state.chat.threads[state.activePersona] || [];
-      if (!threads.length) {
-        chatThreadList.innerHTML = '<div class="text-secondary small">No threads available for this audience.</div>';
-        return;
-      }
-      threads.forEach(function (thread) {
-        const card = document.createElement('div');
-        card.className = 'thread-card ' + (thread.id === state.activeThreadId ? 'active' : '');
-        card.innerHTML = `
-          <div class="title">${thread.title || 'Thread'}</div>
-          <div class="thread-meta mt-2">
-            <span><i class="fas fa-users"></i> ${thread.audience || 'Team'}</span>
-            <span><i class="fas fa-clock"></i> ${formatRelativeTime(thread.updated)}</span>
-          </div>
-        `;
-        card.addEventListener('click', function () {
-          setChatFloatingExpanded(true);
-          state.activeThreadId = thread.id;
-          renderChatThreads();
-          renderActiveThread();
-        });
-        chatThreadList.appendChild(card);
-      });
-    }
-
-    function renderActiveThread() {
-      chatStream.innerHTML = '';
-      const threads = state.chat.threads[state.activePersona] || [];
-      const thread = threads.find(function (entry) { return entry.id === state.activeThreadId; });
-      if (!thread) {
-        chatAudienceLabel.textContent = 'selected participants';
-        chatStream.innerHTML = '<div class="text-secondary small text-center py-4">Select a thread to view messages.</div>';
-        setChatComposerEnabled(false);
-        return;
-      }
-      chatAudienceLabel.textContent = thread.audience || 'participants';
-      if (!thread.messages || !thread.messages.length) {
-        chatStream.innerHTML = '<div class="text-secondary small text-center py-4">No messages yet.</div>';
-      } else {
-        thread.messages.forEach(function (message) {
-          const wrapper = document.createElement('div');
-          wrapper.className = 'chat-message';
-          wrapper.innerHTML = `
-            <div class="avatar">${(message.author || 'U').charAt(0)}</div>
-            <div class="bubble">
-              <div class="d-flex justify-content-between align-items-center">
-                <div class="author">${message.author || 'Team'}</div>
-                <div class="timestamp">${formatRelativeTime(message.time)}</div>
-              </div>
-              <div class="mt-1">${message.text || ''}</div>
-              <div class="tags">${(message.tags || []).map(function (tag) {
-                return `<span class="chat-tag"><i class="fas fa-tag"></i> ${tag}</span>`;
-              }).join('')}</div>
-            </div>
-          `;
-          chatStream.appendChild(wrapper);
-        });
-        chatStream.scrollTop = chatStream.scrollHeight;
-      }
-      setChatComposerEnabled(!!thread.channelId);
-    }
-
-    function refreshChatUI() {
-      const personas = state.chat.personas || [];
-      if (!state.activePersona && personas.length) {
-        state.activePersona = personas[0].key;
-      }
-      const threads = state.chat.threads[state.activePersona] || [];
-      if (!state.activeThreadId && threads.length) {
-        state.activeThreadId = threads[0].id;
-      }
-      renderChatPersonaFilters();
-      renderChatThreads();
-      renderActiveThread();
-      updateChatFloatingVisibility();
-      updateChatFloatingMeta();
-      updateBannerMetrics();
-    }
-
-    function applyQaData(data) {
-      state.qa.records = (data.records || []).slice();
-      state.qa.directory = data.directory || state.qa.directory;
-      state.qa.metrics = data.metrics || {};
-      state.qa.trend = data.trend || { labels: [], values: [] };
-      renderQADirectory();
-      renderQATable();
-      renderQAMetrics();
-      renderQaTrendChart();
-      updateBannerMetrics();
-    }
-
-    function applyAttendanceData(data) {
-      state.attendance.campaigns = data.campaigns || [];
-      state.attendance.history = data.history || {};
-      state.attendance.summary = data.summary || {};
-      renderAttendanceSection();
-      updateBannerMetrics();
-    }
-
-    function applyExecutiveData(data) {
-      state.executive.summary = data.summary || null;
-      state.executive.campaigns = data.campaigns || [];
-      state.executive.brief = data.brief || [];
-      state.executive.timeframeLabel = data.timeframeLabel || '';
-      state.executive.payPeriod = data.payPeriod || null;
-      renderExecutiveSection();
-      updateBannerMetrics();
-    }
-
-    function applyChatData(data) {
-      state.chat.personas = data.personas || [];
-      state.chat.threads = data.threads || {};
-      state.activePersona = null;
-      state.activeThreadId = null;
-      refreshChatUI();
-    }
-
-    function applyTeamData(data) {
-      data = data || {};
-      state.teams.overview = data.overview || null;
-      state.teams.managers = Array.isArray(data.managers) ? data.managers : [];
-      state.teams.guests = Array.isArray(data.guests) ? data.guests : [];
-      state.teams.managerTabs = Array.isArray(data.managerTabs) ? data.managerTabs : [];
-      state.teams.pagination = { pageSize: TEAM_TABLE_PAGE_SIZE, scopes: {} };
-      renderTeamTabs();
-      renderQADirectory();
-    }
-
-    function renderTeamTabs() {
-      if (!teamTabsNav || !teamTabContent) return;
-      const hasManagers = Array.isArray(state.teams.managerTabs) && state.teams.managerTabs.length > 0;
-      const hasDirectory = (state.teams.managers && state.teams.managers.length) || (state.teams.guests && state.teams.guests.length);
-      teamTabsNav.innerHTML = '';
-      if (!hasManagers && !hasDirectory) {
-        teamTabContent.innerHTML = renderTeamEmptyState('No manager or guest collaboration data available yet.');
+    function renderHub(data) {
+      if (!data) {
+        showError();
         return;
       }
 
-      const tabs = [
-        { id: 'overview', label: 'Teams', type: 'overview' },
-        { id: 'managers', label: 'Managers', type: 'managers' },
-        { id: 'guests', label: 'Guests', type: 'guests' }
-      ];
+      hubTimestamp.textContent = data.generatedAt ? 'Updated ' + formatDate(data.generatedAt) : 'Updated just now';
+      hubStatus.classList.add('d-none');
 
-      (state.teams.managerTabs || []).forEach(function (entry, index) {
-        const safeId = sanitizeId(entry && entry.managerId ? entry.managerId : ('manager-' + index));
-        tabs.push({ id: safeId || ('manager-' + index), label: entry && entry.name ? entry.name : 'Manager', type: 'manager', data: entry });
-      });
-
-      teamTabContent.innerHTML = '';
-
-      tabs.forEach(function (tab, index) {
-        const navId = 'team-tab-' + tab.id;
-        const paneId = 'team-pane-' + tab.id;
-
-        const li = document.createElement('li');
-        li.className = 'nav-item';
-
-        const button = document.createElement('button');
-        button.className = 'nav-link' + (index === 0 ? ' active' : '');
-        button.id = navId;
-        button.type = 'button';
-        button.role = 'tab';
-        button.setAttribute('data-bs-toggle', 'pill');
-        button.setAttribute('data-bs-target', '#' + paneId);
-        button.textContent = tab.label;
-
-        li.appendChild(button);
-        teamTabsNav.appendChild(li);
-
-        const pane = document.createElement('div');
-        pane.className = 'tab-pane fade' + (index === 0 ? ' show active' : '');
-        pane.id = paneId;
-        pane.role = 'tabpanel';
-        pane.setAttribute('aria-labelledby', navId);
-        pane.dataset.tabType = tab.type || '';
-        if (tab.type === 'manager') {
-          if (tab.id) {
-            pane.dataset.managerKey = tab.id;
-          }
-          if (tab.data && tab.data.managerId !== undefined && tab.data.managerId !== null) {
-            pane.dataset.managerId = String(tab.data.managerId);
-          }
-        }
-        pane.innerHTML = renderTeamTabContent(tab);
-        teamTabContent.appendChild(pane);
-      });
+      renderQaSection(data.qa);
+      renderAttendanceSection(data.attendance);
+      renderCoachingSection(data.coaching);
+      renderEscalationSection(data.escalations);
     }
 
-    function renderTeamTabContent(tab) {
-      if (!tab) return renderTeamEmptyState('No data available.');
-      if (tab.type === 'overview') return renderTeamOverviewTab();
-      if (tab.type === 'managers') return renderTeamManagersTab();
-      if (tab.type === 'guests') return renderTeamGuestsTab();
-      if (tab.type === 'manager') return renderManagerTeamTab(tab.data, tab.id);
-      return renderTeamEmptyState('No data available.');
-    }
-
-    function ensureTeamPagination() {
-      if (!state.teams.pagination) {
-        state.teams.pagination = { pageSize: TEAM_TABLE_PAGE_SIZE, scopes: {} };
-      }
-      if (!state.teams.pagination.scopes) {
-        state.teams.pagination.scopes = {};
-      }
-      if (!state.teams.pagination.pageSize) {
-        state.teams.pagination.pageSize = TEAM_TABLE_PAGE_SIZE;
-      }
-    }
-
-    function getTeamPage(scope) {
-      ensureTeamPagination();
-      const page = state.teams.pagination.scopes[scope];
-      return page && page > 0 ? page : 1;
-    }
-
-    function setTeamPage(scope, page) {
-      ensureTeamPagination();
-      state.teams.pagination.scopes[scope] = page;
-    }
-
-    function clampTeamPage(scope, totalPages) {
-      const maxPages = totalPages && totalPages > 0 ? totalPages : 1;
-      const current = getTeamPage(scope);
-      const clamped = Math.min(Math.max(current, 1), maxPages);
-      setTeamPage(scope, clamped);
-      return clamped;
-    }
-
-    function adjustTeamPagination(scope, delta) {
-      ensureTeamPagination();
-      const change = Number(delta) || 0;
-      const next = getTeamPage(scope) + change;
-      state.teams.pagination.scopes[scope] = next > 0 ? next : 1;
-    }
-
-    function renderTeamPaginationControls(scope, current, totalPages, rangeStart, rangeEnd, totalCount) {
-      if (!totalPages || totalPages <= 1) return '';
-      const safeStart = rangeStart || 1;
-      const safeEnd = rangeEnd || safeStart;
-      const safeTotal = totalCount || safeEnd;
-      return `
-        <div class="team-pagination-bar">
-          <div class="d-flex flex-column flex-sm-row align-items-start align-items-sm-center justify-content-between gap-2">
-            <div class="text-secondary small">Showing ${safeStart}&ndash;${safeEnd} of ${safeTotal}</div>
-            <div class="d-flex align-items-center gap-2">
-              <button type="button" class="btn btn-outline-primary btn-sm" data-team-page-key="${scope}" data-team-page-direction="prev" ${current <= 1 ? 'disabled' : ''}>
-                <i class="fas fa-chevron-left"></i>
-              </button>
-              <span class="small fw-semibold">Page ${current} of ${totalPages}</span>
-              <button type="button" class="btn btn-outline-primary btn-sm" data-team-page-key="${scope}" data-team-page-direction="next" ${current >= totalPages ? 'disabled' : ''}>
-                <i class="fas fa-chevron-right"></i>
-              </button>
-            </div>
-          </div>
-        </div>
-      `;
-    }
-
-    function rerenderTeamPane(pane) {
-      if (!pane) return;
-      const tabType = pane.getAttribute('data-tab-type');
-      if (!tabType) return;
-      if (tabType === 'overview') {
-        pane.innerHTML = renderTeamOverviewTab();
-        return;
-      }
-      if (tabType === 'managers') {
-        pane.innerHTML = renderTeamManagersTab();
-        return;
-      }
-      if (tabType === 'guests') {
-        pane.innerHTML = renderTeamGuestsTab();
-        return;
-      }
-      if (tabType === 'manager') {
-        const managerKey = pane.getAttribute('data-manager-key') || '';
-        const managerId = pane.getAttribute('data-manager-id') || '';
-        const managerTab = (state.teams.managerTabs || []).find(function (entry, index) {
-          if (!entry) return false;
-          if (managerId && String(entry.managerId) === managerId) return true;
-          const safeId = sanitizeId(entry && entry.managerId ? entry.managerId : ('manager-' + index));
-          return safeId === managerKey;
-        });
-        pane.innerHTML = renderManagerTeamTab(managerTab, managerKey);
-      }
-    }
-
-    function rerenderAllTeamPanes() {
-      if (!teamTabContent) return;
-      const panes = teamTabContent.querySelectorAll('.tab-pane');
-      panes.forEach(function (pane) {
-        rerenderTeamPane(pane);
-      });
-    }
-
-    function renderTeamOverviewTab() {
-      const overview = state.teams.overview || {};
-      const managers = state.teams.managers || [];
-      const hasTeams = Array.isArray(state.teams.managerTabs) && state.teams.managerTabs.length > 0;
-      if (!hasTeams && !managers.length) {
-        return renderTeamEmptyState('No manager assignments available yet.');
-      }
-      const metricsHtml = `
-        <div class="team-summary-grid">
-          ${renderTeamMetricCard('Total Teams', formatTeamNumber(overview.totalTeams), 'fa-diagram-project')}
-          ${renderTeamMetricCard('Team Members', formatTeamNumber(overview.totalAgents), 'fa-users')}
-          ${renderTeamMetricCard('Quality Average', formatTeamPercent(overview.qualityAverage), 'fa-star')}
-          ${renderTeamMetricCard('Attendance Average', formatTeamPercent(overview.attendanceAverage), 'fa-calendar-check')}
-          ${renderTeamMetricCard('Call Volume', formatTeamNumber(overview.callVolume), 'fa-phone')}
-          ${renderTeamMetricCard('CSAT Average', formatTeamPercent(overview.csatAverage), 'fa-face-smile')}
-        </div>
-      `;
-      return metricsHtml + renderManagerSummaryTable(managers);
-    }
-
-    function renderTeamManagersTab() {
-      const managers = state.teams.managers || [];
-      if (!managers.length) {
-        return renderTeamEmptyState('No managers currently have assigned team members.');
-      }
-      const intro = '<p class="text-secondary">Managers with assigned collaborators and their aggregated performance.</p>';
-      return intro + renderManagerSummaryTable(managers);
-    }
-
-    function renderTeamGuestsTab() {
-      const guests = state.teams.guests || [];
-      if (!guests.length) {
-        return renderTeamEmptyState('No guest clients have been onboarded yet.');
-      }
-      const rows = guests.map(function (guest) {
-        const name = escapeHtml(guest.name || 'Guest');
-        const email = guest.email ? `<div class="team-member-meta">${escapeHtml(guest.email)}</div>` : '';
-        const campaign = guest.campaignName ? escapeHtml(guest.campaignName) : '—';
-        const roles = Array.isArray(guest.roles) && guest.roles.length ? escapeHtml(guest.roles.join(', ')) : '—';
-        return `
-          <tr>
-            <td>
-              <div class="team-member-name">${name}</div>
-              ${email}
-            </td>
-            <td>${campaign}</td>
-            <td>${roles}</td>
-          </tr>
-        `;
-      }).join('');
-      return `
-        <div class="table-responsive">
-          <table class="table table-hover align-middle team-table">
-            <thead>
-              <tr>
-                <th>Guest</th>
-                <th>Campaign</th>
-                <th>Roles</th>
-              </tr>
-            </thead>
-            <tbody>${rows}</tbody>
-          </table>
-        </div>
-      `;
-    }
-
-    function renderManagerTeamTab(managerTab, paneKey) {
-      if (!managerTab || !Array.isArray(managerTab.users) || !managerTab.users.length) {
-        return renderTeamEmptyState('This manager does not have any assigned team members yet.');
-      }
-      const summary = managerTab.summary || {};
-      let managerKey = paneKey || '';
-      if (!managerKey && managerTab && managerTab.managerId !== undefined && managerTab.managerId !== null) {
-        managerKey = sanitizeId(managerTab.managerId);
-      }
-      if (!managerKey && managerTab && managerTab.name) {
-        managerKey = sanitizeId(managerTab.name);
-      }
-      if (!managerKey) {
-        managerKey = 'manager';
-      }
-      const scope = managerKey ? 'managerMembers:' + managerKey : 'managerMembers';
-      const metricsHtml = `
-        <div class="team-summary-grid">
-          ${renderTeamMetricCard('Team Members', formatTeamNumber(summary.teamSize), 'fa-users')}
-          ${renderTeamMetricCard('Quality Average', formatTeamPercent(summary.qualityAverage), 'fa-star')}
-          ${renderTeamMetricCard('Attendance Average', formatTeamPercent(summary.attendanceAverage), 'fa-calendar-check')}
-          ${renderTeamMetricCard('Call Volume', formatTeamNumber(summary.callVolume), 'fa-phone')}
-          ${renderTeamMetricCard('CSAT Average', formatTeamPercent(summary.csatAverage), 'fa-face-smile')}
-        </div>
-      `;
-      return metricsHtml + renderTeamMembersTable(managerTab.users, scope);
-    }
-
-    function renderManagerSummaryTable(managers) {
-      if (!managers || !managers.length) {
-        return renderTeamEmptyState('No managers currently have assigned teams.');
-      }
-      const scope = 'managerSummary';
-      const pageSize = (state.teams.pagination && state.teams.pagination.pageSize) || TEAM_TABLE_PAGE_SIZE;
-      const total = managers.length;
-      const totalPages = Math.max(1, Math.ceil(total / pageSize));
-      const current = clampTeamPage(scope, totalPages);
-      const startIndex = (current - 1) * pageSize;
-      const pageManagers = managers.slice(startIndex, startIndex + pageSize);
-      const rows = pageManagers.map(function (manager) {
-        const name = escapeHtml(manager.name || 'Manager');
-        const email = manager.email ? `<div class="team-member-meta">${escapeHtml(manager.email)}</div>` : '';
-        return `
-          <tr>
-            <td>
-              <div class="team-member-name">${name}</div>
-              ${email}
-            </td>
-            <td>${formatTeamNumber(manager.teamSize)}</td>
-            <td>${formatTeamPercent(manager.qualityAverage)}</td>
-            <td>${formatTeamPercent(manager.attendanceAverage)}</td>
-            <td>${formatTeamNumber(manager.callVolume)}</td>
-            <td>${formatTeamPercent(manager.csatAverage)}</td>
-          </tr>
-        `;
-      }).join('');
-      const rangeStart = startIndex + 1;
-      const rangeEnd = Math.min(startIndex + pageSize, total);
-      const paginationHtml = renderTeamPaginationControls(scope, current, totalPages, rangeStart, rangeEnd, total);
-      return `
-        <div class="table-responsive mt-4">
-          <table class="table table-hover align-middle team-table">
-            <thead>
-              <tr>
-                <th>Manager</th>
-                <th>Team Size</th>
-                <th>QA Avg</th>
-                <th>Attendance</th>
-                <th>Call Volume</th>
-                <th>CSAT</th>
-              </tr>
-            </thead>
-            <tbody>${rows}</tbody>
-          </table>
-        </div>
-        ${paginationHtml}
-      `;
-    }
-
-    function renderTeamMembersTable(users, scopeKey) {
-      if (!users || !users.length) {
-        return renderTeamEmptyState('No team members assigned.');
-      }
-      const scope = scopeKey || 'managerMembers';
-      const pageSize = (state.teams.pagination && state.teams.pagination.pageSize) || TEAM_TABLE_PAGE_SIZE;
-      const total = users.length;
-      const totalPages = Math.max(1, Math.ceil(total / pageSize));
-      const current = clampTeamPage(scope, totalPages);
-      const startIndex = (current - 1) * pageSize;
-      const pageUsers = users.slice(startIndex, startIndex + pageSize);
-      const rows = pageUsers.map(function (user) {
-        const name = escapeHtml(user.name || 'Team Member');
-        const email = user.email ? `<div class="team-member-meta">${escapeHtml(user.email)}</div>` : '';
-        const campaign = user.campaignName ? `<div class="team-member-meta">${escapeHtml(user.campaignName)}</div>` : '';
-        return `
-          <tr>
-            <td>
-              <div class="team-member-name">${name}</div>
-              ${email}
-              ${campaign}
-            </td>
-            <td>${formatTeamPercent(user.quality)}</td>
-            <td>${formatTeamPercent(user.attendance)}</td>
-            <td>${formatTeamNumber(user.callCount)}</td>
-            <td>${formatTeamPercent(user.csat)}</td>
-          </tr>
-        `;
-      }).join('');
-      const rangeStart = startIndex + 1;
-      const rangeEnd = Math.min(startIndex + pageSize, total);
-      const paginationHtml = renderTeamPaginationControls(scope, current, totalPages, rangeStart, rangeEnd, total);
-      return `
-        <div class="table-responsive mt-4">
-          <table class="table table-hover align-middle team-table">
-            <thead>
-              <tr>
-                <th>Team Member</th>
-                <th>Quality</th>
-                <th>Attendance</th>
-                <th>Call Count</th>
-                <th>CSAT</th>
-              </tr>
-            </thead>
-            <tbody>${rows}</tbody>
-          </table>
-        </div>
-        ${paginationHtml}
-      `;
-    }
-
-    function renderTeamMetricCard(label, value, icon, caption) {
-      return `
-        <div class="team-metric-card">
-          <div class="label"><i class="fas ${escapeHtml(icon)} me-2"></i>${escapeHtml(label)}</div>
-          <div class="value">${value}</div>
-          ${caption ? `<div class="caption">${escapeHtml(caption)}</div>` : ''}
-        </div>
-      `;
-    }
-
-    function formatTeamNumber(value, decimals) {
-      if (value === null || value === undefined || value === '') return '—';
-      const num = Number(value);
-      if (Number.isNaN(num)) return '—';
-      return formatNumber(num, decimals != null ? decimals : 0);
-    }
-
-    function formatTeamPercent(value) {
-      if (value === null || value === undefined || value === '') return '—';
-      const num = Number(value);
-      if (Number.isNaN(num)) return '—';
-      return formatPercent(num, 1);
-    }
-
-    function renderTeamEmptyState(message) {
-      return '<div class="text-secondary text-center py-4">' + escapeHtml(message || 'No data available.') + '</div>';
-    }
-
-    function sanitizeId(value) {
-      const text = value === null || value === undefined ? '' : String(value).toLowerCase();
-      const cleaned = text.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-      return cleaned || 'team';
-    }
-
-    function escapeHtml(value) {
-      if (value === null || value === undefined) return '';
-      return String(value).replace(/[&<>"']/g, function (ch) {
-        switch (ch) {
-          case '&': return '&amp;';
-          case '<': return '&lt;';
-          case '>': return '&gt;';
-          case '"': return '&quot;';
-          case "'": return '&#39;';
-          default: return ch;
-        }
-      });
-    }
-
-    function loadCollaborationData(force) {
-      if (state.isLoading && !force) return;
-      state.isLoading = true;
-      clearAlerts();
-      qaTableBody.innerHTML = '<tr><td colspan="8">' + loadingMessage + '</td></tr>';
-      attendanceTableBody.innerHTML = '<tr><td colspan="3">' + loadingMessage + '</td></tr>';
-      chatThreadList.innerHTML = loadingMessage;
-      chatStream.innerHTML = loadingMessage;
-      setChatComposerEnabled(false);
-      if (chatToggleMeta) {
-        chatToggleMeta.textContent = 'Loading…';
-      }
-      if (campaignConnectivityContainer) {
-        campaignConnectivityContainer.classList.remove('connectivity-grid', 'connectivity-empty');
-        campaignConnectivityContainer.innerHTML = loadingMessage;
-      }
-      if (teamTabsNav) teamTabsNav.innerHTML = '';
-      if (teamTabContent) teamTabContent.innerHTML = loadingMessage;
-
+    function loadHubData() {
+      toggleLoading(true);
       google.script.run
-        .withSuccessHandler(function (response) {
-          state.isLoading = false;
-          response = response || {};
-          state.campaigns = Array.isArray(response.campaigns) ? response.campaigns : [];
-          updateBannerFromResponse(response);
-          renderCampaignConnectivity();
-          if (response.qa) applyQaData(response.qa);
-          if (response.attendance) applyAttendanceData(response.attendance);
-          if (response.executive) applyExecutiveData(response.executive);
-          if (response.chat) applyChatData(response.chat);
-          if (response.teams) applyTeamData(response.teams);
-          renderQADirectory();
-          updateBannerMetrics();
+        .withSuccessHandler(function (data) {
+          toggleLoading(false);
+          renderHub(data);
         })
         .withFailureHandler(function (err) {
-          state.isLoading = false;
-          console.error(err);
-          showAlert(err && err.message ? err.message : 'Unable to load collaboration reporting data.', 'danger');
-          renderCampaignConnectivity();
+          toggleLoading(false);
+          var message = err && err.message ? err.message : 'Unable to reach the Apps Script service.';
+          showError(message);
         })
-        .clientGetCollaborationReportingData({});
+        .clientGetCollaborationReportingData();
     }
 
-    attendanceCampaignSelect.addEventListener('change', function (event) {
-      const campaignId = event.target.value;
-      renderAttendanceTable(campaignId);
-      renderAttendanceChart(campaignId);
+    refreshButton.addEventListener('click', function () {
+      loadHubData();
     });
 
-    qaForm.addEventListener('submit', function (event) {
-      event.preventDefault();
-      if (!qaForm.checkValidity()) {
-        qaForm.classList.add('was-validated');
-        return;
-      }
-      qaForm.classList.remove('was-validated');
-      setFormSubmitting(true);
-      const collaborators = Array.from(qaCollaboratorSelect.selectedOptions).map(function (opt) { return opt.value; }).filter(Boolean);
-      const campaignOption = qaCampaignSelect.selectedOptions[0];
-      const payload = {
-        agent: qaAgentSelect.value,
-        campaignId: qaCampaignSelect.value,
-        campaignName: campaignOption ? campaignOption.textContent : qaCampaignSelect.value,
-        reviewer: qaReviewerSelect.value,
-        collaborators: collaborators,
-        score: qaScoreInput.value ? Number(qaScoreInput.value) : '',
-        focusArea: qaFocusAreaSelect.value,
-        status: qaStatusSelect.value,
-        highlights: qaHighlightsField.value,
-        nextTouch: qaNextTouchInput.value,
-        channel: qaChannelSelect.value
-      };
-      google.script.run
-        .withSuccessHandler(function () {
-          setFormSubmitting(false);
-          qaForm.reset();
-          showAlert('Collaboration note shared with the QA channel.', 'success');
-        })
-        .withFailureHandler(function (err) {
-          setFormSubmitting(false);
-          console.error(err);
-          showAlert(err && err.message ? err.message : 'Unable to log the collaboration note.', 'danger');
-        })
-        .clientSubmitCollaborationNote(payload);
-    });
-
-    qaResetButton.addEventListener('click', function () {
-      qaForm.classList.remove('was-validated');
-      qaHighlightsField.value = '';
-    });
-
-    chatComposer.addEventListener('submit', function (event) {
-      event.preventDefault();
-      const threads = state.chat.threads[state.activePersona] || [];
-      const thread = threads.find(function (entry) { return entry.id === state.activeThreadId; });
-      const message = chatMessageInput.value.trim();
-      if (!thread || !thread.channelId || !message) {
-        return;
-      }
-      setChatComposerEnabled(false);
-      google.script.run
-        .withSuccessHandler(function () {
-          setChatComposerEnabled(true);
-          chatMessageInput.value = '';
-          const nowIso = new Date().toISOString();
-          thread.messages = thread.messages || [];
-          thread.messages.push({
-            author: (currentUser && currentUser.FullName) || 'You',
-            time: nowIso,
-            text: message,
-            tags: ['Update']
-          });
-          thread.updated = nowIso;
-          setChatFloatingExpanded(true);
-          renderChatThreads();
-          renderActiveThread();
-          setTimeout(function () { loadCollaborationData(true); }, 500);
-        })
-        .withFailureHandler(function (err) {
-          setChatComposerEnabled(true);
-          console.error(err);
-          showAlert(err && err.message ? err.message : 'Unable to post collaboration message.', 'danger');
-        })
-        .clientPostCollaborationThreadMessage({
-          channelId: thread.channelId,
-          campaignId: thread.campaignId || '',
-          message: message
-        });
-    });
-
-    initializeChatFloatingBar();
-    initializeCampaignFloatingBar();
-    syncToplineCards();
-    loadCollaborationData(false);
-  });
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', loadHubData);
+    } else {
+      loadHubData();
+    }
+  })();
 </script>
-
-
