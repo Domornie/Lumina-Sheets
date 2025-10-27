@@ -1,0 +1,524 @@
+<?!= includeOnce('ResponsiveStyles') ?>
+<?!= include('layout', {
+  baseUrl: baseUrl,
+  scriptUrl: scriptUrl,
+  user: user,
+  currentPage: (typeof currentPage !== 'undefined' && currentPage) ? currentPage : 'dynamic-form-dashboard',
+  pageSlug: (typeof pageSlug !== 'undefined' && pageSlug) ? pageSlug : 'dynamic-form-dashboard',
+  pageTitle: (typeof pageTitle !== 'undefined' && pageTitle) ? pageTitle : 'Dynamic Form Dashboard',
+  pageDescription: (typeof pageDescription !== 'undefined' && pageDescription) ? pageDescription : 'Monitor form creation trends and response activity across your dynamic forms.'
+}) ?>
+
+<?
+  var __pageRoot = (typeof baseUrl !== 'undefined' && baseUrl)
+    ? baseUrl
+    : ((typeof scriptUrl !== 'undefined' && scriptUrl) ? scriptUrl : '');
+?>
+
+<style>
+  :root {
+    --dfd-primary: #4f46e5;
+    --dfd-primary-dark: #4338ca;
+    --dfd-surface: #f8fafc;
+    --dfd-card: #ffffff;
+    --dfd-border: #e2e8f0;
+    --dfd-muted: #64748b;
+  }
+
+  body {
+    background: var(--dfd-surface);
+  }
+
+  .dynamic-form-dashboard {
+    max-width: 1280px;
+    margin: 0 auto;
+  }
+
+  .dashboard-header {
+    background: linear-gradient(135deg, var(--dfd-primary) 0%, var(--dfd-primary-dark) 100%);
+    color: #fff;
+    padding: 2rem;
+    border-radius: 20px;
+    box-shadow: 0 20px 45px rgba(79, 70, 229, 0.25);
+    margin-bottom: 2rem;
+  }
+
+  .dashboard-header__content {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+  }
+
+  .dashboard-header h1 {
+    margin: 0;
+    font-size: 2rem;
+    font-weight: 600;
+  }
+
+  .dashboard-header p {
+    margin: 0.5rem 0 0;
+    max-width: 640px;
+    color: rgba(255, 255, 255, 0.8);
+  }
+
+  .dashboard-header__actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .dashboard-header__actions .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: #fff;
+    border-color: rgba(255, 255, 255, 0.6);
+  }
+
+  .metric-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-top: 1.5rem;
+  }
+
+  .metric-card {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 16px;
+    padding: 1.25rem;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+  }
+
+  .metric-card__label {
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.08em;
+    color: rgba(255, 255, 255, 0.75);
+  }
+
+  .metric-card__value {
+    font-size: 2rem;
+    font-weight: 600;
+    margin-top: 0.35rem;
+  }
+
+  .dashboard-section {
+    margin-bottom: 2rem;
+  }
+
+  .dashboard-section__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 1rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .dashboard-section__header h2 {
+    margin: 0;
+    font-size: 1.4rem;
+    font-weight: 600;
+    color: #0f172a;
+  }
+
+  .dashboard-section__header p {
+    margin: 0.25rem 0 0;
+    color: var(--dfd-muted);
+  }
+
+  .dashboard-card {
+    background: var(--dfd-card);
+    border-radius: 18px;
+    border: 1px solid var(--dfd-border);
+    box-shadow: 0 15px 35px rgba(15, 23, 42, 0.07);
+    padding: 1.5rem;
+  }
+
+  table.dashboard-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  table.dashboard-table th,
+  table.dashboard-table td {
+    padding: 0.75rem 0.5rem;
+    text-align: left;
+    border-bottom: 1px solid var(--dfd-border);
+    font-size: 0.95rem;
+  }
+
+  table.dashboard-table th {
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.08em;
+    color: var(--dfd-muted);
+  }
+
+  table.dashboard-table td:last-child,
+  table.dashboard-table th:last-child {
+    text-align: right;
+  }
+
+  .dashboard-status {
+    padding: 0.85rem 1rem;
+    border-radius: 12px;
+    margin-bottom: 1.25rem;
+    font-size: 0.95rem;
+    background: #eff6ff;
+    color: #1d4ed8;
+    display: none;
+  }
+
+  .dashboard-status.is-visible {
+    display: block;
+  }
+
+  .dashboard-status--error {
+    background: #fee2e2;
+    color: #b91c1c;
+  }
+
+  .dashboard-status--info {
+    background: #e0f2fe;
+    color: #0369a1;
+  }
+
+  .recent-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+  }
+
+  .recent-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--dfd-border);
+    padding-bottom: 0.75rem;
+  }
+
+  .recent-item__info {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .recent-item__title {
+    font-weight: 600;
+    color: #0f172a;
+  }
+
+  .recent-item__meta {
+    color: var(--dfd-muted);
+    font-size: 0.9rem;
+  }
+
+  .recent-item__count {
+    font-weight: 600;
+    color: var(--dfd-primary);
+    font-size: 1rem;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 2rem 1rem;
+    color: var(--dfd-muted);
+  }
+
+  @media (max-width: 768px) {
+    .dashboard-header {
+      padding: 1.75rem 1.25rem;
+    }
+  }
+</style>
+
+<main class='dynamic-form-dashboard container-fluid py-4 px-4 px-lg-5'>
+  <div class='dashboard-header'>
+    <div class='dashboard-header__content'>
+      <div>
+        <h1>Dynamic Form Dashboard</h1>
+        <p>Review how teams are using dynamic forms, monitor response velocity, and jump into detailed submissions when you need to investigate.</p>
+      </div>
+      <div class='dashboard-header__actions'>
+        <a class='btn btn-outline-light' href='<?= __pageRoot ?>?page=dynamic-forms'>
+          <i class='fas fa-list'></i>
+          <span>View responses</span>
+        </a>
+      </div>
+    </div>
+    <div id='metricCards' class='metric-cards'></div>
+  </div>
+
+  <div id='dashboardStatus' class='dashboard-status'></div>
+
+  <section class='dashboard-section'>
+    <div class='dashboard-section__header'>
+      <div>
+        <h2>Top forms</h2>
+        <p>Most active forms ranked by total responses.</p>
+      </div>
+    </div>
+    <div class='dashboard-card'>
+      <div class='table-responsive'>
+        <table class='dashboard-table'>
+          <thead>
+            <tr>
+              <th>Form</th>
+              <th>Responses</th>
+              <th>Last submission</th>
+              <th>Response sheet</th>
+            </tr>
+          </thead>
+          <tbody id='topFormsBody'>
+            <tr>
+              <td colspan='4' class='empty-state'>Loading…</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class='dashboard-section'>
+    <div class='dashboard-section__header'>
+      <div>
+        <h2>Recent submissions</h2>
+        <p>Latest activity across all dynamic forms.</p>
+      </div>
+    </div>
+    <div class='dashboard-card'>
+      <div id='recentResponses' class='recent-list'>
+        <div class='empty-state'>Loading…</div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+  (function () {
+    const metricCardsEl = document.getElementById('metricCards');
+    const statusEl = document.getElementById('dashboardStatus');
+    const topFormsBody = document.getElementById('topFormsBody');
+    const recentListEl = document.getElementById('recentResponses');
+
+    const state = {
+      loading: true,
+      error: '',
+      data: null
+    };
+
+    function canUseGoogleScript() {
+      return typeof google !== 'undefined' && google && google.script && typeof google.script.run !== 'undefined';
+    }
+
+    function formatNumber(value) {
+      if (value === null || typeof value === 'undefined') return '0';
+      const number = Number(value);
+      if (isNaN(number)) return String(value);
+      return number.toLocaleString();
+    }
+
+    function formatAverage(value) {
+      if (value === null || typeof value === 'undefined') return '0.0';
+      const number = Number(value);
+      if (isNaN(number)) return String(value);
+      return (Math.round(number * 10) / 10).toLocaleString();
+    }
+
+    function formatDate(value) {
+      if (!value) return '—';
+      const date = value instanceof Date ? value : new Date(value);
+      if (isNaN(date.getTime())) return '—';
+      return date.toLocaleString();
+    }
+
+    function setStatus(message, type) {
+      if (!statusEl) return;
+      if (!message) {
+        statusEl.classList.remove('is-visible');
+        statusEl.textContent = '';
+        return;
+      }
+      statusEl.textContent = message;
+      statusEl.className = 'dashboard-status is-visible';
+      if (type) {
+        statusEl.classList.add('dashboard-status--' + type);
+      }
+    }
+
+    function renderMetrics(summary) {
+      if (!metricCardsEl) return;
+      metricCardsEl.innerHTML = '';
+      const metrics = [
+        { label: 'Total forms', value: formatNumber(summary.totalForms || 0) },
+        { label: 'Forms with sheets', value: formatNumber(summary.formsWithSheets || 0) },
+        { label: 'Responses captured', value: formatNumber(summary.totalResponses || 0) },
+        { label: 'Avg. per form', value: formatAverage(summary.averageResponsesPerForm || 0) }
+      ];
+      metrics.forEach(function (metric) {
+        const card = document.createElement('div');
+        card.className = 'metric-card';
+
+        const label = document.createElement('div');
+        label.className = 'metric-card__label';
+        label.textContent = metric.label;
+        card.appendChild(label);
+
+        const value = document.createElement('div');
+        value.className = 'metric-card__value';
+        value.textContent = metric.value;
+        card.appendChild(value);
+
+        metricCardsEl.appendChild(card);
+      });
+    }
+
+    function renderTopForms(summary) {
+      if (!topFormsBody) return;
+      topFormsBody.innerHTML = '';
+      const forms = Array.isArray(summary.responsesByForm) ? summary.responsesByForm.slice(0, 5) : [];
+      if (!forms.length) {
+        const row = document.createElement('tr');
+        const cell = document.createElement('td');
+        cell.colSpan = 4;
+        cell.className = 'empty-state';
+        cell.textContent = 'No responses recorded yet.';
+        row.appendChild(cell);
+        topFormsBody.appendChild(row);
+        return;
+      }
+
+      forms.forEach(function (entry) {
+        const row = document.createElement('tr');
+
+        const nameCell = document.createElement('td');
+        nameCell.textContent = entry.formName || 'Untitled form';
+        row.appendChild(nameCell);
+
+        const countCell = document.createElement('td');
+        countCell.textContent = formatNumber(entry.totalResponses || 0);
+        row.appendChild(countCell);
+
+        const lastCell = document.createElement('td');
+        lastCell.textContent = entry.lastSubmissionAt ? formatDate(entry.lastSubmissionAt) : '—';
+        row.appendChild(lastCell);
+
+        const sheetCell = document.createElement('td');
+        if (entry.responseSheetUrl) {
+          const link = document.createElement('a');
+          link.href = entry.responseSheetUrl;
+          link.target = '_blank';
+          link.rel = 'noopener noreferrer';
+          link.textContent = entry.responseSheetName ? 'Open sheet' : 'Open sheet';
+          if (entry.responseSheetName) {
+            link.title = entry.responseSheetName;
+          }
+          sheetCell.appendChild(link);
+        } else if (entry.responseSheetName) {
+          sheetCell.textContent = entry.responseSheetName;
+        } else {
+          sheetCell.textContent = '—';
+        }
+        row.appendChild(sheetCell);
+
+        topFormsBody.appendChild(row);
+      });
+    }
+
+    function renderRecentResponses(summary) {
+      if (!recentListEl) return;
+      recentListEl.innerHTML = '';
+      const recent = Array.isArray(summary.recentResponses) ? summary.recentResponses : [];
+      if (!recent.length) {
+        const empty = document.createElement('div');
+        empty.className = 'empty-state';
+        empty.textContent = 'No submissions have been recorded yet.';
+        recentListEl.appendChild(empty);
+        return;
+      }
+
+      recent.forEach(function (entry) {
+        const item = document.createElement('div');
+        item.className = 'recent-item';
+
+        const info = document.createElement('div');
+        info.className = 'recent-item__info';
+
+        const title = document.createElement('div');
+        title.className = 'recent-item__title';
+        title.textContent = entry.formName || 'Untitled form';
+        info.appendChild(title);
+
+        const meta = document.createElement('div');
+        meta.className = 'recent-item__meta';
+        const parts = [];
+        if (entry.userName) parts.push(entry.userName);
+        if (entry.userEmail) parts.push(entry.userEmail);
+        if (entry.submittedBy && entry.submittedBy !== entry.userName) parts.push('via ' + entry.submittedBy);
+        parts.push(formatDate(entry.submittedAt));
+        meta.textContent = parts.join(' · ');
+        info.appendChild(meta);
+
+        item.appendChild(info);
+
+        const count = document.createElement('div');
+        count.className = 'recent-item__count';
+        count.textContent = entry.answerCount === 1 ? '1 answer' : entry.answerCount + ' answers';
+        item.appendChild(count);
+
+        recentListEl.appendChild(item);
+      });
+    }
+
+    function render() {
+      if (state.loading) {
+        setStatus('Loading dashboard data…', 'info');
+        return;
+      }
+
+      if (state.error) {
+        setStatus(state.error, 'error');
+        return;
+      }
+
+      setStatus('');
+      const summary = state.data || {};
+      renderMetrics(summary);
+      renderTopForms(summary);
+      renderRecentResponses(summary);
+    }
+
+    function fetchData() {
+      if (!canUseGoogleScript()) {
+        state.loading = false;
+        state.error = 'This dashboard is only available within the Lumina workspace.';
+        render();
+        return;
+      }
+
+      state.loading = true;
+      render();
+      google.script.run
+        .withSuccessHandler(function (result) {
+          state.loading = false;
+          state.error = '';
+          state.data = result || {};
+          render();
+        })
+        .withFailureHandler(function (err) {
+          state.loading = false;
+          state.error = (err && err.message) ? err.message : 'Failed to load dashboard data.';
+          render();
+        })
+        .getDynamicFormDashboardData({});
+    }
+
+    if (document.readyState === 'complete' || document.readyState === 'interactive') {
+      fetchData();
+    } else {
+      document.addEventListener('DOMContentLoaded', fetchData);
+    }
+  })();
+</script>

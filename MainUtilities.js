@@ -1370,6 +1370,13 @@ function getAllPagesFromActualRouting() {
     // UTILITIES
     { key: 'ackform', title: 'Acknowledgment Form', icon: 'fas fa-signature', description: 'Employee acknowledgment and signature forms', isSystem: true, requiresAdmin: false, category: 'Forms & Utilities' },
     { key: 'proxy', title: 'Proxy Service', icon: 'fas fa-exchange-alt', description: 'Proxy service for external content access', isSystem: true, requiresAdmin: false, category: 'Forms & Utilities' },
+    { key: 'dynamic-form-dashboard', title: 'Dynamic Form Dashboard', icon: 'fas fa-chart-line', description: 'Track dynamic form creation and response trends', isSystem: true, requiresAdmin: false, category: 'Forms & Utilities' },
+    { key: 'dynamicformdashboard', title: 'Dynamic Form Dashboard', icon: 'fas fa-chart-line', description: 'Track dynamic form creation and response trends', isSystem: true, requiresAdmin: false, category: 'Forms & Utilities' },
+    { key: 'dynamicformsdashboard', title: 'Dynamic Form Dashboard', icon: 'fas fa-chart-line', description: 'Track dynamic form creation and response trends', isSystem: true, requiresAdmin: false, category: 'Forms & Utilities' },
+    { key: 'dynamic-forms', title: 'Dynamic Form Responses', icon: 'fas fa-clipboard-list', description: 'Review dynamic form submissions and applied user profile updates', isSystem: true, requiresAdmin: false, category: 'Forms & Utilities' },
+    { key: 'dynamicforms', title: 'Dynamic Form Responses', icon: 'fas fa-clipboard-list', description: 'Review dynamic form submissions and applied user profile updates', isSystem: true, requiresAdmin: false, category: 'Forms & Utilities' },
+    { key: 'formresponses', title: 'Dynamic Form Responses', icon: 'fas fa-clipboard-list', description: 'Review dynamic form submissions and applied user profile updates', isSystem: true, requiresAdmin: false, category: 'Forms & Utilities' },
+    { key: 'form-responses', title: 'Dynamic Form Responses', icon: 'fas fa-clipboard-list', description: 'Review dynamic form submissions and applied user profile updates', isSystem: true, requiresAdmin: false, category: 'Forms & Utilities' },
 
     // AUTH
     { key: 'setpassword', title: 'Set Password', icon: 'fas fa-key', description: 'Set new password for user account', isSystem: true, requiresAdmin: false, category: 'Authentication', isPublic: true },
