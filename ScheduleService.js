@@ -3855,6 +3855,72 @@ function clientGetCountryHolidays(countryCode, year) {
   }
 }
 
+  function clientRemoveAttendanceStatus(userName, date) {
+    try {
+      console.log('🧹 Clearing attendance status:', { userName, date });
+
+      const sheet = ensureScheduleSheetWithHeaders(ATTENDANCE_STATUS_SHEET, ATTENDANCE_STATUS_HEADERS);
+      const data = sheet.getDataRange().getValues();
+
+      if (!data.length) {
+        return {
+          success: true,
+          message: 'No attendance statuses found to clear.'
+        };
+      }
+
+      const headers = data[0];
+      const userNameIndex = headers.indexOf('UserName');
+      const dateIndex = headers.indexOf('Date');
+
+      if (userNameIndex === -1 || dateIndex === -1) {
+        throw new Error('Attendance status sheet is missing required headers.');
+      }
+
+      const normalizedUser = String(userName || '').trim();
+      const normalizedDate = String(date || '').trim();
+
+      if (!normalizedUser || !normalizedDate) {
+        throw new Error('Both userName and date are required to clear attendance status.');
+      }
+
+      let removed = false;
+
+      for (let row = data.length - 1; row >= 1; row--) {
+        const rowUser = String(data[row][userNameIndex] || '').trim();
+        const rowDate = String(data[row][dateIndex] || '').trim();
+
+        if (rowUser === normalizedUser && rowDate === normalizedDate) {
+          sheet.deleteRow(row + 1);
+          removed = true;
+          break;
+        }
+      }
+
+      if (removed) {
+        SpreadsheetApp.flush();
+        invalidateScheduleCaches();
+        return {
+          success: true,
+          message: `Attendance status cleared for ${normalizedUser} on ${normalizedDate}`
+        };
+      }
+
+      return {
+        success: true,
+        message: 'No matching attendance status found to clear.'
+      };
+
+    } catch (error) {
+      console.error('Error clearing attendance status:', error);
+      safeWriteError('clientRemoveAttendanceStatus', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
 // ────────────────────────────────────────────────────────────────────────────
 // SYSTEM DIAGNOSTICS - Enhanced with ScheduleUtilities integration
 // ────────────────────────────────────────────────────────────────────────────
