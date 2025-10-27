@@ -3,10 +3,10 @@
   baseUrl: baseUrl,
   scriptUrl: scriptUrl,
   user: user,
-  currentPage: currentPage || 'dynamic-forms',
-  pageSlug: pageSlug || 'dynamic-forms',
-  pageTitle: pageTitle || 'Dynamic Form Responses',
-  pageDescription: pageDescription || 'Review responses captured through tenant-aware forms and inspect the profile updates applied automatically.'
+  currentPage: (typeof currentPage !== 'undefined' && currentPage) ? currentPage : 'dynamic-forms',
+  pageSlug: (typeof pageSlug !== 'undefined' && pageSlug) ? pageSlug : 'dynamic-forms',
+  pageTitle: (typeof pageTitle !== 'undefined' && pageTitle) ? pageTitle : 'Dynamic Form Responses',
+  pageDescription: (typeof pageDescription !== 'undefined' && pageDescription) ? pageDescription : 'Review responses captured through tenant-aware forms and inspect the profile updates applied automatically.'
 }) ?>
 
 <?
