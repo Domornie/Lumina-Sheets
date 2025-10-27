@@ -256,9 +256,6 @@
         font-weight: 600;
         border-bottom: 2px solid rgba(13, 86, 176, 0.35);
         border-right: 1px solid rgba(13, 86, 176, 0.1);
-        position: sticky;
-        top: 0;
-        z-index: 2;
     }
 
     .attendance-calendar__table thead th:first-child {
@@ -411,6 +408,15 @@
         outline: none;
     }
 
+    .attendance-context-menu__item--danger {
+        color: #b91c1c;
+    }
+
+    .attendance-context-menu__item--danger:hover,
+    .attendance-context-menu__item--danger:focus {
+        background: rgba(239, 68, 68, 0.12);
+    }
+
     .attendance-context-menu__code {
         display: inline-flex;
         align-items: center;
@@ -422,6 +428,17 @@
         font-size: 0.85rem;
         text-transform: uppercase;
         color: #ffffff;
+    }
+
+    .attendance-context-menu__code--clear {
+        background: rgba(239, 68, 68, 0.2);
+        color: #b91c1c;
+        border: 1px solid rgba(239, 68, 68, 0.35);
+    }
+
+    .attendance-context-menu__divider {
+        margin: 0.25rem 0;
+        border-top: 1px solid rgba(15, 23, 42, 0.1);
     }
 
     .attendance-context-menu__text {
@@ -2517,7 +2534,70 @@
 </div>
 
     <!-- Toast Container -->
-    
+
+    <!-- Bulk Attendance Modal -->
+    <div class="modal fade" id="bulkAttendanceModal" tabindex="-1" aria-hidden="true" aria-labelledby="bulkAttendanceModalLabel">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="bulkAttendanceModalLabel">Bulk Attendance Update</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info small" role="status">
+                        Select multiple participants and days to apply the same attendance status with one action.
+                    </div>
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <label for="bulkAttendanceUserSelect" class="form-label mb-0">Participants</label>
+                            <div class="btn-group btn-group-sm" role="group" aria-label="Bulk participant selection">
+                                <button type="button" class="btn btn-outline-secondary" data-bulk-select-action="select-all" data-bulk-select-target="users">All</button>
+                                <button type="button" class="btn btn-outline-secondary" data-bulk-select-action="clear" data-bulk-select-target="users">Clear</button>
+                            </div>
+                        </div>
+                        <select id="bulkAttendanceUserSelect" class="form-select" multiple size="8" aria-describedby="bulkAttendanceUsersHelp"></select>
+                        <div id="bulkAttendanceUsersHelp" class="form-text">Use Ctrl (Windows) or ⌘ (Mac) to select multiple participants.</div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <label for="bulkAttendanceDaySelect" class="form-label mb-0">Days in Selected Period</label>
+                            <div class="btn-group btn-group-sm" role="group" aria-label="Bulk day selection">
+                                <button type="button" class="btn btn-outline-secondary" data-bulk-select-action="select-all" data-bulk-select-target="days">All</button>
+                                <button type="button" class="btn btn-outline-secondary" data-bulk-select-action="select-weekdays" data-bulk-select-target="days">Weekdays</button>
+                                <button type="button" class="btn btn-outline-secondary" data-bulk-select-action="select-weekends" data-bulk-select-target="days">Weekends</button>
+                                <button type="button" class="btn btn-outline-secondary" data-bulk-select-action="clear" data-bulk-select-target="days">Clear</button>
+                            </div>
+                        </div>
+                        <select id="bulkAttendanceDaySelect" class="form-select" multiple size="8" aria-describedby="bulkAttendanceDaysHelp"></select>
+                        <div id="bulkAttendanceDaysHelp" class="form-text">Pick the days to update or use the quick selection buttons.</div>
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label for="bulkAttendanceStatus" class="form-label">Status to Apply</label>
+                            <select id="bulkAttendanceStatus" class="form-select" aria-describedby="bulkAttendanceStatusHelp">
+                                <option value="">Select a status</option>
+                            </select>
+                            <div id="bulkAttendanceStatusHelp" class="form-text">The selected status will be applied to every chosen participant and day.</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="bulkAttendanceNotes" class="form-label">Notes (optional)</label>
+                            <textarea id="bulkAttendanceNotes" class="form-control" rows="3" placeholder="Add a note to include on new records"></textarea>
+                        </div>
+                    </div>
+                    <div id="bulkAttendanceFeedback" class="alert alert-warning d-none mt-3" role="alert"></div>
+                </div>
+                <div class="modal-footer">
+                    <div id="bulkAttendanceSummary" class="text-muted small me-auto">Select participants and dates to continue.</div>
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-outline-danger" id="bulkAttendanceClearWeekendBtn" data-default-label="Clear Weekend Statuses">Clear Weekend Statuses</button>
+                        <button type="button" class="btn btn-danger" id="bulkAttendanceClearAllBtn" data-default-label="Clear All Statuses">Clear All Statuses</button>
+                        <button type="button" class="btn btn-success" id="bulkAttendanceApplyBtn">Apply Status</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
@@ -2590,6 +2670,11 @@
                     yearly: { label: '', entries: [] }
                 };
                 this.attendanceCalendarRecords = [];
+                this.attendanceCalendarUserEntries = [];
+                this.attendanceCalendarUserLookup = new Map();
+                this.attendanceCalendarRange = null;
+                this.bulkAttendanceModalInstance = null;
+                this.bulkAttendanceApplying = false;
                 this.unifiedState = null;
                 this.unifiedStateAppliedAt = null;
                 this.attendanceCalendarPrefetch = null;
@@ -8104,6 +8189,26 @@
 
                     const userEntries = this.buildAttendanceUserEntries(combinedUsers, employedScheduleUsers);
 
+                    this.attendanceCalendarUserEntries = Array.isArray(userEntries) ? userEntries.slice() : [];
+                    this.attendanceCalendarUserLookup = new Map();
+                    this.attendanceCalendarUserEntries.forEach(entry => {
+                        if (!entry) {
+                            return;
+                        }
+                        const identifierCandidates = [
+                            entry.identifier,
+                            entry.original,
+                            entry.displayName
+                        ];
+                        identifierCandidates.forEach(value => {
+                            const normalized = this.normalizePersonKey(value);
+                            if (normalized && !this.attendanceCalendarUserLookup.has(normalized)) {
+                                this.attendanceCalendarUserLookup.set(normalized, entry);
+                            }
+                        });
+                    });
+                    this.attendanceCalendarRange = monthContext ? Object.assign({}, monthContext) : null;
+
                     this.attendanceCalendarRecords = attendanceRecords;
                     const mergeSource = attendanceYearRecords.length ? attendanceYearRecords : attendanceRecords;
                     if (mergeSource.length) {
@@ -8134,6 +8239,816 @@
                         container.innerHTML = this.renderAttendanceCalendarErrorState(label);
                     }
                     this.showToast('Failed to load attendance calendar. Please try again.', 'danger');
+                }
+            }
+
+            ensureBulkAttendanceModal() {
+                const modalElement = this.getBulkAttendanceModalElement();
+                if (!modalElement) {
+                    console.warn('Bulk attendance modal element is missing.');
+                    return null;
+                }
+
+                if (!this.bulkAttendanceModalInstance) {
+                    const self = this;
+                    if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                        this.bulkAttendanceModalInstance = new bootstrap.Modal(modalElement, {
+                            backdrop: 'static',
+                            keyboard: true
+                        });
+                        modalElement.addEventListener('hidden.bs.modal', () => {
+                            self.resetBulkAttendanceForm();
+                        });
+                    } else {
+                        this.bulkAttendanceModalInstance = {
+                            show() {
+                                modalElement.classList.add('show');
+                                modalElement.style.display = 'block';
+                                modalElement.removeAttribute('aria-hidden');
+                            },
+                            hide() {
+                                modalElement.classList.remove('show');
+                                modalElement.style.display = 'none';
+                                modalElement.setAttribute('aria-hidden', 'true');
+                                self.resetBulkAttendanceForm();
+                            }
+                        };
+                    }
+
+                    const applyButton = modalElement.querySelector('#bulkAttendanceApplyBtn');
+                    if (applyButton) {
+                        applyButton.addEventListener('click', () => this.applyBulkAttendanceStatus());
+                    }
+
+                    const clearWeekendButton = modalElement.querySelector('#bulkAttendanceClearWeekendBtn');
+                    if (clearWeekendButton) {
+                        clearWeekendButton.addEventListener('click', () => this.clearBulkAttendanceStatuses('weekends'));
+                    }
+
+                    const clearAllButton = modalElement.querySelector('#bulkAttendanceClearAllBtn');
+                    if (clearAllButton) {
+                        clearAllButton.addEventListener('click', () => this.clearBulkAttendanceStatuses('all'));
+                    }
+
+                    const changeSelectors = ['#bulkAttendanceUserSelect', '#bulkAttendanceDaySelect', '#bulkAttendanceStatus'];
+                    changeSelectors.forEach(selector => {
+                        const element = modalElement.querySelector(selector);
+                        if (element) {
+                            element.addEventListener('change', () => this.updateBulkAttendanceSummary());
+                        }
+                    });
+
+                    const quickSelectButtons = modalElement.querySelectorAll('[data-bulk-select-action]');
+                    quickSelectButtons.forEach(button => {
+                        button.addEventListener('click', (event) => {
+                            event.preventDefault();
+                            const action = event.currentTarget.getAttribute('data-bulk-select-action');
+                            const target = event.currentTarget.getAttribute('data-bulk-select-target');
+                            this.handleBulkAttendanceQuickSelect(action, target);
+                        });
+                    });
+                }
+
+                return this.bulkAttendanceModalInstance;
+            }
+
+            openBulkAttendanceModal() {
+                if (!Array.isArray(this.attendanceCalendarUserEntries) || !this.attendanceCalendarUserEntries.length) {
+                    this.showToast('Load the attendance calendar before using bulk marking.', 'warning');
+                    return;
+                }
+
+                const range = this.attendanceCalendarRange;
+                if (!range || !Number.isFinite(range.year) || !Number.isFinite(range.month) || !Number.isFinite(range.daysInMonth)) {
+                    this.showToast('Attendance calendar details are unavailable. Reload the calendar and try again.', 'warning');
+                    return;
+                }
+
+                const modalInstance = this.ensureBulkAttendanceModal();
+                if (!modalInstance) {
+                    this.showToast('Unable to open bulk attendance marking right now.', 'danger');
+                    return;
+                }
+
+                this.bulkAttendanceApplying = false;
+                this.setBulkAttendanceFormDisabled(false);
+                this.prepareBulkAttendanceModal();
+                this.updateBulkAttendanceSummary();
+
+                if (typeof modalInstance.show === 'function') {
+                    modalInstance.show();
+                }
+            }
+
+            prepareBulkAttendanceModal() {
+                const modalElement = document.getElementById('bulkAttendanceModal');
+                if (!modalElement) {
+                    return;
+                }
+
+                const userSelect = modalElement.querySelector('#bulkAttendanceUserSelect');
+                if (userSelect) {
+                    userSelect.innerHTML = '';
+                    const entries = Array.isArray(this.attendanceCalendarUserEntries)
+                        ? this.attendanceCalendarUserEntries.slice()
+                        : [];
+                    entries.sort((a, b) => {
+                        const labelA = (a?.displayName || a?.identifier || a?.original || '').toString().toLowerCase();
+                        const labelB = (b?.displayName || b?.identifier || b?.original || '').toString().toLowerCase();
+                        return labelA.localeCompare(labelB);
+                    });
+                    entries.forEach(entry => {
+                        if (!entry) {
+                            return;
+                        }
+                        const identifier = (entry.identifier || entry.original || '').toString();
+                        if (!identifier) {
+                            return;
+                        }
+                        const option = document.createElement('option');
+                        option.value = identifier;
+                        const display = (entry.displayName || identifier).toString();
+                        option.textContent = display;
+                        option.dataset.displayName = display;
+                        if (entry.original) {
+                            option.dataset.original = entry.original;
+                        }
+                        userSelect.appendChild(option);
+                    });
+                }
+
+                const daySelect = modalElement.querySelector('#bulkAttendanceDaySelect');
+                if (daySelect) {
+                    daySelect.innerHTML = '';
+                    if (this.attendanceCalendarRange) {
+                        const { year, month, daysInMonth } = this.attendanceCalendarRange;
+                        for (let day = 1; day <= daysInMonth; day++) {
+                            const iso = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                            const date = new Date(year, month - 1, day);
+                            const weekday = date.toLocaleDateString('en-US', { weekday: 'short' });
+                            const option = document.createElement('option');
+                            option.value = iso;
+                            option.textContent = `${iso} (${weekday})`;
+                            const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+                            option.dataset.weekend = isWeekend ? 'true' : 'false';
+                            option.dataset.weekday = weekday;
+                            daySelect.appendChild(option);
+                        }
+                    }
+                }
+
+                const statusSelect = modalElement.querySelector('#bulkAttendanceStatus');
+                if (statusSelect) {
+                    const previousValue = statusSelect.value;
+                    statusSelect.innerHTML = '<option value="">Select a status</option>';
+                    (this.attendanceStatusOptions || []).forEach(optionData => {
+                        if (!optionData) {
+                            return;
+                        }
+                        const option = document.createElement('option');
+                        option.value = optionData.value;
+                        option.textContent = `${optionData.label} (${optionData.code})`;
+                        option.dataset.code = optionData.code;
+                        option.dataset.className = optionData.className;
+                        statusSelect.appendChild(option);
+                    });
+                    if (previousValue && Array.from(statusSelect.options).some(option => option.value === previousValue)) {
+                        statusSelect.value = previousValue;
+                    }
+                }
+
+                const notesInput = modalElement.querySelector('#bulkAttendanceNotes');
+                if (notesInput) {
+                    notesInput.value = '';
+                }
+
+                const feedback = modalElement.querySelector('#bulkAttendanceFeedback');
+                if (feedback) {
+                    feedback.classList.add('d-none');
+                    feedback.classList.remove('alert-success');
+                    feedback.classList.add('alert-warning');
+                    feedback.textContent = '';
+                }
+            }
+
+            setBulkAttendanceFormDisabled(disabled) {
+                const modalElement = document.getElementById('bulkAttendanceModal');
+                if (!modalElement) {
+                    return;
+                }
+                const controls = modalElement.querySelectorAll('#bulkAttendanceUserSelect, #bulkAttendanceDaySelect, #bulkAttendanceStatus, #bulkAttendanceNotes');
+                controls.forEach(control => {
+                    if (control) {
+                        control.disabled = !!disabled;
+                    }
+                });
+                const quickButtons = modalElement.querySelectorAll('[data-bulk-select-action]');
+                quickButtons.forEach(button => {
+                    button.disabled = !!disabled;
+                });
+                const actionButtons = modalElement.querySelectorAll('#bulkAttendanceApplyBtn, #bulkAttendanceClearWeekendBtn, #bulkAttendanceClearAllBtn');
+                actionButtons.forEach(button => {
+                    button.disabled = !!disabled;
+                });
+            }
+
+            resetBulkAttendanceForm() {
+                const modalElement = document.getElementById('bulkAttendanceModal');
+                if (!modalElement) {
+                    return;
+                }
+                this.bulkAttendanceApplying = false;
+                this.setBulkAttendanceFormDisabled(false);
+                const applyButton = modalElement.querySelector('#bulkAttendanceApplyBtn');
+                if (applyButton) {
+                    applyButton.disabled = false;
+                    applyButton.innerHTML = 'Apply Status';
+                }
+                const clearWeekendButton = modalElement.querySelector('#bulkAttendanceClearWeekendBtn');
+                if (clearWeekendButton) {
+                    clearWeekendButton.disabled = false;
+                    clearWeekendButton.innerHTML = clearWeekendButton.dataset?.defaultLabel || 'Clear Weekend Statuses';
+                }
+                const clearAllButton = modalElement.querySelector('#bulkAttendanceClearAllBtn');
+                if (clearAllButton) {
+                    clearAllButton.disabled = false;
+                    clearAllButton.innerHTML = clearAllButton.dataset?.defaultLabel || 'Clear All Statuses';
+                }
+                const feedback = modalElement.querySelector('#bulkAttendanceFeedback');
+                if (feedback) {
+                    feedback.classList.add('d-none');
+                    feedback.classList.remove('alert-success');
+                    feedback.classList.add('alert-warning');
+                    feedback.textContent = '';
+                }
+                this.updateBulkAttendanceSummary();
+            }
+
+            updateBulkAttendanceSummary() {
+                const modalElement = document.getElementById('bulkAttendanceModal');
+                if (!modalElement) {
+                    return;
+                }
+                const summary = modalElement.querySelector('#bulkAttendanceSummary');
+                if (!summary) {
+                    return;
+                }
+
+                if (this.bulkAttendanceApplying) {
+                    summary.textContent = 'Applying updates...';
+                    return;
+                }
+
+                const userSelect = modalElement.querySelector('#bulkAttendanceUserSelect');
+                const daySelect = modalElement.querySelector('#bulkAttendanceDaySelect');
+                const statusSelect = modalElement.querySelector('#bulkAttendanceStatus');
+
+                const selectedUsers = userSelect ? Array.from(userSelect.selectedOptions || []) : [];
+                const selectedDays = daySelect ? Array.from(daySelect.selectedOptions || []) : [];
+                const statusValue = statusSelect ? statusSelect.value : '';
+
+                if (!selectedUsers.length && !selectedDays.length) {
+                    summary.textContent = 'Select participants and dates to continue.';
+                    return;
+                }
+
+                if (!selectedUsers.length) {
+                    summary.textContent = 'Select at least one participant to continue.';
+                    return;
+                }
+
+                if (!selectedDays.length) {
+                    summary.textContent = 'Select at least one day to apply a status, or leave days unselected and use the clear options to remove statuses for the full period.';
+                    return;
+                }
+
+                const combinationCount = selectedUsers.length * selectedDays.length;
+                const statusBadge = statusValue ? this.getAttendanceStatusBadge(statusValue) : null;
+                const statusLabel = statusBadge ? statusBadge.label : (statusValue || 'No status selected');
+
+                summary.textContent = `Ready to update ${combinationCount} cell${combinationCount === 1 ? '' : 's'} for ${selectedUsers.length} participant${selectedUsers.length === 1 ? '' : 's'} across ${selectedDays.length} day${selectedDays.length === 1 ? '' : 's'}. ${statusValue ? `Status: ${statusLabel}.` : 'Select a status to apply or use the clear options to remove statuses.'}`;
+            }
+
+            handleBulkAttendanceQuickSelect(action, target) {
+                const modalElement = document.getElementById('bulkAttendanceModal');
+                if (!modalElement) {
+                    return;
+                }
+
+                let selectElement = null;
+                if (target === 'users') {
+                    selectElement = modalElement.querySelector('#bulkAttendanceUserSelect');
+                } else if (target === 'days') {
+                    selectElement = modalElement.querySelector('#bulkAttendanceDaySelect');
+                }
+
+                if (!selectElement) {
+                    return;
+                }
+
+                const options = Array.from(selectElement.options || []);
+                if (!options.length) {
+                    return;
+                }
+
+                switch (action) {
+                    case 'select-all':
+                        options.forEach(option => {
+                            if (!option.disabled) {
+                                option.selected = true;
+                            }
+                        });
+                        break;
+                    case 'select-weekdays':
+                        options.forEach(option => {
+                            if (option.dataset.weekend === 'true') {
+                                option.selected = false;
+                            } else {
+                                option.selected = true;
+                            }
+                        });
+                        break;
+                    case 'select-weekends':
+                        options.forEach(option => {
+                            option.selected = option.dataset.weekend === 'true';
+                        });
+                        break;
+                    case 'clear':
+                    default:
+                        options.forEach(option => {
+                            option.selected = false;
+                        });
+                        break;
+                }
+
+                const changeEvent = new Event('change', { bubbles: false });
+                selectElement.dispatchEvent(changeEvent);
+            }
+
+            getBulkAttendanceModalElement() {
+                return document.getElementById('bulkAttendanceModal');
+            }
+
+            getBulkAttendanceSelectedUsers() {
+                const modalElement = this.getBulkAttendanceModalElement();
+                if (!modalElement) {
+                    return [];
+                }
+
+                const userSelect = modalElement.querySelector('#bulkAttendanceUserSelect');
+                if (!userSelect) {
+                    return [];
+                }
+
+                return Array.from(userSelect.selectedOptions || [])
+                    .map(option => (option.value || '').toString().trim())
+                    .filter(Boolean);
+            }
+
+            getBulkAttendanceSelectedDays() {
+                const modalElement = this.getBulkAttendanceModalElement();
+                if (!modalElement) {
+                    return [];
+                }
+
+                const daySelect = modalElement.querySelector('#bulkAttendanceDaySelect');
+                if (!daySelect) {
+                    return [];
+                }
+
+                return Array.from(daySelect.selectedOptions || [])
+                    .map(option => (option.value || '').toString().trim())
+                    .filter(Boolean);
+            }
+
+            getBulkAttendanceAllDays() {
+                const modalElement = this.getBulkAttendanceModalElement();
+                if (!modalElement) {
+                    return [];
+                }
+
+                const daySelect = modalElement.querySelector('#bulkAttendanceDaySelect');
+                if (!daySelect) {
+                    return [];
+                }
+
+                return Array.from(daySelect.options || [])
+                    .map(option => (option.value || '').toString().trim())
+                    .filter(Boolean);
+            }
+
+            isWeekendIsoDate(isoDate) {
+                if (!isoDate || typeof isoDate !== 'string') {
+                    return false;
+                }
+
+                const parts = isoDate.split('-');
+                if (parts.length !== 3) {
+                    return false;
+                }
+
+                const year = parseInt(parts[0], 10);
+                const month = parseInt(parts[1], 10);
+                const day = parseInt(parts[2], 10);
+
+                if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
+                    return false;
+                }
+
+                const date = new Date(year, month - 1, day);
+                if (Number.isNaN(date.getTime())) {
+                    return false;
+                }
+
+                const weekday = date.getDay();
+                return weekday === 0 || weekday === 6;
+            }
+
+            buildBulkAttendanceCombinations(users, days) {
+                if (!Array.isArray(users) || !Array.isArray(days)) {
+                    return [];
+                }
+
+                const combinations = [];
+                const seenKeys = new Set();
+
+                users.forEach(user => {
+                    const normalizedUser = (user || '').toString().trim();
+                    if (!normalizedUser) {
+                        return;
+                    }
+
+                    days.forEach(date => {
+                        const normalizedDate = (date || '').toString().trim();
+                        if (!normalizedDate) {
+                            return;
+                        }
+
+                        const key = `${normalizedUser}::${normalizedDate}`;
+                        if (seenKeys.has(key)) {
+                            return;
+                        }
+
+                        seenKeys.add(key);
+                        combinations.push({ userName: normalizedUser, date: normalizedDate });
+                    });
+                });
+
+                return combinations;
+            }
+
+            async clearBulkAttendanceStatuses(mode = 'all') {
+                if (this.bulkAttendanceApplying) {
+                    return;
+                }
+
+                const modalElement = this.getBulkAttendanceModalElement();
+                if (!modalElement) {
+                    return;
+                }
+
+                const feedback = modalElement.querySelector('#bulkAttendanceFeedback');
+                const applyButton = modalElement.querySelector('#bulkAttendanceApplyBtn');
+                const clearWeekendButton = modalElement.querySelector('#bulkAttendanceClearWeekendBtn');
+                const clearAllButton = modalElement.querySelector('#bulkAttendanceClearAllBtn');
+
+                const selectedUsers = this.getBulkAttendanceSelectedUsers();
+                if (!selectedUsers.length) {
+                    if (feedback) {
+                        feedback.classList.remove('d-none');
+                        feedback.classList.remove('alert-success');
+                        feedback.classList.add('alert-warning');
+                        feedback.textContent = 'Select at least one participant to clear attendance statuses.';
+                    }
+                    return;
+                }
+
+                let selectedDays = this.getBulkAttendanceSelectedDays();
+                const manualDaySelection = selectedDays.length > 0;
+                if (!selectedDays.length) {
+                    selectedDays = this.getBulkAttendanceAllDays();
+                }
+
+                let targetDays = selectedDays.slice();
+                if (mode === 'weekends') {
+                    targetDays = targetDays.filter(date => this.isWeekendIsoDate(date));
+                }
+
+                if (!targetDays.length) {
+                    if (feedback) {
+                        feedback.classList.remove('d-none');
+                        feedback.classList.remove('alert-success');
+                        feedback.classList.add('alert-warning');
+                        feedback.textContent = manualDaySelection
+                            ? 'No weekend dates found in your selection to clear.'
+                            : 'No weekend dates available in this period to clear.';
+                    }
+                    return;
+                }
+
+                const combinations = this.buildBulkAttendanceCombinations(selectedUsers, targetDays);
+                if (!combinations.length) {
+                    if (feedback) {
+                        feedback.classList.remove('d-none');
+                        feedback.classList.remove('alert-success');
+                        feedback.classList.add('alert-warning');
+                        feedback.textContent = 'Nothing to clear. Adjust your selections and try again.';
+                    }
+                    return;
+                }
+
+                this.bulkAttendanceApplying = true;
+                this.setBulkAttendanceFormDisabled(true);
+                this.updateBulkAttendanceSummary();
+
+                const activeButton = mode === 'weekends' ? clearWeekendButton : clearAllButton;
+                const defaultLabel = activeButton ? (activeButton.dataset?.defaultLabel || activeButton.textContent || '') : '';
+                if (activeButton) {
+                    activeButton.disabled = true;
+                    activeButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Clearing...';
+                }
+                if (applyButton) {
+                    applyButton.disabled = true;
+                }
+
+                if (feedback) {
+                    feedback.classList.add('d-none');
+                    feedback.textContent = '';
+                }
+
+                try {
+                    const result = await this.callServerFunction('clientBulkClearAttendanceStatus', {
+                        entries: combinations,
+                        mode
+                    });
+
+                    if (!result || !result.success) {
+                        throw new Error(result?.error || 'Failed to clear attendance statuses.');
+                    }
+
+                    const clearedEntries = Array.isArray(result.cleared) && result.cleared.length
+                        ? result.cleared
+                        : [];
+                    const missingEntries = Array.isArray(result.missing) ? result.missing : [];
+                    const skippedEntries = Array.isArray(result.skipped) ? result.skipped : [];
+                    const duplicateCount = Number.isFinite(result.duplicates) ? result.duplicates : 0;
+
+                    const uniqueUsers = new Set();
+                    const uniqueDays = new Set();
+
+                    clearedEntries.forEach(entry => {
+                        const user = entry?.userName || entry?.UserName || '';
+                        const date = entry?.date || entry?.Date || '';
+                        if (!user || !date) {
+                            return;
+                        }
+                        uniqueUsers.add(this.normalizePersonKey(user) || user);
+                        uniqueDays.add(date);
+                        this.updateAttendanceRecordCache(user, date, '');
+                        this.updateAttendanceCalendarCell(user, date, '', null);
+                    });
+
+                    const clearedCount = clearedEntries.length;
+                    const userCount = uniqueUsers.size || (clearedCount ? selectedUsers.length : 0);
+                    const dayCount = uniqueDays.size || (clearedCount ? targetDays.length : 0);
+                    const modeDescriptor = mode === 'weekends' ? ' weekend' : '';
+
+                    if (clearedCount) {
+                        const toastMessage = `Cleared${modeDescriptor} attendance status${clearedCount === 1 ? '' : 'es'} for ${userCount} participant${userCount === 1 ? '' : 's'} across ${dayCount} day${dayCount === 1 ? '' : 's'} (${clearedCount} cell${clearedCount === 1 ? '' : 's'}).`;
+                        this.showToast(toastMessage, 'info');
+
+                        if (feedback) {
+                            const detailParts = [];
+                            if (missingEntries.length) {
+                                detailParts.push(`${missingEntries.length} without status`);
+                            }
+                            if (skippedEntries.length) {
+                                detailParts.push(`${skippedEntries.length} skipped`);
+                            }
+                            if (duplicateCount) {
+                                detailParts.push(`${duplicateCount} duplicate${duplicateCount === 1 ? '' : 's'}`);
+                            }
+                            feedback.classList.remove('alert-warning');
+                            feedback.classList.add('alert-success');
+                            feedback.classList.remove('d-none');
+                            feedback.textContent = detailParts.length
+                                ? `${toastMessage} (${detailParts.join(', ')}).`
+                                : toastMessage;
+                        }
+                    } else {
+                        const warningMessage = mode === 'weekends'
+                            ? 'No weekend attendance statuses matched your selection to clear.'
+                            : 'No attendance statuses matched your selection to clear.';
+                        this.showToast(warningMessage, 'warning');
+                        if (feedback) {
+                            feedback.classList.remove('alert-success');
+                            feedback.classList.add('alert-warning');
+                            feedback.classList.remove('d-none');
+                            feedback.textContent = warningMessage;
+                        }
+                    }
+                } catch (error) {
+                    console.error('Failed to clear attendance statuses:', error);
+                    if (feedback) {
+                        feedback.classList.remove('alert-success');
+                        feedback.classList.add('alert-warning');
+                        feedback.classList.remove('d-none');
+                        feedback.textContent = error.message || 'Failed to clear attendance statuses.';
+                    }
+                    this.showToast('Failed to clear attendance statuses: ' + (error.message || 'Unknown error'), 'danger');
+                } finally {
+                    this.bulkAttendanceApplying = false;
+                    this.setBulkAttendanceFormDisabled(false);
+                    this.updateBulkAttendanceSummary();
+
+                    if (applyButton) {
+                        applyButton.disabled = false;
+                        applyButton.innerHTML = 'Apply Status';
+                    }
+
+                    if (clearWeekendButton) {
+                        clearWeekendButton.disabled = false;
+                        clearWeekendButton.innerHTML = clearWeekendButton.dataset?.defaultLabel || 'Clear Weekend Statuses';
+                    }
+
+                    if (clearAllButton) {
+                        clearAllButton.disabled = false;
+                        clearAllButton.innerHTML = clearAllButton.dataset?.defaultLabel || 'Clear All Statuses';
+                    }
+
+                    if (activeButton && defaultLabel) {
+                        activeButton.innerHTML = defaultLabel;
+                    }
+                }
+            }
+
+            async applyBulkAttendanceStatus() {
+                if (this.bulkAttendanceApplying) {
+                    return;
+                }
+
+                const modalElement = document.getElementById('bulkAttendanceModal');
+                if (!modalElement) {
+                    return;
+                }
+
+                const statusSelect = modalElement.querySelector('#bulkAttendanceStatus');
+                const notesInput = modalElement.querySelector('#bulkAttendanceNotes');
+                const feedback = modalElement.querySelector('#bulkAttendanceFeedback');
+                const applyButton = modalElement.querySelector('#bulkAttendanceApplyBtn');
+
+                const selectedUsers = this.getBulkAttendanceSelectedUsers();
+                const selectedDays = this.getBulkAttendanceSelectedDays();
+                const rawStatus = statusSelect ? statusSelect.value : '';
+                const trimmedStatus = (rawStatus || '').toString().trim();
+                const rawNotes = notesInput ? notesInput.value : '';
+                const trimmedNotes = (rawNotes || '').toString().trim();
+
+                const errors = [];
+                if (!selectedUsers.length) {
+                    errors.push('Select at least one participant.');
+                }
+                if (!selectedDays.length) {
+                    errors.push('Select at least one day.');
+                }
+                if (!trimmedStatus) {
+                    errors.push('Choose a status to apply.');
+                }
+
+                if (feedback) {
+                    if (errors.length) {
+                        feedback.classList.remove('d-none');
+                        feedback.classList.remove('alert-success');
+                        feedback.classList.add('alert-warning');
+                        feedback.textContent = errors.join(' ');
+                    } else {
+                        feedback.classList.add('d-none');
+                        feedback.textContent = '';
+                    }
+                }
+
+                if (errors.length) {
+                    return;
+                }
+
+                const combinations = this.buildBulkAttendanceCombinations(selectedUsers, selectedDays);
+
+                if (!combinations.length) {
+                    if (feedback) {
+                        feedback.classList.remove('d-none');
+                        feedback.classList.remove('alert-success');
+                        feedback.classList.add('alert-warning');
+                        feedback.textContent = 'Nothing to apply. Adjust your selections and try again.';
+                    }
+                    return;
+                }
+
+                const payload = { entries: combinations, status: trimmedStatus };
+                if (rawNotes && rawNotes.length) {
+                    payload.notes = trimmedNotes;
+                }
+
+                this.bulkAttendanceApplying = true;
+                this.setBulkAttendanceFormDisabled(true);
+                this.updateBulkAttendanceSummary();
+
+                if (applyButton) {
+                    applyButton.disabled = true;
+                    applyButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Applying...';
+                }
+
+                try {
+                    const result = await this.callServerFunction('clientBulkMarkAttendanceStatus', payload);
+                    if (!result || !result.success) {
+                        throw new Error(result?.error || 'Failed to apply attendance status.');
+                    }
+
+                    const applied = Array.isArray(result.applied) && result.applied.length
+                        ? result.applied
+                        : combinations;
+
+                    const statusBadge = this.getAttendanceStatusBadge(trimmedStatus);
+                    const statusLabel = statusBadge ? statusBadge.label : trimmedStatus;
+
+                    const uniqueUsers = new Set();
+                    const uniqueDays = new Set();
+                    applied.forEach(item => {
+                        const user = item?.userName || item?.UserName || '';
+                        const date = item?.date || item?.Date || '';
+                        if (user) {
+                            uniqueUsers.add(this.normalizePersonKey(user) || user);
+                        }
+                        if (date) {
+                            uniqueDays.add(date);
+                        }
+                        if (user && date) {
+                            this.updateAttendanceRecordCache(user, date, trimmedStatus);
+                            this.updateAttendanceCalendarCell(user, date, trimmedStatus, null);
+                        }
+                    });
+
+                    const comboCount = applied.length;
+                    const userCount = uniqueUsers.size;
+                    const dayCount = uniqueDays.size;
+                    const toastMessage = `Marked ${statusLabel} for ${userCount} participant${userCount === 1 ? '' : 's'} on ${dayCount} day${dayCount === 1 ? '' : 's'} (${comboCount} cell${comboCount === 1 ? '' : 's'}).`;
+                    this.showToast(toastMessage, 'success');
+
+                    if (feedback) {
+                        const skipped = Array.isArray(result.skipped) ? result.skipped.length : 0;
+                        const duplicates = Number.isFinite(result.duplicates) ? result.duplicates : 0;
+                        const updatedCount = Number.isFinite(result.updatedCount) ? result.updatedCount : 0;
+                        const insertedCount = Number.isFinite(result.insertedCount) ? result.insertedCount : 0;
+                        const unchangedCount = Number.isFinite(result.unchangedCount) ? result.unchangedCount : 0;
+                        const details = [];
+                        if (updatedCount) {
+                            details.push(`${updatedCount} updated`);
+                        }
+                        if (insertedCount) {
+                            details.push(`${insertedCount} new`);
+                        }
+                        if (unchangedCount) {
+                            details.push(`${unchangedCount} unchanged`);
+                        }
+                        if (skipped) {
+                            details.push(`${skipped} skipped`);
+                        }
+                        if (duplicates) {
+                            details.push(`${duplicates} duplicate${duplicates === 1 ? '' : 's'}`);
+                        }
+                        feedback.classList.remove('alert-warning');
+                        feedback.classList.add('alert-success');
+                        feedback.classList.remove('d-none');
+                        feedback.textContent = details.length
+                            ? `${toastMessage} (${details.join(', ')}).`
+                            : toastMessage;
+                    }
+
+                    const modalInstance = this.ensureBulkAttendanceModal();
+                    if (modalInstance && typeof modalInstance.hide === 'function') {
+                        modalInstance.hide();
+                    } else {
+                        modalElement.classList.remove('show');
+                        modalElement.style.display = 'none';
+                        modalElement.setAttribute('aria-hidden', 'true');
+                        this.resetBulkAttendanceForm();
+                    }
+                } catch (error) {
+                    console.error('Failed to apply bulk attendance status:', error);
+                    if (feedback) {
+                        feedback.classList.remove('alert-success');
+                        feedback.classList.add('alert-warning');
+                        feedback.classList.remove('d-none');
+                        feedback.textContent = error.message || 'Failed to apply attendance status.';
+                    }
+                    this.showToast('Failed to apply attendance status: ' + (error.message || 'Unknown error'), 'danger');
+                } finally {
+                    this.bulkAttendanceApplying = false;
+                    this.setBulkAttendanceFormDisabled(false);
+                    this.updateBulkAttendanceSummary();
+                    if (applyButton) {
+                        applyButton.disabled = false;
+                        applyButton.innerHTML = 'Apply Status';
+                    }
                 }
             }
 
@@ -8830,17 +9745,48 @@
                     list.appendChild(listItem);
                 });
 
+                const dividerItem = document.createElement('li');
+                dividerItem.setAttribute('role', 'separator');
+                const divider = document.createElement('hr');
+                divider.className = 'attendance-context-menu__divider';
+                dividerItem.appendChild(divider);
+                list.appendChild(dividerItem);
+
+                const clearItem = document.createElement('li');
+                clearItem.setAttribute('role', 'none');
+                const clearButton = document.createElement('button');
+                clearButton.type = 'button';
+                clearButton.className = 'attendance-context-menu__item attendance-context-menu__item--danger';
+                clearButton.dataset.action = 'clear';
+                clearButton.setAttribute('role', 'menuitem');
+                clearButton.innerHTML = `
+                    <span class="attendance-context-menu__code attendance-context-menu__code--clear"><i class="fas fa-eraser"></i></span>
+                    <span class="attendance-context-menu__text">Clear Status</span>
+                `;
+                clearItem.appendChild(clearButton);
+                list.appendChild(clearItem);
+
                 list.addEventListener('click', (event) => {
-                    const button = event.target.closest('button[data-status]');
+                    const button = event.target.closest('button.attendance-context-menu__item');
                     if (!button) {
                         return;
                     }
 
+                    const action = (button.dataset.action || '').trim();
                     const status = button.dataset.status;
                     const target = this.attendanceContextMenuTarget;
                     this.hideAttendanceContextMenu();
 
-                    if (target) {
+                    if (!target) {
+                        return;
+                    }
+
+                    if (action === 'clear') {
+                        this.clearAttendanceStatus(target.userName, target.date, target.displayName, target.cellElement);
+                        return;
+                    }
+
+                    if (status) {
                         this.setAttendanceStatus(target.userName, target.date, status, target.displayName, target.cellElement);
                     }
                 });
@@ -9002,6 +9948,29 @@
                 }
             }
 
+            async clearAttendanceStatus(userName, date, displayName = null, cellElement = null) {
+                if (!userName || !date) {
+                    return;
+                }
+
+                const displayValue = displayName || userName;
+                const resolvedCell = cellElement instanceof HTMLElement ? cellElement : null;
+
+                try {
+                    const result = await this.callServerFunction('clientRemoveAttendanceStatus', userName, date);
+                    if (result && result.success) {
+                        this.showToast(`Cleared attendance status for ${displayValue} on ${date}`, 'info');
+                        this.updateAttendanceRecordCache(userName, date, '');
+                        this.updateAttendanceCalendarCell(userName, date, '', resolvedCell);
+                    } else {
+                        throw new Error(result?.error || 'Failed to clear attendance status');
+                    }
+                } catch (error) {
+                    console.error('Error clearing attendance status:', error);
+                    this.showToast('Failed to clear attendance status: ' + error.message, 'danger');
+                }
+            }
+
             updateAttendanceRecordCache(userName, date, status) {
                 const isoDate = this.normalizeAttendanceDateValue(date);
                 const normalizedUser = this.normalizePersonKey(userName);
@@ -9014,6 +9983,7 @@
                     this.attendanceCalendarRecords = [];
                 }
 
+                const trimmedStatus = (status || '').toString().trim();
                 let updated = false;
                 for (let i = 0; i < this.attendanceCalendarRecords.length; i++) {
                     const record = this.attendanceCalendarRecords[i];
@@ -9023,25 +9993,34 @@
                     const recordDateIso = this.normalizeAttendanceDateValue(recordDate);
 
                     if (recordUserKey === normalizedUser && recordDateIso === isoDate) {
-                        this.attendanceCalendarRecords[i] = Object.assign({}, record, {
-                            status,
-                            Status: status,
-                            date: isoDate,
-                            Date: isoDate
-                        });
-                        updated = true;
+                        if (trimmedStatus) {
+                            this.attendanceCalendarRecords[i] = Object.assign({}, record, {
+                                status: trimmedStatus,
+                                Status: trimmedStatus,
+                                date: isoDate,
+                                Date: isoDate
+                            });
+                            updated = true;
+                        } else {
+                            this.attendanceCalendarRecords.splice(i, 1);
+                            updated = true;
+                        }
                         break;
                     }
                 }
 
-                if (!updated) {
+                if (!trimmedStatus && updated) {
+                    return;
+                }
+
+                if (!updated && trimmedStatus) {
                     this.attendanceCalendarRecords.push({
                         userName,
                         UserName: userName,
                         date: isoDate,
                         Date: isoDate,
-                        status,
-                        Status: status
+                        status: trimmedStatus,
+                        Status: trimmedStatus
                     });
                 }
             }
@@ -11063,7 +12042,7 @@
 
         function markBulkAttendance() {
             if (window.scheduleManager) {
-                window.scheduleManager.showToast('Bulk attendance marking - coming soon!', 'info');
+                window.scheduleManager.openBulkAttendanceModal();
             }
         }
 

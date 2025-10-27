@@ -3791,7 +3791,7 @@ function clientGetCountryHolidays(countryCode, year) {
   }
 }
 
-  function clientMarkAttendanceStatus(userName, date, status, notes = '') {
+function clientMarkAttendanceStatus(userName, date, status, notes = '') {
   try {
     console.log('📝 Marking attendance status:', { userName, date, status, notes });
 
@@ -3854,6 +3854,444 @@ function clientGetCountryHolidays(countryCode, year) {
     };
   }
 }
+
+function clientBulkMarkAttendanceStatus(request) {
+  try {
+    const payload = request && typeof request === 'object' ? request : {};
+    const status = (payload.status || '').toString().trim();
+    if (!status) {
+      throw new Error('A status value is required for bulk attendance updates.');
+    }
+
+    const entries = Array.isArray(payload.entries) ? payload.entries : [];
+    if (!entries.length) {
+      throw new Error('At least one participant/date combination is required.');
+    }
+
+    const noteProvided = Object.prototype.hasOwnProperty.call(payload, 'notes');
+    const noteValue = noteProvided ? (payload.notes || '').toString().trim() : '';
+
+    const sheet = ensureScheduleSheetWithHeaders(ATTENDANCE_STATUS_SHEET, ATTENDANCE_STATUS_HEADERS);
+    const data = sheet.getDataRange().getValues();
+    const headers = data.length ? data[0] : ATTENDANCE_STATUS_HEADERS.slice();
+
+    const headerMap = {};
+    headers.forEach((header, index) => {
+      headerMap[header] = index + 1;
+    });
+
+    const userNameIndex = headerMap.UserName;
+    const dateIndex = headerMap.Date;
+    const statusIndex = headerMap.Status;
+
+    if (!userNameIndex || !dateIndex || !statusIndex) {
+      throw new Error('Attendance status sheet is missing required headers.');
+    }
+
+    const notesIndex = headerMap.Notes || null;
+    const updatedAtIndex = headerMap.UpdatedAt || null;
+
+    const existingRowMap = new Map();
+    if (data.length > 1) {
+      for (let row = 1; row < data.length; row++) {
+        const rowUser = (data[row][userNameIndex - 1] || '').toString().trim();
+        const rowDate = normalizeDateForSheet(data[row][dateIndex - 1], DEFAULT_SCHEDULE_TIME_ZONE);
+        if (!rowUser || !rowDate) {
+          continue;
+        }
+        const key = `${rowUser}::${rowDate}`;
+        const existingStatus = (data[row][statusIndex - 1] || '').toString().trim();
+        const existingNotes = notesIndex ? (data[row][notesIndex - 1] || '').toString().trim() : '';
+        existingRowMap.set(key, {
+          row: row + 1,
+          status: existingStatus,
+          notes: existingNotes
+        });
+      }
+    }
+
+    const normalizedEntries = [];
+    const skipped = [];
+    const seenKeys = new Set();
+    let duplicateCount = 0;
+
+    entries.forEach(entry => {
+      const userCandidate = entry && (entry.userName || entry.UserName || entry.user || entry.User || '');
+      const normalizedUser = (userCandidate || '').toString().trim();
+      const dateCandidate = entry && (entry.date || entry.Date || entry.day || entry.Day || entry.timestamp || entry.Timestamp || '');
+      const normalizedDate = normalizeDateForSheet(dateCandidate, DEFAULT_SCHEDULE_TIME_ZONE);
+
+      if (!normalizedUser || !normalizedDate) {
+        skipped.push({
+          userName: normalizedUser || userCandidate || '',
+          date: normalizedDate || dateCandidate || '',
+          reason: 'Missing participant or date'
+        });
+        return;
+      }
+
+      const key = `${normalizedUser}::${normalizedDate}`;
+      if (seenKeys.has(key)) {
+        duplicateCount++;
+        skipped.push({
+          userName: normalizedUser,
+          date: normalizedDate,
+          reason: 'Duplicate entry ignored'
+        });
+        return;
+      }
+
+      seenKeys.add(key);
+      normalizedEntries.push({
+        userName: normalizedUser,
+        date: normalizedDate
+      });
+    });
+
+    if (!normalizedEntries.length) {
+      throw new Error('No valid attendance entries were provided.');
+    }
+
+    const now = new Date();
+    const actorEmail = Session.getActiveUser().getEmail();
+    const newRows = [];
+    const appliedEntries = [];
+    let updatedCount = 0;
+    let insertedCount = 0;
+    let unchangedCount = 0;
+
+    normalizedEntries.forEach(entry => {
+      const key = `${entry.userName}::${entry.date}`;
+      const existing = existingRowMap.get(key);
+
+      if (existing) {
+        const currentStatus = (existing.status || '').toString().trim();
+        const currentNotes = (existing.notes || '').toString().trim();
+        const shouldUpdateNotes = noteProvided && currentNotes !== noteValue;
+
+        if (currentStatus === status && !shouldUpdateNotes) {
+          unchangedCount++;
+          appliedEntries.push(entry);
+          return;
+        }
+
+        sheet.getRange(existing.row, statusIndex).setValue(status);
+        if (noteProvided && notesIndex) {
+          sheet.getRange(existing.row, notesIndex).setValue(noteValue);
+        }
+        if (updatedAtIndex) {
+          sheet.getRange(existing.row, updatedAtIndex).setValue(now);
+        }
+        updatedCount++;
+        appliedEntries.push(entry);
+        return;
+      }
+
+      const newEntry = {
+        ID: Utilities.getUuid(),
+        UserID: getUserIdByName(entry.userName) || entry.userName,
+        UserName: entry.userName,
+        Date: entry.date,
+        Status: status,
+        Notes: noteProvided ? noteValue : '',
+        MarkedBy: actorEmail,
+        CreatedAt: now,
+        UpdatedAt: now
+      };
+
+      newRows.push(newEntry);
+      appliedEntries.push(entry);
+      insertedCount++;
+    });
+
+    if (newRows.length) {
+      const startRow = sheet.getLastRow() + 1;
+      const requiredRows = startRow + newRows.length - 1;
+      const maxRows = sheet.getMaxRows();
+      if (requiredRows > maxRows) {
+        sheet.insertRowsAfter(maxRows, requiredRows - maxRows);
+      }
+
+      const rowsData = newRows.map(entry => ATTENDANCE_STATUS_HEADERS.map(header => entry[header] || ''));
+      sheet.getRange(startRow, 1, rowsData.length, ATTENDANCE_STATUS_HEADERS.length).setValues(rowsData);
+    }
+
+    SpreadsheetApp.flush();
+    invalidateScheduleCaches();
+
+    const appliedCount = appliedEntries.length;
+    const summaryParts = [];
+    if (updatedCount) {
+      summaryParts.push(`${updatedCount} updated`);
+    }
+    if (insertedCount) {
+      summaryParts.push(`${insertedCount} new`);
+    }
+    if (unchangedCount) {
+      summaryParts.push(`${unchangedCount} unchanged`);
+    }
+    if (skipped.length) {
+      summaryParts.push(`${skipped.length} skipped`);
+    }
+    if (duplicateCount) {
+      summaryParts.push(`${duplicateCount} duplicate${duplicateCount === 1 ? '' : 's'}`);
+    }
+
+    const messageBase = `Applied ${status} to ${appliedCount} record${appliedCount === 1 ? '' : 's'}`;
+    const message = summaryParts.length ? `${messageBase} (${summaryParts.join(', ')}).` : `${messageBase}.`;
+
+    return {
+      success: true,
+      status,
+      applied: appliedEntries,
+      updatedCount,
+      insertedCount,
+      unchangedCount,
+      skipped,
+      duplicates: duplicateCount,
+      message
+    };
+  } catch (error) {
+    console.error('Error applying bulk attendance status:', error);
+    safeWriteError('clientBulkMarkAttendanceStatus', error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+
+function clientBulkClearAttendanceStatus(request) {
+  try {
+    const payload = request && typeof request === 'object' ? request : {};
+    const entries = Array.isArray(payload.entries) ? payload.entries : [];
+
+    if (!entries.length) {
+      throw new Error('At least one participant/date combination is required to clear attendance statuses.');
+    }
+
+    const sheet = ensureScheduleSheetWithHeaders(ATTENDANCE_STATUS_SHEET, ATTENDANCE_STATUS_HEADERS);
+    const data = sheet.getDataRange().getValues();
+    const headers = data.length ? data[0] : ATTENDANCE_STATUS_HEADERS.slice();
+
+    const headerMap = {};
+    headers.forEach((header, index) => {
+      headerMap[header] = index + 1;
+    });
+
+    const userNameIndex = headerMap.UserName;
+    const dateIndex = headerMap.Date;
+    const statusIndex = headerMap.Status || null;
+
+    if (!userNameIndex || !dateIndex) {
+      throw new Error('Attendance status sheet is missing required headers.');
+    }
+
+    const normalizedEntries = [];
+    const skipped = [];
+    const seenKeys = new Set();
+    let duplicateCount = 0;
+
+    entries.forEach(entry => {
+      const userCandidate = entry && (entry.userName || entry.UserName || entry.user || entry.User || '');
+      const dateCandidate = entry && (entry.date || entry.Date || entry.day || entry.Day || entry.timestamp || entry.Timestamp || '');
+      const normalizedUser = (userCandidate || '').toString().trim();
+      const normalizedDate = normalizeDateForSheet(dateCandidate, DEFAULT_SCHEDULE_TIME_ZONE);
+
+      if (!normalizedUser || !normalizedDate) {
+        skipped.push({
+          userName: normalizedUser || userCandidate || '',
+          date: normalizedDate || dateCandidate || '',
+          reason: 'Missing participant or date'
+        });
+        return;
+      }
+
+      const key = `${normalizedUser}::${normalizedDate}`;
+      if (seenKeys.has(key)) {
+        duplicateCount++;
+        return;
+      }
+
+      seenKeys.add(key);
+      normalizedEntries.push({
+        userName: normalizedUser,
+        date: normalizedDate
+      });
+    });
+
+    if (!normalizedEntries.length) {
+      return {
+        success: true,
+        cleared: [],
+        missing: [],
+        skipped,
+        duplicates: duplicateCount,
+        message: 'No valid attendance entries were provided to clear.'
+      };
+    }
+
+    if (data.length <= 1) {
+      return {
+        success: true,
+        cleared: [],
+        missing: normalizedEntries,
+        skipped,
+        duplicates: duplicateCount,
+        message: 'No attendance statuses exist to clear.'
+      };
+    }
+
+    const targets = new Set(normalizedEntries.map(entry => `${entry.userName}::${entry.date}`));
+    const rowsToDelete = [];
+    const clearedEntries = [];
+
+    for (let row = 1; row < data.length; row++) {
+      const rowUser = (data[row][userNameIndex - 1] || '').toString().trim();
+      const rowDate = normalizeDateForSheet(data[row][dateIndex - 1], DEFAULT_SCHEDULE_TIME_ZONE);
+
+      if (!rowUser || !rowDate) {
+        continue;
+      }
+
+      const key = `${rowUser}::${rowDate}`;
+      if (!targets.has(key)) {
+        continue;
+      }
+
+      const rowStatus = statusIndex ? (data[row][statusIndex - 1] || '').toString().trim() : '';
+      rowsToDelete.push({
+        rowNumber: row + 1,
+        key,
+        userName: rowUser,
+        date: rowDate,
+        status: rowStatus
+      });
+      clearedEntries.push({
+        userName: rowUser,
+        date: rowDate,
+        status: rowStatus
+      });
+    }
+
+    if (!rowsToDelete.length) {
+      return {
+        success: true,
+        cleared: [],
+        missing: normalizedEntries,
+        skipped,
+        duplicates: duplicateCount,
+        message: 'No matching attendance statuses were found to clear.'
+      };
+    }
+
+    rowsToDelete.sort((a, b) => b.rowNumber - a.rowNumber);
+    rowsToDelete.forEach(item => sheet.deleteRow(item.rowNumber));
+
+    SpreadsheetApp.flush();
+    invalidateScheduleCaches();
+
+    const foundKeys = new Set(rowsToDelete.map(item => item.key));
+    const missing = normalizedEntries.filter(entry => !foundKeys.has(`${entry.userName}::${entry.date}`));
+
+    const summaryParts = [];
+    if (missing.length) {
+      summaryParts.push(`${missing.length} without status`);
+    }
+    if (skipped.length) {
+      summaryParts.push(`${skipped.length} skipped`);
+    }
+    if (duplicateCount) {
+      summaryParts.push(`${duplicateCount} duplicate${duplicateCount === 1 ? '' : 's'}`);
+    }
+
+    const clearedCount = clearedEntries.length;
+    const messageBase = `Cleared ${clearedCount} attendance status${clearedCount === 1 ? '' : 'es'}`;
+    const message = summaryParts.length ? `${messageBase} (${summaryParts.join(', ')}).` : `${messageBase}.`;
+
+    return {
+      success: true,
+      cleared: clearedEntries,
+      missing,
+      skipped,
+      duplicates: duplicateCount,
+      message
+    };
+  } catch (error) {
+    console.error('Error clearing bulk attendance statuses:', error);
+    safeWriteError('clientBulkClearAttendanceStatus', error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+
+function clientRemoveAttendanceStatus(userName, date) {
+  try {
+    console.log('🧹 Clearing attendance status:', { userName, date });
+
+      const sheet = ensureScheduleSheetWithHeaders(ATTENDANCE_STATUS_SHEET, ATTENDANCE_STATUS_HEADERS);
+      const data = sheet.getDataRange().getValues();
+
+      if (!data.length) {
+        return {
+          success: true,
+          message: 'No attendance statuses found to clear.'
+        };
+      }
+
+      const headers = data[0];
+      const userNameIndex = headers.indexOf('UserName');
+      const dateIndex = headers.indexOf('Date');
+
+      if (userNameIndex === -1 || dateIndex === -1) {
+        throw new Error('Attendance status sheet is missing required headers.');
+      }
+
+      const normalizedUser = String(userName || '').trim();
+      const normalizedDate = String(date || '').trim();
+
+      if (!normalizedUser || !normalizedDate) {
+        throw new Error('Both userName and date are required to clear attendance status.');
+      }
+
+      let removed = false;
+
+      for (let row = data.length - 1; row >= 1; row--) {
+        const rowUser = String(data[row][userNameIndex] || '').trim();
+        const rowDate = String(data[row][dateIndex] || '').trim();
+
+        if (rowUser === normalizedUser && rowDate === normalizedDate) {
+          sheet.deleteRow(row + 1);
+          removed = true;
+          break;
+        }
+      }
+
+      if (removed) {
+        SpreadsheetApp.flush();
+        invalidateScheduleCaches();
+        return {
+          success: true,
+          message: `Attendance status cleared for ${normalizedUser} on ${normalizedDate}`
+        };
+      }
+
+      return {
+        success: true,
+        message: 'No matching attendance status found to clear.'
+      };
+
+    } catch (error) {
+      console.error('Error clearing attendance status:', error);
+      safeWriteError('clientRemoveAttendanceStatus', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
 
 // ────────────────────────────────────────────────────────────────────────────
 // SYSTEM DIAGNOSTICS - Enhanced with ScheduleUtilities integration
