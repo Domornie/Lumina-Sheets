@@ -2589,7 +2589,11 @@
                 <div class="modal-footer">
                     <div id="bulkAttendanceSummary" class="text-muted small me-auto">Select participants and dates to continue.</div>
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-success" id="bulkAttendanceApplyBtn">Apply Status</button>
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-outline-danger" id="bulkAttendanceClearWeekendBtn" data-default-label="Clear Weekend Statuses">Clear Weekend Statuses</button>
+                        <button type="button" class="btn btn-danger" id="bulkAttendanceClearAllBtn" data-default-label="Clear All Statuses">Clear All Statuses</button>
+                        <button type="button" class="btn btn-success" id="bulkAttendanceApplyBtn">Apply Status</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -8239,7 +8243,7 @@
             }
 
             ensureBulkAttendanceModal() {
-                const modalElement = document.getElementById('bulkAttendanceModal');
+                const modalElement = this.getBulkAttendanceModalElement();
                 if (!modalElement) {
                     console.warn('Bulk attendance modal element is missing.');
                     return null;
@@ -8274,6 +8278,16 @@
                     const applyButton = modalElement.querySelector('#bulkAttendanceApplyBtn');
                     if (applyButton) {
                         applyButton.addEventListener('click', () => this.applyBulkAttendanceStatus());
+                    }
+
+                    const clearWeekendButton = modalElement.querySelector('#bulkAttendanceClearWeekendBtn');
+                    if (clearWeekendButton) {
+                        clearWeekendButton.addEventListener('click', () => this.clearBulkAttendanceStatuses('weekends'));
+                    }
+
+                    const clearAllButton = modalElement.querySelector('#bulkAttendanceClearAllBtn');
+                    if (clearAllButton) {
+                        clearAllButton.addEventListener('click', () => this.clearBulkAttendanceStatuses('all'));
                     }
 
                     const changeSelectors = ['#bulkAttendanceUserSelect', '#bulkAttendanceDaySelect', '#bulkAttendanceStatus'];
@@ -8432,6 +8446,10 @@
                 quickButtons.forEach(button => {
                     button.disabled = !!disabled;
                 });
+                const actionButtons = modalElement.querySelectorAll('#bulkAttendanceApplyBtn, #bulkAttendanceClearWeekendBtn, #bulkAttendanceClearAllBtn');
+                actionButtons.forEach(button => {
+                    button.disabled = !!disabled;
+                });
             }
 
             resetBulkAttendanceForm() {
@@ -8445,6 +8463,16 @@
                 if (applyButton) {
                     applyButton.disabled = false;
                     applyButton.innerHTML = 'Apply Status';
+                }
+                const clearWeekendButton = modalElement.querySelector('#bulkAttendanceClearWeekendBtn');
+                if (clearWeekendButton) {
+                    clearWeekendButton.disabled = false;
+                    clearWeekendButton.innerHTML = clearWeekendButton.dataset?.defaultLabel || 'Clear Weekend Statuses';
+                }
+                const clearAllButton = modalElement.querySelector('#bulkAttendanceClearAllBtn');
+                if (clearAllButton) {
+                    clearAllButton.disabled = false;
+                    clearAllButton.innerHTML = clearAllButton.dataset?.defaultLabel || 'Clear All Statuses';
                 }
                 const feedback = modalElement.querySelector('#bulkAttendanceFeedback');
                 if (feedback) {
@@ -8490,7 +8518,7 @@
                 }
 
                 if (!selectedDays.length) {
-                    summary.textContent = 'Select at least one day to continue.';
+                    summary.textContent = 'Select at least one day to apply a status, or leave days unselected and use the clear options to remove statuses for the full period.';
                     return;
                 }
 
@@ -8498,7 +8526,7 @@
                 const statusBadge = statusValue ? this.getAttendanceStatusBadge(statusValue) : null;
                 const statusLabel = statusBadge ? statusBadge.label : (statusValue || 'No status selected');
 
-                summary.textContent = `Ready to update ${combinationCount} cell${combinationCount === 1 ? '' : 's'} for ${selectedUsers.length} participant${selectedUsers.length === 1 ? '' : 's'} across ${selectedDays.length} day${selectedDays.length === 1 ? '' : 's'}. ${statusValue ? `Status: ${statusLabel}.` : 'Choose a status to apply.'}`;
+                summary.textContent = `Ready to update ${combinationCount} cell${combinationCount === 1 ? '' : 's'} for ${selectedUsers.length} participant${selectedUsers.length === 1 ? '' : 's'} across ${selectedDays.length} day${selectedDays.length === 1 ? '' : 's'}. ${statusValue ? `Status: ${statusLabel}.` : 'Select a status to apply or use the clear options to remove statuses.'}`;
             }
 
             handleBulkAttendanceQuickSelect(action, target) {
@@ -8557,6 +8585,303 @@
                 selectElement.dispatchEvent(changeEvent);
             }
 
+            getBulkAttendanceModalElement() {
+                return document.getElementById('bulkAttendanceModal');
+            }
+
+            getBulkAttendanceSelectedUsers() {
+                const modalElement = this.getBulkAttendanceModalElement();
+                if (!modalElement) {
+                    return [];
+                }
+
+                const userSelect = modalElement.querySelector('#bulkAttendanceUserSelect');
+                if (!userSelect) {
+                    return [];
+                }
+
+                return Array.from(userSelect.selectedOptions || [])
+                    .map(option => (option.value || '').toString().trim())
+                    .filter(Boolean);
+            }
+
+            getBulkAttendanceSelectedDays() {
+                const modalElement = this.getBulkAttendanceModalElement();
+                if (!modalElement) {
+                    return [];
+                }
+
+                const daySelect = modalElement.querySelector('#bulkAttendanceDaySelect');
+                if (!daySelect) {
+                    return [];
+                }
+
+                return Array.from(daySelect.selectedOptions || [])
+                    .map(option => (option.value || '').toString().trim())
+                    .filter(Boolean);
+            }
+
+            getBulkAttendanceAllDays() {
+                const modalElement = this.getBulkAttendanceModalElement();
+                if (!modalElement) {
+                    return [];
+                }
+
+                const daySelect = modalElement.querySelector('#bulkAttendanceDaySelect');
+                if (!daySelect) {
+                    return [];
+                }
+
+                return Array.from(daySelect.options || [])
+                    .map(option => (option.value || '').toString().trim())
+                    .filter(Boolean);
+            }
+
+            isWeekendIsoDate(isoDate) {
+                if (!isoDate || typeof isoDate !== 'string') {
+                    return false;
+                }
+
+                const parts = isoDate.split('-');
+                if (parts.length !== 3) {
+                    return false;
+                }
+
+                const year = parseInt(parts[0], 10);
+                const month = parseInt(parts[1], 10);
+                const day = parseInt(parts[2], 10);
+
+                if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
+                    return false;
+                }
+
+                const date = new Date(year, month - 1, day);
+                if (Number.isNaN(date.getTime())) {
+                    return false;
+                }
+
+                const weekday = date.getDay();
+                return weekday === 0 || weekday === 6;
+            }
+
+            buildBulkAttendanceCombinations(users, days) {
+                if (!Array.isArray(users) || !Array.isArray(days)) {
+                    return [];
+                }
+
+                const combinations = [];
+                const seenKeys = new Set();
+
+                users.forEach(user => {
+                    const normalizedUser = (user || '').toString().trim();
+                    if (!normalizedUser) {
+                        return;
+                    }
+
+                    days.forEach(date => {
+                        const normalizedDate = (date || '').toString().trim();
+                        if (!normalizedDate) {
+                            return;
+                        }
+
+                        const key = `${normalizedUser}::${normalizedDate}`;
+                        if (seenKeys.has(key)) {
+                            return;
+                        }
+
+                        seenKeys.add(key);
+                        combinations.push({ userName: normalizedUser, date: normalizedDate });
+                    });
+                });
+
+                return combinations;
+            }
+
+            async clearBulkAttendanceStatuses(mode = 'all') {
+                if (this.bulkAttendanceApplying) {
+                    return;
+                }
+
+                const modalElement = this.getBulkAttendanceModalElement();
+                if (!modalElement) {
+                    return;
+                }
+
+                const feedback = modalElement.querySelector('#bulkAttendanceFeedback');
+                const applyButton = modalElement.querySelector('#bulkAttendanceApplyBtn');
+                const clearWeekendButton = modalElement.querySelector('#bulkAttendanceClearWeekendBtn');
+                const clearAllButton = modalElement.querySelector('#bulkAttendanceClearAllBtn');
+
+                const selectedUsers = this.getBulkAttendanceSelectedUsers();
+                if (!selectedUsers.length) {
+                    if (feedback) {
+                        feedback.classList.remove('d-none');
+                        feedback.classList.remove('alert-success');
+                        feedback.classList.add('alert-warning');
+                        feedback.textContent = 'Select at least one participant to clear attendance statuses.';
+                    }
+                    return;
+                }
+
+                let selectedDays = this.getBulkAttendanceSelectedDays();
+                const manualDaySelection = selectedDays.length > 0;
+                if (!selectedDays.length) {
+                    selectedDays = this.getBulkAttendanceAllDays();
+                }
+
+                let targetDays = selectedDays.slice();
+                if (mode === 'weekends') {
+                    targetDays = targetDays.filter(date => this.isWeekendIsoDate(date));
+                }
+
+                if (!targetDays.length) {
+                    if (feedback) {
+                        feedback.classList.remove('d-none');
+                        feedback.classList.remove('alert-success');
+                        feedback.classList.add('alert-warning');
+                        feedback.textContent = manualDaySelection
+                            ? 'No weekend dates found in your selection to clear.'
+                            : 'No weekend dates available in this period to clear.';
+                    }
+                    return;
+                }
+
+                const combinations = this.buildBulkAttendanceCombinations(selectedUsers, targetDays);
+                if (!combinations.length) {
+                    if (feedback) {
+                        feedback.classList.remove('d-none');
+                        feedback.classList.remove('alert-success');
+                        feedback.classList.add('alert-warning');
+                        feedback.textContent = 'Nothing to clear. Adjust your selections and try again.';
+                    }
+                    return;
+                }
+
+                this.bulkAttendanceApplying = true;
+                this.setBulkAttendanceFormDisabled(true);
+                this.updateBulkAttendanceSummary();
+
+                const activeButton = mode === 'weekends' ? clearWeekendButton : clearAllButton;
+                const defaultLabel = activeButton ? (activeButton.dataset?.defaultLabel || activeButton.textContent || '') : '';
+                if (activeButton) {
+                    activeButton.disabled = true;
+                    activeButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Clearing...';
+                }
+                if (applyButton) {
+                    applyButton.disabled = true;
+                }
+
+                if (feedback) {
+                    feedback.classList.add('d-none');
+                    feedback.textContent = '';
+                }
+
+                try {
+                    const result = await this.callServerFunction('clientBulkClearAttendanceStatus', {
+                        entries: combinations,
+                        mode
+                    });
+
+                    if (!result || !result.success) {
+                        throw new Error(result?.error || 'Failed to clear attendance statuses.');
+                    }
+
+                    const clearedEntries = Array.isArray(result.cleared) && result.cleared.length
+                        ? result.cleared
+                        : [];
+                    const missingEntries = Array.isArray(result.missing) ? result.missing : [];
+                    const skippedEntries = Array.isArray(result.skipped) ? result.skipped : [];
+                    const duplicateCount = Number.isFinite(result.duplicates) ? result.duplicates : 0;
+
+                    const uniqueUsers = new Set();
+                    const uniqueDays = new Set();
+
+                    clearedEntries.forEach(entry => {
+                        const user = entry?.userName || entry?.UserName || '';
+                        const date = entry?.date || entry?.Date || '';
+                        if (!user || !date) {
+                            return;
+                        }
+                        uniqueUsers.add(this.normalizePersonKey(user) || user);
+                        uniqueDays.add(date);
+                        this.updateAttendanceRecordCache(user, date, '');
+                        this.updateAttendanceCalendarCell(user, date, '', null);
+                    });
+
+                    const clearedCount = clearedEntries.length;
+                    const userCount = uniqueUsers.size || (clearedCount ? selectedUsers.length : 0);
+                    const dayCount = uniqueDays.size || (clearedCount ? targetDays.length : 0);
+                    const modeDescriptor = mode === 'weekends' ? ' weekend' : '';
+
+                    if (clearedCount) {
+                        const toastMessage = `Cleared${modeDescriptor} attendance status${clearedCount === 1 ? '' : 'es'} for ${userCount} participant${userCount === 1 ? '' : 's'} across ${dayCount} day${dayCount === 1 ? '' : 's'} (${clearedCount} cell${clearedCount === 1 ? '' : 's'}).`;
+                        this.showToast(toastMessage, 'info');
+
+                        if (feedback) {
+                            const detailParts = [];
+                            if (missingEntries.length) {
+                                detailParts.push(`${missingEntries.length} without status`);
+                            }
+                            if (skippedEntries.length) {
+                                detailParts.push(`${skippedEntries.length} skipped`);
+                            }
+                            if (duplicateCount) {
+                                detailParts.push(`${duplicateCount} duplicate${duplicateCount === 1 ? '' : 's'}`);
+                            }
+                            feedback.classList.remove('alert-warning');
+                            feedback.classList.add('alert-success');
+                            feedback.classList.remove('d-none');
+                            feedback.textContent = detailParts.length
+                                ? `${toastMessage} (${detailParts.join(', ')}).`
+                                : toastMessage;
+                        }
+                    } else {
+                        const warningMessage = mode === 'weekends'
+                            ? 'No weekend attendance statuses matched your selection to clear.'
+                            : 'No attendance statuses matched your selection to clear.';
+                        this.showToast(warningMessage, 'warning');
+                        if (feedback) {
+                            feedback.classList.remove('alert-success');
+                            feedback.classList.add('alert-warning');
+                            feedback.classList.remove('d-none');
+                            feedback.textContent = warningMessage;
+                        }
+                    }
+                } catch (error) {
+                    console.error('Failed to clear attendance statuses:', error);
+                    if (feedback) {
+                        feedback.classList.remove('alert-success');
+                        feedback.classList.add('alert-warning');
+                        feedback.classList.remove('d-none');
+                        feedback.textContent = error.message || 'Failed to clear attendance statuses.';
+                    }
+                    this.showToast('Failed to clear attendance statuses: ' + (error.message || 'Unknown error'), 'danger');
+                } finally {
+                    this.bulkAttendanceApplying = false;
+                    this.setBulkAttendanceFormDisabled(false);
+                    this.updateBulkAttendanceSummary();
+
+                    if (applyButton) {
+                        applyButton.disabled = false;
+                        applyButton.innerHTML = 'Apply Status';
+                    }
+
+                    if (clearWeekendButton) {
+                        clearWeekendButton.disabled = false;
+                        clearWeekendButton.innerHTML = clearWeekendButton.dataset?.defaultLabel || 'Clear Weekend Statuses';
+                    }
+
+                    if (clearAllButton) {
+                        clearAllButton.disabled = false;
+                        clearAllButton.innerHTML = clearAllButton.dataset?.defaultLabel || 'Clear All Statuses';
+                    }
+
+                    if (activeButton && defaultLabel) {
+                        activeButton.innerHTML = defaultLabel;
+                    }
+                }
+            }
+
             async applyBulkAttendanceStatus() {
                 if (this.bulkAttendanceApplying) {
                     return;
@@ -8567,15 +8892,13 @@
                     return;
                 }
 
-                const userSelect = modalElement.querySelector('#bulkAttendanceUserSelect');
-                const daySelect = modalElement.querySelector('#bulkAttendanceDaySelect');
                 const statusSelect = modalElement.querySelector('#bulkAttendanceStatus');
                 const notesInput = modalElement.querySelector('#bulkAttendanceNotes');
                 const feedback = modalElement.querySelector('#bulkAttendanceFeedback');
                 const applyButton = modalElement.querySelector('#bulkAttendanceApplyBtn');
 
-                const selectedUsers = userSelect ? Array.from(userSelect.selectedOptions || []).map(option => option.value).filter(Boolean) : [];
-                const selectedDays = daySelect ? Array.from(daySelect.selectedOptions || []).map(option => option.value).filter(Boolean) : [];
+                const selectedUsers = this.getBulkAttendanceSelectedUsers();
+                const selectedDays = this.getBulkAttendanceSelectedDays();
                 const rawStatus = statusSelect ? statusSelect.value : '';
                 const trimmedStatus = (rawStatus || '').toString().trim();
                 const rawNotes = notesInput ? notesInput.value : '';
@@ -8608,17 +8931,7 @@
                     return;
                 }
 
-                const combinations = [];
-                const seenKeys = new Set();
-                selectedUsers.forEach(user => {
-                    selectedDays.forEach(date => {
-                        const key = `${user}::${date}`;
-                        if (!seenKeys.has(key)) {
-                            combinations.push({ userName: user, date });
-                            seenKeys.add(key);
-                        }
-                    });
-                });
+                const combinations = this.buildBulkAttendanceCombinations(selectedUsers, selectedDays);
 
                 if (!combinations.length) {
                     if (feedback) {
