@@ -256,9 +256,6 @@
         font-weight: 600;
         border-bottom: 2px solid rgba(13, 86, 176, 0.35);
         border-right: 1px solid rgba(13, 86, 176, 0.1);
-        position: sticky;
-        top: 0;
-        z-index: 2;
     }
 
     .attendance-calendar__table thead th:first-child {
@@ -411,6 +408,15 @@
         outline: none;
     }
 
+    .attendance-context-menu__item--danger {
+        color: #b91c1c;
+    }
+
+    .attendance-context-menu__item--danger:hover,
+    .attendance-context-menu__item--danger:focus {
+        background: rgba(239, 68, 68, 0.12);
+    }
+
     .attendance-context-menu__code {
         display: inline-flex;
         align-items: center;
@@ -422,6 +428,17 @@
         font-size: 0.85rem;
         text-transform: uppercase;
         color: #ffffff;
+    }
+
+    .attendance-context-menu__code--clear {
+        background: rgba(239, 68, 68, 0.2);
+        color: #b91c1c;
+        border: 1px solid rgba(239, 68, 68, 0.35);
+    }
+
+    .attendance-context-menu__divider {
+        margin: 0.25rem 0;
+        border-top: 1px solid rgba(15, 23, 42, 0.1);
     }
 
     .attendance-context-menu__text {
@@ -8830,17 +8847,48 @@
                     list.appendChild(listItem);
                 });
 
+                const dividerItem = document.createElement('li');
+                dividerItem.setAttribute('role', 'separator');
+                const divider = document.createElement('hr');
+                divider.className = 'attendance-context-menu__divider';
+                dividerItem.appendChild(divider);
+                list.appendChild(dividerItem);
+
+                const clearItem = document.createElement('li');
+                clearItem.setAttribute('role', 'none');
+                const clearButton = document.createElement('button');
+                clearButton.type = 'button';
+                clearButton.className = 'attendance-context-menu__item attendance-context-menu__item--danger';
+                clearButton.dataset.action = 'clear';
+                clearButton.setAttribute('role', 'menuitem');
+                clearButton.innerHTML = `
+                    <span class="attendance-context-menu__code attendance-context-menu__code--clear"><i class="fas fa-eraser"></i></span>
+                    <span class="attendance-context-menu__text">Clear Status</span>
+                `;
+                clearItem.appendChild(clearButton);
+                list.appendChild(clearItem);
+
                 list.addEventListener('click', (event) => {
-                    const button = event.target.closest('button[data-status]');
+                    const button = event.target.closest('button.attendance-context-menu__item');
                     if (!button) {
                         return;
                     }
 
+                    const action = (button.dataset.action || '').trim();
                     const status = button.dataset.status;
                     const target = this.attendanceContextMenuTarget;
                     this.hideAttendanceContextMenu();
 
-                    if (target) {
+                    if (!target) {
+                        return;
+                    }
+
+                    if (action === 'clear') {
+                        this.clearAttendanceStatus(target.userName, target.date, target.displayName, target.cellElement);
+                        return;
+                    }
+
+                    if (status) {
                         this.setAttendanceStatus(target.userName, target.date, status, target.displayName, target.cellElement);
                     }
                 });
@@ -9002,6 +9050,29 @@
                 }
             }
 
+            async clearAttendanceStatus(userName, date, displayName = null, cellElement = null) {
+                if (!userName || !date) {
+                    return;
+                }
+
+                const displayValue = displayName || userName;
+                const resolvedCell = cellElement instanceof HTMLElement ? cellElement : null;
+
+                try {
+                    const result = await this.callServerFunction('clientRemoveAttendanceStatus', userName, date);
+                    if (result && result.success) {
+                        this.showToast(`Cleared attendance status for ${displayValue} on ${date}`, 'info');
+                        this.updateAttendanceRecordCache(userName, date, '');
+                        this.updateAttendanceCalendarCell(userName, date, '', resolvedCell);
+                    } else {
+                        throw new Error(result?.error || 'Failed to clear attendance status');
+                    }
+                } catch (error) {
+                    console.error('Error clearing attendance status:', error);
+                    this.showToast('Failed to clear attendance status: ' + error.message, 'danger');
+                }
+            }
+
             updateAttendanceRecordCache(userName, date, status) {
                 const isoDate = this.normalizeAttendanceDateValue(date);
                 const normalizedUser = this.normalizePersonKey(userName);
@@ -9014,6 +9085,7 @@
                     this.attendanceCalendarRecords = [];
                 }
 
+                const trimmedStatus = (status || '').toString().trim();
                 let updated = false;
                 for (let i = 0; i < this.attendanceCalendarRecords.length; i++) {
                     const record = this.attendanceCalendarRecords[i];
@@ -9023,25 +9095,34 @@
                     const recordDateIso = this.normalizeAttendanceDateValue(recordDate);
 
                     if (recordUserKey === normalizedUser && recordDateIso === isoDate) {
-                        this.attendanceCalendarRecords[i] = Object.assign({}, record, {
-                            status,
-                            Status: status,
-                            date: isoDate,
-                            Date: isoDate
-                        });
-                        updated = true;
+                        if (trimmedStatus) {
+                            this.attendanceCalendarRecords[i] = Object.assign({}, record, {
+                                status: trimmedStatus,
+                                Status: trimmedStatus,
+                                date: isoDate,
+                                Date: isoDate
+                            });
+                            updated = true;
+                        } else {
+                            this.attendanceCalendarRecords.splice(i, 1);
+                            updated = true;
+                        }
                         break;
                     }
                 }
 
-                if (!updated) {
+                if (!trimmedStatus && updated) {
+                    return;
+                }
+
+                if (!updated && trimmedStatus) {
                     this.attendanceCalendarRecords.push({
                         userName,
                         UserName: userName,
                         date: isoDate,
                         Date: isoDate,
-                        status,
-                        Status: status
+                        status: trimmedStatus,
+                        Status: trimmedStatus
                     });
                 }
             }
