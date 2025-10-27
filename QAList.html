@@ -668,11 +668,32 @@
             (r.CaseNumber||'').toLowerCase().includes(term)
         );
 
+        // ensure newest entries appear first by sorting descending by timestamp (fallback to ID)
+        const sorted = filtered.slice().sort((a, b) => {
+            const aTime = new Date(a.Timestamp || 0).getTime();
+            const bTime = new Date(b.Timestamp || 0).getTime();
+
+            if (!isNaN(bTime) && !isNaN(aTime) && bTime !== aTime) {
+                return bTime - aTime;
+            }
+
+            if (isNaN(bTime) && !isNaN(aTime)) return -1;
+            if (!isNaN(bTime) && isNaN(aTime)) return 1;
+
+            const aId = (a.ID || '').toString();
+            const bId = (b.ID || '').toString();
+            if (aId && bId) {
+                return bId.localeCompare(aId);
+            }
+
+            return 0;
+        });
+
         // 1) pagination math
-        const totalPages = Math.max(1, Math.ceil(filtered.length / rowsPerPage));
+        const totalPages = Math.max(1, Math.ceil(sorted.length / rowsPerPage));
         currentPage = Math.min(currentPage, totalPages);
         const start = (currentPage - 1) * rowsPerPage;
-        const pageItems = filtered.slice(start, start + rowsPerPage);
+        const pageItems = sorted.slice(start, start + rowsPerPage);
 
         // 2) render rows
         const tbody = document.querySelector('#qaTable tbody');

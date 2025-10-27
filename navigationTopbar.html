@@ -86,6 +86,11 @@
       <i class="fas fa-search"></i>
     </a>
 
+    <a href="<?= generateLink('dynamicforms') ?>" class="notification-btn top-actions__dynamic"
+      data-topbar-action="dynamicforms" data-bs-toggle="tooltip" title="Dynamic Form Responses">
+      <i class="fas fa-clipboard-list"></i>
+    </a>
+
     <div class="top-actions__buttons" role="group" aria-label="Account actions">
       <? if (isAdminValue) { ?>
       <a href="<?= generateLink('manageuser') ?>#employment-report" class="notification-btn" data-topbar-action="employment"
@@ -117,6 +122,12 @@
           <i class="fas fa-bell" aria-hidden="true"></i>
           <span>Notifications</span>
         </button>
+
+        <a href="<?= generateLink('dynamicforms') ?>" class="topbar-menu-item" data-topbar-action="dynamicforms"
+          data-menu-close="true">
+          <i class="fas fa-clipboard-list" aria-hidden="true"></i>
+          <span>Dynamic form responses</span>
+        </a>
 
         <? if (isAdminValue) { ?>
         <a href="<?= generateLink('manageuser') ?>#employment-report" class="topbar-menu-item" data-topbar-action="employment"
