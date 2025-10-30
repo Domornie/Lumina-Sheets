@@ -12579,6 +12579,27 @@
                     if (!normalized) {
                         return null;
                     }
+
+                    const isoDateOnlyMatch = normalized.match(/^([0-9]{4})-([0-9]{1,2})-([0-9]{1,2})$/);
+                    if (isoDateOnlyMatch) {
+                        const [, yearStr, monthStr, dayStr] = isoDateOnlyMatch;
+                        const year = Number(yearStr);
+                        const month = Number(monthStr) - 1;
+                        const day = Number(dayStr);
+                        const localDate = new Date(year, month, day);
+                        return isNaN(localDate.getTime()) ? null : localDate;
+                    }
+
+                    const slashDateOnlyMatch = normalized.match(/^([0-9]{1,2})\/([0-9]{1,2})\/([0-9]{4})$/);
+                    if (slashDateOnlyMatch) {
+                        const [, monthStr, dayStr, yearStr] = slashDateOnlyMatch;
+                        const year = Number(yearStr);
+                        const month = Number(monthStr) - 1;
+                        const day = Number(dayStr);
+                        const localDate = new Date(year, month, day);
+                        return isNaN(localDate.getTime()) ? null : localDate;
+                    }
+
                     const dateFromString = new Date(normalized);
                     return isNaN(dateFromString.getTime()) ? null : dateFromString;
                 }
