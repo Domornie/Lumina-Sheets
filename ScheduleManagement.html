@@ -8988,6 +8988,7 @@
                         uniqueUsers.add(this.normalizePersonKey(user) || user);
                         uniqueDays.add(date);
                         this.updateAttendanceRecordCache(user, date, '');
+                        this.updateAttendanceDashboardRecord(user, date, '');
                         this.updateAttendanceCalendarCell(user, date, '', null);
                     });
 
@@ -9166,6 +9167,9 @@
                         }
                         if (user && date) {
                             this.updateAttendanceRecordCache(user, date, trimmedStatus);
+                            const entryNotes = (item?.notes || item?.Notes || '').toString().trim();
+                            const resolvedNotes = entryNotes || trimmedNotes;
+                            this.updateAttendanceDashboardRecord(user, date, trimmedStatus, resolvedNotes);
                             this.updateAttendanceCalendarCell(user, date, trimmedStatus, null);
                         }
                     });
@@ -10121,6 +10125,7 @@
                     if (result && result.success) {
                         this.showToast(`Marked ${displayValue} as ${trimmedStatus} on ${date}`, 'success');
                         this.updateAttendanceRecordCache(userName, date, trimmedStatus);
+                        this.updateAttendanceDashboardRecord(userName, date, trimmedStatus);
                         this.updateAttendanceCalendarCell(userName, date, trimmedStatus, resolvedCell);
                     } else {
                         throw new Error(result?.error || 'Failed to mark attendance');
@@ -10144,6 +10149,7 @@
                     if (result && result.success) {
                         this.showToast(`Cleared attendance status for ${displayValue} on ${date}`, 'info');
                         this.updateAttendanceRecordCache(userName, date, '');
+                        this.updateAttendanceDashboardRecord(userName, date, '');
                         this.updateAttendanceCalendarCell(userName, date, '', resolvedCell);
                     } else {
                         throw new Error(result?.error || 'Failed to clear attendance status');
@@ -10206,6 +10212,136 @@
                         Status: trimmedStatus
                     });
                 }
+            }
+
+            updateAttendanceDashboardRecord(userName, date, status, notes = '') {
+                const isoDate = this.normalizeAttendanceDateValue(date);
+                const normalizedUser = this.normalizePersonKey(userName);
+
+                if (!isoDate || !normalizedUser) {
+                    return;
+                }
+
+                const trimmedStatus = (status || '').toString().trim();
+                const trimmedNotes = (notes || '').toString().trim();
+
+                if (!Array.isArray(this.attendanceDashboardRecords)) {
+                    this.attendanceDashboardRecords = [];
+                }
+
+                const applyChangeToRecords = (records) => {
+                    if (!Array.isArray(records)) {
+                        return false;
+                    }
+
+                    for (let index = 0; index < records.length; index++) {
+                        const record = records[index];
+                        const recordUser = record?.userName || record?.UserName || record?.user || record?.User || '';
+                        const recordUserKey = this.normalizePersonKey(recordUser);
+                        const recordDate = record?.date || record?.Date || record?.timestamp || record?.Timestamp || '';
+                        const recordDateIso = this.normalizeAttendanceDateValue(recordDate);
+
+                        if (recordUserKey === normalizedUser && recordDateIso === isoDate) {
+                            if (!trimmedStatus) {
+                                records.splice(index, 1);
+                                return true;
+                            }
+
+                            const existingStatus = (record?.status || record?.Status || record?.state || record?.State || '')
+                                .toString()
+                                .trim();
+                            const existingNotes = (record?.notes || record?.Notes || '').toString().trim();
+
+                            if (
+                                existingStatus !== trimmedStatus ||
+                                existingNotes !== trimmedNotes ||
+                                (record?.date !== isoDate && record?.Date !== isoDate) ||
+                                (record?.userName !== userName && record?.UserName !== userName)
+                            ) {
+                                records[index] = Object.assign({}, record, {
+                                    userName,
+                                    UserName: userName,
+                                    status: trimmedStatus,
+                                    Status: trimmedStatus,
+                                    state: trimmedStatus,
+                                    State: trimmedStatus,
+                                    date: isoDate,
+                                    Date: isoDate,
+                                    timestamp: isoDate,
+                                    Timestamp: isoDate,
+                                    notes: trimmedNotes,
+                                    Notes: trimmedNotes
+                                });
+                                return true;
+                            }
+
+                            return false;
+                        }
+                    }
+
+                    if (trimmedStatus) {
+                        records.push({
+                            userName,
+                            UserName: userName,
+                            status: trimmedStatus,
+                            Status: trimmedStatus,
+                            state: trimmedStatus,
+                            State: trimmedStatus,
+                            date: isoDate,
+                            Date: isoDate,
+                            timestamp: isoDate,
+                            Timestamp: isoDate,
+                            notes: trimmedNotes,
+                            Notes: trimmedNotes
+                        });
+                        return true;
+                    }
+
+                    return false;
+                };
+
+                const yearMatch = isoDate.match(/^(\d{4})-/);
+                const recordYear = yearMatch ? parseInt(yearMatch[1], 10) : NaN;
+
+                if (!Number.isFinite(recordYear)) {
+                    return;
+                }
+
+                let changed = applyChangeToRecords(this.attendanceDashboardRecords);
+
+                if (
+                    this.attendanceDashboardPrefetch &&
+                    Number.isFinite(parseInt(this.attendanceDashboardPrefetch.year, 10)) &&
+                    parseInt(this.attendanceDashboardPrefetch.year, 10) === recordYear
+                ) {
+                    if (!Array.isArray(this.attendanceDashboardPrefetch.records)) {
+                        this.attendanceDashboardPrefetch.records = [];
+                    }
+                    changed = applyChangeToRecords(this.attendanceDashboardPrefetch.records) || changed;
+                }
+
+                if (!changed) {
+                    return;
+                }
+
+                const activeYear = Number.isFinite(this.attendanceDashboardYear)
+                    ? this.attendanceDashboardYear
+                    : this.getSelectedAttendanceYear();
+
+                if (!Number.isFinite(activeYear) || activeYear !== recordYear) {
+                    return;
+                }
+
+                if (this.attendanceDashboardYear !== activeYear) {
+                    this.attendanceDashboardYear = activeYear;
+                }
+
+                const filteredRecords = this.filterAttendanceDashboardRecords(
+                    this.attendanceDashboardRecords,
+                    this.attendanceDashboardUserFilter
+                );
+                this.attendanceDashboardData = this.computeAttendanceDashboard(filteredRecords, activeYear);
+                this.initializeAttendanceDashboard();
             }
 
             updateAttendanceCalendarCell(userName, date, status, cellElement = null) {
