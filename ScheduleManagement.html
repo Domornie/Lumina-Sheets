@@ -821,15 +821,15 @@
 
     .attendance-chart {
         position: relative;
-        height: 200px;
-    }
-
-    .attendance-chart.tall {
         height: 260px;
     }
 
+    .attendance-chart.tall {
+        height: 340px;
+    }
+
     .attendance-chart.small {
-        height: 140px;
+        height: 200px;
     }
 
     .attendance-percentage-value {
@@ -1589,7 +1589,7 @@
                                     <div class="d-flex justify-content-between align-items-start mb-2">
                                         <div>
                                             <div class="attendance-panel-title">Yearly Trends</div>
-                                            <div class="attendance-panel-subtitle">Track punctual, late, absent and sick shifts across the year.</div>
+                                            <div class="attendance-panel-subtitle">Track punctual, late, absent, sick, and vacation shifts across the year.</div>
                                         </div>
                                     </div>
                                     <div class="attendance-chart tall">
@@ -1675,7 +1675,7 @@
                             <div class="col-xl-8">
                                 <div class="attendance-panel h-100">
                                     <div class="attendance-panel-title">Monthly Analysis</div>
-                                    <div class="attendance-panel-subtitle mb-3">Stacked distribution of all attendance categories across the year.</div>
+                                    <div class="attendance-panel-subtitle mb-3">Stacked distribution of punctual, bereavement, absent, late, no call/no show, vacation, sick leave, leave of absence, personal leave, training, and other statuses.</div>
                                     <div class="attendance-chart tall">
                                         <canvas id="attendanceMonthlyAnalysisChart"></canvas>
                                     </div>
@@ -1684,7 +1684,7 @@
                             <div class="col-xl-4">
                                 <div class="attendance-panel h-100">
                                     <div class="attendance-panel-title">Yearly Analysis</div>
-                                    <div class="attendance-panel-subtitle mb-3">Overall category contribution for the current year.</div>
+                                    <div class="attendance-panel-subtitle mb-3">Overall contribution of each attendance status for the current year.</div>
                                     <div class="attendance-chart">
                                         <canvas id="attendanceYearlyAnalysisChart"></canvas>
                                     </div>
@@ -6607,14 +6607,31 @@
 
                 const monthStats = months.map(() => ({
                     present: 0,
+                    bereavement: 0,
                     late: 0,
                     absent: 0,
+                    noCallNoShow: 0,
                     sick: 0,
                     vacation: 0,
+                    leaveOfAbsence: 0,
+                    personalLeave: 0,
+                    training: 0,
                     other: 0,
                     total: 0
                 }));
-                const yearlyTotals = { present: 0, late: 0, absent: 0, sick: 0, vacation: 0, other: 0 };
+                const yearlyTotals = {
+                    present: 0,
+                    bereavement: 0,
+                    late: 0,
+                    absent: 0,
+                    noCallNoShow: 0,
+                    sick: 0,
+                    vacation: 0,
+                    leaveOfAbsence: 0,
+                    personalLeave: 0,
+                    training: 0,
+                    other: 0
+                };
                 const biWeeklyBuckets = new Map();
                 const recognitionCategories = new Set(['present', 'late', 'absent', 'sick']);
                 const userStatsMap = new Map();
@@ -6928,7 +6945,15 @@
                 const monthlyPresent = monthStats.map(stat => stat.present);
                 const monthlyAbsent = monthStats.map(stat => stat.absent);
                 const monthlyLate = monthStats.map(stat => stat.late);
-                const monthlyLeaves = monthStats.map(stat => stat.sick + stat.vacation + stat.other);
+                const monthlyLeaves = monthStats.map(stat =>
+                    stat.sick +
+                    stat.vacation +
+                    stat.bereavement +
+                    stat.leaveOfAbsence +
+                    stat.personalLeave +
+                    stat.training +
+                    stat.other
+                );
 
                 const computeTrend = (values) => values.map((_, index) => {
                     const window = values.slice(Math.max(0, index - 2), index + 1);
@@ -6946,7 +6971,8 @@
                     punctual: monthStats.map(stat => safePercent(stat.present, stat.total)),
                     late: monthStats.map(stat => safePercent(stat.late, stat.total)),
                     absent: monthStats.map(stat => safePercent(stat.absent, stat.total)),
-                    sick: monthStats.map(stat => safePercent(stat.sick, stat.total))
+                    sick: monthStats.map(stat => safePercent(stat.sick, stat.total)),
+                    vacation: monthStats.map(stat => safePercent(stat.vacation, stat.total))
                 };
 
                 const monthlyAnalysis = months.map((monthName, index) => {
@@ -6955,19 +6981,31 @@
                     return {
                         month: monthName,
                         punctual: safePercent(stat.present, total),
+                        bereavement: safePercent(stat.bereavement, total),
                         absent: safePercent(stat.absent, total),
                         late: safePercent(stat.late, total),
+                        noCallNoShow: safePercent(stat.noCallNoShow, total),
+                        vacation: safePercent(stat.vacation, total),
                         sick: safePercent(stat.sick, total),
-                        vacation: safePercent(stat.vacation + stat.other, total)
+                        leaveOfAbsence: safePercent(stat.leaveOfAbsence, total),
+                        personalLeave: safePercent(stat.personalLeave, total),
+                        training: safePercent(stat.training, total),
+                        other: safePercent(stat.other, total)
                     };
                 });
 
                 const yearlyTotalsChart = {
                     punctual: yearlyTotals.present || 0,
+                    bereavement: yearlyTotals.bereavement || 0,
                     absent: yearlyTotals.absent || 0,
                     late: yearlyTotals.late || 0,
+                    noCallNoShow: yearlyTotals.noCallNoShow || 0,
+                    vacation: yearlyTotals.vacation || 0,
                     sick: yearlyTotals.sick || 0,
-                    vacation: (yearlyTotals.vacation || 0) + (yearlyTotals.other || 0)
+                    leaveOfAbsence: yearlyTotals.leaveOfAbsence || 0,
+                    personalLeave: yearlyTotals.personalLeave || 0,
+                    training: yearlyTotals.training || 0,
+                    other: yearlyTotals.other || 0
                 };
 
                 const sortedBiWeekly = Array.from(biWeeklyBuckets.values()).sort((a, b) => a.order - b.order);
@@ -7276,24 +7314,55 @@
                 if (!normalized) {
                     return 'other';
                 }
+
                 if (normalized === 'present' || normalized === 'on time' || normalized === 'punctual') {
                     return 'present';
                 }
-                if (normalized === 'late' || normalized.includes('tardy')) {
-                    return 'late';
+
+                if (normalized.includes('bereavement') || normalized.includes('funeral')) {
+                    return 'bereavement';
                 }
-                if (normalized === 'absent' || normalized.includes('no call no show') || normalized.includes('no-call no-show') || normalized.includes('no show')) {
-                    return 'absent';
+
+                if (normalized.includes('no call') && normalized.includes('no show')) {
+                    return 'noCallNoShow';
                 }
-                if (normalized.includes('sick')) {
-                    return 'sick';
+
+                if (normalized.includes('no call')) {
+                    return 'noCallNoShow';
                 }
+
+                if (normalized.includes('no show')) {
+                    return 'noCallNoShow';
+                }
+
+                if (normalized.includes('leave of absence') || normalized.includes('leave of absent') || normalized.includes('leave absence') || normalized === 'loa') {
+                    return 'leaveOfAbsence';
+                }
+
+                if (normalized.includes('personal leave') || normalized.includes('personal time')) {
+                    return 'personalLeave';
+                }
+
+                if (normalized.includes('training') || normalized.includes('workshop') || normalized.includes('class')) {
+                    return 'training';
+                }
+
                 if (normalized.includes('vacation') || normalized.includes('pto') || normalized.includes('holiday')) {
                     return 'vacation';
                 }
-                if (normalized.includes('bereavement') || normalized.includes('leave') || normalized.includes('loa') || normalized.includes('personal')) {
-                    return 'other';
+
+                if (normalized.includes('sick') || normalized.includes('illness') || normalized.includes('medical')) {
+                    return 'sick';
                 }
+
+                if (normalized === 'late' || normalized.includes('tardy')) {
+                    return 'late';
+                }
+
+                if (normalized.includes('absent')) {
+                    return 'absent';
+                }
+
                 return 'other';
             }
 
@@ -7320,10 +7389,16 @@
 
                 const palette = {
                     punctual: '#009639',
+                    bereavement: '#6b7280',
                     late: '#ffab00',
                     absent: '#de350b',
+                    noCallNoShow: '#f97316',
                     sick: '#0747a6',
-                    vacation: '#6366f1'
+                    vacation: '#6366f1',
+                    leaveOfAbsence: '#0ea5e9',
+                    personalLeave: '#8b5cf6',
+                    training: '#14b8a6',
+                    other: '#94a3b8'
                 };
 
                 const withAlpha = (hex, alpha) => {
@@ -7432,6 +7507,15 @@
                                     tension: 0.4,
                                     fill: false,
                                     borderWidth: 2
+                                },
+                                {
+                                    label: 'Vacation',
+                                    data: data.yearlyTrends.vacation,
+                                    borderColor: palette.vacation,
+                                    tension: 0.4,
+                                    fill: false,
+                                    borderWidth: 2,
+                                    borderDash: [4, 4]
                                 }
                             ]
                         },
@@ -7664,6 +7748,12 @@
                                     stack: 'analysis'
                                 },
                                 {
+                                    label: 'Bereavement',
+                                    data: data.monthlyAnalysis.map(item => item.bereavement),
+                                    backgroundColor: palette.bereavement,
+                                    stack: 'analysis'
+                                },
+                                {
                                     label: 'Absent',
                                     data: data.monthlyAnalysis.map(item => item.absent),
                                     backgroundColor: palette.absent,
@@ -7676,15 +7766,45 @@
                                     stack: 'analysis'
                                 },
                                 {
-                                    label: 'Sick',
+                                    label: 'No Call/No Show',
+                                    data: data.monthlyAnalysis.map(item => item.noCallNoShow),
+                                    backgroundColor: palette.noCallNoShow,
+                                    stack: 'analysis'
+                                },
+                                {
+                                    label: 'Vacation',
+                                    data: data.monthlyAnalysis.map(item => item.vacation),
+                                    backgroundColor: palette.vacation,
+                                    stack: 'analysis'
+                                },
+                                {
+                                    label: 'Sick Leave',
                                     data: data.monthlyAnalysis.map(item => item.sick),
                                     backgroundColor: palette.sick,
                                     stack: 'analysis'
                                 },
                                 {
-                                    label: 'Vacation & Other',
-                                    data: data.monthlyAnalysis.map(item => item.vacation),
-                                    backgroundColor: palette.vacation,
+                                    label: 'Leave of Absence',
+                                    data: data.monthlyAnalysis.map(item => item.leaveOfAbsence),
+                                    backgroundColor: palette.leaveOfAbsence,
+                                    stack: 'analysis'
+                                },
+                                {
+                                    label: 'Personal Leave',
+                                    data: data.monthlyAnalysis.map(item => item.personalLeave),
+                                    backgroundColor: palette.personalLeave,
+                                    stack: 'analysis'
+                                },
+                                {
+                                    label: 'Training',
+                                    data: data.monthlyAnalysis.map(item => item.training),
+                                    backgroundColor: palette.training,
+                                    stack: 'analysis'
+                                },
+                                {
+                                    label: 'Other',
+                                    data: data.monthlyAnalysis.map(item => item.other),
+                                    backgroundColor: palette.other,
                                     stack: 'analysis'
                                 }
                             ]
@@ -7712,22 +7832,46 @@
                     this.attendanceCharts.yearlyAnalysis = new Chart(yearlyAnalysisCtx, {
                         type: 'doughnut',
                         data: {
-                            labels: ['Punctual', 'Absent', 'Late', 'Sick', 'Vacation'],
+                            labels: [
+                                'Punctual',
+                                'Bereavement',
+                                'Absent',
+                                'Late',
+                                'No Call/No Show',
+                                'Vacation',
+                                'Sick Leave',
+                                'Leave of Absence',
+                                'Personal Leave',
+                                'Training',
+                                'Other'
+                            ],
                             datasets: [
                                 {
                                     data: [
                                         data.yearlyTotals.punctual,
+                                        data.yearlyTotals.bereavement,
                                         data.yearlyTotals.absent,
                                         data.yearlyTotals.late,
+                                        data.yearlyTotals.noCallNoShow,
+                                        data.yearlyTotals.vacation,
                                         data.yearlyTotals.sick,
-                                        data.yearlyTotals.vacation
+                                        data.yearlyTotals.leaveOfAbsence,
+                                        data.yearlyTotals.personalLeave,
+                                        data.yearlyTotals.training,
+                                        data.yearlyTotals.other
                                     ],
                                     backgroundColor: [
                                         palette.punctual,
+                                        palette.bereavement,
                                         palette.absent,
                                         palette.late,
+                                        palette.noCallNoShow,
+                                        palette.vacation,
                                         palette.sick,
-                                        palette.vacation
+                                        palette.leaveOfAbsence,
+                                        palette.personalLeave,
+                                        palette.training,
+                                        palette.other
                                     ],
                                     borderWidth: 2,
                                     hoverOffset: 8
@@ -7789,6 +7933,7 @@
                     this.attendanceCharts.yearlyTrend.data.datasets[1].data = data.yearlyTrends.late;
                     this.attendanceCharts.yearlyTrend.data.datasets[2].data = data.yearlyTrends.absent;
                     this.attendanceCharts.yearlyTrend.data.datasets[3].data = data.yearlyTrends.sick;
+                    this.attendanceCharts.yearlyTrend.data.datasets[4].data = data.yearlyTrends.vacation;
 
                     this.attendanceCharts.monthlyPresent.data.labels = data.months;
                     this.attendanceCharts.monthlyPresent.data.datasets[0].data = data.monthlyPresent;
@@ -7807,17 +7952,55 @@
 
                     this.attendanceCharts.monthlyAnalysis.data.labels = data.monthlyAnalysis.map(item => item.month);
                     this.attendanceCharts.monthlyAnalysis.data.datasets[0].data = data.monthlyAnalysis.map(item => item.punctual);
-                    this.attendanceCharts.monthlyAnalysis.data.datasets[1].data = data.monthlyAnalysis.map(item => item.absent);
-                    this.attendanceCharts.monthlyAnalysis.data.datasets[2].data = data.monthlyAnalysis.map(item => item.late);
-                    this.attendanceCharts.monthlyAnalysis.data.datasets[3].data = data.monthlyAnalysis.map(item => item.sick);
-                    this.attendanceCharts.monthlyAnalysis.data.datasets[4].data = data.monthlyAnalysis.map(item => item.vacation);
+                    this.attendanceCharts.monthlyAnalysis.data.datasets[1].data = data.monthlyAnalysis.map(item => item.bereavement);
+                    this.attendanceCharts.monthlyAnalysis.data.datasets[2].data = data.monthlyAnalysis.map(item => item.absent);
+                    this.attendanceCharts.monthlyAnalysis.data.datasets[3].data = data.monthlyAnalysis.map(item => item.late);
+                    this.attendanceCharts.monthlyAnalysis.data.datasets[4].data = data.monthlyAnalysis.map(item => item.noCallNoShow);
+                    this.attendanceCharts.monthlyAnalysis.data.datasets[5].data = data.monthlyAnalysis.map(item => item.vacation);
+                    this.attendanceCharts.monthlyAnalysis.data.datasets[6].data = data.monthlyAnalysis.map(item => item.sick);
+                    this.attendanceCharts.monthlyAnalysis.data.datasets[7].data = data.monthlyAnalysis.map(item => item.leaveOfAbsence);
+                    this.attendanceCharts.monthlyAnalysis.data.datasets[8].data = data.monthlyAnalysis.map(item => item.personalLeave);
+                    this.attendanceCharts.monthlyAnalysis.data.datasets[9].data = data.monthlyAnalysis.map(item => item.training);
+                    this.attendanceCharts.monthlyAnalysis.data.datasets[10].data = data.monthlyAnalysis.map(item => item.other);
 
+                    this.attendanceCharts.yearlyAnalysis.data.labels = [
+                        'Punctual',
+                        'Bereavement',
+                        'Absent',
+                        'Late',
+                        'No Call/No Show',
+                        'Vacation',
+                        'Sick Leave',
+                        'Leave of Absence',
+                        'Personal Leave',
+                        'Training',
+                        'Other'
+                    ];
                     this.attendanceCharts.yearlyAnalysis.data.datasets[0].data = [
                         data.yearlyTotals.punctual,
+                        data.yearlyTotals.bereavement,
                         data.yearlyTotals.absent,
                         data.yearlyTotals.late,
+                        data.yearlyTotals.noCallNoShow,
+                        data.yearlyTotals.vacation,
                         data.yearlyTotals.sick,
-                        data.yearlyTotals.vacation
+                        data.yearlyTotals.leaveOfAbsence,
+                        data.yearlyTotals.personalLeave,
+                        data.yearlyTotals.training,
+                        data.yearlyTotals.other
+                    ];
+                    this.attendanceCharts.yearlyAnalysis.data.datasets[0].backgroundColor = [
+                        palette.punctual,
+                        palette.bereavement,
+                        palette.absent,
+                        palette.late,
+                        palette.noCallNoShow,
+                        palette.vacation,
+                        palette.sick,
+                        palette.leaveOfAbsence,
+                        palette.personalLeave,
+                        palette.training,
+                        palette.other
                     ];
 
                     const selectedMonth = monthSelect ? parseInt(monthSelect.value, 10) : 0;
@@ -8805,6 +8988,7 @@
                         uniqueUsers.add(this.normalizePersonKey(user) || user);
                         uniqueDays.add(date);
                         this.updateAttendanceRecordCache(user, date, '');
+                        this.updateAttendanceDashboardRecord(user, date, '');
                         this.updateAttendanceCalendarCell(user, date, '', null);
                     });
 
@@ -8983,6 +9167,9 @@
                         }
                         if (user && date) {
                             this.updateAttendanceRecordCache(user, date, trimmedStatus);
+                            const entryNotes = (item?.notes || item?.Notes || '').toString().trim();
+                            const resolvedNotes = entryNotes || trimmedNotes;
+                            this.updateAttendanceDashboardRecord(user, date, trimmedStatus, resolvedNotes);
                             this.updateAttendanceCalendarCell(user, date, trimmedStatus, null);
                         }
                     });
@@ -9938,6 +10125,7 @@
                     if (result && result.success) {
                         this.showToast(`Marked ${displayValue} as ${trimmedStatus} on ${date}`, 'success');
                         this.updateAttendanceRecordCache(userName, date, trimmedStatus);
+                        this.updateAttendanceDashboardRecord(userName, date, trimmedStatus);
                         this.updateAttendanceCalendarCell(userName, date, trimmedStatus, resolvedCell);
                     } else {
                         throw new Error(result?.error || 'Failed to mark attendance');
@@ -9961,6 +10149,7 @@
                     if (result && result.success) {
                         this.showToast(`Cleared attendance status for ${displayValue} on ${date}`, 'info');
                         this.updateAttendanceRecordCache(userName, date, '');
+                        this.updateAttendanceDashboardRecord(userName, date, '');
                         this.updateAttendanceCalendarCell(userName, date, '', resolvedCell);
                     } else {
                         throw new Error(result?.error || 'Failed to clear attendance status');
@@ -10023,6 +10212,136 @@
                         Status: trimmedStatus
                     });
                 }
+            }
+
+            updateAttendanceDashboardRecord(userName, date, status, notes = '') {
+                const isoDate = this.normalizeAttendanceDateValue(date);
+                const normalizedUser = this.normalizePersonKey(userName);
+
+                if (!isoDate || !normalizedUser) {
+                    return;
+                }
+
+                const trimmedStatus = (status || '').toString().trim();
+                const trimmedNotes = (notes || '').toString().trim();
+
+                if (!Array.isArray(this.attendanceDashboardRecords)) {
+                    this.attendanceDashboardRecords = [];
+                }
+
+                const applyChangeToRecords = (records) => {
+                    if (!Array.isArray(records)) {
+                        return false;
+                    }
+
+                    for (let index = 0; index < records.length; index++) {
+                        const record = records[index];
+                        const recordUser = record?.userName || record?.UserName || record?.user || record?.User || '';
+                        const recordUserKey = this.normalizePersonKey(recordUser);
+                        const recordDate = record?.date || record?.Date || record?.timestamp || record?.Timestamp || '';
+                        const recordDateIso = this.normalizeAttendanceDateValue(recordDate);
+
+                        if (recordUserKey === normalizedUser && recordDateIso === isoDate) {
+                            if (!trimmedStatus) {
+                                records.splice(index, 1);
+                                return true;
+                            }
+
+                            const existingStatus = (record?.status || record?.Status || record?.state || record?.State || '')
+                                .toString()
+                                .trim();
+                            const existingNotes = (record?.notes || record?.Notes || '').toString().trim();
+
+                            if (
+                                existingStatus !== trimmedStatus ||
+                                existingNotes !== trimmedNotes ||
+                                (record?.date !== isoDate && record?.Date !== isoDate) ||
+                                (record?.userName !== userName && record?.UserName !== userName)
+                            ) {
+                                records[index] = Object.assign({}, record, {
+                                    userName,
+                                    UserName: userName,
+                                    status: trimmedStatus,
+                                    Status: trimmedStatus,
+                                    state: trimmedStatus,
+                                    State: trimmedStatus,
+                                    date: isoDate,
+                                    Date: isoDate,
+                                    timestamp: isoDate,
+                                    Timestamp: isoDate,
+                                    notes: trimmedNotes,
+                                    Notes: trimmedNotes
+                                });
+                                return true;
+                            }
+
+                            return false;
+                        }
+                    }
+
+                    if (trimmedStatus) {
+                        records.push({
+                            userName,
+                            UserName: userName,
+                            status: trimmedStatus,
+                            Status: trimmedStatus,
+                            state: trimmedStatus,
+                            State: trimmedStatus,
+                            date: isoDate,
+                            Date: isoDate,
+                            timestamp: isoDate,
+                            Timestamp: isoDate,
+                            notes: trimmedNotes,
+                            Notes: trimmedNotes
+                        });
+                        return true;
+                    }
+
+                    return false;
+                };
+
+                const yearMatch = isoDate.match(/^(\d{4})-/);
+                const recordYear = yearMatch ? parseInt(yearMatch[1], 10) : NaN;
+
+                if (!Number.isFinite(recordYear)) {
+                    return;
+                }
+
+                let changed = applyChangeToRecords(this.attendanceDashboardRecords);
+
+                if (
+                    this.attendanceDashboardPrefetch &&
+                    Number.isFinite(parseInt(this.attendanceDashboardPrefetch.year, 10)) &&
+                    parseInt(this.attendanceDashboardPrefetch.year, 10) === recordYear
+                ) {
+                    if (!Array.isArray(this.attendanceDashboardPrefetch.records)) {
+                        this.attendanceDashboardPrefetch.records = [];
+                    }
+                    changed = applyChangeToRecords(this.attendanceDashboardPrefetch.records) || changed;
+                }
+
+                if (!changed) {
+                    return;
+                }
+
+                const activeYear = Number.isFinite(this.attendanceDashboardYear)
+                    ? this.attendanceDashboardYear
+                    : this.getSelectedAttendanceYear();
+
+                if (!Number.isFinite(activeYear) || activeYear !== recordYear) {
+                    return;
+                }
+
+                if (this.attendanceDashboardYear !== activeYear) {
+                    this.attendanceDashboardYear = activeYear;
+                }
+
+                const filteredRecords = this.filterAttendanceDashboardRecords(
+                    this.attendanceDashboardRecords,
+                    this.attendanceDashboardUserFilter
+                );
+                this.attendanceDashboardData = this.computeAttendanceDashboard(filteredRecords, activeYear);
+                this.initializeAttendanceDashboard();
             }
 
             updateAttendanceCalendarCell(userName, date, status, cellElement = null) {
@@ -12396,6 +12715,27 @@
                     if (!normalized) {
                         return null;
                     }
+
+                    const isoDateOnlyMatch = normalized.match(/^([0-9]{4})-([0-9]{1,2})-([0-9]{1,2})$/);
+                    if (isoDateOnlyMatch) {
+                        const [, yearStr, monthStr, dayStr] = isoDateOnlyMatch;
+                        const year = Number(yearStr);
+                        const month = Number(monthStr) - 1;
+                        const day = Number(dayStr);
+                        const localDate = new Date(year, month, day);
+                        return isNaN(localDate.getTime()) ? null : localDate;
+                    }
+
+                    const slashDateOnlyMatch = normalized.match(/^([0-9]{1,2})\/([0-9]{1,2})\/([0-9]{4})$/);
+                    if (slashDateOnlyMatch) {
+                        const [, monthStr, dayStr, yearStr] = slashDateOnlyMatch;
+                        const year = Number(yearStr);
+                        const month = Number(monthStr) - 1;
+                        const day = Number(dayStr);
+                        const localDate = new Date(year, month, day);
+                        return isNaN(localDate.getTime()) ? null : localDate;
+                    }
+
                     const dateFromString = new Date(normalized);
                     return isNaN(dateFromString.getTime()) ? null : dateFromString;
                 }
