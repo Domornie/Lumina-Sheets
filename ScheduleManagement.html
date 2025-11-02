@@ -9836,16 +9836,13 @@
                     const userName = typeof userNameRaw === 'string' ? userNameRaw.trim() : String(userNameRaw || '').trim();
                     const status = typeof statusRaw === 'string' ? statusRaw.trim() : String(statusRaw || '').trim();
                     const rawDate = record?.date || record?.Date || record?.timestamp || record?.Timestamp;
+                    let isoDate = this.normalizeAttendanceDateValue(rawDate);
 
-                    const date = typeof this.parseDateValue === 'function'
-                        ? (this.parseDateValue(rawDate)
-                            || (rawDate instanceof Date
-                                ? new Date(rawDate.getTime())
-                                : (rawDate ? new Date(rawDate) : null)))
-                        : rawDate instanceof Date
-                            ? new Date(rawDate.getTime())
-                            : (rawDate ? new Date(rawDate) : null);
-                    const isoDate = this.toIsoDateString(date);
+                    if (!isoDate && typeof this.parseDateValue === 'function') {
+                        const parsedDate = this.parseDateValue(rawDate);
+                        isoDate = parsedDate instanceof Date ? this.toIsoDateString(parsedDate) : '';
+                    }
+
                     const userKey = this.normalizePersonKey(userName);
 
                     if (!userKey || !isoDate || !status) {
@@ -11294,13 +11291,13 @@
             }
 
             toIsoDateString(date) {
-                if (!(date instanceof Date) || isNaN(date.getTime())) {
+                if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
                     return '';
                 }
 
-                const year = date.getFullYear();
-                const month = String(date.getMonth() + 1).padStart(2, '0');
-                const day = String(date.getDate()).padStart(2, '0');
+                const year = date.getUTCFullYear();
+                const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+                const day = String(date.getUTCDate()).padStart(2, '0');
                 return `${year}-${month}-${day}`;
             }
 
