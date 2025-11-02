@@ -11295,10 +11295,22 @@
                     return '';
                 }
 
-                const year = date.getUTCFullYear();
-                const month = String(date.getUTCMonth() + 1).padStart(2, '0');
-                const day = String(date.getUTCDate()).padStart(2, '0');
-                return `${year}-${month}-${day}`;
+                const isLocalMidnight = date.getHours() === 0
+                    && date.getMinutes() === 0
+                    && date.getSeconds() === 0
+                    && date.getMilliseconds() === 0;
+
+                if (isLocalMidnight) {
+                    const localYear = date.getFullYear();
+                    const localMonth = String(date.getMonth() + 1).padStart(2, '0');
+                    const localDay = String(date.getDate()).padStart(2, '0');
+                    return `${localYear}-${localMonth}-${localDay}`;
+                }
+
+                const utcYear = date.getUTCFullYear();
+                const utcMonth = String(date.getUTCMonth() + 1).padStart(2, '0');
+                const utcDay = String(date.getUTCDate()).padStart(2, '0');
+                return `${utcYear}-${utcMonth}-${utcDay}`;
             }
 
             resolveIsoDate(value, fallback = null) {
