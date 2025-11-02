@@ -9837,7 +9837,14 @@
                     const status = typeof statusRaw === 'string' ? statusRaw.trim() : String(statusRaw || '').trim();
                     const rawDate = record?.date || record?.Date || record?.timestamp;
 
-                    const date = rawDate instanceof Date ? new Date(rawDate.getTime()) : (rawDate ? new Date(rawDate) : null);
+                    const date = typeof this.parseDateValue === 'function'
+                        ? (this.parseDateValue(rawDate)
+                            || (rawDate instanceof Date
+                                ? new Date(rawDate.getTime())
+                                : (rawDate ? new Date(rawDate) : null)))
+                        : rawDate instanceof Date
+                            ? new Date(rawDate.getTime())
+                            : (rawDate ? new Date(rawDate) : null);
                     const isoDate = this.toIsoDateString(date);
                     const userKey = this.normalizePersonKey(userName);
 
