@@ -9835,7 +9835,7 @@
                     const statusRaw = record?.status || record?.Status || record?.state || record?.State || '';
                     const userName = typeof userNameRaw === 'string' ? userNameRaw.trim() : String(userNameRaw || '').trim();
                     const status = typeof statusRaw === 'string' ? statusRaw.trim() : String(statusRaw || '').trim();
-                    const rawDate = record?.date || record?.Date || record?.timestamp;
+                    const rawDate = record?.date || record?.Date || record?.timestamp || record?.Timestamp;
 
                     const date = typeof this.parseDateValue === 'function'
                         ? (this.parseDateValue(rawDate)
@@ -12735,9 +12735,29 @@
                         return isNaN(localDate.getTime()) ? null : localDate;
                     }
 
+                    const isoDateTimeMatch = normalized.match(/^([0-9]{4})-([0-9]{1,2})-([0-9]{1,2})(?:[T\s].*)$/);
+                    if (isoDateTimeMatch) {
+                        const [, yearStr, monthStr, dayStr] = isoDateTimeMatch;
+                        const year = Number(yearStr);
+                        const month = Number(monthStr) - 1;
+                        const day = Number(dayStr);
+                        const localDate = new Date(year, month, day);
+                        return isNaN(localDate.getTime()) ? null : localDate;
+                    }
+
                     const slashDateOnlyMatch = normalized.match(/^([0-9]{1,2})\/([0-9]{1,2})\/([0-9]{4})$/);
                     if (slashDateOnlyMatch) {
                         const [, monthStr, dayStr, yearStr] = slashDateOnlyMatch;
+                        const year = Number(yearStr);
+                        const month = Number(monthStr) - 1;
+                        const day = Number(dayStr);
+                        const localDate = new Date(year, month, day);
+                        return isNaN(localDate.getTime()) ? null : localDate;
+                    }
+
+                    const slashDateTimeMatch = normalized.match(/^([0-9]{1,2})\/([0-9]{1,2})\/([0-9]{4})(?:\b.*)$/);
+                    if (slashDateTimeMatch) {
+                        const [, monthStr, dayStr, yearStr] = slashDateTimeMatch;
                         const year = Number(yearStr);
                         const month = Number(monthStr) - 1;
                         const day = Number(dayStr);
