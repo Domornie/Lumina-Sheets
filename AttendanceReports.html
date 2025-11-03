@@ -2588,6 +2588,125 @@
         const timezoneLabel = window.COMPANY_TIMEZONE_LABEL || COMPANY_TIMEZONE_LABEL || 'company timezone';
         const timezoneValue = window.COMPANY_TIMEZONE || COMPANY_TIMEZONE;
 
+        const filteredRows = Array.isArray(this.currentData.filteredRows)
+          ? this.currentData.filteredRows
+          : [];
+        const loginStates = new Set([
+          'available',
+          'start of shift',
+          'start shift',
+          'clocked in',
+          'clock in',
+          'logged in',
+          'log in',
+          'signed in'
+        ]);
+        const logoutStates = new Set([
+          'end of shift',
+          'end-of-shift',
+          'end shift',
+          'logged out',
+          'log out',
+          'clocked out',
+          'clock out',
+          'signed out'
+        ]);
+        const timingInfoByUser = new Map();
+
+        filteredRows.forEach(row => {
+          if (!row || !row.user) {
+            return;
+          }
+
+          const timestamp = typeof row.timestampMs === 'number'
+            ? row.timestampMs
+            : Number(row.timestamp);
+          if (!Number.isFinite(timestamp)) {
+            return;
+          }
+
+          const rawState = typeof row.state === 'string' ? row.state.trim() : '';
+          const normalizedState = rawState.toLowerCase();
+
+          if (!timingInfoByUser.has(row.user)) {
+            timingInfoByUser.set(row.user, {
+              firstAvailable: null,
+              lastEndOfShift: null,
+              earliestEvent: null,
+              latestEvent: null
+            });
+          }
+
+          const info = timingInfoByUser.get(row.user);
+          if (!info) {
+            return;
+          }
+
+          if (info.earliestEvent === null || timestamp < info.earliestEvent) {
+            info.earliestEvent = timestamp;
+          }
+          if (info.latestEvent === null || timestamp > info.latestEvent) {
+            info.latestEvent = timestamp;
+          }
+
+          if (loginStates.has(normalizedState)) {
+            if (info.firstAvailable === null || timestamp < info.firstAvailable) {
+              info.firstAvailable = timestamp;
+            }
+          }
+
+          if (logoutStates.has(normalizedState)) {
+            if (info.lastEndOfShift === null || timestamp > info.lastEndOfShift) {
+              info.lastEndOfShift = timestamp;
+            }
+          }
+        });
+
+        const timeFormatter = (() => {
+          try {
+            return new Intl.DateTimeFormat('en-US', {
+              hour: '2-digit',
+              minute: '2-digit',
+              hour12: true,
+              timeZone: timezoneValue || 'UTC'
+            });
+          } catch (error) {
+            console.warn('Failed to create Intl.DateTimeFormat for attendance table:', error);
+            return null;
+          }
+        })();
+
+        const formatTimestampForDisplay = (timestamp) => {
+          if (!Number.isFinite(timestamp)) {
+            return '—';
+          }
+          const date = new Date(timestamp);
+          if (Number.isNaN(date.getTime())) {
+            return '—';
+          }
+          if (timeFormatter) {
+            try {
+              return timeFormatter.format(date);
+            } catch (err) {
+              console.warn('Time formatting failed, falling back to locale string:', err);
+            }
+          }
+          return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        };
+
+        const getTimingForUser = (userId) => {
+          if (!userId) {
+            return { first: null, last: null };
+          }
+          const info = timingInfoByUser.get(userId);
+          if (!info) {
+            return { first: null, last: null };
+          }
+          const first = Number.isFinite(info.firstAvailable) ? info.firstAvailable : info.earliestEvent;
+          const last = Number.isFinite(info.lastEndOfShift) ? info.lastEndOfShift : info.latestEvent;
+          return { first, last };
+        };
+
         let tableHtml = `
           <div class="d-flex justify-content-between align-items-center mb-3">
             <div class="text-muted">
@@ -2608,6 +2727,8 @@
               <thead>
                 <tr>
                   <th><i class="fas fa-user me-2"></i>Employee</th>
+                  <th><i class="fas fa-sign-in-alt me-2"></i>First Available <span class="d-block small text-muted">${timezoneLabel}</span></th>
+                  <th><i class="fas fa-sign-out-alt me-2"></i>Last End of Shift <span class="d-block small text-muted">${timezoneLabel}</span></th>
                   <th><i class="fas fa-briefcase me-2"></i>Capped Billable Hours</th>
                   <th><i class="fas fa-coffee me-2"></i>Break Credit Hours</th>
                   <th><i class="fas fa-utensils me-2"></i>Lunch Adjustment Hours</th>
@@ -2630,6 +2751,9 @@
           const weekendAvailabilityDisplay = formatDecimalHours(user.weekendSecs || 0);
           const breakRecordedDisplay = formatDecimalHours(user.breakSecs || 0);
           const lunchRecordedDisplay = formatDecimalHours(user.lunchSecs || 0);
+          const { first: firstAvailableTs, last: lastEndShiftTs } = getTimingForUser(user.user);
+          const firstAvailableDisplay = formatTimestampForDisplay(firstAvailableTs);
+          const lastEndShiftDisplay = formatTimestampForDisplay(lastEndShiftTs);
 
           tableHtml += `
             <tr>
@@ -2640,6 +2764,12 @@
                   </div>
                   <strong>${user.user || 'Unknown'}</strong>
                 </div>
+              </td>
+              <td>
+                <span class="badge bg-light text-dark border">${firstAvailableDisplay}</span>
+              </td>
+              <td>
+                <span class="badge bg-light text-dark border">${lastEndShiftDisplay}</span>
               </td>
               <td>
                 <span class="badge bg-primary">${baseHoursDisplay}</span>
