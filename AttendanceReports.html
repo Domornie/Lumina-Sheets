@@ -2611,6 +2611,64 @@
           'clock out',
           'signed out'
         ]);
+        const isoDateFormatter = (() => {
+          try {
+            return new Intl.DateTimeFormat('en-CA', {
+              timeZone: timezoneValue || 'UTC'
+            });
+          } catch (error) {
+            console.warn('Failed to create ISO date formatter for attendance table:', error);
+            return null;
+          }
+        })();
+
+        const friendlyDateFormatter = (() => {
+          try {
+            return new Intl.DateTimeFormat('en-US', {
+              weekday: 'short',
+              month: 'short',
+              day: 'numeric',
+              timeZone: timezoneValue || 'UTC'
+            });
+          } catch (error) {
+            console.warn('Failed to create friendly date formatter for attendance table:', error);
+            return null;
+          }
+        })();
+
+        const ensureDateKey = (timestamp, dateString) => {
+          if (typeof dateString === 'string') {
+            const trimmed = dateString.trim();
+            if (trimmed) {
+              return trimmed;
+            }
+          }
+
+          if (!Number.isFinite(timestamp)) {
+            return null;
+          }
+
+          const date = new Date(timestamp);
+          if (Number.isNaN(date.getTime())) {
+            return null;
+          }
+
+          if (isoDateFormatter) {
+            try {
+              return isoDateFormatter.format(date);
+            } catch (err) {
+              console.warn('ISO date formatting failed, falling back to UTC string:', err);
+            }
+          }
+
+          try {
+            return date.toISOString().slice(0, 10);
+          } catch (error) {
+            console.warn('Failed to derive ISO date key for attendance table:', error);
+            return null;
+          }
+        };
+
         const timingInfoByUser = new Map();
 
         filteredRows.forEach(row => {
@@ -2627,9 +2685,23 @@
 
           const rawState = typeof row.state === 'string' ? row.state.trim() : '';
           const normalizedState = rawState.toLowerCase();
+          const dateKey = ensureDateKey(timestamp, row.dateString);
+
+          if (!dateKey) {
+            return;
+          }
 
           if (!timingInfoByUser.has(row.user)) {
-            timingInfoByUser.set(row.user, {
+            timingInfoByUser.set(row.user, new Map());
+          }
+
+          const userDateMap = timingInfoByUser.get(row.user);
+          if (!userDateMap) {
+            return;
+          }
+
+          if (!userDateMap.has(dateKey)) {
+            userDateMap.set(dateKey, {
               firstAvailable: null,
               lastEndOfShift: null,
               earliestEvent: null,
@@ -2637,7 +2709,7 @@
             });
           }
 
-          const info = timingInfoByUser.get(row.user);
+          const info = userDateMap.get(dateKey);
           if (!info) {
             return;
           }
@@ -2694,17 +2766,71 @@
           return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         };
 
-        const getTimingForUser = (userId) => {
+        const formatDateForDisplay = (dateKey) => {
+          if (typeof dateKey !== 'string' || !dateKey) {
+            return '';
+          }
+
+          if (friendlyDateFormatter) {
+            try {
+              const [year, month, day] = dateKey.split('-').map(part => Number(part));
+              if ([year, month, day].every(num => Number.isFinite(num))) {
+                const date = new Date(Date.UTC(year, month - 1, day));
+                return friendlyDateFormatter.format(date);
+              }
+            } catch (error) {
+              console.warn('Friendly date formatting failed, falling back to raw key:', error);
+            }
+          }
+
+          return dateKey;
+        };
+
+        const getDailyTimingsForUser = (userId) => {
           if (!userId) {
-            return { first: null, last: null };
+            return [];
           }
-          const info = timingInfoByUser.get(userId);
-          if (!info) {
-            return { first: null, last: null };
+
+          const userDateMap = timingInfoByUser.get(userId);
+          if (!userDateMap) {
+            return [];
           }
-          const first = Number.isFinite(info.firstAvailable) ? info.firstAvailable : info.earliestEvent;
-          const last = Number.isFinite(info.lastEndOfShift) ? info.lastEndOfShift : info.latestEvent;
-          return { first, last };
+
+          const entries = Array.from(userDateMap.entries()).map(([dateKey, info]) => {
+            const firstCandidate = Number.isFinite(info.firstAvailable) ? info.firstAvailable : info.earliestEvent;
+            const lastCandidate = Number.isFinite(info.lastEndOfShift) ? info.lastEndOfShift : info.latestEvent;
+
+            const first = Number.isFinite(firstCandidate) ? firstCandidate : null;
+            const last = Number.isFinite(lastCandidate) ? lastCandidate : null;
+
+            if (first === null && last === null) {
+              return null;
+            }
+
+            return {
+              dateKey,
+              first,
+              last
+            };
+          }).filter(Boolean);
+
+          entries.sort((a, b) => a.dateKey.localeCompare(b.dateKey));
+          return entries;
+        };
+
+        const formatDailyTimingsColumn = (dailyTimings, type) => {
+          if (!Array.isArray(dailyTimings) || dailyTimings.length === 0) {
+            return '<span class="text-muted">—</span>';
+          }
+
+          const rows = dailyTimings.slice().reverse().map(timing => {
+            const timeValue = type === 'last' ? timing.last : timing.first;
+            const timeLabel = formatTimestampForDisplay(timeValue);
+            const dateLabel = formatDateForDisplay(timing.dateKey);
+            return `<div class="small"><span class="text-muted d-block">${dateLabel}</span><span class="fw-semibold">${timeLabel}</span></div>`;
+          });
+
+          return `<div class="d-flex flex-column gap-1">${rows.join('')}</div>`;
         };
 
         let tableHtml = `
@@ -2727,8 +2853,8 @@
               <thead>
                 <tr>
                   <th><i class="fas fa-user me-2"></i>Employee</th>
-                  <th><i class="fas fa-sign-in-alt me-2"></i>First Available <span class="d-block small text-muted">${timezoneLabel}</span></th>
-                  <th><i class="fas fa-sign-out-alt me-2"></i>Last End of Shift <span class="d-block small text-muted">${timezoneLabel}</span></th>
+                  <th><i class="fas fa-sign-in-alt me-2"></i>Daily First Available <span class="d-block small text-muted">${timezoneLabel}</span></th>
+                  <th><i class="fas fa-sign-out-alt me-2"></i>Daily Last End of Shift <span class="d-block small text-muted">${timezoneLabel}</span></th>
                   <th><i class="fas fa-briefcase me-2"></i>Capped Billable Hours</th>
                   <th><i class="fas fa-coffee me-2"></i>Break Credit Hours</th>
                   <th><i class="fas fa-utensils me-2"></i>Lunch Adjustment Hours</th>
@@ -2751,9 +2877,9 @@
           const weekendAvailabilityDisplay = formatDecimalHours(user.weekendSecs || 0);
           const breakRecordedDisplay = formatDecimalHours(user.breakSecs || 0);
           const lunchRecordedDisplay = formatDecimalHours(user.lunchSecs || 0);
-          const { first: firstAvailableTs, last: lastEndShiftTs } = getTimingForUser(user.user);
-          const firstAvailableDisplay = formatTimestampForDisplay(firstAvailableTs);
-          const lastEndShiftDisplay = formatTimestampForDisplay(lastEndShiftTs);
+          const dailyTimings = getDailyTimingsForUser(user.user);
+          const firstAvailableDisplay = formatDailyTimingsColumn(dailyTimings, 'first');
+          const lastEndShiftDisplay = formatDailyTimingsColumn(dailyTimings, 'last');
 
           tableHtml += `
             <tr>
@@ -2766,10 +2892,10 @@
                 </div>
               </td>
               <td>
-                <span class="badge bg-light text-dark border">${firstAvailableDisplay}</span>
+                ${firstAvailableDisplay}
               </td>
               <td>
-                <span class="badge bg-light text-dark border">${lastEndShiftDisplay}</span>
+                ${lastEndShiftDisplay}
               </td>
               <td>
                 <span class="badge bg-primary">${baseHoursDisplay}</span>
