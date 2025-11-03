@@ -5643,16 +5643,34 @@ function clientGetAttendanceDataRange(startDate, endDate, campaignId = null) {
 
     const normalizeDate = (value) => {
       if (value instanceof Date) {
-        return new Date(value.getTime());
+        return isNaN(value.getTime()) ? null : new Date(value.getTime());
       }
-      if (typeof value === 'number') {
+
+      if (typeof value === 'number' && Number.isFinite(value)) {
         const parsed = new Date(value);
-        return isNaN(parsed.getTime()) ? null : parsed;
+        return Number.isNaN(parsed.getTime()) ? null : parsed;
       }
-      if (typeof value === 'string' && value.trim().length > 0) {
-        const parsed = new Date(value);
-        return isNaN(parsed.getTime()) ? null : parsed;
+
+      if (typeof value === 'string') {
+        const trimmed = value.trim();
+        if (!trimmed) {
+          return null;
+        }
+
+        const isoDateMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if (isoDateMatch) {
+          const year = Number(isoDateMatch[1]);
+          const month = Number(isoDateMatch[2]);
+          const day = Number(isoDateMatch[3]);
+          if (Number.isFinite(year) && Number.isFinite(month) && Number.isFinite(day)) {
+            return new Date(Date.UTC(year, month - 1, day));
+          }
+        }
+
+        const parsed = new Date(trimmed);
+        return Number.isNaN(parsed.getTime()) ? null : parsed;
       }
+
       return null;
     };
 
@@ -5683,12 +5701,12 @@ function clientGetAttendanceDataRange(startDate, endDate, campaignId = null) {
     });
 
     const toIsoDate = (date) => {
-      if (!(date instanceof Date) || isNaN(date.getTime())) {
+      if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
         return '';
       }
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
+      const year = date.getUTCFullYear();
+      const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+      const day = String(date.getUTCDate()).padStart(2, '0');
       return `${year}-${month}-${day}`;
     };
 

@@ -6643,6 +6643,418 @@
                     yearly: new Map()
                 };
 
+                const recognitionIdentityLookup = new Map();
+                const recognitionRestrictedIdentityKeys = new Set();
+
+                const interpretBooleanFlag = (value) => {
+                    if (typeof value === 'boolean') {
+                        return value;
+                    }
+
+                    if (typeof value === 'number') {
+                        return Number.isFinite(value) ? value !== 0 : null;
+                    }
+
+                    if (typeof value === 'string') {
+                        const normalized = value.trim().toLowerCase();
+                        if (!normalized) {
+                            return null;
+                        }
+                        if (['1', 'true', 'yes', 'y'].includes(normalized)) {
+                            return true;
+                        }
+                        if (['0', 'false', 'no', 'n'].includes(normalized)) {
+                            return false;
+                        }
+                    }
+
+                    return null;
+                };
+
+                const enumerateRecognitionCapabilitySources = (entity) => {
+                    if (!entity || typeof entity !== 'object') {
+                        return [];
+                    }
+
+                    return [
+                        entity && entity.capabilities,
+                        entity && entity.Capabilities,
+                        entity && entity.roleCapabilities,
+                        entity && entity.RoleCapabilities,
+                        entity && entity.authorization,
+                        entity && entity.Authorization,
+                        entity && entity.permissions,
+                        entity && entity.Permissions,
+                        entity && entity.claims,
+                        entity && entity.Claims
+                    ].filter(source => source);
+                };
+
+                const collectRecognitionRoleTokens = (entity) => {
+                    const tokens = [];
+
+                    const visitedObjects = new WeakSet();
+
+                    const appendValue = (value) => {
+                        if (!value) {
+                            return;
+                        }
+
+                        if (Array.isArray(value)) {
+                            value.forEach(appendValue);
+                            return;
+                        }
+
+                        if (typeof value === 'object') {
+                            if (visitedObjects.has(value)) {
+                                return;
+                            }
+
+                            visitedObjects.add(value);
+
+                            const objectCandidates = [
+                                value && value.name,
+                                value && value.Name,
+                                value && value.roleName,
+                                value && value.RoleName,
+                                value && value.value,
+                                value && value.Value,
+                                value && value.title,
+                                value && value.Title
+                            ];
+
+                            let appended = false;
+                            objectCandidates.forEach(candidate => {
+                                if (candidate) {
+                                    appended = true;
+                                    appendValue(candidate);
+                                }
+                            });
+
+                            if (!appended) {
+                                Object.values(value).forEach(inner => appendValue(inner));
+                            }
+
+                            return;
+                        }
+
+                        const text = String(value).trim();
+                        if (!text) {
+                            return;
+                        }
+
+                        text.split(/[,;/|]+/).forEach(part => {
+                            const normalized = part.trim().toLowerCase();
+                            if (normalized) {
+                                tokens.push(normalized);
+                            }
+                        });
+                    };
+
+                    const sources = [
+                        entity && entity.roleNames,
+                        entity && entity.RoleNames,
+                        entity && entity.roles,
+                        entity && entity.Roles,
+                        entity && entity.role,
+                        entity && entity.Role,
+                        entity && entity.primaryRole,
+                        entity && entity.PrimaryRole,
+                        entity && entity.primaryRoles,
+                        entity && entity.PrimaryRoles,
+                        entity && entity.csvRoles,
+                        entity && entity.CsvRoles,
+                        entity && entity.RoleName,
+                        entity && entity.roleName,
+                        entity && entity.title,
+                        entity && entity.Title,
+                        entity && entity.jobTitle,
+                        entity && entity.JobTitle,
+                        entity && entity.position,
+                        entity && entity.Position,
+                        entity && entity.department,
+                        entity && entity.Department,
+                        entity && entity.classification,
+                        entity && entity.Classification,
+                        entity && entity.employmentStatus,
+                        entity && entity.EmploymentStatus,
+                        entity && entity.employmentType,
+                        entity && entity.EmploymentType,
+                        entity && entity.staffType,
+                        entity && entity.StaffType,
+                        entity && entity.userType,
+                        entity && entity.UserType,
+                        entity && entity.persona,
+                        entity && entity.Persona
+                    ];
+
+                    const capabilitySources = enumerateRecognitionCapabilitySources(entity);
+
+                    capabilitySources.forEach(source => {
+                        if (source) {
+                            sources.push(source);
+                        }
+                    });
+
+                    sources.forEach(appendValue);
+
+                    return tokens;
+                };
+
+                const determineRecognitionEligibility = (entity) => {
+                    if (!entity || typeof entity !== 'object') {
+                        return { eligible: false, hasAgentRole: false, hasRestrictedRole: false };
+                    }
+
+                    const tokens = collectRecognitionRoleTokens(entity);
+                    const agentPatterns = ['agent', 'specialist'];
+                    const restrictedPatterns = ['manager', 'trainer', 'supervisor', 'lead', 'coach'];
+
+                    let hasAgentRole = tokens.some(token => agentPatterns.some(pattern => token.includes(pattern)));
+                    let hasRestrictedRole = tokens.some(token => restrictedPatterns.some(pattern => token.includes(pattern)));
+
+                    const agentFlagCandidates = [
+                        entity && entity.isAgent,
+                        entity && entity.IsAgent,
+                        entity && entity.agent,
+                        entity && entity.Agent
+                    ];
+
+                    const restrictedFlagCandidates = [
+                        entity && entity.isManager,
+                        entity && entity.IsManager,
+                        entity && entity.manager,
+                        entity && entity.Manager,
+                        entity && entity.isTrainer,
+                        entity && entity.IsTrainer,
+                        entity && entity.trainer,
+                        entity && entity.Trainer,
+                        entity && entity.isSupervisor,
+                        entity && entity.IsSupervisor,
+                        entity && entity.supervisor,
+                        entity && entity.Supervisor,
+                        entity && entity.isLead,
+                        entity && entity.IsLead,
+                        entity && entity.lead,
+                        entity && entity.Lead,
+                        entity && entity.isCoach,
+                        entity && entity.IsCoach,
+                        entity && entity.coach,
+                        entity && entity.Coach
+                    ];
+
+                    const capabilitySources = enumerateRecognitionCapabilitySources(entity);
+
+                    capabilitySources.forEach(source => {
+                        if (!source || typeof source !== 'object') {
+                            return;
+                        }
+
+                        agentFlagCandidates.push(
+                            source && source.isAgent,
+                            source && source.IsAgent,
+                            source && source.agent,
+                            source && source.Agent,
+                            source && source.isSpecialist,
+                            source && source.IsSpecialist,
+                            source && source.specialist,
+                            source && source.Specialist
+                        );
+
+                        restrictedFlagCandidates.push(
+                            source && source.isManager,
+                            source && source.IsManager,
+                            source && source.manager,
+                            source && source.Manager,
+                            source && source.isTrainer,
+                            source && source.IsTrainer,
+                            source && source.trainer,
+                            source && source.Trainer,
+                            source && source.isSupervisor,
+                            source && source.IsSupervisor,
+                            source && source.supervisor,
+                            source && source.Supervisor,
+                            source && source.isLead,
+                            source && source.IsLead,
+                            source && source.lead,
+                            source && source.Lead,
+                            source && source.isCoach,
+                            source && source.IsCoach,
+                            source && source.coach,
+                            source && source.Coach
+                        );
+                    });
+
+                    agentFlagCandidates.forEach(value => {
+                        const interpreted = interpretBooleanFlag(value);
+                        if (interpreted === true) {
+                            hasAgentRole = true;
+                        }
+                    });
+
+                    restrictedFlagCandidates.forEach(value => {
+                        const interpreted = interpretBooleanFlag(value);
+                        if (interpreted === true) {
+                            hasRestrictedRole = true;
+                        }
+                    });
+
+                    return {
+                        eligible: hasAgentRole && !hasRestrictedRole,
+                        hasAgentRole,
+                        hasRestrictedRole
+                    };
+                };
+
+                const buildRecognitionIdentityKeys = (entity) => {
+                    if (!entity || typeof entity !== 'object') {
+                        return [];
+                    }
+
+                    const keys = new Set();
+
+                    const idCandidates = [
+                        entity.ID,
+                        entity.Id,
+                        entity.id,
+                        entity.UserID,
+                        entity.UserId,
+                        entity.userID,
+                        entity.userId,
+                        entity.username,
+                        entity.UserName
+                    ];
+
+                    idCandidates.forEach(candidate => {
+                        const normalized = this.normalizeUserIdValue(candidate);
+                        if (normalized) {
+                            keys.add(`id:${normalized}`);
+                        }
+                    });
+
+                    const emailCandidates = [entity && entity.Email, entity && entity.email];
+                    emailCandidates.forEach(candidate => {
+                        const normalized = this.normalizePersonKey(candidate);
+                        if (normalized) {
+                            keys.add(`email:${normalized}`);
+                        }
+                    });
+
+                    const nameCandidates = [
+                        entity && entity.UserName,
+                        entity && entity.username,
+                        entity && entity.userName,
+                        entity && entity.FullName,
+                        entity && entity.fullName,
+                        entity && entity.user,
+                        entity && entity.User
+                    ];
+
+                    nameCandidates.forEach(candidate => {
+                        const normalized = this.normalizePersonKey(candidate);
+                        if (normalized) {
+                            keys.add(`name:${normalized}`);
+                        }
+                    });
+
+                    return Array.from(keys);
+                };
+
+                const markRecognitionIdentityRestricted = (identityKey, entity, eligibilityInfo) => {
+                    if (!identityKey) {
+                        return;
+                    }
+
+                    recognitionRestrictedIdentityKeys.add(identityKey);
+
+                    const existing = recognitionIdentityLookup.get(identityKey);
+                    const hasAgentRole = (eligibilityInfo && typeof eligibilityInfo.hasAgentRole === 'boolean')
+                        ? eligibilityInfo.hasAgentRole
+                        : existing && typeof existing.hasAgentRole === 'boolean'
+                            ? existing.hasAgentRole
+                            : false;
+                    const user = existing && existing.user ? existing.user : (entity || null);
+
+                    recognitionIdentityLookup.set(identityKey, {
+                        user,
+                        eligible: false,
+                        hasAgentRole,
+                        hasRestrictedRole: true
+                    });
+                };
+
+                const registerRecognitionUser = (user) => {
+                    if (!user || typeof user !== 'object') {
+                        return;
+                    }
+
+                    const identityKeys = buildRecognitionIdentityKeys(user);
+                    if (!identityKeys.length) {
+                        return;
+                    }
+
+                    const eligibility = determineRecognitionEligibility(user);
+                    const metadata = {
+                        user,
+                        eligible: eligibility.eligible,
+                        hasAgentRole: eligibility.hasAgentRole,
+                        hasRestrictedRole: eligibility.hasRestrictedRole
+                    };
+
+                    identityKeys.forEach(key => {
+                        if (!key) {
+                            return;
+                        }
+
+                        if (!recognitionIdentityLookup.has(key)) {
+                            recognitionIdentityLookup.set(key, metadata);
+                            return;
+                        }
+
+                        const existing = recognitionIdentityLookup.get(key);
+                        if (!existing.eligible && metadata.eligible) {
+                            recognitionIdentityLookup.set(key, metadata);
+                        }
+                    });
+
+                    if (eligibility.hasRestrictedRole) {
+                        identityKeys.forEach(key => {
+                            markRecognitionIdentityRestricted(key, user, eligibility);
+                        });
+                    }
+                };
+
+                const recognitionUserCollections = [];
+                if (Array.isArray(this.availableUsers)) {
+                    recognitionUserCollections.push(this.availableUsers);
+                }
+                if (Array.isArray(this.managedRosterUsers)) {
+                    recognitionUserCollections.push(this.managedRosterUsers);
+                }
+                if (Array.isArray(this.assignmentUserRecords)) {
+                    recognitionUserCollections.push(this.assignmentUserRecords);
+                }
+                if (Array.isArray(this.attendanceUserRecords)) {
+                    recognitionUserCollections.push(this.attendanceUserRecords);
+                }
+                if (this.currentUser && typeof this.currentUser === 'object') {
+                    recognitionUserCollections.push([this.currentUser]);
+                }
+
+                recognitionUserCollections.forEach(collection => {
+                    collection.forEach(registerRecognitionUser);
+                });
+
+                if (this.currentUser && typeof this.currentUser === 'object') {
+                    const currentEligibility = determineRecognitionEligibility(this.currentUser);
+                    if (currentEligibility.hasRestrictedRole) {
+                        const currentKeys = buildRecognitionIdentityKeys(this.currentUser);
+                        currentKeys.forEach(key => {
+                            markRecognitionIdentityRestricted(key, this.currentUser, currentEligibility);
+                        });
+                    }
+                }
+
                 const getWeekBucketKey = (date) => {
                     const start = new Date(date.getTime());
                     const day = start.getDay();
@@ -6873,6 +7285,51 @@
                     if (recognitionCategories.has(category)) {
                         const identityKey = resolveRecordIdentityKey(record);
                         if (identityKey) {
+                            if (recognitionRestrictedIdentityKeys.has(identityKey)) {
+                                return;
+                            }
+
+                            let identityInfo = recognitionIdentityLookup.get(identityKey);
+
+                            if (!identityInfo) {
+                                const fallbackEligibility = determineRecognitionEligibility(record);
+                                recognitionIdentityLookup.set(identityKey, {
+                                    user: null,
+                                    eligible: fallbackEligibility.eligible,
+                                    hasAgentRole: fallbackEligibility.hasAgentRole,
+                                    hasRestrictedRole: fallbackEligibility.hasRestrictedRole
+                                });
+
+                                if (fallbackEligibility.hasRestrictedRole) {
+                                    markRecognitionIdentityRestricted(identityKey, record, fallbackEligibility);
+                                    return;
+                                }
+
+                                if (!fallbackEligibility.eligible) {
+                                    return;
+                                }
+
+                                identityInfo = recognitionIdentityLookup.get(identityKey);
+                            } else if (!identityInfo.eligible || identityInfo.hasRestrictedRole) {
+                                markRecognitionIdentityRestricted(identityKey, identityInfo.user || record, identityInfo);
+                                return;
+                            }
+
+                            if (recognitionRestrictedIdentityKeys.has(identityKey)) {
+                                return;
+                            }
+
+                            let displayName = resolveRecordDisplayName(record);
+                            if (identityInfo && identityInfo.user) {
+                                const preferred = identityInfo.user.FullName
+                                    || identityInfo.user.UserName
+                                    || identityInfo.user.Email
+                                    || identityInfo.user.user
+                                    || identityInfo.user.User
+                                    || '';
+                                displayName = chooseDisplayName(displayName, preferred);
+                            }
+
                             let userStat = userStatsMap.get(identityKey);
                             if (!userStat) {
                                 userStat = {
@@ -6886,7 +7343,6 @@
                                 userStatsMap.set(identityKey, userStat);
                             }
 
-                            const displayName = resolveRecordDisplayName(record);
                             userStat.displayName = chooseDisplayName(userStat.displayName, displayName);
 
                             if (category === 'present') {
@@ -9835,10 +10291,14 @@
                     const statusRaw = record?.status || record?.Status || record?.state || record?.State || '';
                     const userName = typeof userNameRaw === 'string' ? userNameRaw.trim() : String(userNameRaw || '').trim();
                     const status = typeof statusRaw === 'string' ? statusRaw.trim() : String(statusRaw || '').trim();
-                    const rawDate = record?.date || record?.Date || record?.timestamp;
+                    const rawDate = record?.date || record?.Date || record?.timestamp || record?.Timestamp;
+                    let isoDate = this.normalizeAttendanceDateValue(rawDate);
 
-                    const date = rawDate instanceof Date ? new Date(rawDate.getTime()) : (rawDate ? new Date(rawDate) : null);
-                    const isoDate = this.toIsoDateString(date);
+                    if (!isoDate && typeof this.parseDateValue === 'function') {
+                        const parsedDate = this.parseDateValue(rawDate);
+                        isoDate = parsedDate instanceof Date ? this.toIsoDateString(parsedDate) : '';
+                    }
+
                     const userKey = this.normalizePersonKey(userName);
 
                     if (!userKey || !isoDate || !status) {
@@ -11287,14 +11747,26 @@
             }
 
             toIsoDateString(date) {
-                if (!(date instanceof Date) || isNaN(date.getTime())) {
+                if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
                     return '';
                 }
 
-                const year = date.getFullYear();
-                const month = String(date.getMonth() + 1).padStart(2, '0');
-                const day = String(date.getDate()).padStart(2, '0');
-                return `${year}-${month}-${day}`;
+                const isLocalMidnight = date.getHours() === 0
+                    && date.getMinutes() === 0
+                    && date.getSeconds() === 0
+                    && date.getMilliseconds() === 0;
+
+                if (isLocalMidnight) {
+                    const localYear = date.getFullYear();
+                    const localMonth = String(date.getMonth() + 1).padStart(2, '0');
+                    const localDay = String(date.getDate()).padStart(2, '0');
+                    return `${localYear}-${localMonth}-${localDay}`;
+                }
+
+                const utcYear = date.getUTCFullYear();
+                const utcMonth = String(date.getUTCMonth() + 1).padStart(2, '0');
+                const utcDay = String(date.getUTCDate()).padStart(2, '0');
+                return `${utcYear}-${utcMonth}-${utcDay}`;
             }
 
             resolveIsoDate(value, fallback = null) {
@@ -12728,9 +13200,29 @@
                         return isNaN(localDate.getTime()) ? null : localDate;
                     }
 
+                    const isoDateTimeMatch = normalized.match(/^([0-9]{4})-([0-9]{1,2})-([0-9]{1,2})(?:[T\s].*)$/);
+                    if (isoDateTimeMatch) {
+                        const [, yearStr, monthStr, dayStr] = isoDateTimeMatch;
+                        const year = Number(yearStr);
+                        const month = Number(monthStr) - 1;
+                        const day = Number(dayStr);
+                        const localDate = new Date(year, month, day);
+                        return isNaN(localDate.getTime()) ? null : localDate;
+                    }
+
                     const slashDateOnlyMatch = normalized.match(/^([0-9]{1,2})\/([0-9]{1,2})\/([0-9]{4})$/);
                     if (slashDateOnlyMatch) {
                         const [, monthStr, dayStr, yearStr] = slashDateOnlyMatch;
+                        const year = Number(yearStr);
+                        const month = Number(monthStr) - 1;
+                        const day = Number(dayStr);
+                        const localDate = new Date(year, month, day);
+                        return isNaN(localDate.getTime()) ? null : localDate;
+                    }
+
+                    const slashDateTimeMatch = normalized.match(/^([0-9]{1,2})\/([0-9]{1,2})\/([0-9]{4})(?:\b.*)$/);
+                    if (slashDateTimeMatch) {
+                        const [, monthStr, dayStr, yearStr] = slashDateTimeMatch;
                         const year = Number(yearStr);
                         const month = Number(monthStr) - 1;
                         const day = Number(dayStr);
