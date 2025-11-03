@@ -1133,6 +1133,20 @@
   </div>
 </div>
 
+<!-- WEEKLY LOGIN/LOGOUT TABLE -->
+<div id="weeklyLoginLogoutSection" class="mb-4">
+  <div class="card ai-enhanced">
+    <div class="card-header">
+      <h5><i class="fas fa-user-clock"></i>Weekly Login & Logout (Mon-Fri)</h5>
+    </div>
+    <div id="weeklyLoginLogoutContainer" class="card-body">
+      <div class="loading-state">
+        <i class="fas fa-spinner fa-spin"></i> Compiling weekly login/logout times...
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ATTENDANCE TABLE -->
 <div id="attendanceTableSection" class="mb-4">
   <div class="card">
@@ -1639,6 +1653,13 @@
       this.performanceMetrics = { loadStartTime: Date.now(), apiCalls: 0, errors: 0 };
 
       this.pagination = {
+        currentPage: 1,
+        itemsPerPage: 10,
+        totalItems: 0,
+        totalPages: 0
+      };
+
+      this.weeklyPagination = {
         currentPage: 1,
         itemsPerPage: 10,
         totalItems: 0,
@@ -2559,9 +2580,16 @@
         const container = document.getElementById('attendanceTableContainer');
         if (!container) return;
 
+        const weeklyTableContainer = document.getElementById('weeklyLoginLogoutContainer');
         const userCompliance = this.currentData.userCompliance || [];
 
         if (userCompliance.length === 0) {
+          this.weeklyPagination.totalItems = 0;
+          this.weeklyPagination.totalPages = 0;
+          this.weeklyPagination.currentPage = 1;
+          if (weeklyTableContainer) {
+            weeklyTableContainer.innerHTML = '<p class="text-muted text-center mb-0">No login/logout activity available for the selected period.</p>';
+          }
           container.innerHTML = '<p class="text-muted text-center">No attendance data available for the selected period.</p>';
           return;
         }
@@ -2588,6 +2616,455 @@
         const timezoneLabel = window.COMPANY_TIMEZONE_LABEL || COMPANY_TIMEZONE_LABEL || 'company timezone';
         const timezoneValue = window.COMPANY_TIMEZONE || COMPANY_TIMEZONE;
 
+        const filteredRows = Array.isArray(this.currentData.filteredRows)
+          ? this.currentData.filteredRows
+          : [];
+        const loginStates = new Set([
+          'available',
+          'start of shift',
+          'start shift',
+          'clocked in',
+          'clock in',
+          'logged in',
+          'log in',
+          'signed in'
+        ]);
+        const logoutStates = new Set([
+          'end of shift',
+          'end-of-shift',
+          'end shift',
+          'logged out',
+          'log out',
+          'clocked out',
+          'clock out',
+          'signed out'
+        ]);
+        const isoDateFormatter = (() => {
+          try {
+            return new Intl.DateTimeFormat('en-CA', {
+              timeZone: timezoneValue || 'UTC'
+            });
+          } catch (error) {
+            console.warn('Failed to create ISO date formatter for attendance table:', error);
+            return null;
+          }
+        })();
+
+        const friendlyDateFormatter = (() => {
+          try {
+            return new Intl.DateTimeFormat('en-US', {
+              weekday: 'short',
+              month: 'short',
+              day: 'numeric',
+              timeZone: timezoneValue || 'UTC'
+            });
+          } catch (error) {
+            console.warn('Failed to create friendly date formatter for attendance table:', error);
+            return null;
+          }
+        })();
+
+        const ensureDateKey = (timestamp, dateString) => {
+          if (typeof dateString === 'string') {
+            const trimmed = dateString.trim();
+            if (trimmed) {
+              return trimmed;
+            }
+          }
+
+          if (!Number.isFinite(timestamp)) {
+            return null;
+          }
+
+          const date = new Date(timestamp);
+          if (Number.isNaN(date.getTime())) {
+            return null;
+          }
+
+          if (isoDateFormatter) {
+            try {
+              return isoDateFormatter.format(date);
+            } catch (err) {
+              console.warn('ISO date formatting failed, falling back to UTC string:', err);
+            }
+          }
+
+          try {
+            return date.toISOString().slice(0, 10);
+          } catch (error) {
+            console.warn('Failed to derive ISO date key for attendance table:', error);
+            return null;
+          }
+        };
+
+        const timingInfoByUser = new Map();
+
+        filteredRows.forEach(row => {
+          if (!row || !row.user) {
+            return;
+          }
+
+          const timestamp = typeof row.timestampMs === 'number'
+            ? row.timestampMs
+            : Number(row.timestamp);
+          if (!Number.isFinite(timestamp)) {
+            return;
+          }
+
+          const rawState = typeof row.state === 'string' ? row.state.trim() : '';
+          const normalizedState = rawState.toLowerCase();
+          const dateKey = ensureDateKey(timestamp, row.dateString);
+
+          if (!dateKey) {
+            return;
+          }
+
+          if (!timingInfoByUser.has(row.user)) {
+            timingInfoByUser.set(row.user, new Map());
+          }
+
+          const userDateMap = timingInfoByUser.get(row.user);
+          if (!userDateMap) {
+            return;
+          }
+
+          if (!userDateMap.has(dateKey)) {
+            userDateMap.set(dateKey, {
+              firstAvailable: null,
+              lastEndOfShift: null,
+              earliestEvent: null,
+              latestEvent: null
+            });
+          }
+
+          const info = userDateMap.get(dateKey);
+          if (!info) {
+            return;
+          }
+
+          if (info.earliestEvent === null || timestamp < info.earliestEvent) {
+            info.earliestEvent = timestamp;
+          }
+          if (info.latestEvent === null || timestamp > info.latestEvent) {
+            info.latestEvent = timestamp;
+          }
+
+          if (loginStates.has(normalizedState)) {
+            if (info.firstAvailable === null || timestamp < info.firstAvailable) {
+              info.firstAvailable = timestamp;
+            }
+          }
+
+          if (logoutStates.has(normalizedState)) {
+            if (info.lastEndOfShift === null || timestamp > info.lastEndOfShift) {
+              info.lastEndOfShift = timestamp;
+            }
+          }
+        });
+
+        const timeFormatter = (() => {
+          try {
+            return new Intl.DateTimeFormat('en-US', {
+              hour: '2-digit',
+              minute: '2-digit',
+              hour12: true,
+              timeZone: timezoneValue || 'UTC'
+            });
+          } catch (error) {
+            console.warn('Failed to create Intl.DateTimeFormat for attendance table:', error);
+            return null;
+          }
+        })();
+
+        const formatTimestampForDisplay = (timestamp) => {
+          if (!Number.isFinite(timestamp)) {
+            return '—';
+          }
+          const date = new Date(timestamp);
+          if (Number.isNaN(date.getTime())) {
+            return '—';
+          }
+          if (timeFormatter) {
+            try {
+              return timeFormatter.format(date);
+            } catch (err) {
+              console.warn('Time formatting failed, falling back to locale string:', err);
+            }
+          }
+          return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        };
+
+        const formatDateForDisplay = (dateKey) => {
+          if (typeof dateKey !== 'string' || !dateKey) {
+            return '';
+          }
+
+          if (friendlyDateFormatter) {
+            try {
+              const [year, month, day] = dateKey.split('-').map(part => Number(part));
+              if ([year, month, day].every(num => Number.isFinite(num))) {
+                const date = new Date(Date.UTC(year, month - 1, day));
+                return friendlyDateFormatter.format(date);
+              }
+            } catch (error) {
+              console.warn('Friendly date formatting failed, falling back to raw key:', error);
+            }
+          }
+
+          return dateKey;
+        };
+
+        const getDailyTimingsForUser = (userId) => {
+          if (!userId) {
+            return [];
+          }
+
+          const userDateMap = timingInfoByUser.get(userId);
+          if (!userDateMap) {
+            return [];
+          }
+
+          const entries = Array.from(userDateMap.entries()).map(([dateKey, info]) => {
+            const firstCandidate = Number.isFinite(info.firstAvailable) ? info.firstAvailable : info.earliestEvent;
+            const lastCandidate = Number.isFinite(info.lastEndOfShift) ? info.lastEndOfShift : info.latestEvent;
+
+            const first = Number.isFinite(firstCandidate) ? firstCandidate : null;
+            const last = Number.isFinite(lastCandidate) ? lastCandidate : null;
+
+            if (first === null && last === null) {
+              return null;
+            }
+
+            return {
+              dateKey,
+              first,
+              last
+            };
+          }).filter(Boolean);
+
+          entries.sort((a, b) => a.dateKey.localeCompare(b.dateKey));
+          return entries;
+        };
+
+        const formatDailyTimingsColumn = (dailyTimings, type) => {
+          if (!Array.isArray(dailyTimings) || dailyTimings.length === 0) {
+            return '<span class="text-muted">—</span>';
+          }
+
+          const rows = dailyTimings.slice().reverse().map(timing => {
+            const timeValue = type === 'last' ? timing.last : timing.first;
+            const timeLabel = formatTimestampForDisplay(timeValue);
+            const dateLabel = formatDateForDisplay(timing.dateKey);
+            return `<div class="small"><span class="text-muted d-block">${dateLabel}</span><span class="fw-semibold">${timeLabel}</span></div>`;
+          });
+
+          return `<div class="d-flex flex-column gap-1">${rows.join('')}</div>`;
+        };
+
+        const buildWeeklyLoginLogoutTable = () => {
+          if (!weeklyTableContainer) {
+            return;
+          }
+
+          const availableDateKeys = new Set();
+          timingInfoByUser.forEach((dateMap) => {
+            if (dateMap && typeof dateMap.forEach === 'function') {
+              dateMap.forEach((_, dateKey) => {
+                if (typeof dateKey === 'string' && dateKey) {
+                  availableDateKeys.add(dateKey);
+                }
+              });
+            }
+          });
+
+          const periodInfo = this.currentData.periodInfo || {};
+
+          const parseIsoKeyToDate = (key) => {
+            if (typeof key !== 'string') return null;
+            const parts = key.split('-').map(part => Number(part));
+            if (parts.length !== 3 || parts.some(num => !Number.isFinite(num))) return null;
+            return new Date(Date.UTC(parts[0], parts[1] - 1, parts[2]));
+          };
+
+          const appendWeekDates = (collection, baseDate) => {
+            if (!(baseDate instanceof Date) || Number.isNaN(baseDate.getTime())) {
+              return false;
+            }
+
+            const utcBase = new Date(Date.UTC(baseDate.getUTCFullYear(), baseDate.getUTCMonth(), baseDate.getUTCDate()));
+            const weekday = utcBase.getUTCDay();
+            const diffToMonday = weekday === 0 ? -6 : 1 - weekday;
+            utcBase.setUTCDate(utcBase.getUTCDate() + diffToMonday);
+
+            for (let i = 0; i < 5; i++) {
+              const current = new Date(utcBase.getTime());
+              current.setUTCDate(utcBase.getUTCDate() + i);
+              collection.push(current);
+            }
+            return true;
+          };
+
+          const generateWeekDates = () => {
+            const dates = [];
+
+            if (availableDateKeys.size > 0) {
+              const sortedKeys = Array.from(availableDateKeys).sort();
+              const latestKey = sortedKeys[sortedKeys.length - 1];
+              const latestDate = parseIsoKeyToDate(latestKey);
+              if (latestDate && appendWeekDates(dates, latestDate)) {
+                return dates;
+              }
+            }
+
+            const periodStart = periodInfo.startDateIso || periodInfo.startDate || periodInfo.periodStart || periodInfo.periodStartDate;
+            if (typeof periodStart === 'string') {
+              const startDate = new Date(periodStart);
+              if (appendWeekDates(dates, startDate)) {
+                return dates;
+              }
+            }
+
+            appendWeekDates(dates, new Date());
+            return dates;
+          };
+
+          const rawWeekDates = generateWeekDates();
+          if (!Array.isArray(rawWeekDates) || rawWeekDates.length === 0) {
+            this.weeklyPagination.totalItems = 0;
+            this.weeklyPagination.totalPages = 0;
+            this.weeklyPagination.currentPage = 1;
+            weeklyTableContainer.innerHTML = '<p class="text-muted text-center mb-0">No login/logout activity detected for Monday through Friday.</p>';
+            return;
+          }
+
+          const formattedWeekDates = rawWeekDates.map(dateObj => {
+            const key = dateObj.toISOString().slice(0, 10);
+            let label = key;
+            if (friendlyDateFormatter) {
+              try {
+                label = friendlyDateFormatter.format(dateObj);
+              } catch (err) {
+                console.warn('Failed to format weekly login/logout date label:', err);
+              }
+            }
+            return { key, label };
+          });
+
+          if (!Array.isArray(formattedWeekDates) || formattedWeekDates.length === 0) {
+            this.weeklyPagination.totalItems = 0;
+            this.weeklyPagination.totalPages = 0;
+            this.weeklyPagination.currentPage = 1;
+            weeklyTableContainer.innerHTML = '<p class="text-muted text-center mb-0">No login/logout activity detected for Monday through Friday.</p>';
+            return;
+          }
+
+          const weekRangeLabel = (() => {
+            const startLabel = formattedWeekDates[0].label;
+            const endLabel = formattedWeekDates[formattedWeekDates.length - 1].label;
+            if (!startLabel || !endLabel) {
+              return '';
+            }
+            return `Week range: ${escapeHtml(startLabel)} – ${escapeHtml(endLabel)}`;
+          })();
+
+          const timezoneNote = timezoneLabel
+            ? `Times shown in ${escapeHtml(timezoneLabel)}`
+            : 'Times shown in selected timezone';
+
+          this.weeklyPagination.totalItems = userCompliance.length;
+          this.weeklyPagination.totalPages = Math.ceil(this.weeklyPagination.totalItems / this.weeklyPagination.itemsPerPage) || 0;
+
+          if (this.weeklyPagination.totalPages === 0) {
+            this.weeklyPagination.currentPage = 1;
+          } else if (this.weeklyPagination.currentPage > this.weeklyPagination.totalPages) {
+            this.weeklyPagination.currentPage = this.weeklyPagination.totalPages;
+          }
+
+          const weeklyStartIndex = (this.weeklyPagination.currentPage - 1) * this.weeklyPagination.itemsPerPage;
+          const weeklyEndIndex = Math.min(weeklyStartIndex + this.weeklyPagination.itemsPerPage, userCompliance.length);
+          const weeklyPageData = userCompliance.slice(weeklyStartIndex, weeklyEndIndex);
+
+          const weeklyLabelStart = this.weeklyPagination.totalItems === 0 ? 0 : weeklyStartIndex + 1;
+          const weeklyLabelEnd = this.weeklyPagination.totalItems === 0 ? 0 : weeklyEndIndex;
+
+          let html = '';
+          html += '<div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2">';
+          html += `<div class="fw-semibold">${weekRangeLabel}</div>`;
+          html += `<div class="small text-muted">${timezoneNote}</div>`;
+          html += '</div>';
+          html += '<div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mt-3">';
+          html += `<div class="text-muted small">Showing ${weeklyLabelStart}-${weeklyLabelEnd} of ${this.weeklyPagination.totalItems} employees</div>`;
+          html += '<div class="d-flex align-items-center gap-2">';
+          html += '<label class="form-label mb-0 small" for="weeklyItemsPerPageSelect">Items per page:</label>';
+          html += '<select class="form-select form-select-sm" style="width: auto;" id="weeklyItemsPerPageSelect">';
+          html += `<option value="5" ${this.weeklyPagination.itemsPerPage === 5 ? 'selected' : ''}>5</option>`;
+          html += `<option value="10" ${this.weeklyPagination.itemsPerPage === 10 ? 'selected' : ''}>10</option>`;
+          html += `<option value="25" ${this.weeklyPagination.itemsPerPage === 25 ? 'selected' : ''}>25</option>`;
+          html += `<option value="50" ${this.weeklyPagination.itemsPerPage === 50 ? 'selected' : ''}>50</option>`;
+          html += '</select>';
+          html += '</div>';
+          html += '</div>';
+          html += '<div class="table-responsive mt-3">';
+          html += '<table class="table table-sm table-bordered align-middle">';
+          html += '<thead><tr>';
+          html += '<th><i class="fas fa-user me-2"></i>Employee</th>';
+          formattedWeekDates.forEach(day => {
+            html += `<th>${escapeHtml(day.label)}<div class="small text-muted">Login • Logout</div></th>`;
+          });
+          html += '</tr></thead><tbody>';
+
+          weeklyPageData.forEach((user) => {
+            const rawUserId = user && Object.prototype.hasOwnProperty.call(user, 'user') ? user.user : null;
+            const userName = typeof rawUserId === 'string'
+              ? rawUserId
+              : (rawUserId != null ? String(rawUserId) : 'Unknown');
+            const userKey = userName;
+            const userDateMap = timingInfoByUser.get(userKey) || null;
+
+            html += '<tr>';
+            html += '<td>';
+            html += '<div class="d-flex align-items-center">';
+            html += `<div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-2" style="width:28px;height:28px;font-size:.75rem;">${escapeHtml((userName || 'U').charAt(0).toUpperCase())}</div>`;
+            html += `<strong>${escapeHtml(userName)}</strong>`;
+            html += '</div>';
+            html += '</td>';
+
+            formattedWeekDates.forEach(day => {
+              const info = userDateMap ? userDateMap.get(day.key) : null;
+              const firstCandidate = info && Number.isFinite(info.firstAvailable) ? info.firstAvailable
+                : (info && Number.isFinite(info.earliestEvent) ? info.earliestEvent : null);
+              const lastCandidate = info && Number.isFinite(info.lastEndOfShift) ? info.lastEndOfShift
+                : (info && Number.isFinite(info.latestEvent) ? info.latestEvent : null);
+
+              const loginDisplay = Number.isFinite(firstCandidate) ? formatTimestampForDisplay(firstCandidate) : '—';
+              const logoutDisplay = Number.isFinite(lastCandidate) ? formatTimestampForDisplay(lastCandidate) : '—';
+
+              const cellContent = (loginDisplay === '—' && logoutDisplay === '—')
+                ? '<span class="text-muted">—</span>'
+                : `<div class="small text-muted">Login</div><div class="fw-semibold">${escapeHtml(loginDisplay)}</div><div class="small text-muted mt-1">Logout</div><div class="fw-semibold">${escapeHtml(logoutDisplay)}</div>`;
+
+              html += `<td>${cellContent}</td>`;
+            });
+
+            html += '</tr>';
+          });
+
+          if (weeklyPageData.length === 0) {
+            html += `<tr><td colspan="${formattedWeekDates.length + 1}" class="text-center text-muted">No users found for the selected period.</td></tr>`;
+          }
+
+          html += '</tbody></table></div>';
+
+          if (this.weeklyPagination.totalPages > 1) {
+            html += this.renderWeeklyPaginationControls();
+          }
+
+          weeklyTableContainer.innerHTML = html;
+          this.setupWeeklyPaginationEventListeners();
+        };
+
+        buildWeeklyLoginLogoutTable();
+
         let tableHtml = `
           <div class="d-flex justify-content-between align-items-center mb-3">
             <div class="text-muted">
@@ -2608,6 +3085,8 @@
               <thead>
                 <tr>
                   <th><i class="fas fa-user me-2"></i>Employee</th>
+                  <th><i class="fas fa-sign-in-alt me-2"></i>Daily First Available <span class="d-block small text-muted">${timezoneLabel}</span></th>
+                  <th><i class="fas fa-sign-out-alt me-2"></i>Daily Last End of Shift <span class="d-block small text-muted">${timezoneLabel}</span></th>
                   <th><i class="fas fa-briefcase me-2"></i>Capped Billable Hours</th>
                   <th><i class="fas fa-coffee me-2"></i>Break Credit Hours</th>
                   <th><i class="fas fa-utensils me-2"></i>Lunch Adjustment Hours</th>
@@ -2630,6 +3109,9 @@
           const weekendAvailabilityDisplay = formatDecimalHours(user.weekendSecs || 0);
           const breakRecordedDisplay = formatDecimalHours(user.breakSecs || 0);
           const lunchRecordedDisplay = formatDecimalHours(user.lunchSecs || 0);
+          const dailyTimings = getDailyTimingsForUser(user.user);
+          const firstAvailableDisplay = formatDailyTimingsColumn(dailyTimings, 'first');
+          const lastEndShiftDisplay = formatDailyTimingsColumn(dailyTimings, 'last');
 
           tableHtml += `
             <tr>
@@ -2640,6 +3122,12 @@
                   </div>
                   <strong>${user.user || 'Unknown'}</strong>
                 </div>
+              </td>
+              <td>
+                ${firstAvailableDisplay}
+              </td>
+              <td>
+                ${lastEndShiftDisplay}
               </td>
               <td>
                 <span class="badge bg-primary">${baseHoursDisplay}</span>
@@ -2732,6 +3220,109 @@
       } catch (error) {
         console.error('Error rendering attendance table:', error);
       }
+    }
+
+    renderWeeklyPaginationControls() {
+      const totalPages = this.weeklyPagination.totalPages;
+      const currentPage = this.weeklyPagination.currentPage;
+
+      let paginationHtml = `
+        <nav aria-label="Weekly login/logout table navigation" class="mt-3">
+          <div class="d-flex justify-content-between align-items-center">
+            <div class="text-muted small">
+              Page ${currentPage} of ${totalPages}
+            </div>
+            <ul class="pagination pagination-sm mb-0">`;
+
+      paginationHtml += `
+        <li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
+          <a class="page-link" href="#" data-weekly-page="${currentPage - 1}" ${currentPage === 1 ? 'tabindex="-1"' : ''}>
+            <i class="fas fa-chevron-left"></i>
+          </a>
+        </li>`;
+
+      const maxVisiblePages = 5;
+      let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+      let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+
+      if (endPage - startPage + 1 < maxVisiblePages) {
+        startPage = Math.max(1, endPage - maxVisiblePages + 1);
+      }
+
+      if (startPage > 1) {
+        paginationHtml += `
+          <li class="page-item">
+            <a class="page-link" href="#" data-weekly-page="1">1</a>
+          </li>`;
+        if (startPage > 2) {
+          paginationHtml += `
+            <li class="page-item disabled">
+              <span class="page-link">...</span>
+            </li>`;
+        }
+      }
+
+      for (let i = startPage; i <= endPage; i++) {
+        paginationHtml += `
+          <li class="page-item ${i === currentPage ? 'active' : ''}">
+            <a class="page-link" href="#" data-weekly-page="${i}">${i}</a>
+          </li>`;
+      }
+
+      if (endPage < totalPages) {
+        if (endPage < totalPages - 1) {
+          paginationHtml += `
+            <li class="page-item disabled">
+              <span class="page-link">...</span>
+            </li>`;
+        }
+        paginationHtml += `
+          <li class="page-item">
+            <a class="page-link" href="#" data-weekly-page="${totalPages}">${totalPages}</a>
+          </li>`;
+      }
+
+      paginationHtml += `
+        <li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
+          <a class="page-link" href="#" data-weekly-page="${currentPage + 1}" ${currentPage === totalPages ? 'tabindex="-1"' : ''}>
+            <i class="fas fa-chevron-right"></i>
+          </a>
+        </li>
+      </ul>
+    </div>
+  </nav>`;
+
+      return paginationHtml;
+    }
+
+    setupWeeklyPaginationEventListeners() {
+      const itemsPerPageSelect = document.getElementById('weeklyItemsPerPageSelect');
+      if (itemsPerPageSelect) {
+        itemsPerPageSelect.addEventListener('change', (e) => {
+          const parsedValue = parseInt(e.target.value);
+          if (Number.isFinite(parsedValue) && parsedValue > 0) {
+            this.weeklyPagination.itemsPerPage = parsedValue;
+          }
+          this.weeklyPagination.currentPage = 1;
+          this.renderAttendanceTable();
+        });
+      }
+
+      const paginationLinks = document.querySelectorAll('#weeklyLoginLogoutContainer .page-link[data-weekly-page]');
+      paginationLinks.forEach(link => {
+        link.addEventListener('click', (e) => {
+          e.preventDefault();
+          const target = e.target.closest('[data-weekly-page]');
+          if (!target) {
+            return;
+          }
+          const page = parseInt(target.dataset.weeklyPage);
+          if (page && page !== this.weeklyPagination.currentPage && page >= 1 && page <= this.weeklyPagination.totalPages) {
+            this.weeklyPagination.currentPage = page;
+            this.renderAttendanceTable();
+          }
+        });
+      });
     }
 
     renderPaginationControls() {
