@@ -1133,6 +1133,20 @@
   </div>
 </div>
 
+<!-- WEEKLY LOGIN/LOGOUT TABLE -->
+<div id="weeklyLoginLogoutSection" class="mb-4">
+  <div class="card ai-enhanced">
+    <div class="card-header">
+      <h5><i class="fas fa-user-clock"></i>Weekly Login & Logout (Mon-Fri)</h5>
+    </div>
+    <div id="weeklyLoginLogoutContainer" class="card-body">
+      <div class="loading-state">
+        <i class="fas fa-spinner fa-spin"></i> Compiling weekly login/logout times...
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ATTENDANCE TABLE -->
 <div id="attendanceTableSection" class="mb-4">
   <div class="card">
@@ -2559,9 +2573,13 @@
         const container = document.getElementById('attendanceTableContainer');
         if (!container) return;
 
+        const weeklyTableContainer = document.getElementById('weeklyLoginLogoutContainer');
         const userCompliance = this.currentData.userCompliance || [];
 
         if (userCompliance.length === 0) {
+          if (weeklyTableContainer) {
+            weeklyTableContainer.innerHTML = '<p class="text-muted text-center mb-0">No login/logout activity available for the selected period.</p>';
+          }
           container.innerHTML = '<p class="text-muted text-center">No attendance data available for the selected period.</p>';
           return;
         }
@@ -2832,6 +2850,171 @@
 
           return `<div class="d-flex flex-column gap-1">${rows.join('')}</div>`;
         };
+
+        const buildWeeklyLoginLogoutTable = () => {
+          if (!weeklyTableContainer) {
+            return;
+          }
+
+          const availableDateKeys = new Set();
+          timingInfoByUser.forEach((dateMap) => {
+            if (dateMap && typeof dateMap.forEach === 'function') {
+              dateMap.forEach((_, dateKey) => {
+                if (typeof dateKey === 'string' && dateKey) {
+                  availableDateKeys.add(dateKey);
+                }
+              });
+            }
+          });
+
+          const periodInfo = this.currentData.periodInfo || {};
+
+          const parseIsoKeyToDate = (key) => {
+            if (typeof key !== 'string') return null;
+            const parts = key.split('-').map(part => Number(part));
+            if (parts.length !== 3 || parts.some(num => !Number.isFinite(num))) return null;
+            return new Date(Date.UTC(parts[0], parts[1] - 1, parts[2]));
+          };
+
+          const appendWeekDates = (collection, baseDate) => {
+            if (!(baseDate instanceof Date) || Number.isNaN(baseDate.getTime())) {
+              return false;
+            }
+
+            const utcBase = new Date(Date.UTC(baseDate.getUTCFullYear(), baseDate.getUTCMonth(), baseDate.getUTCDate()));
+            const weekday = utcBase.getUTCDay();
+            const diffToMonday = weekday === 0 ? -6 : 1 - weekday;
+            utcBase.setUTCDate(utcBase.getUTCDate() + diffToMonday);
+
+            for (let i = 0; i < 5; i++) {
+              const current = new Date(utcBase.getTime());
+              current.setUTCDate(utcBase.getUTCDate() + i);
+              collection.push(current);
+            }
+            return true;
+          };
+
+          const generateWeekDates = () => {
+            const dates = [];
+
+            if (availableDateKeys.size > 0) {
+              const sortedKeys = Array.from(availableDateKeys).sort();
+              const latestKey = sortedKeys[sortedKeys.length - 1];
+              const latestDate = parseIsoKeyToDate(latestKey);
+              if (latestDate && appendWeekDates(dates, latestDate)) {
+                return dates;
+              }
+            }
+
+            const periodStart = periodInfo.startDateIso || periodInfo.startDate || periodInfo.periodStart || periodInfo.periodStartDate;
+            if (typeof periodStart === 'string') {
+              const startDate = new Date(periodStart);
+              if (appendWeekDates(dates, startDate)) {
+                return dates;
+              }
+            }
+
+            appendWeekDates(dates, new Date());
+            return dates;
+          };
+
+          const rawWeekDates = generateWeekDates();
+          if (!Array.isArray(rawWeekDates) || rawWeekDates.length === 0) {
+            weeklyTableContainer.innerHTML = '<p class="text-muted text-center mb-0">No login/logout activity detected for Monday through Friday.</p>';
+            return;
+          }
+
+          const formattedWeekDates = rawWeekDates.map(dateObj => {
+            const key = dateObj.toISOString().slice(0, 10);
+            let label = key;
+            if (friendlyDateFormatter) {
+              try {
+                label = friendlyDateFormatter.format(dateObj);
+              } catch (err) {
+                console.warn('Failed to format weekly login/logout date label:', err);
+              }
+            }
+            return { key, label };
+          });
+
+          if (!Array.isArray(formattedWeekDates) || formattedWeekDates.length === 0) {
+            weeklyTableContainer.innerHTML = '<p class="text-muted text-center mb-0">No login/logout activity detected for Monday through Friday.</p>';
+            return;
+          }
+
+          const weekRangeLabel = (() => {
+            const startLabel = formattedWeekDates[0].label;
+            const endLabel = formattedWeekDates[formattedWeekDates.length - 1].label;
+            if (!startLabel || !endLabel) {
+              return '';
+            }
+            return `Week range: ${escapeHtml(startLabel)} – ${escapeHtml(endLabel)}`;
+          })();
+
+          const timezoneNote = timezoneLabel
+            ? `Times shown in ${escapeHtml(timezoneLabel)}`
+            : 'Times shown in selected timezone';
+
+          let html = '';
+          html += '<div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2">';
+          html += `<div class="fw-semibold">${weekRangeLabel}</div>`;
+          html += `<div class="small text-muted">${timezoneNote}</div>`;
+          html += '</div>';
+          html += '<div class="table-responsive mt-3">';
+          html += '<table class="table table-sm table-bordered align-middle">';
+          html += '<thead><tr>';
+          html += '<th><i class="fas fa-user me-2"></i>Employee</th>';
+          formattedWeekDates.forEach(day => {
+            html += `<th>${escapeHtml(day.label)}<div class="small text-muted">Login • Logout</div></th>`;
+          });
+          html += '</tr></thead><tbody>';
+
+          userCompliance.forEach((user) => {
+            const rawUserId = user && Object.prototype.hasOwnProperty.call(user, 'user') ? user.user : null;
+            const userName = typeof rawUserId === 'string'
+              ? rawUserId
+              : (rawUserId != null ? String(rawUserId) : 'Unknown');
+            const userKey = userName;
+            const userDateMap = timingInfoByUser.get(userKey) || null;
+
+            html += '<tr>';
+            html += '<td>';
+            html += '<div class="d-flex align-items-center">';
+            html += `<div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-2" style="width:28px;height:28px;font-size:.75rem;">${escapeHtml((userName || 'U').charAt(0).toUpperCase())}</div>`;
+            html += `<strong>${escapeHtml(userName)}</strong>`;
+            html += '</div>';
+            html += '</td>';
+
+            formattedWeekDates.forEach(day => {
+              const info = userDateMap ? userDateMap.get(day.key) : null;
+              const firstCandidate = info && Number.isFinite(info.firstAvailable) ? info.firstAvailable
+                : (info && Number.isFinite(info.earliestEvent) ? info.earliestEvent : null);
+              const lastCandidate = info && Number.isFinite(info.lastEndOfShift) ? info.lastEndOfShift
+                : (info && Number.isFinite(info.latestEvent) ? info.latestEvent : null);
+
+              const loginDisplay = Number.isFinite(firstCandidate) ? formatTimestampForDisplay(firstCandidate) : '—';
+              const logoutDisplay = Number.isFinite(lastCandidate) ? formatTimestampForDisplay(lastCandidate) : '—';
+
+              const cellContent = (loginDisplay === '—' && logoutDisplay === '—')
+                ? '<span class="text-muted">—</span>'
+                : `<div class="small text-muted">Login</div><div class="fw-semibold">${escapeHtml(loginDisplay)}</div><div class="small text-muted mt-1">Logout</div><div class="fw-semibold">${escapeHtml(logoutDisplay)}</div>`;
+
+              html += `<td>${cellContent}</td>`;
+            });
+
+            html += '</tr>';
+          });
+
+          if (userCompliance.length === 0) {
+            html += `<tr><td colspan="${formattedWeekDates.length + 1}" class="text-center text-muted">No users found for the selected period.</td></tr>`;
+          }
+
+          html += '</tbody></table></div>';
+
+          weeklyTableContainer.innerHTML = html;
+        };
+
+        buildWeeklyLoginLogoutTable();
 
         let tableHtml = `
           <div class="d-flex justify-content-between align-items-center mb-3">
