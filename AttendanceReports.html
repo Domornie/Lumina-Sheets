@@ -2789,19 +2789,40 @@
           }
         })();
 
-        const friendlyDateFormatter = (() => {
+        const weeklyLabelFormatter = (() => {
           try {
             return new Intl.DateTimeFormat('en-US', {
               weekday: 'short',
               month: 'short',
               day: 'numeric',
-              timeZone: timezoneValue || 'UTC'
+              timeZone: 'UTC'
             });
           } catch (error) {
-            console.warn('Failed to create friendly date formatter for attendance table:', error);
+            console.warn('Failed to create week label formatter for attendance table:', error);
             return null;
           }
         })();
+
+        const formatWeekLabel = (isoDateString) => {
+          if (typeof isoDateString !== 'string' || !isoDateString) {
+            return isoDateString;
+          }
+
+          try {
+            const referenceDate = new Date(`${isoDateString}T00:00:00Z`);
+            if (Number.isNaN(referenceDate.getTime())) {
+              return isoDateString;
+            }
+
+            if (weeklyLabelFormatter) {
+              return weeklyLabelFormatter.format(referenceDate);
+            }
+          } catch (error) {
+            console.warn('Failed to format weekly label for date:', isoDateString, error);
+          }
+
+          return isoDateString;
+        };
 
         const ensureDateKey = (timestamp, dateString) => {
           if (typeof dateString === 'string') {
@@ -3033,14 +3054,7 @@
 
           const formattedWeekDates = rawWeekDates.map(dateObj => {
             const key = dateObj.toISOString().slice(0, 10);
-            let label = key;
-            if (friendlyDateFormatter) {
-              try {
-                label = friendlyDateFormatter.format(dateObj);
-              } catch (err) {
-                console.warn('Failed to format weekly login/logout date label:', err);
-              }
-            }
+            const label = formatWeekLabel(key);
             return { key, label };
           });
 
