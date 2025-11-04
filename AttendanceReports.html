@@ -1276,7 +1276,7 @@
 <div id="weeklyLoginLogoutSection" class="mb-4">
   <div class="card ai-enhanced">
     <div class="card-header">
-      <h5><i class="fas fa-user-clock"></i>Weekly Login & Logout (Mon-Fri)</h5>
+      <h5><i class="fas fa-user-clock"></i>Weekly Login & Logout (Mon-Sun)</h5>
     </div>
     <div id="weeklyLoginLogoutContainer" class="card-body">
       <div class="loading-state">
@@ -2968,7 +2968,7 @@
             const diffToMonday = weekday === 0 ? -6 : 1 - weekday;
             utcBase.setUTCDate(utcBase.getUTCDate() + diffToMonday);
 
-            for (let i = 0; i < 5; i++) {
+            for (let i = 0; i < 7; i++) {
               const current = new Date(utcBase.getTime());
               current.setUTCDate(utcBase.getUTCDate() + i);
               collection.push(current);
@@ -3015,7 +3015,7 @@
             const diffToMonday = weekday === 0 ? -6 : 1 - weekday;
             monday.setUTCDate(monday.getUTCDate() + diffToMonday);
 
-            return Array.from({ length: 5 }, (_, index) => {
+            return Array.from({ length: 7 }, (_, index) => {
               const current = new Date(monday.getTime());
               current.setUTCDate(monday.getUTCDate() + index);
               return current;
@@ -3027,7 +3027,7 @@
             this.weeklyPagination.totalItems = 0;
             this.weeklyPagination.totalPages = 0;
             this.weeklyPagination.currentPage = 1;
-            weeklyTableContainer.innerHTML = '<p class="text-muted text-center mb-0">No login/logout activity detected for Monday through Friday.</p>';
+            weeklyTableContainer.innerHTML = '<p class="text-muted text-center mb-0">No login/logout activity detected for Monday through Sunday.</p>';
             return;
           }
 
@@ -3048,7 +3048,7 @@
             this.weeklyPagination.totalItems = 0;
             this.weeklyPagination.totalPages = 0;
             this.weeklyPagination.currentPage = 1;
-            weeklyTableContainer.innerHTML = '<p class="text-muted text-center mb-0">No login/logout activity detected for Monday through Friday.</p>';
+            weeklyTableContainer.innerHTML = '<p class="text-muted text-center mb-0">No login/logout activity detected for Monday through Sunday.</p>';
             return;
           }
 
