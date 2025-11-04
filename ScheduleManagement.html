@@ -6899,9 +6899,13 @@
                         }
                     });
 
+                    const inferredAgentRole = !hasAgentRole && !hasRestrictedRole && tokens.length === 0;
+                    const resolvedAgentRole = hasAgentRole || inferredAgentRole;
+                    const eligible = resolvedAgentRole && !hasRestrictedRole;
+
                     return {
-                        eligible: hasAgentRole && !hasRestrictedRole,
-                        hasAgentRole,
+                        eligible,
+                        hasAgentRole: resolvedAgentRole,
                         hasRestrictedRole
                     };
                 };
