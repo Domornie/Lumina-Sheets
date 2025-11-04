@@ -2544,17 +2544,30 @@ function clientGenerateSchedulesEnhanced(startDate, endDate, userNames, shiftSlo
     const assignments = [];
     const skippedUsers = [];
     const now = new Date();
-    orderedUsers.forEach((user, index) => {
-      let assignedSlot = null;
-      for (let attempt = 0; attempt < selectedSlots.length; attempt++) {
-        const slot = selectedSlots[(index + attempt) % selectedSlots.length];
-        const slotCount = slotCounts.get(slot.SlotId) || 0;
-        if (maxCapacity && slotCount >= maxCapacity) {
-          continue;
+    const slotRandom = createSeededRandom(`${seed}-slot-pick`);
+    orderedUsers.forEach(user => {
+      const availableSlots = selectedSlots.filter(slot => {
+        if (!slot) {
+          return false;
         }
-        assignedSlot = slot;
-        break;
+        if (!maxCapacity) {
+          return true;
+        }
+        const slotCount = slotCounts.get(slot.SlotId) || 0;
+        return slotCount < maxCapacity;
+      });
+
+      if (!availableSlots.length) {
+        skippedUsers.push({
+          userId: user.ID,
+          userName: user.UserName || user.FullName,
+          reason: 'Max capacity reached for selected slots'
+        });
+        return;
       }
+
+      const randomIndex = Math.floor(slotRandom() * availableSlots.length);
+      const assignedSlot = availableSlots[randomIndex];
 
       if (!assignedSlot) {
         skippedUsers.push({

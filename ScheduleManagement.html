@@ -1235,6 +1235,84 @@
         padding-left: 1.2rem;
     }
 
+    .manual-template-card .manual-template-wrapper {
+        overflow-x: auto;
+    }
+
+    .manual-template-card .manual-template-table {
+        width: 100%;
+        min-width: 1024px;
+        border-collapse: separate;
+        border-spacing: 0;
+        font-size: 0.85rem;
+    }
+
+    .manual-template-card .manual-template-table thead th {
+        background: linear-gradient(135deg, var(--primary) 0%, #2684ff 100%);
+        color: #ffffff;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        font-size: 0.7rem;
+        font-weight: 700;
+        padding: 0.65rem 0.75rem;
+        border: 1px solid rgba(255, 255, 255, 0.25);
+        white-space: nowrap;
+    }
+
+    .manual-template-card .manual-template-table tbody td {
+        border: 1px solid #dbe3f4;
+        padding: 0.6rem 0.75rem;
+        vertical-align: middle;
+        background: rgba(255, 255, 255, 0.95);
+    }
+
+    .manual-template-card .manual-template-table tbody tr:nth-child(even) td {
+        background: #f8fafc;
+    }
+
+    .manual-template-card .manual-template-table td.weekend-column {
+        background: #fff7ed;
+        color: #92400e;
+        font-weight: 600;
+        text-align: center;
+    }
+
+    .manual-template-card .manual-template-table td.day-column {
+        text-align: center;
+        font-weight: 500;
+        color: var(--dark);
+    }
+
+    .manual-template-card .manual-template-table td.shift-column {
+        font-weight: 700;
+        color: var(--primary);
+        text-align: center;
+    }
+
+    .manual-template-card .manual-template-table td.break-column {
+        background: #ecfdf5;
+        color: #047857;
+        font-weight: 600;
+        text-align: center;
+    }
+
+    .manual-template-card .manual-template-table td.text-center {
+        text-align: center;
+    }
+
+    .manual-template-card .manual-template-empty {
+        padding: 1.5rem;
+        text-align: center;
+        color: var(--gray-500);
+        font-style: italic;
+    }
+
+    .manual-template-card .template-actions {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+
     .manual-shift-tab .activity-entry {
         border-left: 4px solid var(--primary);
         padding-left: 1rem;
@@ -2160,6 +2238,58 @@
                         </div>
                     </div>
                 </form>
+
+                <div class="modern-card mt-4 manual-template-card">
+                    <div class="modern-card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+                        <h5 class="modern-card-title mb-0 d-flex align-items-center gap-2">
+                            <i class="fas fa-table text-primary"></i>
+                            Manual Schedule Template Preview
+                        </h5>
+                        <div class="template-actions">
+                            <button type="button" class="btn btn-outline-modern btn-sm" id="downloadManualTemplate">
+                                <i class="fas fa-file-download"></i>
+                                Download CSV Template
+                            </button>
+                        </div>
+                    </div>
+                    <div class="modern-card-body">
+                        <p class="text-muted small mb-3">
+                            Manual assignments are summarized in the same format as the Lumina schedule workbook. Each row
+                            mirrors the campaign, agent, daily coverage, and break structure used by operations.
+                        </p>
+                        <div class="manual-template-wrapper">
+                            <table class="table table-sm manual-template-table">
+                                <thead>
+                                    <tr>
+                                        <th>Campaign</th>
+                                        <th class="text-center">Shift #</th>
+                                        <th>Agent</th>
+                                        <th>Work Schedule Name</th>
+                                        <th>Source</th>
+                                        <th class="day-column weekend-column">Sunday</th>
+                                        <th class="day-column">Monday</th>
+                                        <th class="day-column">Tuesday</th>
+                                        <th class="day-column">Wednesday</th>
+                                        <th class="day-column">Thursday</th>
+                                        <th class="day-column">Friday</th>
+                                        <th class="day-column weekend-column">Saturday</th>
+                                        <th class="shift-column">Shift</th>
+                                        <th class="break-column">Break 1</th>
+                                        <th class="break-column">Lunch</th>
+                                        <th class="break-column">Break 2</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="manualTemplateBody">
+                                    <tr>
+                                        <td colspan="16" class="manual-template-empty" id="manualTemplateEmptyRow">
+                                            Manual assignments will appear here using the Lumina schedule template layout.
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
 
                 <div class="modern-card mt-4">
                     <div class="modern-card-header">
@@ -12989,6 +13119,35 @@
                 this.submitButton = document.getElementById('submitManualShift');
                 this.activityLog = document.getElementById('activityLog');
                 this.activityEmptyState = document.getElementById('activityEmptyState');
+                this.templateTableBody = document.getElementById('manualTemplateBody');
+                this.templateEmptyRow = document.getElementById('manualTemplateEmptyRow');
+                this.templateDownloadButton = document.getElementById('downloadManualTemplate');
+
+                this.templateDayOrder = [
+                    { key: 'sunday', label: 'Sunday', index: 6, className: 'day-column weekend-column' },
+                    { key: 'monday', label: 'Monday', index: 0, className: 'day-column' },
+                    { key: 'tuesday', label: 'Tuesday', index: 1, className: 'day-column' },
+                    { key: 'wednesday', label: 'Wednesday', index: 2, className: 'day-column' },
+                    { key: 'thursday', label: 'Thursday', index: 3, className: 'day-column' },
+                    { key: 'friday', label: 'Friday', index: 4, className: 'day-column' },
+                    { key: 'saturday', label: 'Saturday', index: 5, className: 'day-column weekend-column' }
+                ];
+
+                this.templateColumns = [
+                    { key: 'campaign', label: 'Campaign' },
+                    { key: 'sequence', label: 'Shift #' },
+                    { key: 'agent', label: 'Agent' },
+                    { key: 'scheduleName', label: 'Work Schedule Name' },
+                    { key: 'source', label: 'Source' },
+                    ...this.templateDayOrder,
+                    { key: 'shiftLabel', label: 'Shift', className: 'shift-column' },
+                    { key: 'break1', label: 'Break 1', className: 'break-column' },
+                    { key: 'lunch', label: 'Lunch', className: 'break-column' },
+                    { key: 'break2', label: 'Break 2', className: 'break-column' }
+                ];
+
+                this.templateRowsData = [];
+                this.templateSequence = 1;
 
                 this.users = [];
                 this.userMap = new Map();
@@ -13004,12 +13163,14 @@
                 this.clearSelectionBtn?.addEventListener('click', () => this.clearSelection());
                 this.startDateInput?.addEventListener('change', () => this.handleStartDateChange());
                 this.endDateInput?.addEventListener('change', () => this.handleEndDateChange());
+                this.templateDownloadButton?.addEventListener('click', () => this.downloadTemplate());
 
                 if (this.scheduleManager && typeof this.scheduleManager === 'object') {
                     this.scheduleManager.manualShiftManager = this;
                 }
 
                 this.initializeDateRange();
+                this.renderTemplateTable();
 
                 if (this.scheduleManager && Array.isArray(this.scheduleManager.cachedShiftSlots) && this.scheduleManager.cachedShiftSlots.length) {
                     this.setShiftSlots(this.scheduleManager.cachedShiftSlots);
@@ -13179,6 +13340,33 @@
                 }
 
                 return '';
+            }
+
+            getSlotRecord(slotId) {
+                if (!slotId) {
+                    return null;
+                }
+
+                const normalized = this.normalizeSlotId(slotId);
+                if (!normalized) {
+                    return null;
+                }
+
+                if (this.shiftSlotMap && this.shiftSlotMap.has(normalized)) {
+                    return this.shiftSlotMap.get(normalized);
+                }
+
+                if (this.scheduleManager && Array.isArray(this.scheduleManager.cachedShiftSlots)) {
+                    const match = this.scheduleManager.cachedShiftSlots.find(slot => this.normalizeSlotId(slot) === normalized);
+                    if (match) {
+                        if (this.shiftSlotMap) {
+                            this.shiftSlotMap.set(normalized, match);
+                        }
+                        return match;
+                    }
+                }
+
+                return null;
             }
 
             buildSlotLabel(slot = {}) {
@@ -13646,7 +13834,7 @@
                     if (result && result.success) {
                         const message = result.message || this.buildSuccessMessage(result, slotLabel, startDateValue, endDateValue, selectedIds.length);
                         this.showFeedback(message, 'success');
-                        this.appendActivity(result, { slotId, slotLabel, startDate: startDateValue, endDate: endDateValue, userIds: selectedIds });
+                        this.appendActivity(result, { slotId, slotLabel, startDate: startDateValue, endDate: endDateValue, userIds: selectedIds, replaceExisting });
 
                         if (!replaceExisting) {
                             this.clearSelection({ silent: true });
@@ -13673,6 +13861,214 @@
                     this.submitButton.disabled = false;
                     this.submitButton.innerHTML = originalButtonContent;
                 }
+            }
+
+            appendTemplateRows(result, context = {}) {
+                if (!this.templateTableBody) {
+                    return;
+                }
+
+                const details = this.normalizeResultDetails(result);
+                const entries = Array.isArray(details) && details.length
+                    ? details
+                    : (Array.isArray(context.userIds)
+                        ? context.userIds.map(userId => ({ userId }))
+                        : []);
+
+                if (!entries.length) {
+                    return;
+                }
+
+                const slotIdFromEntries = entries[0] && (entries[0].slotId || entries[0].SlotId);
+                const slotId = context.slotId || slotIdFromEntries || '';
+                const slotRecord = this.getSlotRecord(slotId);
+
+                const dateRange = this.formatDateRange(context.startDate, context.endDate);
+                const enhancedContext = {
+                    ...context,
+                    slotId,
+                    slotRecord,
+                    dateRange,
+                    sourceLabel: context.sourceLabel || (context.replaceExisting ? 'Manual Update' : 'Manual Entry')
+                };
+
+                entries.forEach(entry => {
+                    const row = this.buildTemplateRow(entry, slotRecord, enhancedContext);
+                    if (row) {
+                        this.templateRowsData.unshift(row);
+                    }
+                });
+
+                const maxRows = 25;
+                if (this.templateRowsData.length > maxRows) {
+                    this.templateRowsData.length = maxRows;
+                }
+
+                this.renderTemplateTable();
+            }
+
+            buildTemplateRow(entry, slotRecord, context = {}) {
+                const resolvedSlot = slotRecord || context.slotRecord || this.getSlotRecord(context.slotId) || {};
+                const slotLabel = context.slotLabel
+                    || entry?.slotName
+                    || entry?.SlotName
+                    || resolvedSlot?.SlotName
+                    || resolvedSlot?.Name
+                    || 'Manual Shift';
+                const shiftRange = this.formatSlotTimeRange(resolvedSlot);
+                const userId = entry?.userId || entry?.UserId || (typeof entry === 'string' ? entry : '');
+                const userName = entry?.userName
+                    || entry?.UserName
+                    || this.resolveUserName(userId)
+                    || (typeof entry === 'string' ? this.resolveUserName(entry) || entry : 'Unnamed Agent');
+                const campaignName = entry?.Campaign
+                    || entry?.campaign
+                    || resolvedSlot?.Campaign
+                    || resolvedSlot?.Department
+                    || context.campaign
+                    || '';
+
+                const scheduleNameParts = [slotLabel];
+                if (context.dateRange) {
+                    scheduleNameParts.push(context.dateRange);
+                }
+
+                const defaultBreaks = context.breakLabels || {
+                    break1: '15 min',
+                    lunch: '60 min',
+                    break2: '15 min'
+                };
+
+                const row = {
+                    campaign: campaignName || '—',
+                    sequence: String(this.templateSequence++).padStart(2, '0'),
+                    agent: userName || '—',
+                    scheduleName: scheduleNameParts.filter(Boolean).join(' • ') || slotLabel,
+                    source: context.sourceLabel || 'Manual Entry',
+                    shiftLabel: shiftRange || slotLabel,
+                    break1: defaultBreaks.break1 || '15 min',
+                    lunch: defaultBreaks.lunch || '60 min',
+                    break2: defaultBreaks.break2 || '15 min'
+                };
+
+                const activeDaysArray = Array.isArray(resolvedSlot?.DaysOfWeekArray)
+                    ? resolvedSlot.DaysOfWeekArray
+                    : [];
+                const activeSet = new Set(activeDaysArray);
+                const allDays = activeSet.size === 0;
+
+                this.templateDayOrder.forEach(day => {
+                    const isActive = allDays || activeSet.has(day.index);
+                    const value = isActive
+                        ? (shiftRange || 'Scheduled')
+                        : 'N/A';
+                    row[day.key] = value;
+                });
+
+                return row;
+            }
+
+            formatSlotTimeRange(slot = {}) {
+                if (!slot) {
+                    return '';
+                }
+
+                const formatTime = this.scheduleManager && typeof this.scheduleManager.formatTimeValue === 'function'
+                    ? (value) => this.scheduleManager.formatTimeValue(value)
+                    : (value) => (value || '').toString();
+
+                const startTime = formatTime(slot.StartTime || slot.startTime || '');
+                const endTime = formatTime(slot.EndTime || slot.endTime || '');
+
+                if (startTime && endTime) {
+                    return `${startTime} – ${endTime}`;
+                }
+
+                return '';
+            }
+
+            renderTemplateTable() {
+                if (!this.templateTableBody) {
+                    return;
+                }
+
+                this.templateTableBody.innerHTML = '';
+
+                if (!Array.isArray(this.templateRowsData) || !this.templateRowsData.length) {
+                    const emptyRow = document.createElement('tr');
+                    const cell = document.createElement('td');
+                    cell.colSpan = this.templateColumns.length;
+                    cell.className = 'manual-template-empty';
+                    cell.textContent = 'Manual assignments will appear here using the Lumina schedule template layout.';
+                    emptyRow.appendChild(cell);
+                    this.templateTableBody.appendChild(emptyRow);
+                    return;
+                }
+
+                this.templateRowsData.forEach(rowData => {
+                    const rowElement = document.createElement('tr');
+                    this.templateColumns.forEach(column => {
+                        const cell = document.createElement('td');
+                        if (column.className) {
+                            column.className.split(' ').forEach(cls => {
+                                if (cls) {
+                                    cell.classList.add(cls);
+                                }
+                            });
+                        }
+                        if (column.key === 'sequence') {
+                            cell.classList.add('text-center');
+                        }
+                        cell.textContent = rowData[column.key] || '—';
+                        rowElement.appendChild(cell);
+                    });
+                    this.templateTableBody.appendChild(rowElement);
+                });
+            }
+
+            downloadTemplate() {
+                if (!Array.isArray(this.templateRowsData) || !this.templateRowsData.length) {
+                    this.showFeedback('Create at least one manual assignment before downloading the template.', 'info');
+                    return;
+                }
+
+                const headers = this.templateColumns.map(column => column.label || column.key || '');
+                const csvLines = [headers.join(',')];
+
+                this.templateRowsData.forEach(row => {
+                    const line = this.templateColumns
+                        .map(column => this.escapeCsv(row[column.key] || ''))
+                        .join(',');
+                    csvLines.push(line);
+                });
+
+                const csvContent = csvLines.join('\r\n');
+                const link = document.createElement('a');
+                link.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csvContent);
+                const today = new Date().toISOString().split('T')[0];
+                link.download = `manual_schedule_template_${today}.csv`;
+                link.style.display = 'none';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                this.showFeedback('Manual schedule template downloaded.', 'success');
+            }
+
+            escapeCsv(value) {
+                if (value === null || typeof value === 'undefined') {
+                    return '';
+                }
+
+                const text = String(value).replace(/[\r\n]+/g, ' ').trim();
+                if (!text) {
+                    return '';
+                }
+
+                if (/[",\n]/.test(text)) {
+                    return `"${text.replace(/"/g, '""')}"`;
+                }
+
+                return text;
             }
 
             appendActivity(result, context = {}) {
@@ -13725,6 +14121,14 @@
                 `;
 
                 this.activityLog.prepend(entry);
+
+                this.appendTemplateRows(result, {
+                    ...context,
+                    slotId,
+                    slotLabel,
+                    startDate,
+                    endDate
+                });
 
                 const maxEntries = 8;
                 while (this.activityLog.children.length > maxEntries) {
