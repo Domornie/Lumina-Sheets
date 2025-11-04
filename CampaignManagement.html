@@ -20,6 +20,24 @@
       --warning: #f59e0b;
       --danger: #dc2626;
 
+      --primary-50: #f0f9ff;
+      --primary-100: #e0f2fe;
+      --primary-200: #bae6fd;
+      --primary-300: #7dd3fc;
+      --primary-400: #38bdf8;
+      --primary-500: #0ea5e9;
+      --primary-600: #0284c7;
+      --primary-700: #0369a1;
+      --primary-800: #075985;
+      --primary-900: #0c4a6e;
+      --success-50: #f0fdf4;
+      --success-100: #dcfce7;
+      --success-200: #bbf7d0;
+      --warning-50: #fffbeb;
+      --warning-200: #fed7aa;
+      --danger-50: #fef2f2;
+      --danger-200: #fecaca;
+
       --surface: #ffffff;
       --surface-variant: #f8fafc;
       --surface-glass: rgba(255, 255, 255, .75);
@@ -27,8 +45,15 @@
       --text-muted: #64748b;
       --border: #e2e8f0;
 
+      --border-radius: 20px;
+      --border-radius-sm: 16px;
+      --border-radius-xs: 12px;
+
       --shadow: 0 1px 3px rgba(2, 8, 23, .06), 0 1px 2px rgba(2, 8, 23, .08);
       --shadow-lg: 0 20px 45px rgba(15, 23, 42, .12);
+      --shadow-xl: 0 25px 60px -15px rgba(15, 23, 42, .25);
+      --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      --transition-fast: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
     @media (prefers-color-scheme: dark) {
@@ -327,25 +352,55 @@
 
     .campaign-list {
       display: grid;
-      gap: 1.5rem;
+      gap: 1.75rem;
       grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
     }
 
+    @media (min-width: 1200px) {
+      .campaign-list {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+    }
+
     .campaign-card {
-      background: #fff;
-      border-radius: 1.25rem;
-      padding: 1.75rem;
-      border: 1px solid rgba(226, 232, 240, .9);
-      box-shadow: 0 25px 50px -12px rgba(15, 23, 42, .18);
-      display: flex;
-      flex-direction: column;
-      gap: 1.25rem;
-      transition: transform .25s ease, box-shadow .25s ease;
+      position: relative;
+      border-radius: var(--border-radius);
+      padding: 2px;
+      background: linear-gradient(135deg, rgba(14, 165, 233, 0.3), rgba(37, 99, 235, 0.55));
+      box-shadow: var(--shadow-xl);
+      transition: var(--transition);
+      overflow: hidden;
+    }
+
+    .campaign-card::before {
+      content: '';
+      position: absolute;
+      inset: -30%;
+      background: conic-gradient(from 180deg, rgba(59, 130, 246, 0.08), transparent 55%, rgba(14, 165, 233, 0.12));
+      opacity: 0;
+      transition: var(--transition);
     }
 
     .campaign-card:hover {
-      transform: translateY(-6px);
-      box-shadow: 0 30px 60px -20px rgba(37, 99, 235, .35);
+      transform: translateY(-8px) scale(1.01);
+      box-shadow: 0 35px 70px -30px rgba(30, 64, 175, 0.55);
+    }
+
+    .campaign-card:hover::before {
+      opacity: 1;
+    }
+
+    .campaign-card-inner {
+      position: relative;
+      background: rgba(255, 255, 255, 0.9);
+      backdrop-filter: blur(16px);
+      border-radius: calc(var(--border-radius) - 2px);
+      padding: 1.75rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+      height: 100%;
+      border: 1px solid rgba(255, 255, 255, 0.45);
     }
 
     .campaign-card__header {
@@ -353,150 +408,299 @@
       justify-content: space-between;
       gap: 1rem;
       align-items: flex-start;
+      flex-wrap: wrap;
     }
 
     .campaign-card__title {
       display: flex;
       gap: 1rem;
       align-items: center;
+      min-width: 0;
+      flex: 1;
     }
 
     .campaign-icon {
-      width: 54px;
-      height: 54px;
+      position: relative;
+      width: 60px;
+      height: 60px;
       border-radius: 18px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: rgba(37, 99, 235, .12);
-      color: var(--primary);
-      font-size: 1.4rem;
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .4);
+      background: linear-gradient(135deg, rgba(14, 165, 233, 0.15), rgba(37, 99, 235, 0.28));
+      display: grid;
+      place-items: center;
+      font-size: 1.5rem;
+      color: var(--primary-700);
+      font-weight: 600;
+      box-shadow: inset 0 1px 2px rgba(148, 163, 184, 0.35);
+    }
+
+    .campaign-icon i {
+      font-size: 1.3rem;
+    }
+
+    .campaign-card__title h4 {
+      margin: 0;
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+    }
+
+    .campaign-card__subtitle {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-top: 0.35rem;
+      line-height: 1.5;
     }
 
     .campaign-card__meta {
+      display: flex;
+      gap: 0.75rem;
       color: var(--text-muted);
-      font-size: .85rem;
+      font-size: 0.8rem;
+      margin-top: 0.35rem;
+      flex-wrap: wrap;
     }
 
     .campaign-card__meta span {
-      margin-right: .75rem;
       display: inline-flex;
       align-items: center;
-      gap: .35rem;
+      gap: 0.4rem;
+      white-space: nowrap;
     }
 
-    .campaign-card__description {
-      color: var(--text-muted);
-      font-size: .95rem;
-      line-height: 1.7;
+    .campaign-card__meta i {
+      color: var(--primary-500);
+      font-size: 0.85rem;
     }
 
     .status-badge {
       display: inline-flex;
       align-items: center;
-      gap: .4rem;
-      padding: .4rem .9rem;
+      gap: 0.35rem;
+      padding: 0.4rem 0.85rem;
       border-radius: 999px;
-      font-size: .75rem;
+      font-size: 0.72rem;
       font-weight: 700;
-      letter-spacing: .08em;
+      letter-spacing: 0.05em;
       text-transform: uppercase;
+      background: rgba(30, 64, 175, 0.08);
+      color: var(--primary-700);
+      box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.25);
     }
 
     .status-badge i {
-      font-size: .55rem;
+      font-size: 0.5rem;
     }
 
     .status-active {
-      background: rgba(16, 185, 129, .12);
+      background: rgba(34, 197, 94, 0.16);
       color: #047857;
+      box-shadow: inset 0 0 0 1px rgba(34, 197, 94, 0.4);
     }
 
     .status-paused {
-      background: rgba(245, 158, 11, .18);
-      color: #92400e;
+      background: rgba(249, 115, 22, 0.16);
+      color: #b45309;
+      box-shadow: inset 0 0 0 1px rgba(249, 115, 22, 0.4);
     }
 
-    .status-archived,
-    .status-inactive {
-      background: rgba(148, 163, 184, .16);
-      color: #475569;
+    .status-archived {
+      background: rgba(71, 85, 105, 0.18);
+      color: rgba(30, 41, 59, 0.8);
+      box-shadow: inset 0 0 0 1px rgba(71, 85, 105, 0.35);
     }
 
     .status-draft {
-      background: rgba(37, 99, 235, .14);
-      color: var(--primary);
+      background: rgba(59, 130, 246, 0.15);
+      color: var(--primary-700);
+      box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.35);
     }
 
-    .campaign-card__stats {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    .status-inactive {
+      background: rgba(148, 163, 184, 0.2);
+      color: rgba(71, 85, 105, 0.9);
+      box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.35);
+    }
+
+    .campaign-card__badges {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      align-items: flex-end;
+    }
+
+    .campaign-card__description {
+      color: var(--text-muted);
+      font-size: 0.88rem;
+      line-height: 1.7;
+      margin: 0;
+    }
+
+    .campaign-card__body {
+      display: flex;
+      flex-direction: column;
       gap: 1rem;
     }
 
-    .campaign-stat {
+    .campaign-card-section {
+      background: rgba(248, 250, 252, 0.7);
+      border-radius: var(--border-radius-sm);
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      padding: 1rem;
       display: flex;
-      gap: .75rem;
-      align-items: center;
-      padding: .9rem 1rem;
-      border-radius: .9rem;
-      background: var(--surface-variant);
-      border: 1px solid rgba(226, 232, 240, .7);
+      flex-direction: column;
+      gap: 0.75rem;
     }
 
-    .campaign-stat i {
-      width: 36px;
-      height: 36px;
-      border-radius: 12px;
-      background: rgba(37, 99, 235, .15);
-      color: var(--primary);
+    .campaign-card-section-title {
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--gray-600, #475569);
       display: inline-flex;
       align-items: center;
-      justify-content: center;
-      font-size: 1rem;
+      gap: 0.45rem;
     }
 
-    .campaign-stat .stat-value {
-      font-weight: 700;
-      font-size: 1.05rem;
-      color: var(--text);
+    .campaign-card-section-title i {
+      color: var(--primary-500);
     }
 
-    .campaign-stat .stat-label {
-      font-size: .75rem;
-      text-transform: uppercase;
-      letter-spacing: .08em;
+    .campaign-stat-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    .campaign-stat-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.9);
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      padding: 0.45rem 0.9rem;
+      font-size: 0.8rem;
+      font-weight: 600;
       color: var(--text-muted);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
+    }
+
+    .campaign-stat-pill i {
+      color: var(--primary-500);
+    }
+
+    .campaign-stat-pill strong {
+      color: var(--text);
+      font-weight: 700;
     }
 
     .campaign-progress {
-      display: flex;
-      flex-direction: column;
-      gap: .6rem;
+      display: grid;
+      gap: 0.75rem;
     }
 
     .progress-label {
       display: flex;
       justify-content: space-between;
-      font-size: .8rem;
-      text-transform: uppercase;
-      letter-spacing: .08em;
-      color: var(--text-muted);
+      align-items: center;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: rgba(15, 23, 42, 0.75);
     }
 
     .progress-track {
-      height: 8px;
+      height: 0.6rem;
       border-radius: 999px;
-      background: var(--surface-variant);
+      background: rgba(59, 130, 246, 0.12);
       overflow: hidden;
     }
 
     .progress-value {
       height: 100%;
-      background: linear-gradient(90deg, var(--primary), var(--accent));
       border-radius: inherit;
-      transition: width .3s ease;
+      background: linear-gradient(90deg, rgba(37, 99, 235, 0.75), rgba(14, 165, 233, 0.95));
+      transition: width 0.4s ease;
+    }
+
+    .campaign-card__footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+
+    .campaign-card__tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+    }
+
+    .campaign-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      padding: 0.35rem 0.75rem;
+      background: rgba(226, 232, 240, 0.6);
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: rgba(71, 85, 105, 0.95);
+    }
+
+    .campaign-tag i {
+      color: var(--primary-500);
+    }
+
+    .campaign-card__actions {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .campaign-card__actions .btn-icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 12px;
+      border: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      transition: var(--transition-fast);
+      box-shadow: 0 8px 18px rgba(15, 23, 42, 0.18);
+      position: relative;
+      background: linear-gradient(135deg, rgba(59, 130, 246, 0.95), rgba(37, 99, 235, 1));
+      cursor: pointer;
+    }
+
+    .campaign-card__actions .btn-icon span {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      border: 0;
+    }
+
+    .campaign-card__actions .btn-icon:hover {
+      transform: translateY(-3px) scale(1.03);
+      box-shadow: 0 16px 30px -16px rgba(37, 99, 235, 0.8);
+    }
+
+    .campaign-card__actions .btn-warning {
+      background: linear-gradient(135deg, rgba(249, 115, 22, 0.92), rgba(234, 88, 12, 0.98));
+    }
+
+    .campaign-card__actions .btn-danger {
+      background: linear-gradient(135deg, rgba(239, 68, 68, 0.95), rgba(220, 38, 38, 1));
+    }
+
+    .campaign-card__actions .btn-secondary {
+      background: linear-gradient(135deg, rgba(148, 163, 184, 0.9), rgba(100, 116, 139, 1));
     }
 
     .form-group {
@@ -671,66 +875,141 @@
       display: none;
       position: fixed;
       inset: 0;
-      background: rgba(0, 0, 0, .5);
-      z-index: 1000;
+      z-index: 1050;
+      background: rgba(15, 23, 42, 0.45);
+      backdrop-filter: blur(6px);
       align-items: center;
       justify-content: center;
+      padding: 1.5rem;
     }
 
     .modal.show {
       display: flex;
     }
 
-    .modal-content {
-      background: #fff;
-      padding: 2rem;
-      border-radius: 1rem;
-      width: 90%;
-      max-width: 500px;
-      max-height: 80vh;
-      overflow-y: auto;
+    .modal-dialog {
+      width: 100%;
+      max-width: 520px;
+      margin: 0 auto;
+      transform: translateY(-10px);
+      transition: var(--transition);
     }
 
-    .modal-content.modal-wide {
+    .modal.show .modal-dialog {
+      transform: translateY(0);
+    }
+
+    .modal-dialog.modal-wide,
+    .modal-dialog.modal-xl {
       max-width: 1100px;
-      width: 95%;
+    }
+
+    .modal-dialog.modal-lg {
+      max-width: 900px;
+    }
+
+    .modal-content {
+      background: rgba(255, 255, 255, 0.97);
+      border-radius: var(--border-radius);
+      border: none;
+      overflow: hidden;
+      box-shadow: var(--shadow-xl);
+      backdrop-filter: blur(14px);
+      display: flex;
+      flex-direction: column;
+      max-height: 90vh;
     }
 
     .modal-header {
+      background: linear-gradient(135deg, var(--primary-600), var(--primary-800));
+      color: #fff;
+      padding: 1.75rem 2rem;
       display: flex;
       justify-content: space-between;
-      align-items: center;
-      margin-bottom: 1.5rem;
-      padding-bottom: 1rem;
-      border-bottom: 2px solid var(--surface-variant);
+      align-items: flex-start;
+      gap: 1rem;
+      border-bottom: none;
+      position: relative;
     }
 
-    .modal-header__actions {
-      display: flex;
-      gap: .5rem;
-      flex-wrap: wrap;
-      justify-content: flex-end;
+    .modal-header::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+    }
+
+    .modal-title {
+      margin: 0;
+      font-size: 1.35rem;
+      font-weight: 700;
     }
 
     .modal-subtitle {
-      font-size: .875rem;
-      color: var(--text-muted);
-      margin-top: .25rem;
+      font-size: 0.9rem;
+      color: rgba(226, 232, 240, 0.85);
+      margin-top: 0.35rem;
+    }
+
+    .modal-body {
+      padding: 1.75rem 2rem;
+      background: rgba(255, 255, 255, 0.98);
+      overflow-y: auto;
+    }
+
+    .modal-footer {
+      padding: 1.25rem 2rem;
+      background: rgba(248, 250, 252, 0.9);
+      border-top: 1px solid rgba(148, 163, 184, 0.25);
+      display: flex;
+      justify-content: flex-end;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+
+    .modal-footer .btn {
+      border-radius: 999px;
+      padding: 0.6rem 1.4rem;
+      font-weight: 600;
+      border: none;
+    }
+
+    .modal-footer .btn.btn-secondary {
+      background: rgba(148, 163, 184, 0.18);
+      color: var(--text);
+    }
+
+    .modal-footer .btn.btn-primary {
+      background: linear-gradient(135deg, var(--primary-500), var(--primary-700));
+      color: #fff;
+      box-shadow: 0 12px 24px -16px rgba(14, 165, 233, 0.75);
+    }
+
+    .btn-close {
+      background: rgba(255, 255, 255, 0.2);
+      border: none;
+      color: #fff;
+      width: 38px;
+      height: 38px;
+      border-radius: 12px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: var(--transition-fast);
+    }
+
+    .btn-close:hover {
+      background: rgba(255, 255, 255, 0.35);
     }
 
     .fa-guide-modal .modal-content {
-      max-width: 900px;
-      width: 95%;
+      max-width: none;
+      width: 100%;
       max-height: 85vh;
-    }
-
-    .fa-guide-header {
-      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
-      color: #fff;
-      padding: 1.5rem;
-      border-radius: .5rem;
-      margin-bottom: 1.5rem;
-      position: relative;
     }
 
     .fa-guide-search {
@@ -898,6 +1177,13 @@
       gap: .75rem;
     }
 
+    .utility-actions .btn {
+      width: 100%;
+      border-radius: var(--border-radius-sm);
+      padding: 0.85rem 1.1rem;
+      font-weight: 600;
+    }
+
     .system-meta {
       margin-top: 1.5rem;
       font-size: .875rem;
@@ -1015,172 +1301,227 @@
 
   <!-- New Campaign Modal -->
   <div id="newCampaignModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="newCampaignTitle">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h3 id="newCampaignTitle">Create Campaign</h3>
-        <button type="button" class="btn-close" onclick="closeNewCampaignModal()" aria-label="Close dialog"></button>
-      </div>
-      <form id="campaignForm" novalidate>
-        <div class="form-group">
-          <label for="campaignName" class="form-label"><i class="fas fa-tag"></i> Campaign Name</label>
-          <input type="text" id="campaignName" class="form-control" placeholder="e.g. Customer Support Team" required>
+    <div class="modal-dialog">
+      <form id="campaignForm" class="modal-content" novalidate>
+        <div class="modal-header">
+          <div>
+            <h3 class="modal-title" id="newCampaignTitle">Create Campaign</h3>
+            <p class="modal-subtitle">Launch a new initiative and assign pages in minutes.</p>
+          </div>
+          <button type="button" class="btn-close" onclick="closeNewCampaignModal()" aria-label="Close dialog">
+            <i class="fas fa-xmark"></i>
+          </button>
         </div>
-        <div class="form-group">
-          <label for="campaignDescription" class="form-label"><i class="fas fa-align-left"></i> Description</label>
-          <textarea id="campaignDescription" class="form-control" rows="3" placeholder="Brief description of this campaign..."></textarea>
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="campaignName" class="form-label"><i class="fas fa-tag"></i> Campaign Name</label>
+            <input type="text" id="campaignName" class="form-control" placeholder="e.g. Customer Support Team" required>
+          </div>
+          <div class="form-group">
+            <label for="campaignDescription" class="form-label"><i class="fas fa-align-left"></i> Description</label>
+            <textarea id="campaignDescription" class="form-control" rows="3" placeholder="Brief description of this campaign..."></textarea>
+          </div>
         </div>
-        <button type="submit" class="btn btn-primary" style="width:100%;"><i class="fas fa-plus"></i> Create Campaign</button>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeNewCampaignModal()">Cancel</button>
+          <button type="submit" class="btn btn-primary"><i class="fas fa-plus"></i> Create Campaign</button>
+        </div>
       </form>
     </div>
   </div>
 
   <!-- Edit Campaign Modal -->
   <div id="editCampaignModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="editCampaignTitle">
-    <div class="modal-content">
-      <div class="modal-header">
-        <div>
-          <h3 id="editCampaignTitle">Edit Campaign</h3>
-          <p class="modal-subtitle">Updating <span id="editCampaignNameLabel">Campaign</span></p>
+    <div class="modal-dialog">
+      <form id="editCampaignForm" class="modal-content" novalidate>
+        <div class="modal-header">
+          <div>
+            <h3 class="modal-title" id="editCampaignTitle">Edit Campaign</h3>
+            <p class="modal-subtitle">Updating <span id="editCampaignNameLabel">Campaign</span></p>
+          </div>
+          <button type="button" class="btn-close" onclick="closeEditCampaignModal()" aria-label="Close dialog">
+            <i class="fas fa-xmark"></i>
+          </button>
         </div>
-        <button type="button" class="btn-close" onclick="closeEditCampaignModal()" aria-label="Close dialog"></button>
-      </div>
-      <form id="editCampaignForm" novalidate>
-        <div class="form-group">
-          <label for="editCampaignName" class="form-label"><i class="fas fa-tag"></i> Campaign Name</label>
-          <input type="text" id="editCampaignName" class="form-control" required>
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="editCampaignName" class="form-label"><i class="fas fa-tag"></i> Campaign Name</label>
+            <input type="text" id="editCampaignName" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label for="editCampaignDescription" class="form-label"><i class="fas fa-align-left"></i> Description</label>
+            <textarea id="editCampaignDescription" class="form-control" rows="3"></textarea>
+          </div>
         </div>
-        <div class="form-group">
-          <label for="editCampaignDescription" class="form-label"><i class="fas fa-align-left"></i> Description</label>
-          <textarea id="editCampaignDescription" class="form-control" rows="3"></textarea>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeEditCampaignModal()">Cancel</button>
+          <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Save Changes</button>
         </div>
-        <button type="submit" class="btn btn-primary" style="width:100%;"><i class="fas fa-save"></i> Save Changes</button>
       </form>
     </div>
   </div>
 
   <!-- System Actions Modal -->
   <div id="systemActionsModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="systemActionsTitle">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h3 id="systemActionsTitle">System Actions</h3>
-        <button type="button" class="btn-close" onclick="closeSystemActionsModal()" aria-label="Close dialog"></button>
-      </div>
-      <div class="utility-actions">
-        <button class="btn btn-primary" onclick="testConnection()" style="width:100%;"><i class="fas fa-plug"></i> Test Connection</button>
-        <button class="btn btn-warning" onclick="debugCurrentCampaign()" style="width:100%;"><i class="fas fa-bug"></i> Debug Campaign</button>
-        <button class="btn btn-danger" onclick="clearAllCaches()" style="width:100%;"><i class="fas fa-trash"></i> Clear Caches</button>
-      </div>
-      <div class="system-meta">
-        <p><strong>Last Refresh:</strong> <span id="lastUpdate">-</span></p>
-        <p><strong>Active User:</strong> <?= user.FullName || user.UserName || 'Unknown' ?></p>
-        <p><strong>Role:</strong> <?= user.IsAdmin ? 'Administrator' : 'User' ?></p>
-      </div>
-      <div id="debugData" class="debug-panel" style="display:none; margin-top:1.5rem;">
-        <strong>Debug Information:</strong><br>
-        <div id="debugContent"></div>
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <div>
+            <h3 class="modal-title" id="systemActionsTitle">System Actions</h3>
+            <p class="modal-subtitle">Administrative tools and debugging utilities.</p>
+          </div>
+          <button type="button" class="btn-close" onclick="closeSystemActionsModal()" aria-label="Close dialog">
+            <i class="fas fa-xmark"></i>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="utility-actions">
+            <button class="btn btn-primary" onclick="testConnection()"><i class="fas fa-plug"></i> Test Connection</button>
+            <button class="btn btn-warning" onclick="debugCurrentCampaign()"><i class="fas fa-bug"></i> Debug Campaign</button>
+            <button class="btn btn-danger" onclick="clearAllCaches()"><i class="fas fa-trash"></i> Clear Caches</button>
+          </div>
+          <div class="system-meta">
+            <p><strong>Last Refresh:</strong> <span id="lastUpdate">-</span></p>
+            <p><strong>Active User:</strong> <?= user.FullName || user.UserName || 'Unknown' ?></p>
+            <p><strong>Role:</strong> <?= user.IsAdmin ? 'Administrator' : 'User' ?></p>
+          </div>
+          <div id="debugData" class="debug-panel" style="display:none; margin-top:1.5rem;">
+            <strong>Debug Information:</strong><br>
+            <div id="debugContent"></div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeSystemActionsModal()">Close</button>
+        </div>
       </div>
     </div>
   </div>
 
   <!-- Page Management Modal -->
   <div id="pageManagementModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="pageManagementTitle">
-    <div class="modal-content modal-wide">
-      <div class="modal-header">
-        <div>
-          <h3 id="pageManagementTitle">Page Management</h3>
-          <p class="modal-subtitle">Active campaign: <span id="selectedCampaignName">Campaign</span></p>
+    <div class="modal-dialog modal-wide">
+      <div class="modal-content">
+        <div class="modal-header">
+          <div>
+            <h3 class="modal-title" id="pageManagementTitle">Page Management</h3>
+            <p class="modal-subtitle">Active campaign: <span id="selectedCampaignName">Campaign</span></p>
+          </div>
+          <button type="button" class="btn-close" onclick="closePageManagement()" aria-label="Close dialog">
+            <i class="fas fa-xmark"></i>
+          </button>
         </div>
-        <div class="modal-header__actions">
-          <button class="btn btn-success" onclick="autoFixCategories()"><i class="fas fa-magic"></i> Auto-Fix</button>
-          <button class="btn btn-primary" onclick="closePageManagement()"><i class="fas fa-times"></i> Close</button>
-        </div>
-      </div>
+        <div class="modal-body">
+          <div class="tabs">
+            <button class="tab active" onclick="switchTab(event, 'categories')"><i class="fas fa-folder"></i> Categories</button>
+            <button class="tab" onclick="switchTab(event, 'pages')"><i class="fas fa-file"></i> Pages</button>
+          </div>
 
-      <div class="tabs">
-        <button class="tab active" onclick="switchTab(event, 'categories')"><i class="fas fa-folder"></i> Categories</button>
-        <button class="tab" onclick="switchTab(event, 'pages')"><i class="fas fa-file"></i> Pages</button>
-      </div>
+          <div class="tab-content active" id="categoriesTab">
+            <div class="tab-toolbar">
+              <button class="btn btn-primary" onclick="showAddCategoryModal()"><i class="fas fa-plus"></i> Add Category</button>
+            </div>
+            <div id="categoriesList" class="categories-grid"></div>
+          </div>
 
-      <div class="tab-content active" id="categoriesTab">
-        <div class="tab-toolbar">
-          <button class="btn btn-primary" onclick="showAddCategoryModal()"><i class="fas fa-plus"></i> Add Category</button>
+          <div class="tab-content" id="pagesTab">
+            <div class="tab-toolbar">
+              <button class="btn btn-primary" onclick="showAddPageModal()"><i class="fas fa-plus"></i> Add Page</button>
+            </div>
+            <div id="pagesList"></div>
+          </div>
         </div>
-        <div id="categoriesList" class="categories-grid"></div>
-      </div>
-
-      <div class="tab-content" id="pagesTab">
-        <div class="tab-toolbar">
-          <button class="btn btn-primary" onclick="showAddPageModal()"><i class="fas fa-plus"></i> Add Page</button>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closePageManagement()">Close</button>
+          <button type="button" class="btn btn-primary" onclick="autoFixCategories()"><i class="fas fa-magic"></i> Auto-Fix Categories</button>
         </div>
-        <div id="pagesList"></div>
       </div>
     </div>
   </div>
 
   <!-- Add Category Modal -->
   <div id="categoryModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="catTitle">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h3 id="catTitle">Add Category</h3>
-        <button type="button" class="btn-close" onclick="closeCategoryModal()" aria-label="Close dialog"></button>
-      </div>
-      <form id="categoryForm" novalidate>
-        <div class="form-group">
-          <label for="categoryName" class="form-label">Category Name</label>
-          <input type="text" id="categoryName" class="form-control" required>
+    <div class="modal-dialog">
+      <form id="categoryForm" class="modal-content" novalidate>
+        <div class="modal-header">
+          <div>
+            <h3 class="modal-title" id="catTitle">Add Category</h3>
+            <p class="modal-subtitle">Organize pages into meaningful groups.</p>
+          </div>
+          <button type="button" class="btn-close" onclick="closeCategoryModal()" aria-label="Close dialog">
+            <i class="fas fa-xmark"></i>
+          </button>
         </div>
-        <div class="form-group">
-          <label for="categoryIcon" class="form-label">Icon Class</label>
-          <div class="input-group">
-            <input type="text" id="categoryIcon" class="form-control" placeholder="e.g. fas fa-home" required>
-            <button type="button" class="btn btn-secondary" onclick="showFontAwesomeGuide('categoryIcon')"><i class="fas fa-icons"></i> Browse Icons</button>
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="categoryName" class="form-label">Category Name</label>
+            <input type="text" id="categoryName" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label for="categoryIcon" class="form-label">Icon Class</label>
+            <div class="input-group">
+              <input type="text" id="categoryIcon" class="form-control" placeholder="e.g. fas fa-home" required>
+              <button type="button" class="btn btn-secondary" onclick="showFontAwesomeGuide('categoryIcon')"><i class="fas fa-icons"></i> Browse Icons</button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="categorySortOrder" class="form-label">Sort Order</label>
+            <input type="number" id="categorySortOrder" class="form-control" value="999" min="1">
           </div>
         </div>
-        <div class="form-group">
-          <label for="categorySortOrder" class="form-label">Sort Order</label>
-          <input type="number" id="categorySortOrder" class="form-control" value="999" min="1">
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeCategoryModal()">Cancel</button>
+          <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Save Category</button>
         </div>
-        <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Save Category</button>
       </form>
     </div>
   </div>
 
   <!-- Add Page Modal -->
   <div id="pageModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="pageTitleHdr">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h3 id="pageTitleHdr">Add Page</h3>
-        <button type="button" class="btn-close" onclick="closePageModal()" aria-label="Close dialog"></button>
-      </div>
-      <form id="pageForm" novalidate>
-        <div class="form-group">
-          <label for="pageKey" class="form-label">Page Key</label>
-          <select id="pageKey" class="form-control" required>
-          <option value="">Select a page...</option>
-        </select>
+    <div class="modal-dialog">
+      <form id="pageForm" class="modal-content" novalidate>
+        <div class="modal-header">
+          <div>
+            <h3 class="modal-title" id="pageTitleHdr">Add Page</h3>
+            <p class="modal-subtitle">Assign a new page to the selected campaign.</p>
+          </div>
+          <button type="button" class="btn-close" onclick="closePageModal()" aria-label="Close dialog">
+            <i class="fas fa-xmark"></i>
+          </button>
         </div>
-        <div class="form-group">
-          <label for="pageTitle" class="form-label">Page Title</label>
-          <input type="text" id="pageTitle" class="form-control" required>
-        </div>
-        <div class="form-group">
-          <label for="pageIcon" class="form-label">Icon Class</label>
-          <div class="input-group">
-            <input type="text" id="pageIcon" class="form-control" placeholder="e.g. fas fa-dashboard" required>
-            <button type="button" class="btn btn-secondary" onclick="showFontAwesomeGuide('pageIcon')"><i class="fas fa-icons"></i> Browse Icons</button>
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="pageKey" class="form-label">Page Key</label>
+            <select id="pageKey" class="form-control" required>
+              <option value="">Select a page...</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="pageTitle" class="form-label">Page Title</label>
+            <input type="text" id="pageTitle" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label for="pageIcon" class="form-label">Icon Class</label>
+            <div class="input-group">
+              <input type="text" id="pageIcon" class="form-control" placeholder="e.g. fas fa-dashboard" required>
+              <button type="button" class="btn btn-secondary" onclick="showFontAwesomeGuide('pageIcon')"><i class="fas fa-icons"></i> Browse Icons</button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="pageCategory" class="form-label">Category</label>
+            <select id="pageCategory" class="form-control">
+              <option value="">Uncategorized</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="pageSortOrder" class="form-label">Sort Order</label>
+            <input type="number" id="pageSortOrder" class="form-control" value="999" min="1">
           </div>
         </div>
-        <div class="form-group">
-          <label for="pageCategory" class="form-label">Category</label>
-          <select id="pageCategory" class="form-control">
-          <option value="">Uncategorized</option>
-        </select>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closePageModal()">Cancel</button>
+          <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Add Page</button>
         </div>
-        <div class="form-group">
-          <label for="pageSortOrder" class="form-label">Sort Order</label>
-          <input type="number" id="pageSortOrder" class="form-control" value="999" min="1">
-        </div>
-        <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Add Page</button>
       </form>
     </div>
   </div>
@@ -1188,72 +1529,81 @@
   <!-- Font Awesome Guide Modal -->
   <div id="fontAwesomeGuideModal" class="modal fa-guide-modal" role="dialog" aria-modal="true"
     aria-labelledby="faGuideTitle">
-    <div class="modal-content">
-      <div class="fa-guide-header">
-        <h2 id="faGuideTitle"><i class="fas fa-icons"></i> Font Awesome Icon Guide</h2>
-        <p>Click any icon to copy its class to your form</p>
-        <button type="button" class="btn-close btn-close-white" onclick="closeFontAwesomeGuide()" style="position: absolute; top: 1rem; right: 1rem;" aria-label="Close dialog"></button>
-      </div>
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <div>
+            <h3 class="modal-title" id="faGuideTitle"><i class="fas fa-icons"></i> Font Awesome Icon Guide</h3>
+            <p class="modal-subtitle">Click any icon to copy its class to your form.</p>
+          </div>
+          <button type="button" class="btn-close" onclick="closeFontAwesomeGuide()" aria-label="Close dialog">
+            <i class="fas fa-xmark"></i>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="fa-guide-search"><input type="text" id="faSearchBox" placeholder="Search icons by name or description..."></div>
 
-      <div class="fa-guide-search"><input type="text" id="faSearchBox" placeholder="Search icons by name or description...">
-      </div>
+          <div class="fa-guide-tabs">
+            <button class="fa-guide-tab active" onclick="switchFATab(event, 'categories')"><i class="fas fa-folder"></i> Categories</button>
+            <button class="fa-guide-tab" onclick="switchFATab(event, 'pages')"><i class="fas fa-file"></i> Pages</button>
+            <button class="fa-guide-tab" onclick="switchFATab(event, 'common')"><i class="fas fa-star"></i> Common</button>
+          </div>
 
-      <div class="fa-guide-tabs">
-        <button class="fa-guide-tab active" onclick="switchFATab(event, 'categories')"><i class="fas fa-folder"></i> Categories</button>
-        <button class="fa-guide-tab" onclick="switchFATab(event, 'pages')"><i class="fas fa-file"></i> Pages</button>
-        <button class="fa-guide-tab" onclick="switchFATab(event, 'common')"><i class="fas fa-star"></i> Common</button>
-      </div>
+          <div id="categoriesFATab" class="fa-guide-content active">
+            <div class="fa-guide-section">
+              <h3 class="fa-guide-section-title"><i class="fas fa-building"></i> Business & Organization</h3>
+              <div class="fa-guide-grid" id="businessIcons"></div>
+            </div>
+            <div class="fa-guide-section">
+              <h3 class="fa-guide-section-title"><i class="fas fa-microchip"></i> Technology & Systems</h3>
+              <div class="fa-guide-grid" id="techIcons"></div>
+            </div>
+            <div class="fa-guide-section">
+              <h3 class="fa-guide-section-title"><i class="fas fa-comments"></i> Communication & Support</h3>
+              <div class="fa-guide-grid" id="commIcons"></div>
+            </div>
+            <div class="fa-guide-section">
+              <h3 class="fa-guide-section-title"><i class="fas fa-cogs"></i> Management & Operations</h3>
+              <div class="fa-guide-grid" id="opsIcons"></div>
+            </div>
+          </div>
 
-      <div id="categoriesFATab" class="fa-guide-content active">
-        <div class="fa-guide-section">
-          <h3 class="fa-guide-section-title"><i class="fas fa-building"></i> Business & Organization</h3>
-          <div class="fa-guide-grid" id="businessIcons"></div>
-        </div>
-        <div class="fa-guide-section">
-          <h3 class="fa-guide-section-title"><i class="fas fa-microchip"></i> Technology & Systems</h3>
-          <div class="fa-guide-grid" id="techIcons"></div>
-        </div>
-        <div class="fa-guide-section">
-          <h3 class="fa-guide-section-title"><i class="fas fa-comments"></i> Communication & Support</h3>
-          <div class="fa-guide-grid" id="commIcons"></div>
-        </div>
-        <div class="fa-guide-section">
-          <h3 class="fa-guide-section-title"><i class="fas fa-cogs"></i> Management & Operations</h3>
-          <div class="fa-guide-grid" id="opsIcons"></div>
-        </div>
-      </div>
+          <div id="pagesFATab" class="fa-guide-content">
+            <div class="fa-guide-section">
+              <h3 class="fa-guide-section-title"><i class="fas fa-chart-line"></i> Dashboard & Analytics</h3>
+              <div class="fa-guide-grid" id="dashboardIcons"></div>
+            </div>
+            <div class="fa-guide-section">
+              <h3 class="fa-guide-section-title"><i class="fas fa-edit"></i> Forms & Data Entry</h3>
+              <div class="fa-guide-grid" id="formIcons"></div>
+            </div>
+            <div class="fa-guide-section">
+              <h3 class="fa-guide-section-title"><i class="fas fa-file-alt"></i> Reports & Documents</h3>
+              <div class="fa-guide-grid" id="reportIcons"></div>
+            </div>
+            <div class="fa-guide-section">
+              <h3 class="fa-guide-section-title"><i class="fas fa-sliders-h"></i> Settings & Configuration</h3>
+              <div class="fa-guide-grid" id="settingsIcons"></div>
+            </div>
+          </div>
 
-      <div id="pagesFATab" class="fa-guide-content">
-        <div class="fa-guide-section">
-          <h3 class="fa-guide-section-title"><i class="fas fa-chart-line"></i> Dashboard & Analytics</h3>
-          <div class="fa-guide-grid" id="dashboardIcons"></div>
+          <div id="commonFATab" class="fa-guide-content">
+            <div class="fa-guide-section">
+              <h3 class="fa-guide-section-title"><i class="fas fa-compass"></i> Navigation & UI</h3>
+              <div class="fa-guide-grid" id="navIcons"></div>
+            </div>
+            <div class="fa-guide-section">
+              <h3 class="fa-guide-section-title"><i class="fas fa-hand-pointer"></i> Actions & Controls</h3>
+              <div class="fa-guide-grid" id="actionIcons"></div>
+            </div>
+            <div class="fa-guide-section">
+              <h3 class="fa-guide-section-title"><i class="fas fa-bell"></i> Status & Alerts</h3>
+              <div class="fa-guide-grid" id="statusIcons"></div>
+            </div>
+          </div>
         </div>
-        <div class="fa-guide-section">
-          <h3 class="fa-guide-section-title"><i class="fas fa-edit"></i> Forms & Data Entry</h3>
-          <div class="fa-guide-grid" id="formIcons"></div>
-        </div>
-        <div class="fa-guide-section">
-          <h3 class="fa-guide-section-title"><i class="fas fa-file-alt"></i> Reports & Documents</h3>
-          <div class="fa-guide-grid" id="reportIcons"></div>
-        </div>
-        <div class="fa-guide-section">
-          <h3 class="fa-guide-section-title"><i class="fas fa-sliders-h"></i> Settings & Configuration</h3>
-          <div class="fa-guide-grid" id="settingsIcons"></div>
-        </div>
-      </div>
-
-      <div id="commonFATab" class="fa-guide-content">
-        <div class="fa-guide-section">
-          <h3 class="fa-guide-section-title"><i class="fas fa-compass"></i> Navigation & UI</h3>
-          <div class="fa-guide-grid" id="navIcons"></div>
-        </div>
-        <div class="fa-guide-section">
-          <h3 class="fa-guide-section-title"><i class="fas fa-hand-pointer"></i> Actions & Controls</h3>
-          <div class="fa-guide-grid" id="actionIcons"></div>
-        </div>
-        <div class="fa-guide-section">
-          <h3 class="fa-guide-section-title"><i class="fas fa-bell"></i> Status & Alerts</h3>
-          <div class="fa-guide-grid" id="statusIcons"></div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeFontAwesomeGuide()">Close</button>
         </div>
       </div>
     </div>
@@ -1511,6 +1861,43 @@
     return 'fas fa-bullhorn';
   }
 
+  function getCampaignSubtitle(campaign){
+    if (!campaign) return '';
+    const fields = ['ownerName','owner','manager','managerName','primaryContact','pointOfContact','createdBy'];
+    for (const field of fields) {
+      if (campaign[field]) return String(campaign[field]);
+    }
+    return '';
+  }
+
+  function collectCampaignTags(campaign){
+    if (!campaign) return [];
+    const tags = [];
+    const seen = new Set();
+    const addTag = (value) => {
+      if (value === undefined || value === null) return;
+      if (Array.isArray(value)) {
+        value.forEach(addTag);
+        return;
+      }
+      const parts = String(value)
+        .split(/[,|\/]/)
+        .map(part => part.trim())
+        .filter(Boolean);
+      parts.forEach(part => {
+        const key = part.toLowerCase();
+        if (seen.has(key)) return;
+        seen.add(key);
+        tags.push(part);
+      });
+    };
+    ['campaignType','type','channel','region','department','owner','manager','priority','vertical','focus','audience','segment']
+      .forEach(field => addTag(campaign[field]));
+    if (campaign.tags) addTag(campaign.tags);
+    if (Array.isArray(campaign.categories)) addTag(campaign.categories);
+    return tags;
+  }
+
   function getCampaignProgress(stat){
     const assigned = stat.pageCount || 0;
     const total = availablePages.length || assigned;
@@ -1612,59 +1999,70 @@
       const statusLabel = getStatusLabel(status);
       const iconClass = getCampaignIcon(c);
       const progress = getCampaignProgress(stat);
+      const subtitle = getCampaignSubtitle(c);
+      const subtitleHtml = subtitle ? `<div class="campaign-card__subtitle">Managed by ${escapeHtml(subtitle)}</div>` : '';
+      const tagValues = collectCampaignTags(c);
+      const tagsHtml = tagValues.slice(0, 4).map(tag => `<span class="campaign-tag"><i class="fas fa-tag"></i> ${escapeHtml(tag)}</span>`).join('');
+      const fallbackTag = `<span class="campaign-tag"><i class="fas fa-lightbulb"></i> General Campaign</span>`;
       return `
         <div class="campaign-card">
-          <div class="campaign-card__header">
-            <div class="campaign-card__title">
-              <div class="campaign-icon"><i class="${iconClass}"></i></div>
-              <div>
-                <h4>${escapeHtml(c.name || 'Untitled Campaign')}</h4>
-                <div class="campaign-card__meta">
-                  <span><i class="fas fa-calendar-alt"></i> ${createdDate}</span>
-                  <span><i class="fas fa-id-card"></i> ${escapeHtml(c.id || 'N/A')}</span>
+          <div class="campaign-card-inner">
+            <div class="campaign-card__header">
+              <div class="campaign-card__title">
+                <div class="campaign-icon"><i class="${iconClass}"></i></div>
+                <div>
+                  <h4>${escapeHtml(c.name || 'Untitled Campaign')}</h4>
+                  ${subtitleHtml}
+                  <div class="campaign-card__meta">
+                    <span><i class="fas fa-calendar-alt"></i> ${createdDate}</span>
+                    <span><i class="fas fa-id-card"></i> ${escapeHtml(c.id || 'N/A')}</span>
+                  </div>
+                </div>
+              </div>
+              <div class="campaign-card__badges">
+                <span class="status-badge ${statusClass}"><i class="fas fa-circle"></i> ${statusLabel}</span>
+                ${c.priority ? `<span class="campaign-tag"><i class="fas fa-bolt"></i> ${escapeHtml(c.priority)}</span>` : ''}
+              </div>
+            </div>
+            ${description ? `<p class="campaign-card__description">${escapeHtml(description)}</p>` : ''}
+            <div class="campaign-card__body">
+              <div class="campaign-card-section">
+                <div class="campaign-card-section-title"><i class="fas fa-chart-line"></i>Campaign Metrics</div>
+                <div class="campaign-stat-grid">
+                  <span class="campaign-stat-pill"><i class="fas fa-users"></i><strong>${stat.userCount || 0}</strong> Members</span>
+                  <span class="campaign-stat-pill"><i class="fas fa-copy"></i><strong>${stat.pageCount || 0}</strong> Pages</span>
+                  <span class="campaign-stat-pill"><i class="fas fa-percent"></i><strong>${progress}%</strong> Coverage</span>
+                </div>
+                <div class="campaign-progress">
+                  <div class="progress-label">
+                    <span>Content Coverage</span>
+                    <span>${progress}%</span>
+                  </div>
+                  <div class="progress-track">
+                    <div class="progress-value" style="width:${progress}%;"></div>
+                  </div>
                 </div>
               </div>
             </div>
-            <span class="status-badge ${statusClass}"><i class="fas fa-circle"></i> ${statusLabel}</span>
-          </div>
-          ${description ? `<p class="campaign-card__description">${escapeHtml(description)}</p>` : ''}
-          <div class="campaign-card__stats">
-            <div class="campaign-stat">
-              <i class="fas fa-users"></i>
-              <div>
-                <div class="stat-value">${stat.userCount || 0}</div>
-                <div class="stat-label">Members</div>
+            <div class="campaign-card__footer">
+              <div class="campaign-card__tags">
+                ${tagsHtml || fallbackTag}
+              </div>
+              <div class="campaign-card__actions" role="group" aria-label="Campaign actions">
+                <button class="btn-icon" onclick="manageCampaignPages('${jsq(c.id)}','${jsq(c.name||'')}')" title="Manage campaign pages" aria-label="Manage campaign pages">
+                  <i class="fas fa-cogs"></i>
+                  <span>Manage campaign pages</span>
+                </button>
+                <button class="btn-icon btn-warning" onclick="openEditCampaignModal('${jsq(c.id)}')" title="Edit campaign" aria-label="Edit campaign">
+                  <i class="fas fa-edit"></i>
+                  <span>Edit campaign</span>
+                </button>
+                <button class="btn-icon btn-danger" onclick="deleteCampaign('${jsq(c.id)}')" title="Delete campaign" aria-label="Delete campaign">
+                  <i class="fas fa-trash"></i>
+                  <span>Delete campaign</span>
+                </button>
               </div>
             </div>
-            <div class="campaign-stat">
-              <i class="fas fa-copy"></i>
-              <div>
-                <div class="stat-value">${stat.pageCount || 0}</div>
-                <div class="stat-label">Pages</div>
-              </div>
-            </div>
-            <div class="campaign-stat">
-              <i class="fas fa-percent"></i>
-              <div>
-                <div class="stat-value">${progress}%</div>
-                <div class="stat-label">Coverage</div>
-              </div>
-            </div>
-          </div>
-          <div class="campaign-progress">
-            <div class="progress-label">
-              <span>Content Coverage</span>
-              <span>${progress}%</span>
-            </div>
-            <div class="progress-track">
-              <div class="progress-value" style="width:${progress}%;"></div>
-            </div>
-            <span class="status-badge ${statusClass}"><i class="fas fa-circle"></i> ${statusLabel}</span>
-          </div>
-          <div class="campaign-card__actions">
-            <button class="btn btn-sm btn-primary" onclick="manageCampaignPages('${jsq(c.id)}','${jsq(c.name||'')}')"><i class="fas fa-cogs"></i> Manage</button>
-            <button class="btn btn-sm btn-warning" onclick="openEditCampaignModal('${jsq(c.id)}')"><i class="fas fa-edit"></i> Edit</button>
-            <button class="btn btn-sm btn-danger" onclick="deleteCampaign('${jsq(c.id)}')"><i class="fas fa-trash"></i> Delete</button>
           </div>
         </div>`;
     }).join('');
