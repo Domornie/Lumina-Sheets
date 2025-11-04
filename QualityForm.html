@@ -503,8 +503,15 @@
   }
 
   /* Audio Upload */
+  .audio-upload-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.5rem;
+    width: 100%;
+  }
+
   .audio-upload-group {
-    grid-column: span 2;
+    width: 100%;
   }
 
   .audio-upload-container {
@@ -525,8 +532,9 @@
 
   .audio-upload-container.has-file {
     border-color: #10b981;
-    background: rgba(16, 185, 129, 0.05);
+    background: rgba(16, 185, 129, 0.08);
     border-style: solid;
+    box-shadow: 0 10px 20px rgba(16, 185, 129, 0.15);
   }
 
   .audio-input {
@@ -1054,6 +1062,243 @@
     border: 1px solid rgba(0, 191, 255, 0.1);
   }
 
+  .lumina-intel-card {
+    margin-top: 1.75rem;
+    padding: 1.75rem;
+    border-radius: 16px;
+    border: 1px solid rgba(0, 191, 255, 0.18);
+    background: linear-gradient(135deg, rgba(0, 191, 255, 0.08) 0%, rgba(0, 49, 119, 0.08) 100%);
+    box-shadow: 0 12px 32px rgba(0, 49, 119, 0.12);
+    position: relative;
+    overflow: hidden;
+    transition: var(--transition-smooth);
+  }
+
+  .lumina-intel-card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0) 55%);
+  }
+
+  .lumina-intel-card.loading::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 3px;
+    background: linear-gradient(90deg, transparent, rgba(0, 191, 255, 0.7), transparent);
+    transform: translateX(-100%);
+    animation: shimmer 1.5s infinite;
+  }
+
+  .lumina-intel-card.error {
+    border-color: rgba(255, 64, 0, 0.35);
+  }
+
+  .lumina-intel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+
+  .lumina-intel-eyebrow {
+    font-size: 0.75rem;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.8);
+  }
+
+  .lumina-intel-title {
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: white;
+    margin: 0.25rem 0 0 0;
+  }
+
+  .lumina-intel-summary {
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 0.95rem;
+    margin-bottom: 1rem;
+  }
+
+  .lumina-intel-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.75);
+    margin-bottom: 1.25rem;
+  }
+
+  .lumina-intel-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.25rem 0.75rem;
+    border-radius: 999px;
+    font-weight: 600;
+    background: rgba(0, 49, 119, 0.35);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+  }
+
+  .lumina-intel-timestamp {
+    opacity: 0.8;
+  }
+
+  .lumina-intel-metrics {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .lumina-intel-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.9rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.12);
+    color: white;
+    font-size: 0.8rem;
+    font-weight: 600;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+  }
+
+  .lumina-intel-chip i {
+    font-size: 0.85rem;
+  }
+
+  .lumina-intel-next {
+    background: rgba(255, 255, 255, 0.12);
+    border-radius: 12px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1.25rem;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+  }
+
+  .lumina-intel-next-eyebrow {
+    font-size: 0.75rem;
+    letter-spacing: 0.75px;
+    text-transform: uppercase;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.75);
+    margin-bottom: 0.35rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .lumina-intel-next-title {
+    font-weight: 700;
+    color: white;
+    margin-bottom: 0.35rem;
+  }
+
+  .lumina-intel-next-text {
+    margin: 0;
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.85);
+  }
+
+  .lumina-intel-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .lumina-intel-item {
+    display: flex;
+    gap: 0.75rem;
+    align-items: flex-start;
+    padding: 0.75rem 1rem;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    color: white;
+  }
+
+  .lumina-intel-item i {
+    font-size: 1rem;
+    margin-top: 0.15rem;
+  }
+
+  .lumina-intel-item-title {
+    font-weight: 700;
+    font-size: 0.9rem;
+    margin-bottom: 0.2rem;
+  }
+
+  .lumina-intel-item p {
+    margin: 0;
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.85);
+  }
+
+  .lumina-intel-item--positive {
+    border-color: rgba(16, 185, 129, 0.35);
+  }
+
+  .lumina-intel-item--negative {
+    border-color: rgba(255, 64, 0, 0.35);
+  }
+
+  .lumina-intel-item--urgent {
+    border-color: rgba(255, 184, 0, 0.45);
+  }
+
+  .lumina-intel-empty {
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.7);
+    text-align: center;
+    padding: 0.75rem 0;
+  }
+
+  .lumina-intel-error {
+    margin-top: 0.75rem;
+    padding: 0.75rem 1rem;
+    border-radius: 10px;
+    background: rgba(255, 64, 0, 0.15);
+    border: 1px solid rgba(255, 64, 0, 0.35);
+    color: white;
+    font-size: 0.8rem;
+  }
+
+  .lumina-intel-refresh {
+    border: none;
+    background: rgba(255, 255, 255, 0.12);
+    color: white;
+    border-radius: 999px;
+    width: 40px;
+    height: 40px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: var(--transition-smooth);
+  }
+
+  .lumina-intel-refresh:hover {
+    background: rgba(255, 255, 255, 0.25);
+    transform: rotate(10deg) scale(1.05);
+  }
+
+  .lumina-intel-refresh:disabled,
+  .lumina-intel-card.loading .lumina-intel-refresh {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+  }
+
   .insights-title {
     font-weight: 700;
     color: var(--text-primary);
@@ -1250,7 +1495,7 @@
   }
 
   /* Upload Status */
-  #uploadStatus {
+  .upload-status {
     font-size: 0.9rem;
     margin-top: 1rem;
     padding: 1rem;
@@ -1260,18 +1505,18 @@
     display: none;
   }
 
-  #uploadStatus.show {
+  .upload-status.show {
     display: block;
     animation: slideInUp 0.3s ease;
   }
 
-  #uploadStatus a {
+  .upload-status a {
     color: var(--cyan-accent);
     text-decoration: none;
     font-weight: 600;
   }
 
-  #uploadStatus a:hover {
+  .upload-status a:hover {
     text-decoration: underline;
   }
 
@@ -1294,6 +1539,23 @@
   @keyframes spin {
     to {
       transform: rotate(360deg);
+    }
+  }
+
+  @keyframes shimmer {
+    0% {
+      transform: translateX(-100%);
+      opacity: 0;
+    }
+
+    50% {
+      transform: translateX(0);
+      opacity: 1;
+    }
+
+    100% {
+      transform: translateX(100%);
+      opacity: 0;
     }
   }
 
@@ -1543,20 +1805,50 @@
           </div>
 
           <!-- Audio Upload -->
-          <div class="form-row">
+          <div class="form-row audio-upload-row">
             <div class="form-group audio-upload-group">
-              <label for="audioFile">Call Recording *</label>
-              <div class="audio-upload-container">
+              <label for="audioFile">Original Call Recording *</label>
+              <div
+                class="audio-upload-container"
+                data-default-text="Click to upload original call recording"
+                data-default-subtext="Supports MP3, WAV, M4A and others"
+                data-replace-text="Replace original recording (optional)"
+                data-link-target="callLink"
+                data-link-subtext="Existing recording on file"
+                data-selected-prefix="Selected"
+              >
                 <input type="file" id="audioFile" name="audioFile" accept="audio/*"
                                        class="audio-input" <?= recordId ? '' : 'required' ?>>
                 <div class="audio-upload-display">
                   <i class="fas fa-microphone"></i>
-                  <span class="audio-text"><?= recObj.CallLink ? 'Replace recording (optional)' : 'Click to upload call recording' ?></span>
+                  <span class="audio-text"><?= recObj.CallLink ? 'Replace original recording (optional)' : 'Click to upload original call recording' ?></span>
                   <small class="audio-info">Supports MP3, WAV, M4A and others</small>
                 </div>
               </div>
-              <div id="uploadStatus"></div>
+              <div id="uploadStatus" class="upload-status"></div>
               <input type="hidden" id="callLink" name="callLink" value="<?= recObj.CallLink||'' ?>">
+            </div>
+            <div class="form-group audio-upload-group">
+              <label for="callbackAudioFile">Callback Recording (Optional)</label>
+              <div
+                class="audio-upload-container"
+                data-default-text="Click to upload callback recording"
+                data-default-subtext="Upload only if a callback occurred"
+                data-replace-text="Replace callback recording (optional)"
+                data-link-target="callbackCallLink"
+                data-link-subtext="Callback recording on file"
+                data-selected-prefix="Selected callback"
+              >
+                <input type="file" id="callbackAudioFile" name="callbackAudioFile" accept="audio/*"
+                                       class="audio-input">
+                <div class="audio-upload-display">
+                  <i class="fas fa-microphone"></i>
+                  <span class="audio-text"><?= recObj.CallbackCallLink ? 'Replace callback recording (optional)' : 'Click to upload callback recording' ?></span>
+                  <small class="audio-info">Upload only if a callback occurred</small>
+                </div>
+              </div>
+              <div id="callbackUploadStatus" class="upload-status"></div>
+              <input type="hidden" id="callbackCallLink" name="callbackCallLink" value="<?= recObj.CallbackCallLink||'' ?>">
             </div>
           </div>
         </div>
@@ -2266,6 +2558,34 @@
             <div class="insights-section-title">Areas for Improvement</div>
           </div>
         </div>
+        <div class="lumina-intel-card" id="luminaIntelCard" aria-live="polite">
+          <div class="lumina-intel-header">
+            <div>
+              <span class="lumina-intel-eyebrow">Lumina Intel</span>
+              <h3 class="lumina-intel-title" id="luminaIntelTitle">AI is standing by</h3>
+            </div>
+            <button type="button" class="lumina-intel-refresh" id="luminaIntelRefresh" title="Refresh Lumina Intel" aria-label="Refresh Lumina Intel">
+              <i class="fas fa-rotate"></i>
+            </button>
+          </div>
+          <p class="lumina-intel-summary" id="luminaIntelSummary">Select an agent to unlock AI intelligence for this assessment.</p>
+          <div class="lumina-intel-meta">
+            <span class="lumina-intel-badge" id="luminaIntelBadge">Live</span>
+            <span class="lumina-intel-timestamp" id="luminaIntelTimestamp"></span>
+          </div>
+          <div class="lumina-intel-metrics" id="luminaIntelMetrics" hidden>
+            <span class="lumina-intel-chip" id="luminaIntelConfidence"><i class="fas fa-gauge-high" aria-hidden="true"></i><span>Confidence 0%</span></span>
+            <span class="lumina-intel-chip" id="luminaIntelEvaluations"><i class="fas fa-chart-line" aria-hidden="true"></i><span>0 evaluations analyzed</span></span>
+          </div>
+          <div class="lumina-intel-next" id="luminaIntelNextBest" hidden>
+            <div class="lumina-intel-next-eyebrow"><i class="fas fa-wand-magic-sparkles" aria-hidden="true"></i>Next best action</div>
+            <div class="lumina-intel-next-title" id="luminaIntelNextBestTitle"></div>
+            <p class="lumina-intel-next-text" id="luminaIntelNextBestText"></p>
+          </div>
+          <ul class="lumina-intel-list" id="luminaIntelInsights"></ul>
+          <div class="lumina-intel-empty" id="luminaIntelEmpty">AI insights will appear once data is available.</div>
+          <div class="lumina-intel-error" id="luminaIntelError" hidden></div>
+        </div>
       </div>
     </div>
   </div>
@@ -2314,6 +2634,14 @@
     runHelper: null
   };
   let userList = Array.isArray(PRELOADED_USERS) ? PRELOADED_USERS.slice() : [];
+  const luminaIntelState = {
+    dom: null,
+    debounce: null,
+    requestToken: '',
+    loading: false,
+    lastRequestedAgent: '',
+    offline: false
+  };
 
   function normalizeUserEntry(entry) {
     if (!entry || typeof entry !== 'object') return null;
@@ -2370,6 +2698,424 @@
       return { id: '', name: normalized.name, email: normalized.email || '' };
     }
     return null;
+  }
+
+  function getLuminaIntelDom() {
+    if (luminaIntelState.dom) {
+      return luminaIntelState.dom;
+    }
+
+    const dom = {
+      card: document.getElementById('luminaIntelCard'),
+      title: document.getElementById('luminaIntelTitle'),
+      summary: document.getElementById('luminaIntelSummary'),
+      badge: document.getElementById('luminaIntelBadge'),
+      timestamp: document.getElementById('luminaIntelTimestamp'),
+      metrics: document.getElementById('luminaIntelMetrics'),
+      confidence: document.getElementById('luminaIntelConfidence'),
+      evaluations: document.getElementById('luminaIntelEvaluations'),
+      insights: document.getElementById('luminaIntelInsights'),
+      empty: document.getElementById('luminaIntelEmpty'),
+      error: document.getElementById('luminaIntelError'),
+      refresh: document.getElementById('luminaIntelRefresh'),
+      nextBest: document.getElementById('luminaIntelNextBest'),
+      nextBestTitle: document.getElementById('luminaIntelNextBestTitle'),
+      nextBestText: document.getElementById('luminaIntelNextBestText')
+    };
+
+    if (dom.refresh) {
+      dom.refresh.addEventListener('click', () => {
+        loadLuminaIntel();
+      });
+    }
+
+    luminaIntelState.dom = dom;
+    return dom;
+  }
+
+  function formatLuminaIntelTimestamp(isoString) {
+    if (!isoString) return '';
+
+    try {
+      const date = new Date(isoString);
+      if (Number.isNaN(date.getTime())) {
+        return '';
+      }
+
+      return date.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+    } catch (error) {
+      console.warn('formatLuminaIntelTimestamp failed:', error);
+      return '';
+    }
+  }
+
+  function setLuminaIntelLoading(agentName) {
+    const dom = getLuminaIntelDom();
+    if (!dom.card) {
+      return;
+    }
+
+    luminaIntelState.loading = true;
+    dom.card.classList.add('loading');
+    dom.card.classList.remove('error');
+
+    if (dom.refresh) {
+      dom.refresh.disabled = true;
+    }
+
+    if (dom.title) {
+      dom.title.textContent = agentName
+        ? `Generating insights for ${agentName}`
+        : 'Generating Lumina Intel';
+    }
+
+    if (dom.summary) {
+      dom.summary.textContent = agentName
+        ? `Analyzing recent QA evaluations for ${agentName}…`
+        : 'Crunching the latest QA evaluations…';
+    }
+
+    if (dom.badge) {
+      dom.badge.textContent = 'Live';
+    }
+
+    if (dom.timestamp) {
+      dom.timestamp.textContent = '';
+    }
+
+    if (dom.metrics) {
+      dom.metrics.hidden = true;
+    }
+
+    if (dom.nextBest) {
+      dom.nextBest.hidden = true;
+      if (dom.nextBestTitle) dom.nextBestTitle.textContent = '';
+      if (dom.nextBestText) dom.nextBestText.textContent = '';
+    }
+
+    if (dom.insights) {
+      dom.insights.innerHTML = '';
+    }
+
+    if (dom.empty) {
+      dom.empty.hidden = false;
+      dom.empty.textContent = 'Crunching the latest QA evaluations…';
+    }
+
+    if (dom.error) {
+      dom.error.hidden = true;
+      dom.error.textContent = '';
+    }
+  }
+
+  function renderLuminaIntelPlaceholder(summaryText, options) {
+    const dom = getLuminaIntelDom();
+    if (!dom.card) {
+      return;
+    }
+
+    luminaIntelState.loading = false;
+    dom.card.classList.remove('loading');
+    dom.card.classList.remove('error');
+
+    if (dom.refresh) {
+      dom.refresh.disabled = false;
+    }
+
+    if (dom.title) {
+      dom.title.textContent = options && options.title ? options.title : 'Lumina Intel';
+    }
+
+    if (dom.summary) {
+      dom.summary.textContent = summaryText || 'Lumina Intel is standing by.';
+    }
+
+    if (dom.badge) {
+      dom.badge.textContent = options && options.badge ? options.badge : 'Live';
+    }
+
+    if (dom.timestamp) {
+      dom.timestamp.textContent = options && options.timestamp ? options.timestamp : '';
+    }
+
+    if (dom.metrics) {
+      dom.metrics.hidden = true;
+    }
+
+    if (dom.nextBest) {
+      dom.nextBest.hidden = true;
+      if (dom.nextBestTitle) dom.nextBestTitle.textContent = '';
+      if (dom.nextBestText) dom.nextBestText.textContent = '';
+    }
+
+    if (dom.insights) {
+      dom.insights.innerHTML = '';
+    }
+
+    if (dom.empty) {
+      dom.empty.hidden = false;
+      dom.empty.textContent = options && options.emptyText
+        ? options.emptyText
+        : 'AI insights will appear once data is available.';
+    }
+
+    if (dom.error) {
+      dom.error.hidden = true;
+      dom.error.textContent = '';
+    }
+  }
+
+  function renderLuminaIntelResponse(response, agentLabel) {
+    const dom = getLuminaIntelDom();
+    if (!dom.card) {
+      return;
+    }
+
+    luminaIntelState.loading = false;
+    dom.card.classList.remove('loading');
+    dom.card.classList.remove('error');
+
+    if (dom.refresh) {
+      dom.refresh.disabled = false;
+    }
+
+    const intelligence = response && response.intelligence ? response.intelligence : null;
+    if (!intelligence) {
+      renderLuminaIntelPlaceholder('Lumina Intel could not load insights for this selection.', {
+        title: agentLabel ? `AI insights for ${agentLabel}` : 'Lumina Intel',
+        emptyText: 'No intelligence payload was returned.'
+      });
+      if (dom.error) {
+        dom.error.hidden = false;
+        dom.error.textContent = 'No intelligence payload returned.';
+      }
+      return;
+    }
+
+    const meta = intelligence.meta || {};
+    const generatedAt = response && response.generatedAt ? response.generatedAt : meta.generatedAt;
+
+    if (dom.title) {
+      dom.title.textContent = agentLabel ? `AI insights for ${agentLabel}` : 'Lumina Intel insights';
+    }
+
+    if (dom.summary) {
+      dom.summary.textContent = intelligence.summary
+        ? intelligence.summary
+        : 'Lumina Intel is monitoring this agent for new signals.';
+    }
+
+    if (dom.badge) {
+      dom.badge.textContent = meta.cache === 'hit' ? 'Cached' : 'Live';
+    }
+
+    if (dom.timestamp) {
+      const formatted = formatLuminaIntelTimestamp(generatedAt);
+      dom.timestamp.textContent = formatted ? `Updated ${formatted}` : '';
+    }
+
+    if (dom.metrics) {
+      dom.metrics.hidden = false;
+    }
+
+    if (dom.confidence) {
+      const confidence = Math.max(0, Math.min(100, Math.round(intelligence.confidence || 0)));
+      dom.confidence.innerHTML = `<i class="fas fa-gauge-high" aria-hidden="true"></i><span>${confidence}% confidence</span>`;
+    }
+
+    if (dom.evaluations) {
+      const total = typeof meta.totalEvaluations === 'number' ? meta.totalEvaluations : 0;
+      const label = total === 1 ? 'evaluation' : 'evaluations';
+      dom.evaluations.innerHTML = `<i class="fas fa-wave-square" aria-hidden="true"></i><span>${total} ${label} analyzed</span>`;
+    }
+
+    if (dom.nextBest) {
+      const nextBest = intelligence.nextBest || null;
+      if (nextBest && (nextBest.title || nextBest.text)) {
+        dom.nextBest.hidden = false;
+        if (dom.nextBestTitle) dom.nextBestTitle.textContent = nextBest.title || 'Next best action';
+        if (dom.nextBestText) dom.nextBestText.textContent = nextBest.text || '';
+      } else {
+        dom.nextBest.hidden = true;
+        if (dom.nextBestTitle) dom.nextBestTitle.textContent = '';
+        if (dom.nextBestText) dom.nextBestText.textContent = '';
+      }
+    }
+
+    if (dom.error) {
+      dom.error.hidden = true;
+      dom.error.textContent = '';
+    }
+
+    if (dom.insights) {
+      dom.insights.innerHTML = '';
+      const insights = Array.isArray(intelligence.insights) ? intelligence.insights.slice(0, 3) : [];
+      if (insights.length) {
+        insights.forEach(insight => {
+          const item = document.createElement('li');
+          item.className = 'lumina-intel-item';
+          if (insight && insight.tone) {
+            item.classList.add(`lumina-intel-item--${insight.tone}`);
+          }
+
+          const icon = document.createElement('i');
+          icon.className = `fas ${insight && insight.icon ? insight.icon : 'fa-circle-info'}`;
+          icon.setAttribute('aria-hidden', 'true');
+
+          const content = document.createElement('div');
+          const title = document.createElement('div');
+          title.className = 'lumina-intel-item-title';
+          title.textContent = insight && insight.title ? insight.title : 'Insight';
+
+          const text = document.createElement('p');
+          text.textContent = insight && insight.text ? insight.text : '';
+
+          content.appendChild(title);
+          content.appendChild(text);
+          item.appendChild(icon);
+          item.appendChild(content);
+          dom.insights.appendChild(item);
+        });
+        if (dom.empty) {
+          dom.empty.hidden = true;
+        }
+      } else if (dom.empty) {
+        dom.empty.hidden = false;
+        dom.empty.textContent = 'Lumina Intel is monitoring for additional insights.';
+      }
+    }
+  }
+
+  function renderLuminaIntelError(error) {
+    const dom = getLuminaIntelDom();
+    if (!dom.card) {
+      return;
+    }
+
+    luminaIntelState.loading = false;
+    dom.card.classList.remove('loading');
+    dom.card.classList.add('error');
+
+    if (dom.refresh) {
+      dom.refresh.disabled = false;
+    }
+
+    if (dom.title) {
+      dom.title.textContent = 'Lumina Intel';
+    }
+
+    if (dom.summary) {
+      dom.summary.textContent = 'Lumina Intel could not load insights right now.';
+    }
+
+    if (dom.badge) {
+      dom.badge.textContent = 'Live';
+    }
+
+    if (dom.timestamp) {
+      dom.timestamp.textContent = '';
+    }
+
+    if (dom.metrics) {
+      dom.metrics.hidden = true;
+    }
+
+    if (dom.nextBest) {
+      dom.nextBest.hidden = true;
+      if (dom.nextBestTitle) dom.nextBestTitle.textContent = '';
+      if (dom.nextBestText) dom.nextBestText.textContent = '';
+    }
+
+    if (dom.insights) {
+      dom.insights.innerHTML = '';
+    }
+
+    if (dom.empty) {
+      dom.empty.hidden = false;
+      dom.empty.textContent = 'Try refreshing or adjust your agent selection.';
+    }
+
+    if (dom.error) {
+      dom.error.hidden = false;
+      dom.error.textContent = (error && error.message)
+        ? error.message
+        : String(error || 'Unknown error');
+    }
+  }
+
+  function scheduleLuminaIntelRefresh(reason) {
+    const dom = getLuminaIntelDom();
+    if (!dom.card) {
+      return;
+    }
+
+    if (luminaIntelState.debounce) {
+      clearTimeout(luminaIntelState.debounce);
+    }
+
+    luminaIntelState.debounce = setTimeout(() => {
+      luminaIntelState.debounce = null;
+      loadLuminaIntel();
+    }, 400);
+  }
+
+  function loadLuminaIntel() {
+    const dom = getLuminaIntelDom();
+    if (!dom.card) {
+      return;
+    }
+
+    const agentInfo = getSelectedAgentInfo();
+    const agentName = agentInfo && agentInfo.name ? agentInfo.name : '';
+    const agentFilter = agentName || (agentInfo && agentInfo.id ? agentInfo.id : '');
+
+    if (!agentFilter) {
+      renderLuminaIntelPlaceholder('Select an agent to activate Lumina Intel for this assessment.', {
+        title: 'AI is standing by',
+        emptyText: 'Agent-specific intelligence will surface here.'
+      });
+      return;
+    }
+
+    if (!(window.google && google.script && google.script.run)) {
+      luminaIntelState.offline = true;
+      renderLuminaIntelPlaceholder('Lumina Intel is available when connected to Lumina Sheets.', {
+        title: 'Lumina Intel offline',
+        badge: 'Offline',
+        emptyText: 'Reconnect to refresh AI insights.'
+      });
+      return;
+    }
+
+    luminaIntelState.offline = false;
+
+    const request = {
+      agent: agentFilter,
+      granularity: 'Month',
+      depth: 3
+    };
+
+    luminaIntelState.lastRequestedAgent = agentFilter;
+    const token = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    luminaIntelState.requestToken = token;
+
+    setLuminaIntelLoading(agentName || agentFilter);
+
+    google.script.run
+      .withSuccessHandler(response => {
+        if (luminaIntelState.requestToken !== token) {
+          return;
+        }
+        renderLuminaIntelResponse(response, agentName || agentFilter);
+      })
+      .withFailureHandler(error => {
+        if (luminaIntelState.requestToken !== token) {
+          return;
+        }
+        console.error('Lumina Intel load failed:', error);
+        renderLuminaIntelError(error);
+      })
+      .clientGetQAIntelligence(request);
   }
 
   function getCachedUserById(id) {
@@ -2939,18 +3685,31 @@
     if (audioFileInput && audioFileInput.files && audioFileInput.files.length > 0) {
       formData.audioFile = audioFileInput.files[0];
     }
-    
-    // Call link (for external audio)
+
+    const callbackAudioInput = document.getElementById('callbackAudioFile');
+    if (callbackAudioInput && callbackAudioInput.files && callbackAudioInput.files.length > 0) {
+      formData.callbackAudioFile = callbackAudioInput.files[0];
+    }
+
+    // Call links (for external audio)
     const callLink = document.getElementById('callLink').value;
     if (callLink) {
       formData.callLink = callLink;
     }
-    
+
+    const callbackCallLinkEl = document.getElementById('callbackCallLink');
+    const callbackCallLink = callbackCallLinkEl ? callbackCallLinkEl.value : '';
+    if (callbackCallLink) {
+      formData.callbackCallLink = callbackCallLink;
+    }
+
     console.log('📊 COLLECTION SUMMARY:');
     console.log('  Questions answered:', answeredQuestions + '/19');
     console.log('  Has audio file:', !!(formData.audioFile));
     console.log('  Has call link:', !!(formData.callLink));
-    
+    console.log('  Has callback audio file:', !!(formData.callbackAudioFile));
+    console.log('  Has callback link:', !!(formData.callbackCallLink));
+
     return formData;
   }
 
@@ -2975,15 +3734,23 @@
     
     // Audio requirement validation (only for new records)
     if (!currentRecordId && !formData.audioFile && !formData.callLink) {
-      showToast('Please provide either an audio file or call link.', true);
+      showToast('Please provide the original call recording via upload or link.', true);
       return false;
     }
-    
+
     // File size validation
     if (formData.audioFile) {
       const fileSizeMB = formData.audioFile.size / (1024 * 1024);
       if (fileSizeMB > 45) {
         showToast(`File too large (${fileSizeMB.toFixed(1)}MB). Maximum size is 45MB.`, true);
+        return false;
+      }
+    }
+
+    if (formData.callbackAudioFile) {
+      const callbackSizeMB = formData.callbackAudioFile.size / (1024 * 1024);
+      if (callbackSizeMB > 45) {
+        showToast(`Callback file too large (${callbackSizeMB.toFixed(1)}MB). Maximum size is 45MB.`, true);
         return false;
       }
     }
@@ -3057,16 +3824,25 @@
     // Audio requirement validation (only for new records)
     const audioFile = document.getElementById('audioFile');
     const callLink = document.getElementById('callLink');
+    const callbackAudio = document.getElementById('callbackAudioFile');
     if (!currentRecordId && (!audioFile.files || audioFile.files.length === 0) && !callLink.value) {
-      showToast('Please provide either an audio file or call link.', true);
+      showToast('Please provide the original call recording via upload or link.', true);
       return false;
     }
-    
+
     // File size validation
     if (audioFile.files && audioFile.files.length > 0) {
       const fileSizeMB = audioFile.files[0].size / (1024 * 1024);
       if (fileSizeMB > 45) {
         showToast(`File too large (${fileSizeMB.toFixed(1)}MB). Maximum size is 45MB.`, true);
+        return false;
+      }
+    }
+
+    if (callbackAudio && callbackAudio.files && callbackAudio.files.length > 0) {
+      const callbackSizeMB = callbackAudio.files[0].size / (1024 * 1024);
+      if (callbackSizeMB > 45) {
+        showToast(`Callback file too large (${callbackSizeMB.toFixed(1)}MB). Maximum size is 45MB.`, true);
         return false;
       }
     }
@@ -3182,46 +3958,69 @@
       formData.includeRecommendations = document.getElementById('includeRecommendations')?.checked !== false;
       formData.includeFullSnapshot = document.getElementById('includeFullSnapshot')?.checked !== false;
       
-      // Handle audio file differently - convert to base64 if present
-      const audioFileInput = document.getElementById('audioFile');
-      if (audioFileInput && audioFileInput.files && audioFileInput.files.length > 0) {
-        const file = audioFileInput.files[0];
-        console.log('Audio file present:', file.name, 'Size:', (file.size / 1024 / 1024).toFixed(2), 'MB');
-        
-        // For Google Apps Script, we need to handle this differently
-        // We'll convert to a blob-like object that GAS can handle
-        formData.audioFileName = file.name;
-        formData.audioFileSize = file.size;
-        formData.audioFileType = file.type;
-        
-        // Read file as array buffer and convert to base64
-        return new Promise((resolve, reject) => {
+      const fileReaders = [];
+
+      const queueFileConversion = (inputEl, prefix = '') => {
+        if (!inputEl || !inputEl.files || inputEl.files.length === 0) {
+          return;
+        }
+
+        const file = inputEl.files[0];
+        const prefixLabel = prefix ? `${prefix.charAt(0).toUpperCase()}${prefix.slice(1)} ` : '';
+        console.log(`${prefixLabel}audio file present:`, file.name, 'Size:', (file.size / 1024 / 1024).toFixed(2), 'MB');
+
+        const keyBase = prefix ? `${prefix}Audio` : 'audio';
+        formData[`${keyBase}FileName`] = file.name;
+        formData[`${keyBase}FileSize`] = file.size;
+        formData[`${keyBase}FileType`] = file.type;
+
+        fileReaders.push(new Promise((resolve, reject) => {
           const reader = new FileReader();
           reader.onload = function(e) {
             const arrayBuffer = e.target.result;
             const base64 = arrayBufferToBase64(arrayBuffer);
-            formData.audioFileData = base64;
-            console.log('📊 COLLECTION COMPLETE - Audio file converted to base64');
-            console.log('  Questions answered:', answeredQuestions + '/19');
-            resolve(formData);
+            formData[`${keyBase}FileData`] = base64;
+            resolve();
           };
           reader.onerror = reject;
           reader.readAsArrayBuffer(file);
-        });
+        }));
+      };
+
+      queueFileConversion(document.getElementById('audioFile'));
+      queueFileConversion(document.getElementById('callbackAudioFile'), 'callback');
+
+      const callLinkValue = document.getElementById('callLink').value;
+      if (callLinkValue) {
+        formData.callLink = callLinkValue;
       }
-      
-      // Handle call link (for external audio)
-      const callLink = document.getElementById('callLink').value;
-      if (callLink) {
-        formData.callLink = callLink;
+
+      const callbackLinkInput = document.getElementById('callbackCallLink');
+      const callbackLinkValue = callbackLinkInput ? callbackLinkInput.value : '';
+      if (callbackLinkValue) {
+        formData.callbackCallLink = callbackLinkValue;
       }
-      
-      console.log('📊 COLLECTION COMPLETE');
-      console.log('  Questions answered:', answeredQuestions + '/19');
-      console.log('  Has call link:', !!callLink);
-      console.log('  Form data keys:', Object.keys(formData));
-      
-      return Promise.resolve(formData);
+
+      const finalizeCollection = (messageSuffix = '') => {
+        console.log(`📊 COLLECTION COMPLETE${messageSuffix}`);
+        console.log('  Questions answered:', answeredQuestions + '/19');
+        console.log('  Has call link:', !!callLinkValue);
+        console.log('  Has callback link:', !!callbackLinkValue);
+        console.log('  Form data keys:', Object.keys(formData));
+        return formData;
+      };
+
+      if (fileReaders.length > 0) {
+        return Promise.all(fileReaders)
+          .then(() => finalizeCollection(' - Audio files converted to base64'))
+          .catch(error => {
+            console.error('Error converting audio files:', error);
+            showToast('Error preparing audio files: ' + error.message, true);
+            return null;
+          });
+      }
+
+      return Promise.resolve(finalizeCollection());
       
     } catch (error) {
       console.error('Error collecting form data:', error);
@@ -3357,9 +4156,11 @@
     }
   }
 
-  function extractAudioLinkFromRecord(record) {
+  function extractAudioLinksFromRecord(record) {
+    const links = { primary: '', callback: '' };
+
     if (!record || typeof record !== 'object') {
-      return '';
+      return links;
     }
 
     const keys = Object.keys(record);
@@ -3371,13 +4172,19 @@
       if ((normalized.includes('call') || normalized.includes('audio') || normalized.includes('recording')) &&
           (normalized.includes('link') || normalized.includes('url'))) {
         const link = String(value).trim();
-        if (link) {
-          return link;
+        if (!link) continue;
+
+        if (normalized.includes('callback')) {
+          if (!links.callback) {
+            links.callback = link;
+          }
+        } else if (!links.primary) {
+          links.primary = link;
         }
       }
     }
 
-    return '';
+    return links;
   }
 
   function extractPdfLinkFromRecord(record) {
@@ -3430,12 +4237,32 @@
           audioInput.removeAttribute('required');
         }
 
+        const audioLinks = extractAudioLinksFromRecord(result.record);
+        const resolvedAudioUrl = result.audioUrl || audioLinks.primary;
+        const resolvedCallbackUrl = result.callbackAudioUrl || audioLinks.callback;
+
+        if (resolvedAudioUrl) {
+          const callLinkInput = document.getElementById('callLink');
+          if (callLinkInput) {
+            callLinkInput.value = resolvedAudioUrl;
+          }
+        }
+
+        if (resolvedCallbackUrl) {
+          const callbackLinkInput = document.getElementById('callbackCallLink');
+          if (callbackLinkInput) {
+            callbackLinkInput.value = resolvedCallbackUrl;
+          }
+        }
+
         const status = document.getElementById('uploadStatus');
         if (status) {
           let linksHTML = '';
-          const resolvedAudioUrl = result.audioUrl || extractAudioLinkFromRecord(result.record);
           if (resolvedAudioUrl) {
-            linksHTML += `<div style="margin-top: 0.5rem;"><a href="${resolvedAudioUrl}" target="_blank" style="color: #28a745; text-decoration: none; font-weight: 600;">📞 View Recording</a></div>`;
+            linksHTML += `<div style="margin-top: 0.5rem;"><a href="${resolvedAudioUrl}" target="_blank" style="color: #28a745; text-decoration: none; font-weight: 600;">📞 View Original Recording</a></div>`;
+          }
+          if (resolvedCallbackUrl) {
+            linksHTML += `<div style="margin-top: 0.5rem;"><a href="${resolvedCallbackUrl}" target="_blank" style="color: #28a745; text-decoration: none; font-weight: 600;">🔁 View Callback Recording</a></div>`;
           }
           const resolvedPdfUrl = result.qaPdfUrl || extractPdfLinkFromRecord(result.record);
           if (resolvedPdfUrl) {
@@ -3453,8 +4280,17 @@
               ${linksHTML}
             </div>
           `;
+          status.classList.add('show');
         }
-        
+
+        document.querySelectorAll('.audio-upload-container').forEach(container => {
+          if (typeof container.__clearFileState === 'function') {
+            container.__clearFileState();
+          }
+        });
+
+        refreshAudioUploadContainers();
+
         showToast('QA assessment submitted successfully!');
         
       } else {
@@ -3491,6 +4327,7 @@
             </div>
           </div>
         `;
+        status.classList.add('show');
       }
       
       showToast('Submission failed: ' + errorMessage, true);
@@ -3506,85 +4343,160 @@
   // ============================================================================
 
   function setupFileUpload() {
-    const fileInput = document.getElementById('audioFile');
-    const uploadArea = document.querySelector('.audio-upload-container');
-    const uploadIcon = uploadArea.querySelector('.audio-upload-display i');
-    const uploadText = uploadArea.querySelector('.audio-text');
-    const uploadSubtext = uploadArea.querySelector('.audio-info');
+    const containers = document.querySelectorAll('.audio-upload-container');
+    if (!containers || containers.length === 0) {
+      return;
+    }
 
-    if (!fileInput || !uploadArea) return;
+    containers.forEach(container => {
+      const fileInput = container.querySelector('.audio-input');
+      const icon = container.querySelector('.audio-upload-display i');
+      const text = container.querySelector('.audio-upload-display .audio-text');
+      const subtext = container.querySelector('.audio-upload-display .audio-info');
 
-    // Simple click handler - no double prevention needed
-    uploadArea.addEventListener('click', () => {
-      fileInput.click();
-    });
-    
-    // Drag and drop
-    uploadArea.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      uploadArea.style.borderColor = '#FFB800';
-      uploadArea.style.background = 'rgba(255, 184, 0, 0.05)';
-    });
-    
-    uploadArea.addEventListener('dragleave', () => {
-      uploadArea.style.borderColor = 'var(--border-color)';
-      uploadArea.style.background = '#f8fafc';
-    });
-    
-    uploadArea.addEventListener('drop', (e) => {
-      e.preventDefault();
-      uploadArea.style.borderColor = 'var(--border-color)';
-      uploadArea.style.background = '#f8fafc';
-      const files = e.dataTransfer.files;
-      if (files.length > 0) {
-        const dt = new DataTransfer();
-        dt.items.add(files[0]);
-        fileInput.files = dt.files;
-        handleFileSelection(files[0]);
+      if (!fileInput || !icon || !text || !subtext) {
+        return;
       }
-    });
-    
-    // File selection change handler
-    fileInput.addEventListener('change', (e) => {
-      if (e.target.files.length > 0) {
-        handleFileSelection(e.target.files[0]);
-      }
-    });
 
-    function handleFileSelection(file) {
-      if (!file) return;
-      
-      // Check if it's an audio file
-      if (file.type.startsWith('audio/') || file.name.match(/\.(mp3|wav|m4a|aac|ogg|flac|wma)$/i)) {
-        uploadIcon.className = 'fas fa-check-circle';
-        uploadIcon.style.color = '#10b981';
-        uploadText.textContent = `Selected: ${file.name}`;
-        uploadSubtext.textContent = `${(file.size / 1024 / 1024).toFixed(2)} MB • Ready to upload`;
-        uploadArea.style.borderColor = '#10b981';
-        uploadArea.style.background = 'rgba(16,185,129,0.05)';
-        uploadArea.classList.add('has-file');
-        
-        // File size warning
-        const sizeMB = file.size / (1024 * 1024);
-        if (sizeMB > 10) {
-          showToast(`Large file selected (${sizeMB.toFixed(1)}MB) - upload may take longer.`, false);
+      const defaults = {
+        iconClass: container.dataset.defaultIcon || 'fas fa-microphone',
+        text: container.dataset.defaultText || 'Click to upload call recording',
+        subtext: container.dataset.defaultSubtext || 'Supports MP3, WAV, M4A and others',
+        replaceText: container.dataset.replaceText || 'Replace recording (optional)',
+        linkSubtext: container.dataset.linkSubtext || 'Existing recording on file',
+        selectedPrefix: container.dataset.selectedPrefix || 'Selected'
+      };
+
+      const linkTarget = container.dataset.linkTarget || '';
+      const getLinkedValue = () => linkTarget ? (document.getElementById(linkTarget)?.value || '') : '';
+
+      const applyLinkedState = () => {
+        if (container.dataset.currentState === 'file') {
+          return;
         }
-      } else {
-        showToast('Please select a valid audio file (MP3, WAV, M4A, etc.)', true);
-        resetFileUpload();
-        fileInput.value = ''; // Clear the invalid file
-      }
-    }
 
-    function resetFileUpload() {
-      uploadIcon.className = 'fas fa-microphone';
-      uploadIcon.style.color = 'var(--cyan-accent)';
-      uploadText.textContent = 'Click to upload call recording';
-      uploadSubtext.textContent = 'Supports MP3, WAV, M4A and others';
-      uploadArea.style.borderColor = 'var(--border-color)';
-      uploadArea.style.background = '#f8fafc';
-      uploadArea.classList.remove('has-file');
-    }
+        const linkedValue = getLinkedValue();
+        if (linkedValue) {
+          icon.className = 'fas fa-link';
+          icon.style.color = '#0ea5e9';
+          text.textContent = defaults.replaceText;
+          subtext.textContent = defaults.linkSubtext;
+          container.style.borderColor = '#0ea5e9';
+          container.style.background = 'rgba(14, 165, 233, 0.08)';
+          container.classList.add('has-file');
+        } else {
+          icon.className = defaults.iconClass;
+          icon.style.color = 'var(--cyan-accent)';
+          text.textContent = defaults.text;
+          subtext.textContent = defaults.subtext;
+          container.style.borderColor = 'var(--border-color)';
+          container.style.background = '#f8fafc';
+          container.classList.remove('has-file');
+        }
+      };
+
+      const setFileState = (file) => {
+        if (!file) {
+          return;
+        }
+        icon.className = 'fas fa-check-circle';
+        icon.style.color = '#10b981';
+        text.textContent = `${defaults.selectedPrefix}: ${file.name}`;
+        subtext.textContent = `${(file.size / 1024 / 1024).toFixed(2)} MB • Ready to upload`;
+        container.style.borderColor = '#10b981';
+        container.style.background = 'rgba(16,185,129,0.05)';
+        container.classList.add('has-file');
+        container.dataset.currentState = 'file';
+      };
+
+      const clearFileState = () => {
+        delete container.dataset.currentState;
+        applyLinkedState();
+      };
+
+      const handleFileSelection = (file) => {
+        if (!file) {
+          clearFileState();
+          return;
+        }
+
+        if (file.type.startsWith('audio/') || file.name.match(/\.(mp3|wav|m4a|aac|ogg|flac|wma)$/i)) {
+          setFileState(file);
+
+          const sizeMB = file.size / (1024 * 1024);
+          if (sizeMB > 10) {
+            showToast(`Large file selected (${sizeMB.toFixed(1)}MB) - upload may take longer.`, false);
+          }
+        } else {
+          showToast('Please select a valid audio file (MP3, WAV, M4A, etc.)', true);
+          fileInput.value = '';
+          clearFileState();
+        }
+      };
+
+      container.addEventListener('click', () => {
+        fileInput.click();
+      });
+
+      container.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        container.style.borderColor = '#FFB800';
+        container.style.background = 'rgba(255, 184, 0, 0.05)';
+      });
+
+      container.addEventListener('dragleave', () => {
+        if (container.dataset.currentState === 'file') {
+          container.style.borderColor = '#10b981';
+          container.style.background = 'rgba(16,185,129,0.05)';
+        } else {
+          container.style.borderColor = 'var(--border-color)';
+          container.style.background = '#f8fafc';
+        }
+      });
+
+      container.addEventListener('drop', (e) => {
+        e.preventDefault();
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+          const dt = new DataTransfer();
+          dt.items.add(files[0]);
+          fileInput.files = dt.files;
+          handleFileSelection(files[0]);
+        }
+
+        if (container.dataset.currentState === 'file') {
+          container.style.borderColor = '#10b981';
+          container.style.background = 'rgba(16,185,129,0.05)';
+        } else {
+          container.style.borderColor = 'var(--border-color)';
+          container.style.background = '#f8fafc';
+        }
+      });
+
+      fileInput.addEventListener('change', (e) => {
+        const file = e.target.files && e.target.files.length > 0 ? e.target.files[0] : null;
+        handleFileSelection(file);
+      });
+
+      container.__clearFileState = () => {
+        fileInput.value = '';
+        clearFileState();
+      };
+      container.__applyLinkedState = applyLinkedState;
+
+      clearFileState();
+    });
+  }
+
+  function refreshAudioUploadContainers() {
+    document.querySelectorAll('.audio-upload-container').forEach(container => {
+      if (container.dataset.currentState === 'file') {
+        return;
+      }
+      if (typeof container.__applyLinkedState === 'function') {
+        container.__applyLinkedState();
+      }
+    });
   }
 
   // ============================================================================
@@ -3698,6 +4610,8 @@
         console.log('=== EMAIL AUTO-FILL ===');
         console.log('Agent selected:', usesIds ? selectedId : selectedName);
 
+        scheduleLuminaIntelRefresh('agent-change');
+
         if (!selectedId && !selectedName) {
           emailInput.value = '';
           emailInput.removeAttribute('readonly');
@@ -3762,6 +4676,13 @@
       });
     }
 
+    const callDateInput = document.getElementById('callDate');
+    if (callDateInput) {
+      callDateInput.addEventListener('change', () => {
+        scheduleLuminaIntelRefresh('call-date');
+      });
+    }
+
     // Auto-set audit date to today
     const auditDateInput = document.getElementById('auditDate');
     if (auditDateInput && !auditDateInput.value) {
@@ -3792,6 +4713,7 @@
           if (quill) quill.setContents([]);
           recalcSummary();
           showToast('Form reset successfully');
+          scheduleLuminaIntelRefresh('reset');
         }
       });
     }
@@ -3912,12 +4834,14 @@
           console.error('Error parsing record:', e);
         }
       }
-      
+
       // Initial scoring calculation
       recalcSummary();
-      
+
+      scheduleLuminaIntelRefresh('init');
+
       console.log('✅ QA FORM INITIALIZED SUCCESSFULLY (Enhanced)');
-      
+
     } catch (error) {
       console.error('❌ QA FORM INITIALIZATION FAILED:', error);
       showToast('Form initialization failed: ' + error.message, true);
