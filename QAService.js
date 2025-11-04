@@ -194,14 +194,15 @@ function clientUploadAudioAndSaveQA(formData) {
     
     // Step 4: Process audio file/link
     const audioResult = processAudioFile_(qaData);
+    const callbackAudioResult = processAudioFile_(qaData, { prefix: 'callback', label: 'Callback' });
     console.log('Audio processing completed');
-    
+
     // Step 5: Calculate QA score
     const scoreResult = calculateQAScore_(qaData);
     console.log('Score calculated:', scoreResult.finalScore);
-    
+
     // Step 6: Save to sheet
-    const saveResult = saveQARecord_(qaData, audioResult, scoreResult);
+    const saveResult = saveQARecord_(qaData, { primary: audioResult, callback: callbackAudioResult }, scoreResult);
     console.log('Record saved with ID:', saveResult.qaId);
 
     // Step 7: Generate PDF (optional, don't fail if this errors)
@@ -239,6 +240,9 @@ function clientUploadAudioAndSaveQA(formData) {
       audioUrl: resolveAudioUrlFromRecord_(finalRecord, audioResult && audioResult.url),
       audioId: resolveAudioIdFromRecord_(finalRecord, audioResult && audioResult.id),
       audioName: resolveAudioNameFromRecord_(finalRecord, audioResult && audioResult.name),
+      callbackAudioUrl: resolveCallbackAudioUrlFromRecord_(finalRecord, callbackAudioResult && callbackAudioResult.url),
+      callbackAudioId: resolveCallbackAudioIdFromRecord_(finalRecord, callbackAudioResult && callbackAudioResult.id),
+      callbackAudioName: resolveCallbackAudioNameFromRecord_(finalRecord, callbackAudioResult && callbackAudioResult.name),
       scoreResult: scoreResult,
       record: finalRecord,
       timestamp: new Date().toISOString()
@@ -340,108 +344,134 @@ function validateRequiredFields_(data) {
   console.log('Validation passed:', qaAnswers.length, 'questions answered');
 }
 
-function processAudioFile_(data) {
+function processAudioFile_(data, options = {}) {
+  const prefixRaw = options.prefix ? String(options.prefix).trim() : '';
+  const prefix = prefixRaw ? prefixRaw.replace(/\s+/g, '') : '';
+  const optional = options.optional !== undefined ? options.optional : !!prefix;
+  const labelBase = options.label || (prefix ? `${prefixRaw.charAt(0).toUpperCase()}${prefixRaw.slice(1)} Recording` : 'Call Recording');
+
   try {
-    console.log('Processing audio file...');
-    
-    // Check for base64 encoded file (new format)
-    if (data.audioFileData && data.audioFileName) {
-      console.log('Base64 audio file found:', data.audioFileName);
-      console.log('File size:', (data.audioFileSize / 1024 / 1024).toFixed(2), 'MB');
-      
-      // Check file size (45MB limit)
-      const fileSizeMB = data.audioFileSize / (1024 * 1024);
+    console.log(`Processing ${labelBase.toLowerCase()}...`);
+
+    if (!data || typeof data !== 'object') {
+      if (optional) {
+        return null;
+      }
+      throw new Error('Invalid form data for audio processing');
+    }
+
+    const composeKey = (base) => {
+      if (prefix) {
+        return `${prefix}${base}`;
+      }
+      return base.charAt(0).toLowerCase() + base.slice(1);
+    };
+
+    const fileDataKey = composeKey('AudioFileData');
+    const fileNameKey = composeKey('AudioFileName');
+    const fileSizeKey = composeKey('AudioFileSize');
+    const fileTypeKey = composeKey('AudioFileType');
+    const fileKey = composeKey('AudioFile');
+    const linkKey = composeKey('CallLink');
+
+    const base64Name = data[fileNameKey];
+    const base64Data = data[fileDataKey];
+    const base64Size = data[fileSizeKey];
+    const base64Type = data[fileTypeKey] || 'audio/mpeg';
+
+    const ensureTargetFolder = () => {
+      const folder = ensureRootFolder_();
+      const agentName = sanitizeName_(data.agentName || 'Unknown');
+      const callDate = data.callDate || Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
+
+      const agentFolder = getOrCreateFolder_(folder, agentName);
+      const dateFolder = getOrCreateFolder_(agentFolder, callDate);
+      if (prefix) {
+        return getOrCreateFolder_(dateFolder, 'Callback Recordings');
+      }
+      return dateFolder;
+    };
+
+    if (base64Data && base64Name) {
+      const fileSizeMB = base64Size ? base64Size / (1024 * 1024) : 0;
       if (fileSizeMB > 45) {
         throw new Error('Audio file too large. Maximum size is 45MB, your file is ' + fileSizeMB.toFixed(1) + 'MB');
       }
-      
-      // Convert base64 back to blob
+
       try {
-        const base64Data = data.audioFileData;
         const binaryString = Utilities.base64Decode(base64Data);
-        const blob = Utilities.newBlob(binaryString, data.audioFileType || 'audio/mpeg', data.audioFileName);
-        
-        // Upload to Drive
-        const folder = ensureRootFolder_();
-        const agentName = sanitizeName_(data.agentName || 'Unknown');
-        const callDate = data.callDate || Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
-        
-        const agentFolder = getOrCreateFolder_(folder, agentName);
-        const dateFolder = getOrCreateFolder_(agentFolder, callDate);
-        
-        const uploadedFile = dateFolder.createFile(blob);
+        const blob = Utilities.newBlob(binaryString, base64Type, base64Name);
+        const targetFolder = ensureTargetFolder();
+        const uploadedFile = targetFolder.createFile(blob);
         uploadedFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-        
-        console.log('Base64 audio file uploaded successfully');
+
+        console.log(`${labelBase} uploaded successfully from base64`);
         return {
           url: uploadedFile.getUrl(),
           id: uploadedFile.getId(),
           name: uploadedFile.getName(),
-          size: fileSizeMB
+          size: fileSizeMB,
+          category: prefix || 'primary'
         };
       } catch (conversionError) {
         console.error('Error converting base64 to blob:', conversionError);
         throw new Error('Failed to process audio file: ' + conversionError.message);
       }
     }
-    
-    // Check for traditional uploaded file (fallback)
-    const audioFile = data.audioFile;
-    if (audioFile && typeof audioFile.getName === 'function') {
-      console.log('Traditional audio file found:', audioFile.getName());
-      
-      // Check file size (50MB limit)
-      const fileSize = audioFile.getBlob().getBytes().length;
+
+    const uploadedFileObj = data[fileKey];
+    if (uploadedFileObj && typeof uploadedFileObj.getName === 'function') {
+      const blob = uploadedFileObj.getBlob();
+      const fileSize = blob.getBytes().length;
       const fileSizeMB = fileSize / (1024 * 1024);
-      console.log('File size:', fileSizeMB.toFixed(2), 'MB');
-      
-      if (fileSizeMB > 45) { // Leave some buffer below 50MB
+      console.log(`${labelBase} (legacy upload) size:`, fileSizeMB.toFixed(2), 'MB');
+
+      if (fileSizeMB > 45) {
         throw new Error('Audio file too large. Maximum size is 45MB, your file is ' + fileSizeMB.toFixed(1) + 'MB');
       }
-      
-      // Upload to Drive
-      const folder = ensureRootFolder_();
-      const agentName = sanitizeName_(data.agentName || 'Unknown');
-      const callDate = data.callDate || Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
-      
-      const agentFolder = getOrCreateFolder_(folder, agentName);
-      const dateFolder = getOrCreateFolder_(agentFolder, callDate);
-      
-      const uploadedFile = dateFolder.createFile(audioFile.getBlob());
+
+      const targetFolder = ensureTargetFolder();
+      const uploadedFile = targetFolder.createFile(blob);
       uploadedFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-      
-      console.log('Traditional audio file uploaded successfully');
+
+      console.log(`${labelBase} uploaded successfully (legacy file)`);
       return {
         url: uploadedFile.getUrl(),
         id: uploadedFile.getId(),
         name: uploadedFile.getName(),
-        size: fileSizeMB
+        size: fileSizeMB,
+        category: prefix || 'primary'
       };
     }
-    
-    // Check for call link
-    if (data.callLink && String(data.callLink).trim() !== '') {
-      console.log('Using provided call link');
+
+    const linkValue = data[linkKey];
+    if (linkValue && String(linkValue).trim() !== '') {
+      console.log(`Using provided ${labelBase.toLowerCase()} link`);
       return {
-        url: String(data.callLink).trim(),
+        url: String(linkValue).trim(),
         id: null,
         name: 'External Link',
-        size: 0
+        size: 0,
+        category: prefix || 'primary'
       };
     }
-    
-    // No audio provided (this might be okay for existing records)
-    console.log('No audio file or link provided');
+
+    console.log(`No ${labelBase.toLowerCase()} provided`);
+    if (optional) {
+      return null;
+    }
+
     return {
       url: '',
       id: null,
       name: 'No Audio',
-      size: 0
+      size: 0,
+      category: prefix || 'primary'
     };
-    
+
   } catch (error) {
     console.error('Audio processing error:', error);
-    throw new Error('Audio processing failed: ' + error.message);
+    throw new Error(`${labelBase} processing failed: ` + error.message);
   }
 }
 
@@ -507,7 +537,15 @@ function saveQARecord_(data, audioResult, scoreResult) {
     console.log('Saving QA record...');
 
     const safeData = data || {};
-    const safeAudio = audioResult || {};
+    let primaryAudio = {};
+    let callbackAudio = null;
+
+    if (audioResult && typeof audioResult === 'object' && (audioResult.primary !== undefined || audioResult.callback !== undefined)) {
+      primaryAudio = audioResult.primary || {};
+      callbackAudio = audioResult.callback || null;
+    } else {
+      primaryAudio = audioResult || {};
+    }
     const timestamp = new Date().toISOString();
 
     const providedIdRaw = safeData.recordId || safeData.qaId || safeData.id || '';
@@ -637,7 +675,7 @@ function saveQARecord_(data, audioResult, scoreResult) {
           return value !== undefined ? value : existingValue || '';
         }
         case 'calllink': {
-          const audioUrl = safeAudio && safeAudio.url ? String(safeAudio.url).trim() : '';
+          const audioUrl = primaryAudio && primaryAudio.url ? String(primaryAudio.url).trim() : '';
           const linkCandidates = ['callLink', 'callRecordingUrl', 'callUrl', 'recordingLink'];
           let linkValue = '';
           for (let i = 0; i < linkCandidates.length; i++) {
@@ -655,7 +693,7 @@ function saveQARecord_(data, audioResult, scoreResult) {
         case 'callrecordinggid':
         case 'audiorecordingid':
         case 'audiofileid': {
-          const audioId = safeAudio && safeAudio.id ? String(safeAudio.id) : '';
+          const audioId = primaryAudio && primaryAudio.id ? String(primaryAudio.id) : '';
           const idValue = getDataValue('callRecordingId');
           const fallbackId = idValue !== undefined ? idValue : getDataValue('audioFileId');
           return audioId || (fallbackId !== undefined ? fallbackId : existingValue || '');
@@ -663,10 +701,80 @@ function saveQARecord_(data, audioResult, scoreResult) {
         case 'callrecordingname':
         case 'audiorecordingname':
         case 'audiofilename': {
-          const audioName = safeAudio && safeAudio.name ? safeAudio.name : '';
+          const audioName = primaryAudio && primaryAudio.name ? primaryAudio.name : '';
           const nameValue = getDataValue('callRecordingName');
           const fallbackName = nameValue !== undefined ? nameValue : getDataValue('audioFileName');
           return audioName || (fallbackName !== undefined ? fallbackName : existingValue || '');
+        }
+        case 'callbackcalllink':
+        case 'callbackrecordinglink':
+        case 'callbackrecordingurl':
+        case 'callbackcallurl':
+        case 'callbackaudiourl': {
+          const callbackUrl = callbackAudio && callbackAudio.url ? String(callbackAudio.url).trim() : '';
+          if (callbackUrl) {
+            return callbackUrl;
+          }
+          const callbackCandidates = ['callbackCallLink', 'callbackRecordingUrl', 'callbackCallUrl', 'callbackAudioUrl'];
+          for (let i = 0; i < callbackCandidates.length; i++) {
+            const candidate = getDataValue(callbackCandidates[i]);
+            if (candidate !== undefined) {
+              const value = String(candidate || '').trim();
+              if (value) {
+                return value;
+              }
+            }
+          }
+          return existingValue || '';
+        }
+        case 'callbackcallrecordingid':
+        case 'callbackrecordingid':
+        case 'callbackaudiorecordingid':
+        case 'callbackaudiofileid':
+        case 'callbackaudioid': {
+          const callbackId = callbackAudio && callbackAudio.id ? String(callbackAudio.id) : '';
+          if (callbackId) {
+            return callbackId;
+          }
+          const callbackIdCandidates = ['callbackCallRecordingId', 'callbackAudioFileId', 'callbackAudioId'];
+          for (let i = 0; i < callbackIdCandidates.length; i++) {
+            const candidate = getDataValue(callbackIdCandidates[i]);
+            if (candidate !== undefined) {
+              const value = String(candidate || '').trim();
+              if (value) {
+                return value;
+              }
+            }
+          }
+          return existingValue || '';
+        }
+        case 'callbackcallrecordingname':
+        case 'callbackrecordingname':
+        case 'callbackaudiorecordingname':
+        case 'callbackaudiofilename': {
+          const callbackName = callbackAudio && callbackAudio.name ? callbackAudio.name : '';
+          if (callbackName) {
+            return callbackName;
+          }
+          const callbackNameCandidates = ['callbackCallRecordingName', 'callbackAudioFileName'];
+          for (let i = 0; i < callbackNameCandidates.length; i++) {
+            const candidate = getDataValue(callbackNameCandidates[i]);
+            if (candidate !== undefined) {
+              const value = String(candidate || '').trim();
+              if (value) {
+                return value;
+              }
+            }
+          }
+          return existingValue || '';
+        }
+        case 'callbackrecordingsize':
+        case 'callbackaudiosize': {
+          if (callbackAudio && callbackAudio.size !== undefined) {
+            return callbackAudio.size;
+          }
+          const callbackSize = getDataValue('callbackAudioSize');
+          return callbackSize !== undefined ? callbackSize : (existingValue || '');
         }
         case 'auditorname': {
           const value = getDataValue('auditorName');
@@ -889,6 +997,99 @@ function resolveAudioNameFromRecord_(record, explicitName) {
     }
     const normalized = String(key || '').toLowerCase();
     if ((normalized.indexOf('call') !== -1 || normalized.indexOf('audio') !== -1 || normalized.indexOf('recording') !== -1) &&
+        (normalized.indexOf('name') !== -1 || normalized.indexOf('title') !== -1)) {
+      const name = String(value).trim();
+      if (name) {
+        return name;
+      }
+    }
+  }
+
+  return '';
+}
+
+function resolveCallbackAudioUrlFromRecord_(record, explicitUrl) {
+  const direct = (explicitUrl || '').toString().trim();
+  if (direct) {
+    return direct;
+  }
+
+  if (!record || typeof record !== 'object') {
+    return '';
+  }
+
+  const keys = Object.keys(record);
+  for (let i = 0; i < keys.length; i++) {
+    const key = keys[i];
+    const value = record[key];
+    if (!value) {
+      continue;
+    }
+    const normalized = String(key || '').toLowerCase();
+    if (normalized.indexOf('callback') !== -1 &&
+        (normalized.indexOf('call') !== -1 || normalized.indexOf('audio') !== -1 || normalized.indexOf('recording') !== -1) &&
+        (normalized.indexOf('url') !== -1 || normalized.indexOf('link') !== -1)) {
+      const url = String(value).trim();
+      if (url) {
+        return url;
+      }
+    }
+  }
+
+  return '';
+}
+
+function resolveCallbackAudioIdFromRecord_(record, explicitId) {
+  const direct = (explicitId || '').toString().trim();
+  if (direct) {
+    return direct;
+  }
+
+  if (!record || typeof record !== 'object') {
+    return '';
+  }
+
+  const keys = Object.keys(record);
+  for (let i = 0; i < keys.length; i++) {
+    const key = keys[i];
+    const value = record[key];
+    if (!value) {
+      continue;
+    }
+    const normalized = String(key || '').toLowerCase();
+    if (normalized.indexOf('callback') !== -1 &&
+        (normalized.indexOf('call') !== -1 || normalized.indexOf('audio') !== -1 || normalized.indexOf('recording') !== -1) &&
+        (normalized.indexOf('id') !== -1 || normalized.indexOf('file') !== -1)) {
+      const id = String(value).trim();
+      if (id) {
+        return id;
+      }
+    }
+  }
+
+  return '';
+}
+
+function resolveCallbackAudioNameFromRecord_(record, explicitName) {
+  const direct = (explicitName || '').toString().trim();
+  if (direct) {
+    return direct;
+  }
+
+  if (!record || typeof record !== 'object') {
+    return '';
+  }
+
+  const keys = Object.keys(record);
+  for (let i = 0; i < keys.length; i++) {
+    const key = keys[i];
+    const value = record[key];
+    if (!value) {
+      continue;
+    }
+    const normalized = String(key || '').toLowerCase();
+    if (normalized.indexOf('callback') !== -1 &&
+        (normalized.indexOf('call') !== -1 || normalized.indexOf('audio') !== -1 || normalized.indexOf('recording') !== -1) &&
         (normalized.indexOf('name') !== -1 || normalized.indexOf('title') !== -1)) {
       const name = String(value).trim();
       if (name) {
