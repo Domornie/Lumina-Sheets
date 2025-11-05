@@ -2157,7 +2157,6 @@
 
     function clearAuthCookie() {
       stopKeepAliveHeartbeat();
-      state.authToken = '';
       try {
         if (window.CookieHandler && typeof CookieHandler.clearAuthToken === 'function') {
           CookieHandler.clearAuthToken();
@@ -2287,56 +2286,6 @@
       restartSessionHeartbeat();
     }
 
-    function getStoredSessionToken(options = {}) {
-      const { includeFallback = true } = options || {};
-
-      if (state.authToken) {
-        return state.authToken;
-      }
-
-      let token = '';
-
-      try {
-        token = readAuthCookie();
-      } catch (err) {
-        console.warn('getStoredSessionToken: unable to read auth cookie', err);
-      }
-
-      if (token || !includeFallback) {
-        return token || '';
-      }
-
-      const storageKeys = ['lumina.session.token', 'lumina.auth.sessionToken', 'lumina.auth.fallbackToken'];
-
-      try {
-        if (window.localStorage) {
-          for (let i = 0; i < storageKeys.length; i += 1) {
-            const value = window.localStorage.getItem(storageKeys[i]) || '';
-            if (value) {
-              return value;
-            }
-          }
-        }
-      } catch (err) {
-        console.warn('getStoredSessionToken: unable to read localStorage token', err);
-      }
-
-      try {
-        if (window.sessionStorage) {
-          for (let i = 0; i < storageKeys.length; i += 1) {
-            const value = window.sessionStorage.getItem(storageKeys[i]) || '';
-            if (value) {
-              return value;
-            }
-          }
-        }
-      } catch (err) {
-        console.warn('getStoredSessionToken: unable to read sessionStorage token', err);
-      }
-
-      return '';
-    }
-
     function stopKeepAliveHeartbeat() {
       if (state.keepAliveTimer) {
         clearTimeout(state.keepAliveTimer);
@@ -2439,30 +2388,15 @@
       }
     }
 
-    function attemptSessionResume(options = {}) {
-      const force = options && options.force === true;
-      const silent = options && options.silent === true;
-      const overrideToken = options && typeof options.token === 'string' ? options.token.trim() : '';
-      const onSuccess = options && typeof options.onSuccess === 'function' ? options.onSuccess : null;
-      const onFailure = options && typeof options.onFailure === 'function' ? options.onFailure : null;
-
-      if (state.hasAttemptedResume && !force) {
+    function attemptSessionResume() {
+      if (state.hasAttemptedResume) {
         return false;
       }
 
-      if (force) {
-        cancelSessionResumeLoader();
-      }
-
       state.hasAttemptedResume = true;
-      const cookieToken = overrideToken || getStoredSessionToken();
+      const cookieToken = readAuthCookie();
 
       if (!cookieToken) {
-        if (typeof onFailure === 'function') {
-          try { onFailure(); } catch (callbackError) {
-            console.warn('attemptSessionResume.onFailure callback failed', callbackError);
-          }
-        }
         return false;
       }
 
@@ -2480,14 +2414,7 @@
           if (!result || !result.success) {
             if (result && result.expired) {
               clearAuthCookie();
-              if (!silent) {
-                showAlert('info', 'Your previous session has expired. Please sign in again.');
-              }
-            }
-            if (typeof onFailure === 'function') {
-              try { onFailure(result); } catch (callbackError) {
-                console.warn('attemptSessionResume.onFailure callback failed', callbackError);
-              }
+              showAlert('info', 'Your previous session has expired. Please sign in again.');
             }
             return;
           }
@@ -2549,43 +2476,14 @@
           } else {
             showAlert('info', 'Welcome back! Click Log in to continue.');
           }
-
-          if (typeof onSuccess === 'function') {
-            try { onSuccess(result); } catch (callbackError) {
-              console.warn('attemptSessionResume.onSuccess callback failed', callbackError);
-            }
-          }
         })
         .withFailureHandler(error => {
           finalizeResumeAttempt();
           console.error('Session resume validation failed:', error);
-          if (typeof onFailure === 'function') {
-            try { onFailure(error); } catch (callbackError) {
-              console.warn('attemptSessionResume.onFailure callback failed', callbackError);
-            }
-          }
         })
         .keepAlive(cookieToken);
 
       return true;
-    }
-
-    function tryResumeAfterLoginFailure(contextLabel) {
-      const token = getStoredSessionToken();
-      if (!token) {
-        return false;
-      }
-
-      console.log('Detected stored session token after login failure – attempting resume.', contextLabel || '');
-      return attemptSessionResume({
-        force: true,
-        silent: true,
-        token,
-        onSuccess: () => {
-          hideAllAlerts();
-          hideNextSteps();
-        }
-      });
     }
 
     function collectClientMetadata() {
@@ -2916,8 +2814,6 @@
       const errorCode = response && response.errorCode
         ? String(response.errorCode).toUpperCase()
         : '';
-
-      tryResumeAfterLoginFailure('response-clear');
 
       switch (errorCode) {
         case 'PASSWORD_RESET_REQUIRED': {
@@ -3429,8 +3325,6 @@
         ? String(response.errorCode).toUpperCase()
         : '';
 
-      tryResumeAfterLoginFailure('response');
-
       switch (errorCode) {
         case 'PASSWORD_RESET_REQUIRED': {
           showAlert('warning', errorMessage);
@@ -3908,8 +3802,6 @@
               }
             ]
           });
-
-          tryResumeAfterLoginFailure('transport');
         })
         .loginUser(email, password, rememberMe, clientMetadata);
     }
