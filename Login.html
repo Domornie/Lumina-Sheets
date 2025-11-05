@@ -53,7 +53,6 @@
     body,
     html {
       height: 100%;
-      min-height: 100vh;
       margin: 0;
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       line-height: 1.6;
@@ -64,24 +63,6 @@
         linear-gradient(180deg, rgba(247, 249, 253, 0.96), rgba(242, 244, 249, 0.98));
       font-size: 15px;
       color: var(--text-primary);
-      overflow-x: hidden;
-      overflow-y: auto;
-    }
-
-    .page-wrapper {
-      min-height: 100vh;
-      height: auto;
-      max-width: 100vw;
-      width: 100%;
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-    }
-
-    .page-wrapper > .row {
-      flex: 1;
-      min-height: 100vh;
-      margin: 0;
     }
 
     /* Modern Background with subtle pattern */
@@ -101,192 +82,61 @@
       opacity: 0.25;
     }
 
-    .feature-panel {
-      background: radial-gradient(circle at 10% 20%, rgba(4, 120, 211, 0.55), transparent 65%),
-        radial-gradient(circle at 75% 85%, rgba(3, 87, 153, 0.45), transparent 60%),
-        linear-gradient(135deg, #0f172a 0%, #1e293b 60%, #0b1120 100%);
-      color: #f8fafc;
-      padding: 0 3rem;
-      position: relative;
-      overflow: hidden;
-      min-height: 100vh;
-      height: 100%;
-    }
-
-    .feature-panel::before,
-    .feature-panel::after {
-      content: '';
-      position: absolute;
-      width: 320px;
-      height: 320px;
-      background: radial-gradient(circle, rgba(14, 165, 233, 0.35), transparent 70%);
-      filter: blur(20px);
-      opacity: 0.55;
-      z-index: 0;
-    }
-
-    .feature-panel::before {
-      top: -80px;
-      left: -120px;
-    }
-
-    .feature-panel::after {
-      bottom: -100px;
-      right: -120px;
-    }
-
-    .feature-content {
-      position: relative;
-      z-index: 1;
-      max-width: 420px;
-    }
-
-    .feature-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 0.5rem 1rem;
-      border-radius: 999px;
-      background: rgba(148, 163, 184, 0.12);
-      color: #e2e8f0;
-      font-size: 0.85rem;
-      font-weight: 600;
-      letter-spacing: 0.05em;
-      text-transform: uppercase;
-      margin-bottom: 1.5rem;
-    }
-
-    .feature-heading {
-      font-size: clamp(2rem, 3vw + 1rem, 2.85rem);
-      font-weight: 700;
-      line-height: 1.2;
-      margin-bottom: 1.25rem;
-    }
-
-    .feature-text {
-      color: rgba(226, 232, 240, 0.85);
-      font-size: 1rem;
-      margin-bottom: 2rem;
-    }
-
-    .feature-list {
-      list-style: none;
-      padding: 0;
-      margin: 0 0 2.5rem;
-      display: grid;
-      gap: 1rem;
-    }
-
-    .feature-list li {
-      display: flex;
-      align-items: flex-start;
-      gap: 0.75rem;
-      color: rgba(241, 245, 249, 0.9);
-      font-weight: 500;
-    }
-
-    .feature-list i {
-      color: #38bdf8;
-      font-size: 1.1rem;
-      margin-top: 0.2rem;
-    }
-
-    .feature-illustration {
-      position: relative;
-      border-radius: var(--border-radius-lg);
-      background: rgba(15, 23, 42, 0.45);
-      border: 1px solid rgba(148, 163, 184, 0.18);
-      padding: 2rem;
-      box-shadow: 0 25px 55px rgba(2, 6, 23, 0.45);
-    }
-
-    .feature-illustration img {
-      width: 100%;
-      height: auto;
-      display: block;
-    }
-
     .form-column {
       position: relative;
-      padding: clamp(1.75rem, 4vw, 3.5rem);
-      background: linear-gradient(180deg, #ffffff 0%, #f4f7fb 100%);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-      height: auto;
-      overflow: hidden;
+      padding: 0 3.5rem;
     }
 
     .form-column::before {
       content: '';
       position: absolute;
-      inset: 8% 6% 10% 8%;
-      background:
-        radial-gradient(circle at top left, rgba(4, 120, 211, 0.18), transparent 65%),
-        radial-gradient(circle at bottom right, rgba(3, 87, 153, 0.12), transparent 70%);
-      filter: blur(90px);
+      inset: 12% 8% 14% 12%;
+      background: radial-gradient(circle at top left, rgba(4, 120, 211, 0.12), transparent 65%);
+      filter: blur(85px);
+      opacity: 0.4;
+      pointer-events: none;
+    }
+
+    .right-panel {
+      position: relative;
+      padding: 0 3.5rem;
+    }
+
+    .right-panel::after {
+      content: '';
+      position: absolute;
+      inset: 12% 12% 10% 40%;
+      background: radial-gradient(circle at center, rgba(4, 120, 211, 0.18), transparent 65%);
+      filter: blur(65px);
       opacity: 0.35;
       pointer-events: none;
     }
 
-    /* Modern Form Container */
-    .login-container {
-      width: min(500px, 100%);
-      max-height: 100%;
-      padding: clamp(2rem, 4.5vw, 3rem) clamp(1.75rem, 4vw, 2.75rem);
+    .right-panel img {
       position: relative;
       z-index: 1;
-      display: flex;
-      flex-direction: column;
-      gap: clamp(1rem, 1.9vh, 1.6rem);
+      width: 100%;
+      max-width: 520px;
+      filter: drop-shadow(0 35px 45px rgba(15, 23, 42, 0.18));
+      transition: transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
     }
 
-    .login-body {
-      display: flex;
-      flex-direction: column;
-      gap: clamp(0.9rem, 1.6vh, 1.35rem);
-      flex: 1 1 auto;
-      min-height: 0;
+    .right-panel img:hover {
+      transform: translateY(-6px) scale(1.01);
     }
 
-    .login-footer {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 0.7rem;
-      padding-top: 0.25rem;
-    }
-
-    #loginForm {
-      display: flex;
-      flex-direction: column;
-      gap: 0.85rem;
-    }
-
-    #loginForm .mb-3,
-    #loginForm .d-grid {
-      margin-bottom: 0 !important;
-    }
-
-    #feedback {
-      margin-top: 0.35rem;
-    }
-
-    .consent-text {
-      color: var(--text-muted);
-      font-size: 0.85rem;
-      margin-top: 1.1rem;
-    }
-
-    .consent-text a {
-      color: var(--primary-blue);
-      text-decoration: none;
-      font-weight: 600;
-    }
-
-    .consent-text a:hover {
-      text-decoration: underline;
+    /* Modern Form Container */
+    .login-container {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(18px);
+      border-radius: var(--border-radius-lg);
+      padding: 3.5rem 3.25rem;
+      width: 100%;
+      max-width: 460px;
+      position: relative;
+      border: 1px solid rgba(226, 232, 240, 0.65);
+      box-shadow: var(--shadow-md);
+      z-index: 1;
     }
 
     /* Enhanced Form Controls */
@@ -400,31 +250,6 @@
       transform: translateY(-50%) scale(1.1);
     }
 
-    .mfa-section {
-      background: rgba(4, 120, 211, 0.06);
-      border: 1px solid rgba(4, 120, 211, 0.18);
-      border-radius: var(--border-radius);
-      padding: 1.25rem;
-      margin-bottom: 1.1rem;
-      display: none;
-    }
-
-    .mfa-section.active {
-      display: block;
-      animation: fadeIn 0.3s ease;
-    }
-
-    .mfa-section .form-label {
-      font-weight: 600;
-      color: var(--text-secondary);
-    }
-
-    .mfa-message {
-      font-size: 0.9rem;
-      min-height: 1.25rem;
-      transition: var(--transition);
-    }
-
     /* Enhanced Links */
     .link-primary {
       color: var(--primary-blue);
@@ -450,13 +275,26 @@
       color: var(--text-secondary);
     }
 
+    /* Enhanced Redirect Section */
+    .redirect-section {
+      display: none;
+      background: rgba(240, 253, 244, 0.9);
+      border: 1px solid rgba(31, 146, 84, 0.35);
+      border-radius: var(--border-radius-lg);
+      padding: 2.5rem;
+      margin-top: 2rem;
+      text-align: center;
+      box-shadow: var(--shadow-lg);
+      animation: slideInUp 0.6s ease-out;
+    }
+
     .next-steps-card {
       border-radius: var(--border-radius-lg);
       border: 1px solid rgba(4, 120, 211, 0.16);
       background: rgba(246, 251, 255, 0.92);
       box-shadow: var(--shadow-sm);
-      padding: 1.5rem;
-      margin-bottom: 1.25rem;
+      padding: 1.75rem;
+      margin-bottom: 1.75rem;
       transition: var(--transition);
     }
 
@@ -526,114 +364,76 @@
       box-shadow: var(--shadow-md);
     }
 
-    .device-modal {
-      position: fixed;
-      inset: 0;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      z-index: 1100;
-    }
-
-    .device-modal.show {
-      display: flex;
-    }
-
-    .device-modal-backdrop {
-      position: absolute;
-      inset: 0;
-      background: rgba(15, 23, 42, 0.55);
-      backdrop-filter: blur(4px);
-    }
-
-    .device-modal-dialog {
-      position: relative;
-      z-index: 1;
-      background: #ffffff;
-      border-radius: var(--border-radius-lg);
-      box-shadow: var(--shadow-2xl);
-      padding: 2.5rem;
-      width: min(520px, 92%);
-      max-width: 520px;
-      animation: fadeIn 0.3s ease;
-    }
-
-    .device-modal-title {
-      font-size: 1.4rem;
-      font-weight: 600;
-      margin-bottom: 0.75rem;
-      color: var(--text-primary);
-    }
-
-    .device-modal-body {
-      color: var(--text-secondary);
-      margin-bottom: 1.25rem;
-    }
-
-    .device-meta-list {
-      list-style: none;
-      padding: 0;
-      margin: 0 0 1.5rem;
-      border: 1px solid rgba(226, 232, 240, 0.7);
-      border-radius: var(--border-radius);
-      overflow: hidden;
-    }
-
-    .device-meta-list li {
-      display: flex;
-      justify-content: space-between;
-      padding: 0.75rem 1rem;
-      font-size: 0.92rem;
-      color: var(--text-secondary);
-      background: rgba(246, 249, 255, 0.55);
-    }
-
-    .device-meta-list li + li {
-      border-top: 1px solid rgba(226, 232, 240, 0.7);
-    }
-
-    .device-meta-label {
-      font-weight: 600;
-      color: var(--text-primary);
-      margin-right: 1rem;
-    }
-
-    .device-modal-code-input {
-      font-size: 1.35rem;
-      letter-spacing: 0.4rem;
-      text-align: center;
-      font-weight: 600;
-      padding: 0.85rem 1rem;
-    }
-
-    .device-modal-error {
-      color: var(--danger-red);
-      font-size: 0.9rem;
-      min-height: 1.25rem;
-      margin-bottom: 0.5rem;
-    }
-
-    .device-modal-actions {
-      display: flex;
-      flex-direction: column;
-      gap: 0.75rem;
-    }
-
-    @media (min-width: 576px) {
-      .device-modal-actions {
-        flex-direction: row;
-      }
-    }
-
     @media (max-width: 575.98px) {
       .next-steps-card .btn {
         width: 100%;
       }
     }
 
+    @keyframes slideInUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px) scale(0.95);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    .redirect-section.show {
+      display: block !important;
+    }
+
+    .redirect-button {
+      background: var(--success-green);
+      color: #fff;
+      padding: 1.25rem 2.5rem;
+      border: none;
+      border-radius: var(--border-radius);
+      font-weight: 600;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.75rem;
+      transition: var(--transition);
+      box-shadow: var(--shadow-md);
+      font-size: 1.1rem;
+      letter-spacing: 0.025em;
+    }
+
+    .redirect-button:hover {
+      transform: translateY(-3px);
+      box-shadow: var(--shadow-xl);
+      color: #fff;
+      background: #177644;
+    }
+
+    .redirect-button:active {
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-md);
+    }
+
+    /* Enhanced Countdown */
+    .countdown-display {
+      background: rgba(4, 120, 211, 0.08);
+      border-radius: var(--border-radius);
+      padding: 1.5rem;
+      margin: 1.5rem 0;
+      font-weight: 600;
+      border: 1px solid rgba(4, 120, 211, 0.15);
+    }
+
+    .countdown-number {
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--success-green);
+    }
+
     /* Logo Enhancement */
     .logo-container {
-      margin-bottom: 2rem;
+      margin-bottom: 2.5rem;
       display: flex;
       justify-content: center;
       align-items: center;
@@ -663,7 +463,7 @@
     .welcome-text p {
       font-size: 1.05rem;
       color: var(--text-secondary);
-      margin-bottom: 1.5rem;
+      margin-bottom: 2rem;
     }
 
     /* Alert Styling */
@@ -721,12 +521,6 @@
     }
 
     /* Enhanced Checkbox */
-    .form-check {
-      display: flex;
-      align-items: center;
-      gap: 0.65rem;
-    }
-
     .form-check-input {
       border: 2px solid #cbd5e0;
       border-radius: 6px;
@@ -737,43 +531,6 @@
     .form-check-input:checked {
       background: linear-gradient(135deg, var(--primary-blue), var(--primary-dark));
       border-color: var(--primary-blue);
-    }
-
-    @media (max-width: 991.98px) {
-      body {
-        overflow: auto;
-      }
-
-      .page-wrapper {
-        height: auto;
-        overflow: visible;
-        display: block;
-      }
-
-      .page-wrapper > .row {
-        height: auto;
-      }
-
-      .form-column {
-        min-height: auto;
-        height: auto;
-        overflow: visible;
-        padding: 2.5rem 1.75rem;
-      }
-
-      .login-container {
-        max-height: none;
-        height: auto;
-        gap: 1.25rem;
-      }
-
-      .login-body {
-        gap: 1.1rem;
-      }
-
-      .login-footer {
-        gap: 0.65rem;
-      }
     }
 
     .form-check-input:focus {
@@ -841,7 +598,7 @@
 
     /* Footer Links */
     .footer-links {
-      margin-top: 0.75rem;
+      margin-top: 2rem;
     }
 
     .footer-links a {
@@ -857,25 +614,12 @@
       transform: translateY(-1px);
     }
 
-    .security-tagline {
-      margin-top: 1rem;
-      color: var(--text-muted);
-      font-size: 0.85rem;
-      font-weight: 600;
-      letter-spacing: 0.02em;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 0.5rem;
-      width: 100%;
-    }
-
-    .security-tagline .fa-lock {
-      color: var(--primary-blue);
-    }
-
     /* Responsive Design */
     @media (max-width: 767.98px) {
+      .right-panel {
+        display: none;
+      }
+
       .form-column {
         padding: 0 1.5rem;
       }
@@ -887,10 +631,6 @@
       .login-container {
         margin: 1rem;
         padding: 2rem;
-      }
-
-      .consent-text {
-        text-align: center;
       }
 
       .logo-container img {
@@ -934,33 +674,12 @@
 
 <body class="bg-light">
 
-  <div class="container-fluid h-100 page-wrapper px-0">
-    <div class="row h-100 g-0 align-items-stretch">
+  <div class="container-fluid h-100">
+    <div class="row h-100">
 
-      <!-- LEFT: Hero / Feature Panel -->
-      <div class="col-lg-5 col-xl-6 d-none d-lg-flex align-items-center justify-content-center feature-panel">
-        <div class="feature-content text-center text-lg-start">
-          <span class="feature-badge">
-            <i class="fas fa-sparkles"></i> Lumina HQ Platform
-          </span>
-          <h2 class="feature-heading">Centralized clarity & collaboration</h2>
-          <p class="feature-text">Monitor performance, coach your teams, and orchestrate quality programs in one collaborative workspace.</p>
-          <ul class="feature-list">
-            <li><i class="fas fa-chart-line"></i><span>Real-time insight into quality, productivity, and coaching impact.</span></li>
-            <li><i class="fas fa-people-group"></i><span>Streamlined workflows that keep support, QA, and operations aligned.</span></li>
-            <li><i class="fas fa-shield-check"></i><span>Enterprise-grade controls to protect sensitive customer data.</span></li>
-          </ul>
-          <div class="feature-illustration">
-            <img src="https://res.cloudinary.com/dr8qd3xfc/image/upload/v1743438226/vlbpo/huowvct9gus48rwy8sfy.svg"
-                 alt="Team collaboration illustration" loading="lazy">
-          </div>
-        </div>
-      </div>
-
-      <!-- RIGHT: Login Form -->
-      <div class="col-lg-7 col-xl-6 d-flex align-items-center justify-content-center bg-light form-column">
+      <!-- LEFT: Modern Login Form -->
+      <div class="col-md-6 d-flex align-items-center justify-content-center bg-light form-column">
         <div class="login-container">
-          <div class="login-body">
 
           <!-- Logo Section -->
           <div class="logo-container">
@@ -969,8 +688,8 @@
           </div>
 
           <div class="welcome-text">
-            <h1>Welcome back</h1>
-            <p>Log in to access your LuminaHQ operations hub.</p>
+            <h1>Welcome back 👋</h1>
+            <p>Sign in to access your LuminaHQ workspace.</p>
           </div>
 
           <!-- Enhanced Alerts -->
@@ -1001,31 +720,23 @@
             <div id="nextStepsActions" class="d-flex flex-column flex-md-row gap-2"></div>
           </div>
 
-          <div id="deviceVerificationModal" class="device-modal" aria-hidden="true">
-            <div class="device-modal-backdrop"></div>
-            <div class="device-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="deviceVerificationTitle">
-              <span class="badge bg-warning-subtle text-warning-emphasis mb-3" id="deviceVerificationBadge">
-                <i class="fas fa-shield-halved me-1"></i> Security Check
-              </span>
-              <h4 id="deviceVerificationTitle" class="device-modal-title">Confirm this sign-in</h4>
-              <p id="deviceVerificationMessage" class="device-modal-body">
-                We sent a verification code to your email address to confirm this device.
-              </p>
-              <ul id="deviceVerificationMeta" class="device-meta-list"></ul>
-              <div class="mb-3">
-                <label for="deviceVerificationCode" class="form-label">Verification code</label>
-                <input type="text" id="deviceVerificationCode" class="form-control device-modal-code-input"
-                       autocomplete="one-time-code" inputmode="numeric" maxlength="8"
-                       placeholder="Enter the code">
+          <!-- Success Redirect Section -->
+          <div id="redirectSection" class="redirect-section">
+            <i class="fas fa-check-circle fa-4x mb-4 text-success success-icon"></i>
+            <h4 class="text-success fw-bold mb-3">Login Successful!</h4>
+            <div class="countdown-display">
+              <div id="countdown">Preparing your dashboard...</div>
+              <div class="mt-2">
+                <span class="countdown-number" id="countdownNumber">3</span>
+                <small class="text-muted">seconds remaining</small>
               </div>
-              <div id="deviceVerificationError" class="device-modal-error"></div>
-              <div class="device-modal-actions">
-                <button type="button" id="deviceVerificationConfirmBtn" class="btn btn-primary flex-grow-1">
-                  <i class="fas fa-paper-plane me-2"></i>Submit code
-                </button>
-              </div>
-              <button type="button" id="deviceVerificationCancelBtn" class="btn btn-link text-muted mt-3 p-0">
-                Use a different account
+            </div>
+            <a id="continueButton" class="redirect-button" target="_top" href="#">
+              <i class="fas fa-arrow-right"></i>Continue to Dashboard
+            </a>
+            <div class="mt-3">
+              <button type="button" class="btn btn-outline-secondary btn-sm" onclick="cancelRedirect()">
+                <i class="fas fa-times me-1"></i>Cancel Auto-Redirect
               </button>
             </div>
           </div>
@@ -1047,85 +758,45 @@
                 </button>
               </div>
             </div>
-            <div class="form-check">
+            <div class="form-check mb-3">
               <input class="form-check-input" type="checkbox" id="rememberMe">
               <label class="form-check-label" for="rememberMe">
                 Remember me for 24 hours
               </label>
             </div>
-            <div id="mfaSection" class="mfa-section">
-              <div class="mb-3">
-                <label for="mfaCode" class="form-label">Authentication Code</label>
-                <input type="text" id="mfaCode" class="form-control" placeholder="Enter verification code"
-                       autocomplete="one-time-code" inputmode="numeric">
-              </div>
-              <div class="d-flex flex-column flex-md-row gap-2">
-                <button type="button" id="verifyMfaBtn" class="btn btn-primary flex-grow-1">
-                  <i class="fas fa-shield-check me-2"></i>Verify Code
-                </button>
-                <button type="button" id="resendMfaBtn" class="btn btn-outline-secondary">
-                  <i class="fas fa-paper-plane me-2"></i>Resend Code
-                </button>
-              </div>
-              <div id="mfaMessage" class="mfa-message mt-3 text-muted"></div>
-            </div>
-            <div class="d-grid">
+            <div class="d-grid mb-3">
               <button type="submit" id="loginBtn" class="btn btn-primary btn-lg">
-                <i class="fas fa-sign-in-alt me-2"></i>Log in
+                <i class="fas fa-sign-in-alt me-2"></i>Sign in
               </button>
             </div>
-            <div id="feedback" class="text-danger small"></div>
+            <div id="feedback" class="text-danger small mb-3"></div>
           </form>
 
           <!-- Forgot Password Link -->
-          <div class="text-center">
+          <div class="text-center mb-4">
             <a href="<?= baseUrl ?>?page=forgotpassword" class="link-primary">
               <i class="fas fa-question-circle me-2"></i>Forgot your password?
             </a>
           </div>
 
-          </div>
-
-          <div class="login-footer">
-            <p class="consent-text text-center">
-              By clicking <strong>Log in</strong>, you agree to our <a href="<?= baseUrl ?>?page=terms-of-service" target="_blank" rel="noopener">Terms &amp; Conditions</a> and acknowledge our <a href="<?= baseUrl ?>?page=privacy-policy" target="_blank" rel="noopener">Privacy Policy</a> on how we collect and handle data.
-            </p>
-
-            <p class="security-tagline">
-              <i class="fas fa-lock"></i>
-              Secure by Lumina Identity
-            </p>
-
-            <div class="footer-links text-center">
-              <a href="<?= baseUrl ?>?page=privacy-policy" class="small" target="_blank" rel="noopener">Privacy Policy</a>
-              <span class="small mx-2 text-muted">•</span>
-              <a href="<?= baseUrl ?>?page=terms-of-service" class="small" target="_blank" rel="noopener">Terms of Service</a>
-            </div>
+          <div class="footer-links text-center mt-4">
+            <a href="#" class="small">Privacy Policy</a>
+            <span class="small mx-2 text-muted">•</span>
+            <a href="#" class="small">Terms of Service</a>
           </div>
         </div>
-
       </div>
+
+      <!-- RIGHT: Illustration -->
+      <div class="col-md-6 gradient-bg d-none d-md-flex align-items-center justify-content-center right-panel">
+        <img src="https://res.cloudinary.com/dr8qd3xfc/image/upload/v1743438226/vlbpo/huowvct9gus48rwy8sfy.svg"
+             alt="Welcome Illustration" class="img-fluid" loading="lazy">
+      </div>
+
     </div>
   </div>
 
   <script>
-    function getDefaultRedirectPage() {
-      if (typeof window === 'undefined') {
-        return 'dashboard';
-      }
-
-      var existing = window.DEFAULT_REDIRECT_PAGE;
-      if (typeof existing === 'string' && existing.trim()) {
-        return existing;
-      }
-
-      var fallback = 'dashboard';
-      window.DEFAULT_REDIRECT_PAGE = fallback;
-      return fallback;
-    }
-
-    const SERVER_OBSERVED_METADATA = <?!= serverMetadataJson || 'null' ?>;
-    const INITIAL_RETURN_URL = <?!= JSON.stringify(initialReturnUrl || '') ?>;
     // ───────────────────────────────────────────────────────────────────────────────
     // SIMPLIFIED AUTHENTICATION CONFIGURATION
     // ───────────────────────────────────────────────────────────────────────────────
@@ -1137,29 +808,6 @@
 
     const LOGIN_REQUEST_TIMEOUT_MS = 20000; // Renew loading state after 20 seconds
     const SESSION_RESUME_LOADER_DELAY_MS = 500;
-
-    const LOGOUT_REASON_STORAGE_KEY = 'lumina.lastLogoutReason';
-
-    function getStoredLogoutReason() {
-      try {
-        if (window.sessionStorage) {
-          return window.sessionStorage.getItem(LOGOUT_REASON_STORAGE_KEY) || '';
-        }
-      } catch (err) {
-        console.warn('getStoredLogoutReason: unable to read logout reason', err);
-      }
-      return '';
-    }
-
-    function clearStoredLogoutReason() {
-      try {
-        if (window.sessionStorage) {
-          window.sessionStorage.removeItem(LOGOUT_REASON_STORAGE_KEY);
-        }
-      } catch (err) {
-        console.warn('clearStoredLogoutReason: unable to clear logout reason', err);
-      }
-    }
 
     function sanitizeBaseUrl(candidate, fallback) {
       const invalidPattern = /usercodeapppanel/i;
@@ -1220,7 +868,7 @@
 
     const SUPPORT_EMAIL = 'support@vlbpo.com';
     const REMEMBER_DURATION_MS = 24 * 60 * 60 * 1000;
-    const SESSION_COOKIE_MAX_AGE = 30 * 60; // 30 minutes
+    const SESSION_COOKIE_MAX_AGE = 60 * 60; // 1 hour
     const REMEMBER_COOKIE_MAX_AGE = 24 * 60 * 60; // 24 hours
     const STORAGE_KEYS = {
       rememberedEmail: 'lumina.auth.rememberedEmail',
@@ -1237,31 +885,26 @@
       emailInput: document.getElementById('email'),
       passwordInput: document.getElementById('password'),
       rememberMeCheckbox: document.getElementById('rememberMe'),
+      redirectSection: document.getElementById('redirectSection'),
+      continueButton: document.getElementById('continueButton'),
       loginForm: document.getElementById('loginForm'),
+      countdown: document.getElementById('countdown'),
+      countdownNumber: document.getElementById('countdownNumber'),
       nextStepsCard: document.getElementById('nextStepsCard'),
       nextStepsTitle: document.getElementById('nextStepsTitle'),
       nextStepsSubtitle: document.getElementById('nextStepsSubtitle'),
       nextStepsBody: document.getElementById('nextStepsBody'),
       nextStepsActions: document.getElementById('nextStepsActions'),
-      nextStepsIcon: document.getElementById('nextStepsIcon'),
-      mfaSection: document.getElementById('mfaSection'),
-      mfaCodeInput: document.getElementById('mfaCode'),
-      verifyMfaBtn: document.getElementById('verifyMfaBtn'),
-      resendMfaBtn: document.getElementById('resendMfaBtn'),
-      mfaMessage: document.getElementById('mfaMessage'),
-      deviceModal: document.getElementById('deviceVerificationModal'),
-      deviceModalMessage: document.getElementById('deviceVerificationMessage'),
-      deviceModalMeta: document.getElementById('deviceVerificationMeta'),
-      deviceModalCodeInput: document.getElementById('deviceVerificationCode'),
-      deviceModalConfirmBtn: document.getElementById('deviceVerificationConfirmBtn'),
-      deviceModalError: document.getElementById('deviceVerificationError'),
-      deviceModalCancelBtn: document.getElementById('deviceVerificationCancelBtn'),
-      deviceModalBadge: document.getElementById('deviceVerificationBadge')
+      nextStepsIcon: document.getElementById('nextStepsIcon')
     };
 
     // State management
     let state = {
       lastEmail: '',
+      redirectTimer: null,
+      isRedirecting: false,
+      redirectUrl: '',
+      countdownValue: 3,
       authToken: '',
       hasAttemptedResume: false,
       loginRequestTimer: null,
@@ -1271,34 +914,8 @@
       autoRetryCount: 0,
       isAutoRetrying: false,
       resumeLoaderTimer: null,
-      resumeLoaderVisible: false,
-      pendingMfa: null,
-      mfaDeliveryInFlight: false,
-      mfaVerifyInFlight: false,
-      mfaCountdownTimer: null,
-      mfaBaseMessage: '',
-      pendingDeviceVerification: null,
-      deviceVerificationInFlight: false,
-      keepAliveTimer: null,
-      keepAliveIntervalMs: null,
-      sessionIdleTimeoutMinutes: null,
-      sessionTtlSeconds: null,
-      sessionExpiresAt: null,
-      lastRememberMe: false,
-      lastLogoutReason: getStoredLogoutReason(),
-      preferredReturnUrl: ''
+      resumeLoaderVisible: false
     };
-
-    if (INITIAL_RETURN_URL && (!state.lastLogoutReason || state.lastLogoutReason === 'auto')) {
-      try {
-        const sanitizedInitial = sanitizePreferredRedirect(INITIAL_RETURN_URL);
-        if (sanitizedInitial) {
-          state.preferredReturnUrl = sanitizedInitial;
-        }
-      } catch (initialError) {
-        console.warn('Unable to apply initial return URL from server metadata', initialError);
-      }
-    }
 
     // ───────────────────────────────────────────────────────────────────────────────
     // ENHANCED ALERT SYSTEM
@@ -1374,10 +991,10 @@
 
         if (isLoading) {
           elements.loginBtn.classList.add('btn-loading');
-          elements.loginBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Logging in…';
+          elements.loginBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>SIGNING IN…';
         } else {
           elements.loginBtn.classList.remove('btn-loading');
-          elements.loginBtn.innerHTML = '<i class="fas fa-sign-in-alt me-2"></i>Log in';
+          elements.loginBtn.innerHTML = '<i class="fas fa-sign-in-alt me-2"></i>SIGN IN';
         }
       }
     }
@@ -1498,482 +1115,6 @@
           }, 200);
         }
       }, LOGIN_REQUEST_TIMEOUT_MS);
-    }
-
-    function resetMfaState() {
-      if (state.mfaCountdownTimer) {
-        clearInterval(state.mfaCountdownTimer);
-        state.mfaCountdownTimer = null;
-      }
-      state.pendingMfa = null;
-      state.mfaDeliveryInFlight = false;
-      state.mfaVerifyInFlight = false;
-      state.mfaBaseMessage = '';
-
-      if (elements.mfaSection) {
-        elements.mfaSection.classList.remove('active');
-      }
-      if (elements.mfaMessage) {
-        elements.mfaMessage.textContent = '';
-        elements.mfaMessage.className = 'mfa-message mt-3 text-muted';
-      }
-      if (elements.mfaCodeInput) {
-        elements.mfaCodeInput.value = '';
-        elements.mfaCodeInput.removeAttribute('readonly');
-        elements.mfaCodeInput.disabled = false;
-      }
-      if (elements.emailInput) {
-        elements.emailInput.removeAttribute('readonly');
-        elements.emailInput.disabled = false;
-      }
-      if (elements.passwordInput) {
-        elements.passwordInput.removeAttribute('readonly');
-        elements.passwordInput.disabled = false;
-      }
-      if (elements.verifyMfaBtn) {
-        elements.verifyMfaBtn.disabled = false;
-        elements.verifyMfaBtn.innerHTML = '<i class="fas fa-shield-check me-2"></i>Verify Code';
-      }
-      if (elements.resendMfaBtn) {
-        elements.resendMfaBtn.disabled = false;
-        elements.resendMfaBtn.innerHTML = '<i class="fas fa-paper-plane me-2"></i>Resend Code';
-      }
-      if (elements.loginBtn) {
-        elements.loginBtn.classList.remove('d-none');
-        elements.loginBtn.disabled = false;
-        elements.loginBtn.innerHTML = '<i class="fas fa-sign-in-alt me-2"></i>Log in';
-      }
-    }
-
-    function setMfaMessage(message, tone = 'info') {
-      if (!elements.mfaMessage) return;
-      state.mfaBaseMessage = message || '';
-      elements.mfaMessage.className = 'mfa-message mt-3';
-      if (tone === 'success') {
-        elements.mfaMessage.classList.add('text-success');
-      } else if (tone === 'error') {
-        elements.mfaMessage.classList.add('text-danger');
-      } else if (tone === 'warning') {
-        elements.mfaMessage.classList.add('text-warning');
-      } else {
-        elements.mfaMessage.classList.add('text-muted');
-      }
-      elements.mfaMessage.textContent = message || '';
-    }
-
-    function updateMfaCountdownLabel() {
-      if (!elements.mfaMessage || !state.pendingMfa || !state.pendingMfa.expiresAt) {
-        return;
-      }
-      const baseMessage = state.mfaBaseMessage || '';
-      const msRemaining = state.pendingMfa.expiresAt - Date.now();
-      if (msRemaining <= 0) {
-        elements.mfaMessage.textContent = baseMessage
-          ? baseMessage + ' (code expired)'
-          : 'The verification code has expired.';
-        return;
-      }
-      const totalSeconds = Math.floor(msRemaining / 1000);
-      const minutes = Math.floor(totalSeconds / 60);
-      const seconds = totalSeconds % 60;
-      const label = minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
-      const prefix = baseMessage || 'Enter the verification code.';
-      elements.mfaMessage.textContent = `${prefix} (expires in ${label})`;
-    }
-
-    function startMfaCountdown() {
-      if (state.mfaCountdownTimer) {
-        clearInterval(state.mfaCountdownTimer);
-        state.mfaCountdownTimer = null;
-      }
-      if (!state.pendingMfa || !state.pendingMfa.expiresAt) {
-        return;
-      }
-
-      updateMfaCountdownLabel();
-      state.mfaCountdownTimer = setInterval(() => {
-        if (!state.pendingMfa || !state.pendingMfa.expiresAt) {
-          clearInterval(state.mfaCountdownTimer);
-          state.mfaCountdownTimer = null;
-          return;
-        }
-        const msRemaining = state.pendingMfa.expiresAt - Date.now();
-        if (msRemaining <= 0) {
-          clearInterval(state.mfaCountdownTimer);
-          state.mfaCountdownTimer = null;
-          setMfaMessage('The verification code has expired. Request a new one to continue.', 'warning');
-          return;
-        }
-        updateMfaCountdownLabel();
-      }, 1000);
-    }
-
-    function setMfaDeliveryLoading(isLoading) {
-      state.mfaDeliveryInFlight = !!isLoading;
-      if (elements.resendMfaBtn) {
-        elements.resendMfaBtn.disabled = !!isLoading;
-        elements.resendMfaBtn.innerHTML = isLoading
-          ? '<i class="fas fa-spinner fa-spin me-2"></i>Sending...'
-          : '<i class="fas fa-paper-plane me-2"></i>Resend Code';
-      }
-      if (elements.verifyMfaBtn) {
-        elements.verifyMfaBtn.disabled = state.mfaVerifyInFlight || !!isLoading;
-      }
-    }
-
-    function setMfaVerifyLoading(isLoading) {
-      state.mfaVerifyInFlight = !!isLoading;
-      if (elements.verifyMfaBtn) {
-        elements.verifyMfaBtn.disabled = !!isLoading;
-        elements.verifyMfaBtn.innerHTML = isLoading
-          ? '<i class="fas fa-spinner fa-spin me-2"></i>Verifying...'
-          : '<i class="fas fa-shield-check me-2"></i>Verify Code';
-      }
-      if (elements.resendMfaBtn) {
-        elements.resendMfaBtn.disabled = state.mfaDeliveryInFlight || !!isLoading;
-      }
-    }
-
-    function requestMfaCode({ deliveryMethod, silent } = {}) {
-      if (!state.pendingMfa || state.mfaDeliveryInFlight) {
-        return;
-      }
-      setMfaDeliveryLoading(true);
-      if (!silent) {
-        setMfaMessage('Sending verification code…', 'info');
-      }
-
-      const payload = deliveryMethod ? { deliveryMethod } : null;
-
-      google.script.run
-        .withSuccessHandler(response => {
-          setMfaDeliveryLoading(false);
-          handleMfaDeliveryResponse(response);
-        })
-        .withFailureHandler(error => {
-          console.error('requestMfaCode error:', error);
-          setMfaDeliveryLoading(false);
-          setMfaMessage('Unable to send verification code. Please try again.', 'error');
-        })
-        .beginMfaChallenge(state.pendingMfa.challengeId, payload);
-    }
-
-    function handleMfaDeliveryResponse(response) {
-      if (!response || response.success === false) {
-        const message = (response && response.error) || 'Unable to send verification code.';
-        setMfaMessage(message, 'error');
-        if (response && response.challengeExpired) {
-          showAlert('error', 'Your verification challenge expired. Please sign in again.');
-          resetMfaState();
-        }
-        return;
-      }
-
-      if (state.pendingMfa) {
-        state.pendingMfa.maskedDestination = response.maskedDestination || state.pendingMfa.maskedDestination;
-        state.pendingMfa.totp = !!response.totp;
-        state.pendingMfa.deliveriesRemaining = response.deliveriesRemaining;
-        state.pendingMfa.backupCodesRemaining = response.backupCodesRemaining;
-        state.pendingMfa.expiresAt = response.expiresAt ? new Date(response.expiresAt) : null;
-      }
-
-      if (response.totp) {
-        setMfaMessage('Open your authenticator app and enter the current verification code.', 'info');
-      } else if (response.maskedDestination) {
-        setMfaMessage(`We sent a verification code to ${response.maskedDestination}.`, 'success');
-      } else {
-        setMfaMessage('Verification code sent. Check your messages to continue.', 'success');
-      }
-
-      if (elements.mfaCodeInput) {
-        elements.mfaCodeInput.focus();
-        elements.mfaCodeInput.select();
-      }
-
-      if (state.pendingMfa && state.pendingMfa.expiresAt) {
-        startMfaCountdown();
-      }
-    }
-
-    function formatDateTime(value) {
-      if (!value) return '';
-      try {
-        const date = value instanceof Date ? value : new Date(value);
-        if (isNaN(date.getTime())) {
-          return '';
-        }
-        return date.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
-      } catch (err) {
-        console.warn('formatDateTime error', err);
-        return '';
-      }
-    }
-
-    function updateDeviceVerificationError(message) {
-      if (elements.deviceModalError) {
-        elements.deviceModalError.textContent = message || '';
-      }
-    }
-
-    function setDeviceVerificationLoading(isLoading) {
-      state.deviceVerificationInFlight = !!isLoading;
-      if (elements.deviceModalConfirmBtn) {
-        elements.deviceModalConfirmBtn.disabled = !!isLoading;
-        elements.deviceModalConfirmBtn.innerHTML = isLoading
-          ? '<i class="fas fa-spinner fa-spin me-2"></i>Submitting…'
-          : '<i class="fas fa-paper-plane me-2"></i>Submit code';
-      }
-    }
-
-    function hideDeviceVerificationPrompt({ resetState = true } = {}) {
-      if (elements.deviceModal) {
-        elements.deviceModal.classList.remove('show');
-        elements.deviceModal.setAttribute('aria-hidden', 'true');
-      }
-      state.deviceVerificationInFlight = false;
-      if (resetState) {
-        state.pendingDeviceVerification = null;
-        updateDeviceVerificationError('');
-        if (elements.deviceModalCodeInput) {
-          elements.deviceModalCodeInput.value = '';
-        }
-      }
-      if (elements.deviceModalConfirmBtn) {
-        elements.deviceModalConfirmBtn.disabled = false;
-        elements.deviceModalConfirmBtn.innerHTML = '<i class="fas fa-paper-plane me-2"></i>Submit code';
-      }
-    }
-
-    function showDeviceVerificationPrompt(response, email, rememberMe) {
-      const verification = response && response.verification ? response.verification : {};
-      const verificationId = verification.id || verification.verificationId || '';
-      if (!verificationId) {
-        showAlert('error', 'We were unable to start the verification process. Please try again.');
-        return;
-      }
-
-      const expiresAt = verification.expiresAt ? new Date(verification.expiresAt) : null;
-      state.pendingDeviceVerification = {
-        id: verificationId,
-        email: email,
-        rememberMe: !!rememberMe,
-        maskedEmail: verification.maskedEmail || '',
-        ipAddress: verification.ipAddress || '',
-        expiresAt: expiresAt,
-        message: response && response.message ? response.message : (verification.message || ''),
-        codeLength: verification.codeLength || 6
-      };
-
-      if (!state.pendingDeviceVerification.ipAddress && SERVER_OBSERVED_METADATA) {
-        const forwarded = typeof SERVER_OBSERVED_METADATA.forwardedFor === 'string'
-          ? SERVER_OBSERVED_METADATA.forwardedFor.split(',')[0].trim()
-          : '';
-        state.pendingDeviceVerification.ipAddress = forwarded
-          || (SERVER_OBSERVED_METADATA.serverIp || SERVER_OBSERVED_METADATA.clientAddress || '');
-      }
-
-      if (state.pendingDeviceVerification.ipAddress) {
-        state.pendingDeviceVerification.ipAddress = state.pendingDeviceVerification.ipAddress.trim();
-      }
-
-      if (elements.deviceModalMessage) {
-        const primaryMessage = state.pendingDeviceVerification.message
-          || 'We sent a verification code to confirm this device.';
-        const destination = state.pendingDeviceVerification.maskedEmail
-          ? `Check ${state.pendingDeviceVerification.maskedEmail} for the code.`
-          : 'Check your email for the code.';
-        const securityHint = 'If this wasn\'t you, use the "Secure my account" link in that email to reset your password.';
-        elements.deviceModalMessage.innerText = `${primaryMessage} ${destination} ${securityHint}`.trim();
-      }
-
-      if (elements.deviceModalMeta) {
-        const metaItems = [];
-        if (state.pendingDeviceVerification.maskedEmail) {
-          metaItems.push({ label: 'Email', value: state.pendingDeviceVerification.maskedEmail });
-        }
-        if (state.pendingDeviceVerification.ipAddress) {
-          metaItems.push({ label: 'Observed IP', value: state.pendingDeviceVerification.ipAddress });
-        }
-        if (state.pendingDeviceVerification.expiresAt) {
-          metaItems.push({ label: 'Expires', value: formatDateTime(state.pendingDeviceVerification.expiresAt) });
-        }
-
-        if (metaItems.length) {
-          elements.deviceModalMeta.classList.remove('d-none');
-          elements.deviceModalMeta.innerHTML = metaItems.map(item => (
-            `<li><span class="device-meta-label">${item.label}</span><span>${item.value}</span></li>`
-          )).join('');
-        } else {
-          elements.deviceModalMeta.classList.add('d-none');
-          elements.deviceModalMeta.innerHTML = '';
-        }
-      }
-
-      if (elements.deviceModalCodeInput) {
-        elements.deviceModalCodeInput.value = '';
-        elements.deviceModalCodeInput.maxLength = state.pendingDeviceVerification.codeLength || 8;
-        elements.deviceModalCodeInput.placeholder = `Enter ${state.pendingDeviceVerification.codeLength || 6}-digit code`;
-        setTimeout(() => {
-          elements.deviceModalCodeInput.focus();
-          elements.deviceModalCodeInput.select();
-        }, 120);
-      }
-
-      updateDeviceVerificationError('');
-      if (elements.deviceModal) {
-        elements.deviceModal.classList.add('show');
-        elements.deviceModal.setAttribute('aria-hidden', 'false');
-      }
-    }
-
-    function submitDeviceVerification() {
-      if (state.deviceVerificationInFlight) {
-        return;
-      }
-
-      if (!state.pendingDeviceVerification || !state.pendingDeviceVerification.id) {
-        showAlert('error', 'We could not find that verification request. Please sign in again.');
-        hideDeviceVerificationPrompt();
-        return;
-      }
-
-      const codeValue = elements.deviceModalCodeInput ? elements.deviceModalCodeInput.value.trim() : '';
-      if (!codeValue) {
-        updateDeviceVerificationError('Enter the verification code from your email.');
-        if (elements.deviceModalCodeInput) {
-          elements.deviceModalCodeInput.focus();
-        }
-        return;
-      }
-
-      setDeviceVerificationLoading(true);
-      updateDeviceVerificationError('');
-
-      google.script.run
-        .withSuccessHandler(response => {
-          setDeviceVerificationLoading(false);
-          if (response && response.success) {
-            hideDeviceVerificationPrompt();
-            completeAuthenticatedLogin(response, state.pendingDeviceVerification.rememberMe);
-            return;
-          }
-
-          if (response && response.error) {
-            updateDeviceVerificationError(response.error);
-            if (response.errorCode === 'VERIFICATION_EXPIRED') {
-              hideDeviceVerificationPrompt();
-              showAlert('warning', 'The verification request expired. Please sign in again.');
-            }
-            return;
-          }
-
-          updateDeviceVerificationError('We were unable to confirm the device. Please try again.');
-        })
-        .withFailureHandler(error => {
-          console.error('submitDeviceVerification error:', error);
-          setDeviceVerificationLoading(false);
-          updateDeviceVerificationError('A network error occurred while verifying. Please try again.');
-        })
-        .confirmDeviceVerification(state.pendingDeviceVerification.id, codeValue, collectClientMetadata());
-    }
-
-    function verifyMfaCodeInput() {
-      if (!state.pendingMfa || state.mfaVerifyInFlight) {
-        return;
-      }
-
-      const code = elements.mfaCodeInput ? elements.mfaCodeInput.value.trim() : '';
-      if (!code) {
-        setMfaMessage('Enter the verification code to continue.', 'warning');
-        if (elements.mfaCodeInput) {
-          elements.mfaCodeInput.focus();
-        }
-        return;
-      }
-
-      setMfaVerifyLoading(true);
-      setMfaMessage('Verifying code…', 'info');
-
-      google.script.run
-        .withSuccessHandler(response => {
-          setMfaVerifyLoading(false);
-          handleMfaVerificationResponse(response);
-        })
-        .withFailureHandler(error => {
-          console.error('verifyMfaCode error:', error);
-          setMfaVerifyLoading(false);
-          setMfaMessage('Unable to verify the code. Please try again.', 'error');
-        })
-        .verifyMfaCode(state.pendingMfa.challengeId, code, collectClientMetadata());
-    }
-
-    function handleMfaVerificationResponse(response) {
-      if (!response || response.success === false) {
-        const message = (response && response.error) || 'The verification code you entered is not valid.';
-        if (response && typeof response.remainingAttempts === 'number') {
-          setMfaMessage(`${message} (${response.remainingAttempts} attempts remaining)`, 'error');
-        } else {
-          setMfaMessage(message, 'error');
-        }
-        if (response && response.challengeExpired) {
-          showAlert('error', 'Your verification session expired. Please sign in again.');
-          resetMfaState();
-        }
-        return;
-      }
-
-      setMfaMessage('Verification successful. Completing sign-in…', 'success');
-      const rememberMe = state.pendingMfa ? !!state.pendingMfa.rememberMe : false;
-      const pendingEmail = state.pendingMfa ? state.pendingMfa.email : '';
-      if (pendingEmail) {
-        persistEmailState(pendingEmail, rememberMe);
-      }
-      resetMfaState();
-      completeAuthenticatedLogin(response, rememberMe);
-    }
-
-    function showMfaStep(response, email, rememberMe) {
-      if (!response || !response.mfa || !response.mfa.challengeId) {
-        return;
-      }
-
-      if (state.mfaCountdownTimer) {
-        clearInterval(state.mfaCountdownTimer);
-        state.mfaCountdownTimer = null;
-      }
-
-      state.pendingMfa = {
-        challengeId: response.mfa.challengeId,
-        email: email,
-        rememberMe: rememberMe,
-        deliveryMethod: response.mfa.deliveryMethod || '',
-        maskedDestination: response.mfa.maskedDestination || '',
-        totp: !!response.mfa.totp,
-        deliveriesRemaining: response.mfa.deliveriesRemaining,
-        backupCodesRemaining: response.mfa.backupCodesRemaining,
-        expiresAt: response.mfa.expiresAt ? new Date(response.mfa.expiresAt) : null
-      };
-
-      if (elements.mfaSection) {
-        elements.mfaSection.classList.add('active');
-      }
-      if (elements.loginBtn) {
-        elements.loginBtn.classList.add('d-none');
-      }
-      if (elements.emailInput) {
-        elements.emailInput.setAttribute('readonly', 'readonly');
-      }
-      if (elements.passwordInput) {
-        elements.passwordInput.setAttribute('readonly', 'readonly');
-      }
-      if (elements.mfaCodeInput) {
-        elements.mfaCodeInput.value = '';
-        elements.mfaCodeInput.focus();
-      }
-
-      setMfaMessage('Sending verification code…', 'info');
-      requestMfaCode({ silent: true });
-      showAlert('info', 'Complete the verification step below to finish signing in.');
     }
 
     // ───────────────────────────────────────────────────────────────────────────────
@@ -2156,7 +1297,6 @@
     }
 
     function clearAuthCookie() {
-      stopKeepAliveHeartbeat();
       try {
         if (window.CookieHandler && typeof CookieHandler.clearAuthToken === 'function') {
           CookieHandler.clearAuthToken();
@@ -2164,86 +1304,23 @@
       } catch (err) {
         console.warn('Unable to clear auth cookie', err);
       }
-
-      try {
-        if (window.localStorage) {
-          localStorage.removeItem('lumina.session.token');
-          localStorage.removeItem('lumina.auth.sessionToken');
-          localStorage.removeItem('lumina.auth.fallbackToken');
-        }
-      } catch (err) {
-        console.warn('Unable to clear auth token from localStorage', err);
-      }
-
-      try {
-        if (window.sessionStorage) {
-          sessionStorage.removeItem('lumina.session.token');
-          sessionStorage.removeItem('lumina.auth.sessionToken');
-          sessionStorage.removeItem('lumina.auth.fallbackToken');
-        }
-      } catch (err) {
-        console.warn('Unable to clear auth token from sessionStorage', err);
-      }
-
-      broadcastSessionTokenChange('');
-
       state.authToken = '';
-      state.sessionIdleTimeoutMinutes = null;
-      state.sessionTtlSeconds = null;
-      state.sessionExpiresAt = null;
     }
 
-    function broadcastSessionTokenChange(token) {
-      try {
-        if (typeof window === 'undefined') {
-          return;
-        }
-
-        window.__LUMINA_SESSION_TOKEN__ = token || '';
-
-        if (typeof window.dispatchEvent !== 'function') {
-          return;
-        }
-
-        const detail = { token: token || '' };
-        let event = null;
-
-        if (typeof CustomEvent === 'function') {
-          event = new CustomEvent('lumina:session-token', { detail });
-        } else if (window.document && typeof window.document.createEvent === 'function') {
-          event = window.document.createEvent('CustomEvent');
-          event.initCustomEvent('lumina:session-token', false, false, detail);
-        }
-
-        if (event) {
-          window.dispatchEvent(event);
-        }
-      } catch (err) {
-        console.warn('broadcastSessionTokenChange: Unable to notify listeners', err);
-      }
-    }
-
-    function persistSessionToken(token, rememberMe, expiresAtIso, ttlSeconds, idleTimeoutMinutes) {
+    function persistSessionToken(token, rememberMe, expiresAtIso, ttlSeconds) {
       if (!token) {
         clearAuthCookie();
         return;
       }
 
       state.authToken = token;
-      state.lastRememberMe = typeof rememberMe === 'boolean' ? rememberMe : state.lastRememberMe;
-      state.sessionExpiresAt = expiresAtIso || null;
-      state.sessionTtlSeconds = (typeof ttlSeconds === 'number' && ttlSeconds > 0) ? ttlSeconds : null;
 
-      if (typeof idleTimeoutMinutes === 'number' && isFinite(idleTimeoutMinutes) && idleTimeoutMinutes > 0) {
-        state.sessionIdleTimeoutMinutes = Math.max(1, Math.round(idleTimeoutMinutes));
-      }
+      let maxAgeSeconds = (typeof ttlSeconds === 'number' && ttlSeconds > 0)
+        ? Math.floor(ttlSeconds)
+        : (rememberMe ? REMEMBER_COOKIE_MAX_AGE : SESSION_COOKIE_MAX_AGE);
 
-      let maxAgeSeconds = state.sessionTtlSeconds
-        ? Math.floor(state.sessionTtlSeconds)
-        : (state.lastRememberMe ? REMEMBER_COOKIE_MAX_AGE : SESSION_COOKIE_MAX_AGE);
-
-      if (state.sessionExpiresAt) {
-        const expiryTime = Date.parse(state.sessionExpiresAt);
+      if (expiresAtIso) {
+        const expiryTime = Date.parse(expiresAtIso);
         if (!isNaN(expiryTime)) {
           const delta = Math.floor((expiryTime - Date.now()) / 1000);
           if (delta > 0) {
@@ -2252,7 +1329,7 @@
         }
       }
 
-      maxAgeSeconds = Math.max(300, maxAgeSeconds);
+      maxAgeSeconds = Math.max(300, maxAgeSeconds); // ensure at least 5 minutes
 
       try {
         if (window.CookieHandler && typeof CookieHandler.persistAuthToken === 'function') {
@@ -2260,131 +1337,6 @@
         }
       } catch (err) {
         console.warn('Unable to persist auth cookie', err);
-      }
-
-      try {
-        if (window.localStorage) {
-          localStorage.setItem('lumina.session.token', token);
-          localStorage.setItem('lumina.auth.sessionToken', token);
-          localStorage.setItem('lumina.auth.fallbackToken', token);
-        }
-      } catch (err) {
-        console.warn('Unable to persist auth token in localStorage', err);
-      }
-
-      try {
-        if (window.sessionStorage) {
-          sessionStorage.setItem('lumina.session.token', token);
-          sessionStorage.setItem('lumina.auth.sessionToken', token);
-          sessionStorage.setItem('lumina.auth.fallbackToken', token);
-        }
-      } catch (err) {
-        console.warn('Unable to persist auth token in sessionStorage', err);
-      }
-
-      broadcastSessionTokenChange(token);
-      restartSessionHeartbeat();
-    }
-
-    function stopKeepAliveHeartbeat() {
-      if (state.keepAliveTimer) {
-        clearTimeout(state.keepAliveTimer);
-        state.keepAliveTimer = null;
-      }
-    }
-
-    function scheduleKeepAliveHeartbeat(delayMs) {
-      stopKeepAliveHeartbeat();
-      if (!delayMs || !isFinite(delayMs) || delayMs <= 0) {
-        return;
-      }
-
-      state.keepAliveIntervalMs = delayMs;
-      state.keepAliveTimer = setTimeout(() => {
-        const tokenForPing = state.authToken || readAuthCookie();
-        if (!tokenForPing) {
-          stopKeepAliveHeartbeat();
-          return;
-        }
-
-        google.script.run
-          .withSuccessHandler(handleKeepAliveSuccess)
-          .withFailureHandler(handleKeepAliveFailure)
-          .keepAlive(tokenForPing);
-      }, delayMs);
-    }
-
-    function restartSessionHeartbeat() {
-      stopKeepAliveHeartbeat();
-
-      const tokenForPing = state.authToken || readAuthCookie();
-      if (!tokenForPing) {
-        return;
-      }
-
-      const idleMinutes = (state.sessionIdleTimeoutMinutes && state.sessionIdleTimeoutMinutes > 0)
-        ? state.sessionIdleTimeoutMinutes
-        : 30;
-      const idleMs = Math.max(1, idleMinutes) * 60 * 1000;
-
-      let ttlMs = null;
-      if (state.sessionTtlSeconds && state.sessionTtlSeconds > 0) {
-        ttlMs = state.sessionTtlSeconds * 1000;
-      } else if (state.sessionExpiresAt) {
-        const expiryTime = Date.parse(state.sessionExpiresAt);
-        if (!isNaN(expiryTime)) {
-          ttlMs = Math.max(0, expiryTime - Date.now());
-        }
-      }
-
-      let intervalMs = Math.max(60000, Math.floor(idleMs / 2));
-      if (ttlMs !== null && ttlMs > 0) {
-        intervalMs = Math.min(intervalMs, Math.max(60000, Math.floor(ttlMs / 2)));
-      }
-
-      const safetyWindow = Math.max(60000, Math.floor(idleMs * 0.2));
-      intervalMs = Math.min(intervalMs, Math.max(60000, idleMs - safetyWindow));
-
-      if (!isFinite(intervalMs) || intervalMs <= 0) {
-        intervalMs = 60000;
-      }
-
-      scheduleKeepAliveHeartbeat(intervalMs);
-    }
-
-    function handleKeepAliveSuccess(result) {
-      if (!result || !result.success) {
-        if (result && result.expired) {
-          handleSessionExpired(result.reason || 'SESSION_EXPIRED');
-        } else {
-          console.warn('Keep-alive returned unexpected response', result);
-          scheduleKeepAliveHeartbeat(Math.min(state.keepAliveIntervalMs || 300000, 300000));
-        }
-        return;
-      }
-
-      persistSessionToken(
-        result.sessionToken || state.authToken || readAuthCookie(),
-        state.lastRememberMe,
-        result.sessionExpiresAt,
-        result.sessionTtlSeconds,
-        result.idleTimeoutMinutes
-      );
-    }
-
-    function handleKeepAliveFailure(error) {
-      console.warn('Keep-alive failed:', error);
-      const retryDelay = Math.max(60000, Math.min((state.keepAliveIntervalMs || 300000) / 2, 300000));
-      scheduleKeepAliveHeartbeat(retryDelay);
-    }
-
-    function handleSessionExpired(reason) {
-      console.log('Session expired:', reason);
-      clearAuthCookie();
-      try {
-        showAlert('info', 'Your session has expired after 30 minutes of inactivity. Please sign in again to continue.');
-      } catch (err) {
-        console.warn('handleSessionExpired: unable to show alert', err);
       }
     }
 
@@ -2422,7 +1374,7 @@
           const resolvedToken = result.sessionToken || cookieToken;
           const rememberFlag = result.rememberMe !== undefined ? !!result.rememberMe : true;
 
-          persistSessionToken(resolvedToken, rememberFlag, result.sessionExpiresAt, result.sessionTtlSeconds, result.idleTimeoutMinutes);
+          persistSessionToken(resolvedToken, rememberFlag, result.sessionExpiresAt, result.sessionTtlSeconds);
 
           const resumedUser = result.user || {};
           const resumedEmail = (resumedUser.Email || resumedUser.email || '').trim();
@@ -2434,48 +1386,7 @@
           }
 
           hideAllAlerts();
-          const resumeInput = result.redirectUrl || (result.redirectSlug ? `?page=${result.redirectSlug}` : '');
-          const hasServerRedirect = !!resumeInput;
-          let resumeUrl = '';
-
-          if (hasServerRedirect) {
-            resumeUrl = normalizeRedirectUrl(resumeInput);
-          }
-
-          const preferredFromState = sanitizePreferredRedirect(state.preferredReturnUrl);
-          const preferredFromResponse = sanitizePreferredRedirect(result.requestedReturnUrl);
-
-          if (preferredFromState) {
-            resumeUrl = preferredFromState;
-          } else if (preferredFromResponse) {
-            resumeUrl = preferredFromResponse;
-          }
-
-          clearStoredLogoutReason();
-          state.lastLogoutReason = '';
-          state.preferredReturnUrl = '';
-
-          if (resumeUrl) {
-            setupRedirect(resumeUrl);
-            hideNextSteps();
-            return;
-          }
-
-          console.log('Session resume succeeded but no redirect target provided; staying on login page.');
-          setLoading(false);
-          hideNextSteps();
-
-          if (!state.loginRequestActive && elements.loginBtn) {
-            elements.loginBtn.disabled = false;
-            elements.loginBtn.classList.remove('btn-loading');
-            elements.loginBtn.innerHTML = '<i class="fas fa-sign-in-alt me-2"></i>Log in';
-          }
-
-          if (resumedEmail) {
-            showAlert('info', `Welcome back, ${resumedEmail}. Click Log in to continue.`);
-          } else {
-            showAlert('info', 'Welcome back! Click Log in to continue.');
-          }
+          setupRedirect(buildPageUrl('dashboard'), resumedUser);
         })
         .withFailureHandler(error => {
           finalizeResumeAttempt();
@@ -2512,34 +1423,6 @@
         }
         if (typeof nav.hardwareConcurrency === 'number') {
           metadata.hardwareConcurrency = nav.hardwareConcurrency;
-        }
-        if (SERVER_OBSERVED_METADATA && typeof SERVER_OBSERVED_METADATA === 'object') {
-          if (SERVER_OBSERVED_METADATA.serverIp || SERVER_OBSERVED_METADATA.clientAddress) {
-            metadata.serverObservedIp = SERVER_OBSERVED_METADATA.serverIp || SERVER_OBSERVED_METADATA.clientAddress;
-            metadata.serverIp = metadata.serverIp || metadata.serverObservedIp;
-          }
-          if (SERVER_OBSERVED_METADATA.forwardedFor) {
-            metadata.forwardedFor = SERVER_OBSERVED_METADATA.forwardedFor;
-          }
-          if (SERVER_OBSERVED_METADATA.serverUserAgent && !metadata.serverUserAgent) {
-            metadata.serverUserAgent = SERVER_OBSERVED_METADATA.serverUserAgent;
-          }
-          if (SERVER_OBSERVED_METADATA.host) {
-            metadata.host = SERVER_OBSERVED_METADATA.host;
-          }
-          metadata.serverObservedAt = SERVER_OBSERVED_METADATA.serverObservedAt || new Date().toISOString();
-        }
-
-        if (!metadata.ipAddress) {
-          let forwardedIp = '';
-          if (typeof metadata.forwardedFor === 'string' && metadata.forwardedFor.trim()) {
-            forwardedIp = metadata.forwardedFor.split(',')[0].trim();
-          }
-          metadata.ipAddress = forwardedIp || metadata.serverObservedIp || metadata.serverIp || '';
-        }
-
-        if (!metadata.observedAt) {
-          metadata.observedAt = new Date().toISOString();
         }
         return metadata;
       } catch (err) {
@@ -2592,51 +1475,6 @@
       return url;
     }
 
-    function appendSessionTokenToUrl(url, providedToken) {
-      if (!url) {
-        return url;
-      }
-
-      const normalizedProvided = typeof providedToken === 'string' ? providedToken.trim() : '';
-      const tokenCandidate = normalizedProvided || state.authToken || readAuthCookie();
-      const token = tokenCandidate ? String(tokenCandidate).trim() : '';
-
-      if (!token) {
-        return url;
-      }
-
-      const raw = String(url).trim();
-      if (!raw || raw.startsWith('#')) {
-        return url;
-      }
-
-      if (/^(mailto:|tel:|javascript:)/i.test(raw)) {
-        return url;
-      }
-
-      try {
-        const base = window.location && window.location.href ? window.location.href : undefined;
-        const parsed = new URL(raw, base);
-
-        if (parsed.searchParams.get('token') !== token) {
-          parsed.searchParams.set('token', token);
-        }
-
-        if (raw.startsWith('?')) {
-          return (parsed.search || '') + (parsed.hash || '');
-        }
-
-        if (!/^[a-z][a-z0-9+.-]*:/i.test(raw) && !raw.startsWith('//')) {
-          return parsed.pathname + (parsed.search || '') + (parsed.hash || '');
-        }
-
-        return parsed.toString();
-      } catch (error) {
-        console.warn('appendSessionTokenToUrl: Unable to append token to redirect URL', error);
-        return url;
-      }
-    }
-
     function buildPageUrl(page, params = {}) {
       const current = new URL(window.location.href);
       let baseUrl = null;
@@ -2686,10 +1524,8 @@
       return baseUrl.toString();
     }
 
-    const DEFAULT_REDIRECT_PAGE = 'dashboard';
-
     function normalizeRedirectUrl(serverUrl) {
-      let page = getDefaultRedirectPage();
+      let page = 'dashboard';
       const params = {};
 
       if (serverUrl) {
@@ -2706,37 +1542,7 @@
         }
       }
 
-      const normalizedPage = (page || '').trim().toLowerCase();
-      if (!normalizedPage || normalizedPage === 'login' || normalizedPage === 'logout') {
-        page = getDefaultRedirectPage();
-      }
-
       return stripTokenFromUrl(buildPageUrl(page, params));
-    }
-
-    function sanitizePreferredRedirect(candidate) {
-      if (!candidate) {
-        return '';
-      }
-
-      let normalized = '';
-
-      try {
-        normalized = normalizeRedirectUrl(candidate);
-      } catch (err) {
-        console.warn('Unable to normalize preferred redirect URL.', err);
-        return '';
-      }
-
-      if (!normalized) {
-        return '';
-      }
-
-      if (/page=login/i.test(normalized)) {
-        return '';
-      }
-
-      return normalized;
     }
 
     function openPage(page, params = {}) {
@@ -2800,10 +1606,6 @@
 
     function handleLoginFailure(response, email) {
       clearAuthCookie();
-      resetMfaState();
-      if (state.pendingDeviceVerification) {
-        hideDeviceVerificationPrompt();
-      }
 
       const normalizedEmail = (email || '').trim();
       const displayEmail = normalizedEmail || 'your email address';
@@ -3571,42 +2373,105 @@
     // ───────────────────────────────────────────────────────────────────────────────
     // REDIRECT MANAGEMENT
     // ───────────────────────────────────────────────────────────────────────────────
-    function setupRedirect(url) {
+    function setupRedirect(url, userInfo = {}) {
       const safeUrl = stripTokenFromUrl(url);
+      console.log('Setting up redirect to:', safeUrl);
 
-      if (!safeUrl) {
-        console.warn('No redirect URL provided.');
-        setLoading(false);
-        return;
+      state.redirectUrl = safeUrl;
+      state.isRedirecting = true;
+      state.countdownValue = 3;
+
+      // Update UI
+      if (elements.continueButton) {
+        elements.continueButton.href = safeUrl;
       }
-
-      const redirectUrl = appendSessionTokenToUrl(safeUrl);
-
-      console.log('Redirecting immediately to:', redirectUrl);
 
       if (elements.loginForm) {
         elements.loginForm.classList.add('form-slide-out');
+
+        setTimeout(() => {
+          if (elements.loginForm) {
+            elements.loginForm.style.display = 'none';
+          }
+          if (elements.redirectSection) {
+            elements.redirectSection.classList.add('show');
+          }
+          startCountdown();
+        }, 500);
+      } else {
+        if (elements.redirectSection) {
+          elements.redirectSection.classList.add('show');
+        }
+        startCountdown();
+      }
+    }
+
+    function startCountdown() {
+      if (elements.countdown) {
+        elements.countdown.textContent = 'Redirecting to your dashboard...';
+      }
+      if (elements.countdownNumber) {
+        elements.countdownNumber.textContent = state.countdownValue;
       }
 
-      try {
-        if (
-          typeof google !== 'undefined' &&
-          google.script &&
-          google.script.host &&
-          typeof google.script.host.setLocation === 'function'
-        ) {
-          google.script.host.setLocation(redirectUrl);
-        } else {
-          window.location.href = redirectUrl;
+      if (state.redirectTimer) {
+        clearInterval(state.redirectTimer);
+      }
 
-          setTimeout(() => {
-            window.location.assign(redirectUrl);
-          }, 100);
+      state.redirectTimer = setInterval(() => {
+        state.countdownValue--;
+        if (elements.countdownNumber) {
+          elements.countdownNumber.textContent = state.countdownValue;
         }
-      } catch (error) {
-        console.error('Redirect failed:', error);
-        showAlert('error', 'Redirect failed. Please try again.');
-        setLoading(false);
+
+        if (state.countdownValue <= 0) {
+          clearInterval(state.redirectTimer);
+          state.redirectTimer = null;
+          executeRedirect();
+        }
+      }, 1000);
+    }
+
+    function executeRedirect() {
+      if (state.redirectUrl && state.isRedirecting) {
+        console.log('Executing redirect to:', state.redirectUrl);
+        if (elements.countdown) {
+          elements.countdown.textContent = 'Redirecting now...';
+        }
+
+        try {
+          if (
+            typeof google !== 'undefined' &&
+            google.script &&
+            google.script.host &&
+            typeof google.script.host.setLocation === 'function'
+          ) {
+            google.script.host.setLocation(state.redirectUrl);
+          } else {
+            window.location.href = state.redirectUrl;
+
+            setTimeout(() => {
+              window.location.assign(state.redirectUrl);
+            }, 100);
+          }
+        } catch (error) {
+          console.error('Redirect failed:', error);
+          showAlert('error', 'Redirect failed. Please click the button below to continue.');
+        }
+      }
+    }
+
+    function cancelRedirect() {
+      if (state.redirectTimer) {
+        clearInterval(state.redirectTimer);
+        state.redirectTimer = null;
+      }
+      state.isRedirecting = false;
+      if (elements.countdown) {
+        elements.countdown.textContent = 'Auto-redirect cancelled. Click the button when ready.';
+      }
+      if (elements.countdownNumber) {
+        elements.countdownNumber.textContent = '∞';
       }
     }
 
@@ -3647,77 +2512,6 @@
       return true;
     }
 
-    function completeAuthenticatedLogin(response, rememberMeFallback) {
-      if (!response || !response.success) {
-        return;
-      }
-
-      showAlert('success', response.message || 'Login successful!');
-
-      if (!response.user) {
-        showNextSteps({
-          title: 'We signed you in, but need a moment',
-          subtitle: 'Your profile details were not returned by the server.',
-          body: 'Try again in a moment. If this message keeps appearing, please contact support so we can review your account.',
-          tone: 'warning',
-          icon: 'fa-user-clock',
-          actions: [
-            {
-              type: 'button',
-              label: 'Try Again',
-              icon: 'fa-rotate',
-              variant: 'primary',
-              onClick: () => {
-                hideAllAlerts();
-                if (elements.loginForm) {
-                  const retryEvent = new Event('submit', { bubbles: true, cancelable: true });
-                  elements.loginForm.dispatchEvent(retryEvent);
-                }
-              }
-            },
-            {
-              type: 'link',
-              label: 'Email Support',
-              icon: 'fa-headset',
-              variant: 'outline-secondary',
-              href: `mailto:${SUPPORT_EMAIL}`,
-              target: '_blank',
-              rel: 'noopener'
-            }
-          ]
-        });
-        setLoading(false);
-        return;
-      }
-
-      persistSessionToken(
-        response.sessionToken,
-        response.rememberMe !== undefined ? !!response.rememberMe : !!rememberMeFallback,
-        response.sessionExpiresAt,
-        response.sessionTtlSeconds,
-        response.sessionIdleTimeoutMinutes
-      );
-
-      const redirectInput = response.redirectUrl || (response.redirectSlug ? `?page=${response.redirectSlug}` : '');
-      let destinationUrl = normalizeRedirectUrl(redirectInput);
-
-      const preferredFromState = sanitizePreferredRedirect(state.preferredReturnUrl);
-      const preferredFromResponse = sanitizePreferredRedirect(response && response.requestedReturnUrl);
-
-      if (preferredFromState) {
-        destinationUrl = preferredFromState;
-      } else if (preferredFromResponse) {
-        destinationUrl = preferredFromResponse;
-      }
-
-      clearStoredLogoutReason();
-      state.lastLogoutReason = '';
-      state.preferredReturnUrl = '';
-
-      setupRedirect(destinationUrl);
-      hideNextSteps();
-    }
-
     // ───────────────────────────────────────────────────────────────────────────────
     // SIMPLIFIED LOGIN HANDLER
     // ───────────────────────────────────────────────────────────────────────────────
@@ -3725,15 +2519,6 @@
       console.log('Attempting login for:', email);
 
       monitorLoginRequest(email, rememberMe);
-
-      const clientMetadata = collectClientMetadata() || {};
-      if (state.lastLogoutReason) {
-        clientMetadata.logoutReason = state.lastLogoutReason;
-      }
-      const preferredReturnUrl = sanitizePreferredRedirect(state.preferredReturnUrl);
-      if (preferredReturnUrl) {
-        clientMetadata.requestedReturnUrl = preferredReturnUrl;
-      }
 
       google.script.run
         .withSuccessHandler(response => {
@@ -3744,19 +2529,59 @@
 
           persistEmailState(email, rememberMe);
 
-          if (response && response.needsMfa) {
-            showMfaStep(response, email, rememberMe);
-            return;
-          }
-
-          if (response && response.needsVerification) {
-            showDeviceVerificationPrompt(response, email, rememberMe);
-            return;
-          }
-
           if (response && response.success) {
             console.log('Login successful');
-            completeAuthenticatedLogin(response, rememberMe);
+            showAlert('success', response.message || 'Login successful!');
+
+            if (!response.user) {
+              showNextSteps({
+                title: 'We signed you in, but need a moment',
+                subtitle: 'Your profile details were not returned by the server.',
+                body: 'Try again in a moment. If this message keeps appearing, please contact support so we can review your account.',
+                tone: 'warning',
+                icon: 'fa-user-clock',
+                actions: [
+                  {
+                    type: 'button',
+                    label: 'Try Again',
+                    icon: 'fa-rotate',
+                    variant: 'primary',
+                    onClick: () => {
+                      hideAllAlerts();
+                      if (elements.loginForm) {
+                        const retryEvent = new Event('submit', { bubbles: true, cancelable: true });
+                        elements.loginForm.dispatchEvent(retryEvent);
+                      }
+                    }
+                  },
+                  {
+                    type: 'link',
+                    label: 'Email Support',
+                    icon: 'fa-headset',
+                    variant: 'outline-secondary',
+                    href: `mailto:${SUPPORT_EMAIL}`,
+                    target: '_blank',
+                    rel: 'noopener'
+                  }
+                ]
+              });
+              setLoading(false);
+              return;
+            }
+
+            persistSessionToken(
+              response.sessionToken,
+              response.rememberMe !== undefined ? !!response.rememberMe : rememberMe,
+              response.sessionExpiresAt,
+              response.sessionTtlSeconds
+            );
+
+            // Setup redirect using a sanitized destination URL
+            const destinationUrl = normalizeRedirectUrl(response.redirectUrl);
+            setupRedirect(destinationUrl, response.user);
+
+            hideNextSteps();
+
           } else if (response && response.error) {
             handleLoginFailure(response, email);
           } else {
@@ -3803,7 +2628,7 @@
             ]
           });
         })
-        .loginUser(email, password, rememberMe, clientMetadata);
+        .loginUser(email, password, rememberMe, collectClientMetadata());
     }
 
     // ───────────────────────────────────────────────────────────────────────────────
@@ -3813,13 +2638,7 @@
       elements.loginForm.addEventListener('submit', function(e) {
         e.preventDefault();
 
-        if (state.pendingMfa) {
-          verifyMfaCodeInput();
-          return;
-        }
-
         hideAllAlerts();
-        hideDeviceVerificationPrompt();
 
         if (!validateForm()) {
           return;
@@ -3839,42 +2658,6 @@
       });
     }
 
-    if (elements.verifyMfaBtn) {
-      elements.verifyMfaBtn.addEventListener('click', () => {
-        verifyMfaCodeInput();
-      });
-    }
-
-    if (elements.resendMfaBtn) {
-      elements.resendMfaBtn.addEventListener('click', () => {
-        if (!state.pendingMfa) {
-          showAlert('info', 'Start signing in first so we can send a verification code.');
-          return;
-        }
-        requestMfaCode({ silent: false });
-      });
-    }
-
-    if (elements.deviceModalConfirmBtn) {
-      elements.deviceModalConfirmBtn.addEventListener('click', submitDeviceVerification);
-    }
-
-    if (elements.deviceModalCancelBtn) {
-      elements.deviceModalCancelBtn.addEventListener('click', () => {
-        hideDeviceVerificationPrompt();
-        showAlert('info', 'Log in again if you still need access.');
-      });
-    }
-
-    if (elements.deviceModalCodeInput) {
-      elements.deviceModalCodeInput.addEventListener('keydown', event => {
-        if (event.key === 'Enter') {
-          event.preventDefault();
-          submitDeviceVerification();
-        }
-      });
-    }
-
     // ───────────────────────────────────────────────────────────────────────────────
     // PAGE INITIALIZATION
     // ───────────────────────────────────────────────────────────────────────────────
@@ -3883,54 +2666,26 @@
 
       restoreEmailFromStorage();
 
-      // Handle URL parameters for messages/errors
-      const urlParams = new URLSearchParams(window.location.search);
-      const message = urlParams.get('message');
-      const error = urlParams.get('error');
-      const logoutReason = (state.lastLogoutReason || '').toLowerCase();
-      const shouldShowAutoTimeout = !error && !message && logoutReason === 'auto';
-      const shouldShowManualLogout = !error && !message && logoutReason === 'manual';
-
-      let shouldReplaceUrl = false;
-
-      if (urlParams.has('token')) {
-        urlParams.delete('token');
-        shouldReplaceUrl = true;
-      }
-
-      if (urlParams.has('returnUrl')) {
-        const rawReturnUrl = urlParams.get('returnUrl');
-        const resolvedReturnUrl = sanitizePreferredRedirect(rawReturnUrl);
-
-        if (resolvedReturnUrl && state.lastLogoutReason === 'auto') {
-          state.preferredReturnUrl = resolvedReturnUrl;
-        } else if (resolvedReturnUrl && !state.preferredReturnUrl) {
-          state.preferredReturnUrl = resolvedReturnUrl;
-        }
-
-        if (state.lastLogoutReason !== 'auto') {
-          urlParams.delete('returnUrl');
-          shouldReplaceUrl = true;
-        }
-      }
-
-      if (shouldReplaceUrl) {
-        const cleanedQuery = urlParams.toString();
-        const cleanUrl = `${window.location.pathname}${cleanedQuery ? `?${cleanedQuery}` : ''}${window.location.hash || ''}`;
-        window.history.replaceState({}, document.title, cleanUrl);
-      }
-
       const resumed = attemptSessionResume();
-
-      if (!resumed && (shouldShowAutoTimeout || shouldShowManualLogout)) {
-        showAlert('info', 'Session tokens expire when you log out or after 30 minutes of inactivity. Please sign in again to continue.');
-      }
 
       // Auto-focus email field when not redirecting
       if (!resumed && elements.emailInput) {
         elements.emailInput.focus();
       }
+      
+      // Handle URL parameters for messages/errors
+      const urlParams = new URLSearchParams(window.location.search);
+      const message = urlParams.get('message');
+      const error = urlParams.get('error');
 
+      if (urlParams.has('token')) {
+        const sanitizedParams = new URLSearchParams(urlParams);
+        sanitizedParams.delete('token');
+        const newQuery = sanitizedParams.toString();
+        const newUrl = `${window.location.pathname}${newQuery ? `?${newQuery}` : ''}${window.location.hash || ''}`;
+        window.history.replaceState({}, document.title, newUrl);
+      }
+      
       if (error) {
         showAlert('error', decodeURIComponent(error));
       } else if (message) {
@@ -3943,6 +2698,11 @@
         if (e.key === 'Enter' && e.target === elements.emailInput) {
           e.preventDefault();
           elements.passwordInput.focus();
+        }
+        
+        // Escape key cancels redirect
+        if (e.key === 'Escape' && state.isRedirecting) {
+          cancelRedirect();
         }
       });
 
@@ -3960,6 +2720,17 @@
 
       console.log('Login page initialized successfully');
     });
+
+
+    // ───────────────────────────────────────────────────────────────────────────────
+    // CLEANUP ON PAGE UNLOAD
+    // ───────────────────────────────────────────────────────────────────────────────
+    window.addEventListener('beforeunload', function() {
+      if (state.redirectTimer) {
+        clearInterval(state.redirectTimer);
+      }
+    });
+
     // ───────────────────────────────────────────────────────────────────────────────
     // ERROR HANDLING
     // ───────────────────────────────────────────────────────────────────────────────
@@ -3973,6 +2744,7 @@
 
     // Make functions globally available
     window.togglePassword = togglePassword;
+    window.cancelRedirect = cancelRedirect;
 
     console.log('Simplified login system loaded successfully');
   </script>
