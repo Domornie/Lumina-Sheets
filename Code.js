@@ -1437,58 +1437,66 @@ function evaluatePageAccess(user, pageKey, campaignId) {
     const canonicalPage = canonicalizePageKey(page) || page;
     const normalizedPageKey = _normalizePageKey(canonicalPage);
 
+    function allow(code, message) {
+      return { allow: true, reason: message, reasonCode: code, trace: trace.slice() };
+    }
+
+    function deny(code, message) {
+      return { allow: false, reason: message, reasonCode: code, trace: trace.slice() };
+    }
+
     // Basic account checks
-    if (!u || !u.ID) return { allow: false, reason: 'No session', trace };
-    if (!_truthy(u.CanLogin)) return { allow: false, reason: 'Account disabled', trace };
-    if (u.LockoutEnd && _isFuture(u.LockoutEnd)) return { allow: false, reason: 'Account locked', trace };
+    if (!u || !u.ID) return deny('NOT_AUTHENTICATED', 'No session');
+    if (!_truthy(u.CanLogin)) return deny('ACCOUNT_DISABLED', 'Account disabled');
+    if (u.LockoutEnd && _isFuture(u.LockoutEnd)) return deny('ACCOUNT_LOCKED', 'Account locked');
     if (!ACCESS.PUBLIC_PAGES.has(page)) {
-      if (!_truthy(u.EmailConfirmed)) return { allow: false, reason: 'Email not confirmed', trace };
-      if (_truthy(u.ResetRequired)) return { allow: false, reason: 'Password reset required', trace };
+      if (!_truthy(u.EmailConfirmed)) return deny('EMAIL_NOT_CONFIRMED', 'Email not confirmed');
+      if (_truthy(u.ResetRequired)) return deny('PASSWORD_RESET_REQUIRED', 'Password reset required');
     }
 
     // Public pages
     if (ACCESS.PUBLIC_PAGES.has(page)) {
       trace.push('PUBLIC page');
-      return { allow: true, reason: 'public', trace };
+      return allow('ALLOW_PUBLIC', 'public');
     }
 
     // Admin-only pages
     if (ACCESS.ADMIN_ONLY_PAGES.has(page)) {
       if (isSystemAdmin(u)) {
         trace.push('admin-only: allowed');
-        return { allow: true, reason: 'admin', trace };
+        return allow('ALLOW_ADMIN', 'admin');
       }
-      return { allow: false, reason: 'System Admin required', trace };
+      return deny('ADMIN_REQUIRED', 'System Admin required');
     }
 
     // System admin has access to everything
     if (isSystemAdmin(u)) {
       trace.push('System Admin: allow');
-      return { allow: true, reason: 'admin', trace };
+      return allow('ALLOW_ADMIN', 'admin');
     }
 
     // Page managers can bypass assignment checks
     if (_truthy(u.CanManagePages)) {
       trace.push('Manage pages privilege');
-      return { allow: true, reason: 'manage-pages', trace };
+      return allow('ALLOW_MANAGE_PAGES', 'manage-pages');
     }
 
     // For regular users, check if they have campaign access
     if (cid && !hasCampaignAccess(u, cid)) {
-      return { allow: false, reason: 'No campaign access', trace };
+      return deny('CAMPAIGN_FORBIDDEN', 'No campaign access');
     }
 
     // Enforce explicit page assignments
     const assignedPages = _collectUserPageKeys(u);
     if (!assignedPages || assignedPages.size === 0) {
       trace.push('No page assignments');
-      return { allow: false, reason: 'No pages assigned', trace };
+      return deny('NO_PAGES_ASSIGNED', 'No pages assigned');
     }
 
     if (!assignedPages.has('*')) {
       if (!assignedPages.has(normalizedPageKey) && !assignedPages.has(page)) {
         trace.push('Page not assigned: ' + normalizedPageKey);
-        return { allow: false, reason: 'Page not assigned', trace };
+        return deny('PAGE_NOT_ASSIGNED', 'Page not assigned');
       }
       trace.push('Page assignment matched');
     } else {
@@ -1497,12 +1505,12 @@ function evaluatePageAccess(user, pageKey, campaignId) {
 
     // Default allow for authenticated users
     trace.push('Authenticated user access');
-    return { allow: true, reason: 'authenticated', trace };
+    return allow('ALLOW_AUTHENTICATED', 'authenticated');
 
   } catch (e) {
     writeError && writeError('evaluatePageAccess', e);
     trace.push('exception:' + e.message);
-    return { allow: false, reason: 'Evaluator error', trace };
+    return deny('SYSTEM_ERROR', 'Evaluator error');
   }
 }
 
@@ -1520,11 +1528,312 @@ function hasCampaignAccess(user, campaignId) {
   }
 }
 
+function _appendQueryParams(baseUrl, params) {
+  const base = baseUrl ? String(baseUrl) : '';
+  const entries = [];
+  if (params && typeof params === 'object') {
+    Object.keys(params).forEach(function (key) {
+      if (!key) return;
+      const value = params[key];
+      if (value === null || typeof value === 'undefined' || value === '') {
+        return;
+      }
+      entries.push(encodeURIComponent(key) + '=' + encodeURIComponent(value));
+    });
+  }
+  if (!entries.length) {
+    return base;
+  }
+  if (!base) {
+    return '?' + entries.join('&');
+  }
+  const separator = base.indexOf('?') === -1 ? '?' : (/[?&]$/.test(base) ? '' : '&');
+  return base + separator + entries.join('&');
+}
+
+function _uniqueStrings(list) {
+  const result = [];
+  const seen = Object.create(null);
+  (Array.isArray(list) ? list : []).forEach(function (value) {
+    if (value === null || typeof value === 'undefined') {
+      return;
+    }
+    const text = String(value).trim();
+    if (!text) {
+      return;
+    }
+    if (!Object.prototype.hasOwnProperty.call(seen, text)) {
+      seen[text] = true;
+      result.push(text);
+    }
+  });
+  return result;
+}
+
+function _formatAccessDeniedHeading(code) {
+  if (!code) {
+    return 'Access denied';
+  }
+  return String(code)
+    .toLowerCase()
+    .split('_')
+    .filter(function (part) { return part; })
+    .map(function (part) { return part.charAt(0).toUpperCase() + part.slice(1); })
+    .join(' ') || 'Access denied';
+}
+
+function _sanitizeAccessDeniedActions(actions) {
+  if (!Array.isArray(actions)) {
+    return [];
+  }
+  const deduped = [];
+  const seen = Object.create(null);
+  actions.forEach(function (action) {
+    if (!action || typeof action !== 'object') {
+      return;
+    }
+    const type = action.type === 'button' ? 'button' : 'link';
+    const label = action.label ? String(action.label).trim() : '';
+    const icon = action.icon ? String(action.icon).trim() : '';
+    const variant = action.variant ? String(action.variant).trim() : (type === 'button' ? 'secondary' : 'primary');
+    const target = action.target ? String(action.target).trim() : '_self';
+    const rel = action.rel ? String(action.rel).trim() : '';
+    const href = type === 'link' ? String(action.href || '').trim() : '';
+    const onClick = type === 'button' ? String(action.onClick || action.onclick || 'history.back()').trim() : '';
+    const key = type + '|' + href + '|' + onClick;
+    if (seen[key]) {
+      return;
+    }
+    seen[key] = true;
+    deduped.push({
+      type: type,
+      label: label || (type === 'link' ? 'Open' : 'Go Back'),
+      icon: icon,
+      variant: variant,
+      href: href,
+      onClick: onClick,
+      target: target,
+      rel: rel
+    });
+  });
+  return deduped;
+}
+
+function _buildAccessDeniedActions(reasonCode, baseUrl) {
+  const normalized = String(reasonCode || '').toUpperCase();
+  const actions = [];
+  const loginUrl = _appendQueryParams(baseUrl, { page: 'login' });
+  const dashboardUrl = _appendQueryParams(baseUrl, { page: 'dashboard' });
+
+  if (normalized === 'NOT_AUTHENTICATED') {
+    actions.push({
+      type: 'link',
+      href: loginUrl,
+      label: 'Sign In',
+      variant: 'primary',
+      icon: 'fa-right-to-bracket',
+      target: '_top'
+    });
+  }
+
+  actions.push({
+    type: 'link',
+    href: dashboardUrl,
+    label: 'Go to Dashboard',
+    variant: 'primary',
+    icon: 'fa-gauge-high',
+    target: '_top'
+  });
+
+  actions.push({
+    type: 'button',
+    label: 'Go Back',
+    variant: 'secondary',
+    icon: 'fa-arrow-left',
+    onClick: 'history.back()'
+  });
+
+  return _sanitizeAccessDeniedActions(actions);
+}
+
+function _mapAccessDeniedReason(reasonCode) {
+  const normalized = String(reasonCode || '').toUpperCase() || 'ACCESS_DENIED';
+  const result = {
+    reasonCode: normalized,
+    reasonHeading: '',
+    message: '',
+    reasons: [],
+    suggestions: []
+  };
+
+  switch (normalized) {
+    case 'NOT_AUTHENTICATED':
+      result.reasonHeading = 'Sign in required';
+      result.message = 'Please sign in to continue.';
+      result.reasons.push('You are not currently signed in.');
+      result.suggestions.push('Use the sign-in button below to authenticate and try again.');
+      break;
+    case 'ACCOUNT_DISABLED':
+      result.reasonHeading = 'Account disabled';
+      result.message = 'Your account has been disabled.';
+      result.reasons.push('Your LuminaHQ account is currently disabled.');
+      result.suggestions.push('Contact an administrator to restore your access.');
+      break;
+    case 'ACCOUNT_LOCKED':
+      result.reasonHeading = 'Account locked';
+      result.message = 'Your account is temporarily locked.';
+      result.reasons.push('Too many failed sign-in attempts can trigger a lockout period.');
+      result.suggestions.push('Wait for the lockout period to end or reach out to an administrator.');
+      break;
+    case 'EMAIL_NOT_CONFIRMED':
+      result.reasonHeading = 'Confirm your email';
+      result.message = 'Verify your email address before accessing this page.';
+      result.reasons.push('Your email address has not been confirmed.');
+      result.suggestions.push('Check your inbox for the confirmation link or request a new email from the login page.');
+      break;
+    case 'PASSWORD_RESET_REQUIRED':
+    case 'RESET_REQUIRED':
+      result.reasonHeading = 'Password reset required';
+      result.message = 'You must reset your password before continuing.';
+      result.reasons.push('Your account requires a password reset.');
+      result.suggestions.push('Use the password reset option on the login page.');
+      break;
+    case 'ADMIN_REQUIRED':
+      result.reasonHeading = 'Administrator permission required';
+      result.message = 'Only system administrators can open this page.';
+      result.reasons.push('The requested page is restricted to system administrators.');
+      result.suggestions.push('Ask a system administrator to grant you the appropriate permissions.');
+      break;
+    case 'CAMPAIGN_FORBIDDEN':
+      result.reasonHeading = 'Campaign access required';
+      result.message = 'You are not assigned to the requested campaign.';
+      result.reasons.push('Your account does not have access to this campaign.');
+      result.suggestions.push('Switch to a campaign that you have access to or request access from your administrator.');
+      break;
+    case 'NO_PAGES_ASSIGNED':
+      result.reasonHeading = 'No pages assigned';
+      result.message = 'You do not have any pages assigned to your role yet.';
+      result.reasons.push('Your account has not been assigned to any application pages.');
+      result.suggestions.push('Ask your administrator to assign the pages you need.');
+      break;
+    case 'PAGE_NOT_ASSIGNED':
+      result.reasonHeading = 'Page not assigned';
+      result.message = 'You do not have permission to view this page.';
+      result.reasons.push('Your current role does not include this page.');
+      result.suggestions.push('If you need access, request it from your administrator.');
+      break;
+    case 'SYSTEM_ERROR':
+    case 'ERROR':
+      result.reasonHeading = 'Authentication error';
+      result.message = 'We were unable to verify your permissions due to a system error.';
+      result.suggestions.push('Refresh the page and try again. If the problem persists, contact support.');
+      break;
+    default:
+      result.reasonHeading = 'Access denied';
+      result.message = 'You do not have permission to view this page.';
+      break;
+  }
+
+  result.reasonHeading = result.reasonHeading || _formatAccessDeniedHeading(result.reasonCode);
+  result.message = result.message || 'You do not have permission to view this page.';
+  result.reasons = _uniqueStrings(result.reasons);
+  result.suggestions = _uniqueStrings(result.suggestions);
+  return result;
+}
+
+function buildAccessDeniedView(decision, options) {
+  const baseUrl = getBaseUrl();
+  const mapping = _mapAccessDeniedReason(decision && decision.reasonCode);
+  const extraReasons = [];
+  if (decision && decision.reason) {
+    extraReasons.push(decision.reason);
+  }
+  if (options && Array.isArray(options.additionalReasons)) {
+    Array.prototype.push.apply(extraReasons, options.additionalReasons);
+  }
+
+  const reasons = _uniqueStrings((mapping.reasons || []).concat(extraReasons));
+  const suggestions = _uniqueStrings(mapping.suggestions || []);
+  const actions = _sanitizeAccessDeniedActions((mapping.actions || []).concat(_buildAccessDeniedActions(mapping.reasonCode, baseUrl)));
+  const trace = Array.isArray(decision && decision.trace) ? decision.trace.slice() : [];
+
+  return {
+    baseUrl: baseUrl,
+    message: mapping.message,
+    reasonCode: mapping.reasonCode,
+    reasonHeading: mapping.reasonHeading,
+    reasons: reasons,
+    suggestions: suggestions,
+    actions: actions,
+    trace: trace,
+    showTrace: !!(options && options.showTrace),
+    dashboardUrl: _appendQueryParams(baseUrl, { page: 'dashboard' }),
+    loginUrl: _appendQueryParams(baseUrl, { page: 'login' }),
+    pageKey: options && options.page ? String(options.page) : '',
+    campaignId: options && options.campaignId ? String(options.campaignId) : '',
+    supportEmail: typeof SUPPORT_EMAIL !== 'undefined' ? SUPPORT_EMAIL : ''
+  };
+}
+
+function _normalizeAccessDeniedDetails(details, baseUrl) {
+  const defaultMessage = 'You do not have permission to view this page.';
+  if (!details || typeof details === 'string') {
+    const message = typeof details === 'string' && details ? details : defaultMessage;
+    return {
+      baseUrl: baseUrl,
+      message: message,
+      reasonCode: 'ACCESS_DENIED',
+      reasonHeading: _formatAccessDeniedHeading('ACCESS_DENIED'),
+      reasons: message ? _uniqueStrings([message]) : [],
+      suggestions: [],
+      actions: _buildAccessDeniedActions('ACCESS_DENIED', baseUrl),
+      trace: [],
+      showTrace: false,
+      dashboardUrl: _appendQueryParams(baseUrl, { page: 'dashboard' }),
+      loginUrl: _appendQueryParams(baseUrl, { page: 'login' }),
+      supportEmail: typeof SUPPORT_EMAIL !== 'undefined' ? SUPPORT_EMAIL : ''
+    };
+  }
+
+  const context = Object.assign({}, details);
+  context.baseUrl = baseUrl;
+  context.reasonCode = (context.reasonCode || 'ACCESS_DENIED').toUpperCase();
+  context.reasonHeading = context.reasonHeading || _formatAccessDeniedHeading(context.reasonCode);
+  context.message = context.message || defaultMessage;
+  context.reasons = _uniqueStrings(context.reasons || []);
+  context.suggestions = _uniqueStrings(context.suggestions || []);
+  context.actions = _sanitizeAccessDeniedActions(context.actions || []);
+  if (!context.actions.length) {
+    context.actions = _buildAccessDeniedActions(context.reasonCode, baseUrl);
+  }
+  context.trace = Array.isArray(context.trace) ? context.trace : [];
+  context.showTrace = !!context.showTrace;
+  context.dashboardUrl = context.dashboardUrl || _appendQueryParams(baseUrl, { page: 'dashboard' });
+  context.loginUrl = context.loginUrl || _appendQueryParams(baseUrl, { page: 'login' });
+  context.supportEmail = context.supportEmail || (typeof SUPPORT_EMAIL !== 'undefined' ? SUPPORT_EMAIL : '');
+  context.pageKey = context.pageKey || '';
+  context.campaignId = context.campaignId || '';
+  return context;
+}
+
 function renderAccessDenied(message) {
   const baseUrl = getBaseUrl();
+  const context = _normalizeAccessDeniedDetails(message, baseUrl);
   const tpl = HtmlService.createTemplateFromFile('AccessDenied');
   tpl.baseUrl = baseUrl;
-  tpl.message = message || 'You do not have permission to view this page.';
+  tpl.message = context.message;
+  tpl.reasonCode = context.reasonCode;
+  tpl.reasonHeading = context.reasonHeading;
+  tpl.reasons = context.reasons;
+  tpl.suggestions = context.suggestions;
+  tpl.actions = context.actions;
+  tpl.trace = context.trace;
+  tpl.showTrace = context.showTrace;
+  tpl.dashboardUrl = context.dashboardUrl;
+  tpl.loginUrl = context.loginUrl;
+  tpl.supportEmail = context.supportEmail;
+  tpl.pageKey = context.pageKey;
+  tpl.campaignId = context.campaignId;
   return tpl.evaluate()
     .setTitle('Access Denied')
     .addMetaTag('viewport', 'width=device-width,initial-scale=1')
@@ -1550,7 +1859,11 @@ function requireAuth(e) {
     _debugAccess && _debugAccess('route', decision, user, page, campaignId);
 
     if (!decision || decision.allow !== true) {
-      return renderAccessDenied((decision && decision.reason) || 'You do not have permission to view this page.');
+      const denied = buildAccessDeniedView(decision || { reasonCode: 'ACCESS_DENIED', reason: 'Access denied' }, {
+        page: page,
+        campaignId: campaignId
+      });
+      return renderAccessDenied(denied);
     }
 
     // Hydrate campaign context
@@ -1571,7 +1884,11 @@ function requireAuth(e) {
 
   } catch (error) {
     writeError('requireAuth', error);
-    return renderAccessDenied('Authentication error occurred');
+    return renderAccessDenied(buildAccessDeniedView({
+      reasonCode: 'SYSTEM_ERROR',
+      reason: 'Authentication error occurred',
+      trace: [String(error && error.message ? error.message : '')]
+    }, { showTrace: false }));
   }
 }
 

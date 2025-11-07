@@ -31,6 +31,11 @@ const OPTIONAL_SESSION_COLUMNS = [
   'ExpiresAt',
   'IdleTimeoutMinutes',
   'RememberMe',
+  'Status',
+  'AuthenticatedAt',
+  'LastSeenAt',
+  'RevokedAt',
+  'RevokedReason',
   'CampaignScope',
   'UserAgent',
   'IpAddress',
@@ -290,6 +295,22 @@ var AuthenticationService = (function () {
       } catch (_) {
         payload.lastActivityAt = '';
       }
+    }
+
+    if (!payload.status) {
+      payload.status = 'active';
+    }
+
+    if (!payload.authenticatedAt) {
+      try {
+        payload.authenticatedAt = new Date().toISOString();
+      } catch (_) {
+        payload.authenticatedAt = payload.lastActivityAt || '';
+      }
+    }
+
+    if (!payload.lastSeenAt) {
+      payload.lastSeenAt = payload.lastActivityAt || '';
     }
 
     try {
@@ -857,9 +878,48 @@ var AuthenticationService = (function () {
     const idleTimeoutMinutes = parseIdleTimeoutMinutes(getRecordValue(record, 'IdleTimeoutMinutes'));
     const lastActivityTime = parseDateValue(getRecordValue(record, 'LastActivityAt'))
       || parseDateValue(getRecordValue(record, 'CreatedAt'));
+    const lastActivityIso = lastActivityTime ? new Date(lastActivityTime).toISOString() : null;
+    const storedStatus = normalizeString(getRecordValue(record, 'Status')).toLowerCase();
+    const lastSeenIso = normalizeString(getRecordValue(record, 'LastSeenAt')) || lastActivityIso;
+
+    if (storedStatus === 'revoked') {
+      return {
+        status: 'revoked',
+        reason: 'REVOKED',
+        entry: entry,
+        tableName: entry.tableName,
+        idleTimeoutMinutes: idleTimeoutMinutes,
+        lastActivityAt: lastActivityIso,
+        expiresAt: getRecordValue(record, 'ExpiresAt') || null,
+        rememberMe: rememberFlag
+      };
+    }
+
+    if (storedStatus === 'expired') {
+      return {
+        status: 'expired',
+        reason: 'EXPIRED',
+        entry: entry,
+        tableName: entry.tableName,
+        idleTimeoutMinutes: idleTimeoutMinutes,
+        lastActivityAt: lastActivityIso,
+        expiresAt: getRecordValue(record, 'ExpiresAt') || null,
+        rememberMe: rememberFlag
+      };
+    }
 
     if (SESSION_EXPIRATION_ENABLED) {
       if (!expiryTime || expiryTime < nowMs) {
+        try {
+          setRecordValue(record, 'Status', 'expired');
+          setRecordValue(record, 'LastSeenAt', new Date(nowMs).toISOString());
+          setRecordValue(record, 'RevokedReason', 'EXPIRED');
+          setRecordValue(record, 'RevokedAt', new Date(nowMs).toISOString());
+          updateSessionRow(entry);
+        } catch (expiryUpdateError) {
+          console.warn('evaluateSessionEntry: unable to mark session expired', expiryUpdateError);
+        }
+
         removeSessionEntry(entry);
         return {
           status: 'expired',
@@ -870,6 +930,16 @@ var AuthenticationService = (function () {
       }
 
       if (lastActivityTime && (nowMs - lastActivityTime) > idleTimeoutMinutes * 60 * 1000) {
+        try {
+          setRecordValue(record, 'Status', 'expired');
+          setRecordValue(record, 'LastSeenAt', new Date(nowMs).toISOString());
+          setRecordValue(record, 'RevokedReason', 'IDLE_TIMEOUT');
+          setRecordValue(record, 'RevokedAt', new Date(nowMs).toISOString());
+          updateSessionRow(entry);
+        } catch (idleUpdateError) {
+          console.warn('evaluateSessionEntry: unable to mark session idle-expired', idleUpdateError);
+        }
+
         removeSessionEntry(entry);
         return {
           status: 'expired',
@@ -881,8 +951,7 @@ var AuthenticationService = (function () {
     }
 
     let expiresAtIso = getRecordValue(record, 'ExpiresAt');
-    let lastActivityIso = getRecordValue(record, 'LastActivityAt')
-      || (lastActivityTime ? new Date(lastActivityTime).toISOString() : null);
+    let effectiveLastActivityIso = getRecordValue(record, 'LastActivityAt') || lastActivityIso;
 
     const touch = options && options.touch;
     const sessionToken = options && options.sessionToken;
@@ -895,6 +964,8 @@ var AuthenticationService = (function () {
       setRecordValue(record, 'LastActivityAt', nowIso);
       setRecordValue(record, 'ExpiresAt', nextExpiryIso);
       setRecordValue(record, 'IdleTimeoutMinutes', String(idleTimeoutMinutes));
+      setRecordValue(record, 'Status', 'active');
+      setRecordValue(record, 'LastSeenAt', nowIso);
 
       if (sessionToken && (entry.matchMethod === 'legacy' || !getRecordValue(record, 'TokenHash') || !getRecordValue(record, 'TokenSalt'))) {
         const salt = generateTokenSalt();
@@ -919,7 +990,17 @@ var AuthenticationService = (function () {
       }
 
       expiresAtIso = nextExpiryIso;
-      lastActivityIso = nowIso;
+      effectiveLastActivityIso = nowIso;
+    } else if (!storedStatus) {
+      try {
+        setRecordValue(record, 'Status', 'active');
+        if (lastSeenIso) {
+          setRecordValue(record, 'LastSeenAt', lastSeenIso);
+        }
+        updateSessionRow(entry);
+      } catch (statusUpdateError) {
+        console.warn('evaluateSessionEntry: unable to backfill session status', statusUpdateError);
+      }
     }
 
     return {
@@ -927,7 +1008,8 @@ var AuthenticationService = (function () {
       entry: entry,
       tableName: entry.tableName,
       idleTimeoutMinutes: idleTimeoutMinutes,
-      lastActivityAt: lastActivityIso,
+      lastActivityAt: effectiveLastActivityIso,
+      lastSeenAt: getRecordValue(record, 'LastSeenAt') || effectiveLastActivityIso,
       expiresAt: expiresAtIso,
       rememberMe: rememberFlag
     };
@@ -1190,6 +1272,38 @@ var AuthenticationService = (function () {
       if (idleTimeoutMinutes) {
         userPayload.sessionIdleTimeoutMinutes = idleTimeoutMinutes;
       }
+
+      const authenticatedIso = getRecordValue(record, 'AuthenticatedAt')
+        || (userPayload.sessionLastActivityAt || null)
+        || (getRecordValue(record, 'CreatedAt') || null);
+      const lastSeenIso = getRecordValue(record, 'LastSeenAt') || lastActivityIso || authenticatedIso;
+      const statusValue = (resolution && resolution.status)
+        ? String(resolution.status).toLowerCase()
+        : normalizeString(getRecordValue(record, 'Status')).toLowerCase() || 'active';
+
+      userPayload.sessionStatus = statusValue || 'active';
+      if (!Object.prototype.hasOwnProperty.call(userPayload, 'sessionRememberMe') && Object.prototype.hasOwnProperty.call(resolution || {}, 'rememberMe')) {
+        userPayload.sessionRememberMe = !!resolution.rememberMe;
+      }
+      if (authenticatedIso) {
+        userPayload.sessionAuthenticatedAt = authenticatedIso;
+        userPayload.authenticatedAt = authenticatedIso;
+      }
+      if (lastSeenIso) {
+        userPayload.sessionLastSeenAt = lastSeenIso;
+      }
+      userPayload.isAuthenticated = userPayload.sessionStatus === 'active';
+
+      userPayload.session = Object.assign({}, userPayload.session || {}, {
+        token: sessionToken,
+        status: userPayload.sessionStatus,
+        authenticatedAt: authenticatedIso || null,
+        lastActivityAt: lastActivityIso || null,
+        lastSeenAt: lastSeenIso || lastActivityIso || authenticatedIso || null,
+        expiresAt: expiresIso || null,
+        rememberMe: Object.prototype.hasOwnProperty.call(resolution || {}, 'rememberMe') ? !!resolution.rememberMe : !!userPayload.sessionRememberMe,
+        idleTimeoutMinutes: idleTimeoutMinutes || null
+      });
 
       userPayload.sessionScope = rawScope || null;
       userPayload.NeedsCampaignAssignment = userPayload.CampaignScope
@@ -4797,6 +4911,9 @@ var AuthenticationService = (function () {
       setRecordValue(canonicalRecord, 'ExpiresAt', expiresAtIso);
       setRecordValue(canonicalRecord, 'IdleTimeoutMinutes', String(idleTimeoutMinutes));
       setRecordValue(canonicalRecord, 'RememberMe', rememberMe ? 'TRUE' : 'FALSE');
+      setRecordValue(canonicalRecord, 'Status', 'active');
+      setRecordValue(canonicalRecord, 'AuthenticatedAt', nowIso);
+      setRecordValue(canonicalRecord, 'LastSeenAt', nowIso);
       setRecordValue(canonicalRecord, 'CampaignScope', serializeCampaignScope(scopeData));
       setRecordValue(canonicalRecord, 'UserAgent', metadata && metadata.userAgent ? metadata.userAgent : 'Google Apps Script');
       setRecordValue(canonicalRecord, 'IpAddress', metadata && metadata.ipAddress ? metadata.ipAddress : 'N/A');
@@ -5149,6 +5266,14 @@ var AuthenticationService = (function () {
       }
 
       const sessionToken = sessionResult.token;
+      const authenticatedAt = getRecordValue(sessionResult.record, 'AuthenticatedAt')
+        || getRecordValue(sessionResult.record, 'CreatedAt')
+        || new Date().toISOString();
+      const sessionLastActivity = getRecordValue(sessionResult.record, 'LastActivityAt')
+        || authenticatedAt;
+      const sessionLastSeen = getRecordValue(sessionResult.record, 'LastSeenAt')
+        || sessionLastActivity;
+      const sessionStatus = 'active';
 
       const warnings = Array.isArray(tenantAccess.warnings) ? tenantAccess.warnings.slice() : [];
       const needsCampaignAssignment = tenantAccess.needsCampaignAssignment === true;
@@ -5182,6 +5307,20 @@ var AuthenticationService = (function () {
           sessionExpiresAt: sessionResult.expiresAt,
           sessionTtlSeconds: sessionResult.ttlSeconds,
           sessionIdleTimeoutMinutes: sessionResult.idleTimeoutMinutes,
+          sessionStatus: sessionStatus,
+          isAuthenticated: true,
+          authenticatedAt: authenticatedAt,
+          session: {
+            token: sessionToken,
+            status: sessionStatus,
+            authenticatedAt: authenticatedAt,
+            lastActivityAt: sessionLastActivity,
+            lastSeenAt: sessionLastSeen,
+            expiresAt: sessionResult.expiresAt,
+            ttlSeconds: sessionResult.ttlSeconds,
+            idleTimeoutMinutes: sessionResult.idleTimeoutMinutes,
+            rememberMe: !!rememberMe
+          },
           tenant: tenantSummary,
           campaignScope: userPayload ? userPayload.CampaignScope : null,
           warnings: warnings,
@@ -5194,7 +5333,11 @@ var AuthenticationService = (function () {
           sessionExpiresAt: sessionResult.expiresAt,
           sessionTtlSeconds: sessionResult.ttlSeconds,
           sessionIdleTimeoutMinutes: sessionResult.idleTimeoutMinutes,
-          rememberMe: !!rememberMe
+          rememberMe: !!rememberMe,
+          status: sessionStatus,
+          authenticatedAt: authenticatedAt,
+          lastSeenAt: sessionLastSeen,
+          lastActivityAt: sessionLastActivity
         }, userPayload);
 
         if (sanitizedMetadata && sanitizedMetadata.requestedReturnUrl) {
@@ -5249,6 +5392,14 @@ var AuthenticationService = (function () {
       }
 
       const userPayload = buildUserPayload(user, tenantAccess.clientPayload);
+      const authenticatedAt = getRecordValue(sessionResult.record, 'AuthenticatedAt')
+        || getRecordValue(sessionResult.record, 'CreatedAt')
+        || new Date().toISOString();
+      const sessionLastActivity = getRecordValue(sessionResult.record, 'LastActivityAt')
+        || authenticatedAt;
+      const sessionLastSeen = getRecordValue(sessionResult.record, 'LastSeenAt')
+        || sessionLastActivity;
+      const sessionStatus = 'active';
 
       if (userPayload && userPayload.CampaignScope) {
         userPayload.CampaignScope.tenantContext = tenantAccess.sessionScope && tenantAccess.sessionScope.tenantContext
@@ -5294,6 +5445,20 @@ var AuthenticationService = (function () {
           sessionExpiresAt: sessionResult.expiresAt,
           sessionTtlSeconds: sessionResult.ttlSeconds,
           sessionIdleTimeoutMinutes: sessionResult.idleTimeoutMinutes,
+          sessionStatus: sessionStatus,
+          isAuthenticated: true,
+          authenticatedAt: authenticatedAt,
+          session: {
+            token: sessionResult.token,
+            status: sessionStatus,
+            authenticatedAt: authenticatedAt,
+            lastActivityAt: sessionLastActivity,
+            lastSeenAt: sessionLastSeen,
+            expiresAt: sessionResult.expiresAt,
+            ttlSeconds: sessionResult.ttlSeconds,
+            idleTimeoutMinutes: sessionResult.idleTimeoutMinutes,
+            rememberMe: !!rememberMe
+          },
           user: userPayload,
           tenant: tenantSummary,
           campaignScope: userPayload ? userPayload.CampaignScope : null,
@@ -5307,7 +5472,11 @@ var AuthenticationService = (function () {
           sessionExpiresAt: sessionResult.expiresAt,
           sessionTtlSeconds: sessionResult.ttlSeconds,
           sessionIdleTimeoutMinutes: sessionResult.idleTimeoutMinutes,
-          rememberMe: !!rememberMe
+          rememberMe: !!rememberMe,
+          status: sessionStatus,
+          authenticatedAt: authenticatedAt,
+          lastSeenAt: sessionLastSeen,
+          lastActivityAt: sessionLastActivity
         }, userPayload);
 
         return response;
@@ -5400,6 +5569,20 @@ var AuthenticationService = (function () {
           console.warn('logout: unable to extract userId for authorization cleanup', registryLookupError);
         }
 
+        try {
+          const nowIso = new Date().toISOString();
+          setRecordValue(entry.record, 'Status', 'revoked');
+          setRecordValue(entry.record, 'LastSeenAt', nowIso);
+          setRecordValue(entry.record, 'RevokedAt', nowIso);
+          setRecordValue(entry.record, 'RevokedReason', 'LOGOUT');
+          setRecordValue(entry.record, 'Token', '');
+          setRecordValue(entry.record, 'TokenHash', '');
+          setRecordValue(entry.record, 'TokenSalt', '');
+          updateSessionRow(entry);
+        } catch (revokeMarkError) {
+          console.warn('logout: unable to mark session as revoked', revokeMarkError);
+        }
+
         removeSessionEntry(entry);
 
         try {
@@ -5467,6 +5650,17 @@ var AuthenticationService = (function () {
         }
       }
 
+      const sessionStatus = (resolution && resolution.status) || (user && user.sessionStatus) || 'active';
+      const authenticatedAt = user.sessionAuthenticatedAt
+        || user.authenticatedAt
+        || (resolution && resolution.entry && resolution.entry.record ? getRecordValue(resolution.entry.record, 'AuthenticatedAt') : null)
+        || null;
+      const lastSeenAt = (resolution && resolution.lastSeenAt)
+        || user.sessionLastSeenAt
+        || user.sessionLastActivityAt
+        || null;
+      const resolvedIdleMinutes = resolution.idleTimeoutMinutes;
+
       const landing = resolveLandingDestination(context.rawUser || context.user, {
         user: context.user,
         userPayload: context.user,
@@ -5486,22 +5680,40 @@ var AuthenticationService = (function () {
           user: user,
           sessionToken: user.sessionToken,
           sessionExpiresAt: user.sessionExpiresAt || user.sessionExpiry || null,
-        sessionTtlSeconds: ttlSeconds,
-        tenant: user.CampaignScope || null,
-        campaignScope: user.CampaignScope || null,
-        warnings: user.CampaignScope && Array.isArray(user.CampaignScope.warnings) ? user.CampaignScope.warnings.slice() : [],
+          sessionTtlSeconds: ttlSeconds,
+          sessionStatus: sessionStatus,
+          isAuthenticated: sessionStatus === 'active',
+          authenticatedAt: authenticatedAt,
+          tenant: user.CampaignScope || null,
+          campaignScope: user.CampaignScope || null,
+          warnings: user.CampaignScope && Array.isArray(user.CampaignScope.warnings) ? user.CampaignScope.warnings.slice() : [],
           needsCampaignAssignment: user.CampaignScope ? !!user.CampaignScope.needsCampaignAssignment : false,
-          idleTimeoutMinutes: resolution.idleTimeoutMinutes,
+          idleTimeoutMinutes: resolvedIdleMinutes,
           lastActivityAt: user.sessionLastActivityAt || null,
           redirectSlug: redirectSlug,
           redirectUrl: redirectUrl
+        };
+
+        response.session = {
+          token: user.sessionToken,
+          status: sessionStatus,
+          authenticatedAt: authenticatedAt,
+          lastActivityAt: user.sessionLastActivityAt || null,
+          lastSeenAt: lastSeenAt,
+          expiresAt: response.sessionExpiresAt || user.sessionExpiresAt || user.sessionExpiry || null,
+          ttlSeconds: ttlSeconds,
+          idleTimeoutMinutes: resolvedIdleMinutes
         };
 
         const persistToken = (user && user.sessionToken) ? user.sessionToken : sessionToken;
         const persistMetadata = {
           sessionExpiresAt: response.sessionExpiresAt || user.sessionExpiresAt || null,
           sessionTtlSeconds: typeof response.sessionTtlSeconds === 'number' ? response.sessionTtlSeconds : ttlSeconds,
-          sessionIdleTimeoutMinutes: response.idleTimeoutMinutes || resolution.idleTimeoutMinutes || null
+          sessionIdleTimeoutMinutes: resolvedIdleMinutes,
+          status: sessionStatus,
+          authenticatedAt: authenticatedAt,
+          lastSeenAt: lastSeenAt,
+          lastActivityAt: user.sessionLastActivityAt || null
         };
 
         if (user) {
@@ -5515,10 +5727,15 @@ var AuthenticationService = (function () {
           }
           if (typeof rememberFlag !== 'undefined') {
             persistMetadata.rememberMe = rememberFlag;
+            response.session.rememberMe = !!rememberFlag;
           }
         }
 
         persistActiveSessionState(persistToken, persistMetadata, user);
+
+        if (typeof persistMetadata.rememberMe !== 'undefined' && typeof response.session.rememberMe === 'undefined') {
+          response.session.rememberMe = !!persistMetadata.rememberMe;
+        }
 
         return response;
     } catch (error) {

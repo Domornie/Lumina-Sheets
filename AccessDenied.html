@@ -7,6 +7,7 @@
     <?!= includeOnce('layoutLoader') ?>
     <?!= includeOnce('layoutAlerts') ?>
     <?!= includeOnce('ResponsiveStyles') ?>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link rel="icon" type="image/png" href="https://res.cloudinary.com/dr8qd3xfc/image/upload/v1754763514/vlbpo/lumina/3_dgitcx.png">
     <style>
         * {
@@ -79,11 +80,51 @@
             letter-spacing: 1px;
         }
 
+    .reason-heading {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 0.75rem;
+        }
+
+        .reason-code {
+            display: inline-block;
+            background: rgba(231, 76, 60, 0.12);
+            color: #c0392b;
+            border-radius: 999px;
+            padding: 0.25rem 0.75rem;
+            font-size: 0.75rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            margin-bottom: 1.25rem;
+        }
+
         .message {
             font-size: 1.1rem;
-            color: #7f8c8d;
-            margin-bottom: 2rem;
+            color: #4f5d75;
+            margin-bottom: 1.5rem;
             line-height: 1.6;
+        }
+
+        .detail-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .detail-list li {
+            position: relative;
+            padding-left: 1.5rem;
+            margin-bottom: 0.75rem;
+            color: #5f6c7b;
+        }
+
+        .detail-list li::before {
+            content: '\2022';
+            position: absolute;
+            left: 0.25rem;
+            color: #1d72b8;
+            font-weight: bold;
         }
 
         .actions {
@@ -129,11 +170,15 @@
             transform: translateY(-2px);
         }
 
+        .btn i {
+            font-size: 0.95rem;
+        }
+
         .info-box {
             background: #f8f9fa;
             border-left: 4px solid #3498db;
-            padding: 1rem;
-            margin: 2rem 0;
+            padding: 1.25rem;
+            margin: 1.5rem 0;
             border-radius: 0 8px 8px 0;
             text-align: left;
         }
@@ -148,6 +193,43 @@
             color: #7f8c8d;
             font-size: 0.9rem;
             margin: 0;
+        }
+
+        .support-note {
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+            color: #5f6c7b;
+        }
+
+        .support-note a {
+            color: #1d72b8;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .support-note a:hover {
+            text-decoration: underline;
+        }
+
+        .technical-details {
+            margin-top: 1.5rem;
+            text-align: left;
+        }
+
+        .technical-details summary {
+            cursor: pointer;
+            font-weight: 600;
+            color: #344563;
+        }
+
+        .technical-details pre {
+            margin-top: 0.75rem;
+            background: #f1f5f9;
+            border-radius: 8px;
+            padding: 1rem;
+            font-size: 0.85rem;
+            color: #475569;
+            overflow-x: auto;
         }
 
         @media (max-width: 600px) {
@@ -176,32 +258,70 @@
     <div class="error-icon">🚫</div>
     <h1>Access Denied</h1>
     <div class="error-code">Error 403</div>
+    <div class="reason-code"><?= reasonCode || 'ACCESS_DENIED' ?></div>
+    <div class="reason-heading"><?= reasonHeading || 'Access denied' ?></div>
 
     <p class="message"><?= message || 'You do not have permission to view this page.' ?></p>
 
+    <? if (reasons && reasons.length) { ?>
     <div class="info-box">
         <h3>🔐 Why am I seeing this?</h3>
-        <p>This page requires specific permissions that your account doesn't currently have. Contact your administrator if you believe this is an error.</p>
+        <ul class="detail-list">
+            <? for (var i = 0; i < reasons.length; i++) { ?>
+                <li><?= reasons[i] ?></li>
+            <? } ?>
+        </ul>
     </div>
+    <? } ?>
+
+    <? if (suggestions && suggestions.length) { ?>
+    <div class="info-box">
+        <h3>✅ What you can do</h3>
+        <ul class="detail-list">
+            <? for (var j = 0; j < suggestions.length; j++) { ?>
+                <li><?= suggestions[j] ?></li>
+            <? } ?>
+        </ul>
+    </div>
+    <? } ?>
 
     <div class="actions">
-        <a href="<?= baseUrl ?>&page=dashboard" class="btn btn-primary">
-            Go to Dashboard
-        </a>
-        <button onclick="history.back()" class="btn btn-secondary">
-            ← Go Back
-        </button>
+        <? if (actions && actions.length) { ?>
+            <? for (var k = 0; k < actions.length; k++) { var action = actions[k]; ?>
+                <? if (action.type === 'link') { ?>
+                    <a href="<?= action.href || '#' ?>" class="btn <?= action.variant === 'secondary' ? 'btn-secondary' : 'btn-primary' ?>"<? if (action.target) { ?> target="<?= action.target ?>"<? } ?><? if (action.rel) { ?> rel="<?= action.rel ?>"<? } ?>>
+                        <? if (action.icon) { ?><i class="fa <?= action.icon ?>"></i><? } ?><?= action.label ?>
+                    </a>
+                <? } else { ?>
+                    <button class="btn <?= action.variant === 'secondary' ? 'btn-secondary' : 'btn-primary' ?>" onclick="<?= action.onClick || 'history.back()' ?>">
+                        <? if (action.icon) { ?><i class="fa <?= action.icon ?>"></i><? } ?><?= action.label ?>
+                    </button>
+                <? } ?>
+            <? } ?>
+        <? } ?>
     </div>
+
+    <? if (supportEmail) { ?>
+    <p class="support-note">Need help? Email <a href="mailto:<?= supportEmail ?>"><?= supportEmail ?></a>.</p>
+    <? } ?>
+
+    <? if (showTrace && trace && trace.length) { ?>
+    <details class="technical-details">
+        <summary>Technical details</summary>
+        <pre><? for (var t = 0; t < trace.length; t++) { ?><?= trace[t] ?><? if (t < trace.length - 1) { ?>&#10;<? } ?><? } ?></pre>
+    </details>
+    <? } ?>
 </div>
 
 <script>
     // Add some interactive feedback
     document.addEventListener('DOMContentLoaded', function() {
+        const dashboardUrl = <?= JSON.stringify(dashboardUrl || '') ?>;
         // Auto-redirect after 30 seconds if user takes no action
         setTimeout(function() {
             const shouldRedirect = confirm('Would you like to return to the dashboard?');
-            if (shouldRedirect) {
-                window.location.href = '<?= baseUrl ?>&page=dashboard';
+            if (shouldRedirect && dashboardUrl) {
+                window.location.href = dashboardUrl;
             }
         }, 30000);
     });
