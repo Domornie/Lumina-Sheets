@@ -356,6 +356,18 @@ var LuminaIdentity = (function () {
       if (metadata.idleTimeoutMinutes || metadata.sessionIdleTimeoutMinutes) {
         payload.idleTimeoutMinutes = metadata.idleTimeoutMinutes || metadata.sessionIdleTimeoutMinutes;
       }
+      if (metadata.status || metadata.sessionStatus) {
+        payload.status = safeString(metadata.status || metadata.sessionStatus);
+      }
+      if (metadata.authenticatedAt || metadata.sessionAuthenticatedAt) {
+        payload.authenticatedAt = safeString(metadata.authenticatedAt || metadata.sessionAuthenticatedAt);
+      }
+      if (metadata.lastSeenAt) {
+        payload.lastSeenAt = safeString(metadata.lastSeenAt);
+      }
+      if (metadata.lastActivityAt) {
+        payload.lastActivityAt = safeString(metadata.lastActivityAt);
+      }
     }
 
     var serialized = null;
@@ -841,9 +853,14 @@ var LuminaIdentity = (function () {
 
     identity.session = {
       token: sessionToken,
+      status: safeString((sessionUser && (sessionUser.sessionStatus || (sessionUser.session && sessionUser.session.status)))) || (sessionToken ? 'active' : ''),
+      authenticatedAt: safeString((sessionUser && (sessionUser.sessionAuthenticatedAt || sessionUser.authenticatedAt || (sessionUser.session && sessionUser.session.authenticatedAt)))),
+      lastSeenAt: safeString((sessionUser && (sessionUser.sessionLastSeenAt || sessionUser.sessionLastActivityAt || (sessionUser.session && sessionUser.session.lastSeenAt)))),
+      lastActivityAt: safeString((sessionUser && (sessionUser.sessionLastActivityAt || (sessionUser.session && sessionUser.session.lastActivityAt)))),
       expiresAt: sessionExpiresAt || '',
       idleTimeoutMinutes: sessionIdleTimeout || '',
-      rememberMe: !!(sessionUser && sessionUser.sessionRememberMe)
+      ttlSeconds: sessionUser && (sessionUser.sessionTtlSeconds || (sessionUser.session && sessionUser.session.ttlSeconds)) || '',
+      rememberMe: !!(sessionUser && (sessionUser.sessionRememberMe || (sessionUser.session && sessionUser.session.rememberMe)))
     };
 
     identity.campaignRoles = identity.campaigns.map(function (campaign) {
