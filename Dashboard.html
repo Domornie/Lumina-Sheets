@@ -82,6 +82,13 @@
             padding: 0;
         }
 
+        .dashboard-container {
+            width: 100%;
+            max-width: none;
+            margin: 0;
+            padding: clamp(var(--spacing-lg), calc(3vw + var(--spacing-sm)), var(--spacing-2xl));
+        }
+
         /* Header Styles */
         .dashboard-header {
             background: var(--navy-primary);
@@ -643,7 +650,7 @@
         }
     </style>
 
-    <div class="dashboard-container" style="padding: var(--spacing-lg);">
+    <div class="dashboard-container">
         <!-- Header -->
         <div class="dashboard-header">
             <div class="refresh-indicator" id="refreshIndicator">
