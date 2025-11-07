@@ -6923,7 +6923,7 @@
                     other: 0
                 };
                 const biWeeklyBuckets = new Map();
-                const recognitionCategories = new Set(['present', 'late', 'absent', 'sick']);
+                const recognitionCategories = new Set(['present', 'training', 'late', 'absent', 'sick']);
                 const userStatsMap = new Map();
                 const recognitionPeriodMaps = {
                     weekly: new Map(),
@@ -7403,6 +7403,7 @@
                         bucket.users.set(identityKey, {
                             displayName: '',
                             present: 0,
+                            punctual: 0,
                             total: 0,
                             late: 0,
                             absent: 0,
@@ -7413,8 +7414,9 @@
                     const userBucketStat = bucket.users.get(identityKey);
                     userBucketStat.displayName = chooseDisplayName(userBucketStat.displayName, displayName);
 
-                    if (category === 'present') {
+                    if (category === 'present' || category === 'training') {
                         userBucketStat.present += 1;
+                        userBucketStat.punctual += 1;
                     } else if (category === 'late') {
                         userBucketStat.late += 1;
                     } else if (category === 'absent') {
@@ -7629,6 +7631,8 @@
                                 userStat = {
                                     displayName: '',
                                     present: 0,
+                                    training: 0,
+                                    punctual: 0,
                                     total: 0,
                                     late: 0,
                                     absent: 0,
@@ -7641,6 +7645,10 @@
 
                             if (category === 'present') {
                                 userStat.present += 1;
+                                userStat.punctual += 1;
+                            } else if (category === 'training') {
+                                userStat.training += 1;
+                                userStat.punctual += 1;
                             } else if (category === 'late') {
                                 userStat.late += 1;
                             } else if (category === 'absent') {
@@ -7678,7 +7686,7 @@
                         });
                     }
                     const bucket = biWeeklyBuckets.get(bucketInfo.key);
-                    if (category === 'present') {
+                    if (category === 'present' || category === 'training') {
                         bucket.present += 1;
                     }
                     bucket.total += 1;
@@ -7691,8 +7699,8 @@
                     return Number(((numerator / denominator) * 100).toFixed(2));
                 };
 
-                const monthlyPercent = monthStats.map(stat => safePercent(stat.present, stat.total));
-                const monthlyPresent = monthStats.map(stat => stat.present);
+                const monthlyPercent = monthStats.map(stat => safePercent((stat.present || 0) + (stat.training || 0), stat.total));
+                const monthlyPresent = monthStats.map(stat => (stat.present || 0) + (stat.training || 0));
                 const monthlyAbsent = monthStats.map(stat => stat.absent);
                 const monthlyLate = monthStats.map(stat => stat.late);
                 const monthlyLeaves = monthStats.map(stat =>
@@ -7701,7 +7709,6 @@
                     stat.bereavement +
                     stat.leaveOfAbsence +
                     stat.personalLeave +
-                    stat.training +
                     stat.other
                 );
 
@@ -7718,7 +7725,7 @@
                 const monthlyAbsentTrend = computeTrend(monthlyAbsent);
 
                 const yearlyTrends = {
-                    punctual: monthStats.map(stat => safePercent(stat.present, stat.total)),
+                    punctual: monthStats.map(stat => safePercent((stat.present || 0) + (stat.training || 0), stat.total)),
                     late: monthStats.map(stat => safePercent(stat.late, stat.total)),
                     absent: monthStats.map(stat => safePercent(stat.absent, stat.total)),
                     sick: monthStats.map(stat => safePercent(stat.sick, stat.total)),
@@ -7730,7 +7737,7 @@
                     const total = stat.total || 0;
                     return {
                         month: monthName,
-                        punctual: safePercent(stat.present, total),
+                        punctual: safePercent((stat.present || 0) + (stat.training || 0), total),
                         bereavement: safePercent(stat.bereavement, total),
                         absent: safePercent(stat.absent, total),
                         late: safePercent(stat.late, total),
@@ -7778,14 +7785,15 @@
                     const latestBucket = buckets[0];
                     const entries = Array.from(latestBucket.users.values()).map(stat => {
                         const totalTracked = stat.total || 0;
+                        const punctualCount = (stat.punctual || 0);
                         const punctualRate = totalTracked > 0
-                            ? Number(((stat.present / totalTracked) * 100).toFixed(2))
+                            ? Number(((punctualCount / totalTracked) * 100).toFixed(2))
                             : 0;
                         const displayName = (stat.displayName || '').toString().trim() || 'Team Member';
 
                         return {
                             displayName,
-                            present: stat.present,
+                            present: punctualCount,
                             total: totalTracked,
                             punctualRate
                         };
@@ -7811,14 +7819,15 @@
                 const topPunctual = Array.from(userStatsMap.values())
                     .map(stat => {
                         const totalTracked = stat.total || 0;
+                        const punctualCount = stat.punctual || 0;
                         const punctualRate = totalTracked > 0
-                            ? Number(((stat.present / totalTracked) * 100).toFixed(2))
+                            ? Number(((punctualCount / totalTracked) * 100).toFixed(2))
                             : 0;
                         const displayName = (stat.displayName || '').toString().trim() || 'Team Member';
 
                         return {
                             displayName,
-                            present: stat.present,
+                            present: punctualCount,
                             total: totalTracked,
                             punctualRate
                         };
@@ -8412,14 +8421,17 @@
 
                 const attended = total - counts.absent - counts.noCallNoShow;
                 const attendanceRate = total ? Math.max(0, Math.round((attended / total) * 1000) / 10) : 0;
-                const punctualRate = total ? Math.round((counts.present / total) * 1000) / 10 : 0;
+                const punctualCount = counts.present + counts.training;
+                const punctualRate = total ? Math.round((punctualCount / total) * 1000) / 10 : 0;
 
                 return {
                     total,
                     counts,
                     percentages,
                     attendanceRate,
-                    punctualRate
+                    punctualRate,
+                    punctualCount,
+                    punctualPercent: punctualRate
                 };
             }
 
@@ -8525,6 +8537,13 @@
                     return;
                 }
 
+                const punctualCountValue = Number.isFinite(summary.punctualCount)
+                    ? summary.punctualCount
+                    : (summary.counts.present + summary.counts.training);
+                const punctualPercentValue = Number.isFinite(summary.punctualPercent)
+                    ? summary.punctualPercent
+                    : (summary.percentages.present + summary.percentages.training);
+
                 const metrics = [
                     {
                         label: 'Total Logged',
@@ -8543,8 +8562,8 @@
                     },
                     {
                         label: 'Punctual',
-                        value: this.formatInteger(summary.counts.present),
-                        subtext: this.formatPercentage(summary.percentages.present)
+                        value: this.formatInteger(punctualCountValue),
+                        subtext: this.formatPercentage(punctualPercentValue)
                     },
                     {
                         label: 'Late',
@@ -9170,7 +9189,7 @@
                             datasets: [
                                 {
                                     type: 'bar',
-                                    label: 'Present',
+                                    label: 'Punctual (incl. Training)',
                                     data: data.monthlyPresent,
                                     backgroundColor: palette.punctual,
                                     borderRadius: 6,
