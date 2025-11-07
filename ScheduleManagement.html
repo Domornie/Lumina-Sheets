@@ -1040,6 +1040,156 @@
         min-width: 180px;
     }
 
+    .attendance-summary-panel {
+        background: white;
+        border: 1px solid #e2e8f0;
+        border-radius: var(--border-radius);
+        padding: var(--spacing-sm) var(--spacing-md);
+        margin-bottom: var(--spacing-md);
+        box-shadow: var(--shadow-sm);
+    }
+
+    .attendance-summary-header {
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+        margin-bottom: var(--spacing-sm);
+    }
+
+    .attendance-summary-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: var(--dark);
+    }
+
+    .attendance-summary-subtitle {
+        font-size: 0.85rem;
+        color: #475569;
+    }
+
+    .attendance-summary-grid {
+        display: grid;
+        gap: 0.75rem;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        margin-bottom: var(--spacing-sm);
+    }
+
+    .attendance-summary-metric {
+        background: linear-gradient(135deg, rgba(15, 42, 86, 0.02) 0%, rgba(14, 116, 144, 0.08) 100%);
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        border-radius: var(--border-radius-sm);
+        padding: 0.9rem 1rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+        box-shadow: var(--shadow-sm);
+    }
+
+    .attendance-summary-metric-label {
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #475569;
+    }
+
+    .attendance-summary-metric-value {
+        font-size: 1.6rem;
+        font-weight: 600;
+        color: var(--navy-primary);
+    }
+
+    .attendance-summary-metric-subtext {
+        font-size: 0.8rem;
+        color: #64748b;
+    }
+
+    .attendance-summary-footnote {
+        font-size: 0.75rem;
+        color: #64748b;
+    }
+
+    .attendance-summary-recognition {
+        border-top: 1px solid #e2e8f0;
+        padding-top: var(--spacing-sm);
+        display: flex;
+        flex-direction: column;
+        gap: 0.65rem;
+    }
+
+    .attendance-summary-recognition-header {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 0.5rem;
+    }
+
+    .attendance-summary-recognition-title {
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: var(--navy-primary);
+    }
+
+    .attendance-summary-recognition-period {
+        font-size: 0.75rem;
+        color: #64748b;
+    }
+
+    .attendance-summary-recognition-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .attendance-summary-recognition-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.85rem;
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        border-radius: var(--border-radius-sm);
+        padding: 0.65rem 0.85rem;
+        background: linear-gradient(135deg, rgba(14, 116, 144, 0.05) 0%, rgba(15, 23, 42, 0.02) 100%);
+        box-shadow: var(--shadow-sm);
+    }
+
+    .attendance-summary-recognition-rank {
+        font-weight: 600;
+        color: var(--navy-primary);
+        font-size: 0.85rem;
+        min-width: 1.5rem;
+    }
+
+    .attendance-summary-recognition-details {
+        display: flex;
+        flex-direction: column;
+        gap: 0.2rem;
+    }
+
+    .attendance-summary-recognition-name {
+        font-weight: 600;
+        font-size: 0.95rem;
+        color: #0f172a;
+    }
+
+    .attendance-summary-recognition-meta {
+        font-size: 0.75rem;
+        color: #64748b;
+    }
+
+    .attendance-summary-recognition-empty {
+        font-size: 0.8rem;
+        color: #94a3b8;
+    }
+
+    @media (max-width: 991px) {
+        .attendance-summary-panel {
+            padding: var(--spacing-sm);
+        }
+    }
+
     @media (max-width: 991px) {
         .attendance-panel-actions {
             flex-wrap: wrap;
@@ -1653,13 +1803,45 @@
                         <div class="text-muted small">Real-time attendance intelligence for managers</div>
                     </div>
                     <div class="attendance-dashboard-controls">
-                        <span class="text-muted small">Filter by user:</span>
-                        <select id="attendanceDashboardUser" class="form-select form-select-sm" aria-label="Filter attendance dashboard by user">
-                            <option value="">All Users</option>
-                        </select>
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="text-muted small">User:</span>
+                            <select id="attendanceDashboardUser" class="form-select form-select-sm" aria-label="Filter attendance dashboard by user">
+                                <option value="">All Users</option>
+                            </select>
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="text-muted small">View:</span>
+                            <select id="attendanceDashboardGranularity" class="form-select form-select-sm" aria-label="Select attendance period granularity">
+                                <option value="Week">Weekly</option>
+                                <option value="BiWeekly">Bi-Weekly</option>
+                                <option value="Month">Monthly</option>
+                                <option value="Quarter">Quarterly</option>
+                                <option value="Year">Yearly</option>
+                            </select>
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="text-muted small">Period:</span>
+                            <select id="attendanceDashboardPeriod" class="form-select form-select-sm" aria-label="Select attendance period">
+                                <option value="">Loading…</option>
+                            </select>
+                        </div>
+                        <button id="attendanceExportButton" class="btn btn-outline-modern btn-sm" type="button">
+                            <i class="fas fa-download me-1"></i>
+                            Export CSV
+                        </button>
                     </div>
                 </div>
                 <div class="modern-card-body">
+                    <div id="attendanceSummaryPanel" class="attendance-summary-panel" aria-live="polite">
+                        <div class="attendance-summary-header">
+                            <div class="attendance-summary-title" id="attendanceSummaryTitle">Attendance Overview</div>
+                            <div class="attendance-summary-subtitle" id="attendanceSummarySubtitle">Select a period to explore punctuality, late arrivals, and absences.</div>
+                        </div>
+                        <div class="attendance-summary-grid" id="attendanceSummaryMetrics">
+                            <div class="text-muted small">Attendance summary will appear here once data is available.</div>
+                        </div>
+                        <div class="attendance-summary-footnote" id="attendanceSummaryFootnote">Weeks and bi-weekly cycles begin on Monday and may span multiple months.</div>
+                    </div>
                     <div class="attendance-dashboard">
                         <div class="row g-4">
                             <div class="col-lg-8">
@@ -2790,7 +2972,12 @@
                 this.attendanceDashboardData = null;
                 this.attendanceDashboardYear = null;
                 this.attendanceDashboardRecords = [];
+                this.attendanceDashboardRecordUsers = [];
                 this.attendanceDashboardUserFilter = '';
+                this.attendanceDashboardGranularity = 'Week';
+                this.attendanceDashboardPeriod = '';
+                this.attendancePeriodOptions = {};
+                this.attendancePeriodOptionsYear = null;
                 this.attendanceRecognitionPeriod = 'yearly';
                 this.attendanceRecognitionLeaders = {
                     weekly: { label: '', entries: [] },
@@ -3980,23 +4167,65 @@
                     }
 
                     const options = ['<option value="">All Users</option>'];
+                    const seenKeys = new Set();
+                    const recordUsers = Array.isArray(this.attendanceDashboardRecordUsers)
+                        ? this.attendanceDashboardRecordUsers
+                        : [];
+
+                    const computeKey = (value) => {
+                        const normalizedId = this.normalizeUserIdValue(value);
+                        if (normalizedId) {
+                            return normalizedId.toLowerCase();
+                        }
+                        const normalizedName = this.normalizePersonKey(value);
+                        return normalizedName || '';
+                    };
+
+                    const appendOption = (value, label, meta = {}) => {
+                        if (!value) {
+                            return;
+                        }
+
+                        const key = computeKey(value);
+                        if (!key || seenKeys.has(key)) {
+                            return;
+                        }
+                        seenKeys.add(key);
+
+                        const normalizedOptionValue = this.normalizeUserIdValue(value) || this.normalizePersonKey(value);
+                        const isSelected = normalizedFilterId
+                            && normalizedOptionValue
+                            && normalizedOptionValue === normalizedFilterId;
+
+                        const dataAttributes = [];
+                        if (meta.userName) {
+                            dataAttributes.push(`data-user-name="${this.escapeHtml(this.normalizePersonKey(meta.userName))}"`);
+                        }
+                        if (meta.fullName) {
+                            dataAttributes.push(`data-full-name="${this.escapeHtml(this.normalizePersonKey(meta.fullName))}"`);
+                        }
+
+                        options.push(`
+                            <option value="${this.escapeHtml(value)}" ${dataAttributes.join(' ')}${isSelected ? ' selected' : ''}>${this.escapeHtml(label || value)}</option>
+                        `);
+                    };
+
                     this.availableUsers.forEach(user => {
                         const resolvedId = this.normalizeUserIdValue(user.ID || user.UserID || user.id || user.userId || user.username);
                         const fallbackKey = this.normalizePersonKey(user.UserName || user.FullName || '');
                         const optionValue = resolvedId || fallbackKey;
-                        const label = this.escapeHtml(user.FullName || user.UserName || 'Unnamed Agent');
+                        const label = user.FullName || user.UserName || user.Email || 'Unnamed Agent';
+                        appendOption(optionValue, label, {
+                            userName: user.UserName || '',
+                            fullName: user.FullName || ''
+                        });
+                    });
 
-                        if (!optionValue) {
+                    recordUsers.forEach(entry => {
+                        if (!entry || typeof entry !== 'object') {
                             return;
                         }
-
-                        const normalizedOptionValue = this.normalizeUserIdValue(optionValue);
-                        const isSelected = normalizedFilterId && normalizedOptionValue === normalizedFilterId;
-                        const dataUserName = this.escapeHtml(this.normalizePersonKey(user.UserName || ''));
-                        const dataFullName = this.escapeHtml(this.normalizePersonKey(user.FullName || ''));
-                        options.push(`
-                            <option value="${this.escapeHtml(optionValue)}" data-user-name="${dataUserName}" data-full-name="${dataFullName}"${isSelected ? ' selected' : ''}>${label}</option>
-                        `);
+                        appendOption(entry.value, entry.label);
                     });
 
                     dropdown.innerHTML = options.join('');
@@ -6671,12 +6900,15 @@
                     if (prefetch && prefetch.year === year && Array.isArray(prefetch.records)) {
                         this.attendanceDashboardYear = year;
                         this.attendanceDashboardRecords = prefetch.records.slice();
+                        this.collectAttendanceDashboardRecordUsers(this.attendanceDashboardRecords);
                         const filteredPrefetchRecords = this.filterAttendanceDashboardRecords(
                             this.attendanceDashboardRecords,
                             this.attendanceDashboardUserFilter
                         );
                         this.attendanceDashboardData = this.computeAttendanceDashboard(filteredPrefetchRecords, year);
                         this.destroyAttendanceDashboardCharts();
+                        this.attendancePeriodOptionsYear = null;
+                        this.attendanceDashboardPeriod = '';
                         return;
                     }
 
@@ -6697,13 +6929,17 @@
                     };
                     this.attendanceDashboardRecords = records;
                     this.attendanceDashboardYear = year;
+                    this.collectAttendanceDashboardRecordUsers(this.attendanceDashboardRecords);
                     const filteredRecords = this.filterAttendanceDashboardRecords(records, this.attendanceDashboardUserFilter);
                     this.attendanceDashboardData = this.computeAttendanceDashboard(filteredRecords, year);
                     this.destroyAttendanceDashboardCharts();
+                    this.attendancePeriodOptionsYear = null;
+                    this.attendanceDashboardPeriod = '';
                 } catch (error) {
                     console.error('Error loading attendance dashboard data:', error);
                     this.attendanceDashboardYear = year;
                     this.attendanceDashboardRecords = [];
+                    this.collectAttendanceDashboardRecordUsers(this.attendanceDashboardRecords);
                     this.attendanceDashboardData = this.computeAttendanceDashboard([], year);
                     this.destroyAttendanceDashboardCharts();
                     this.showToast('Failed to load attendance dashboard: ' + error.message, 'danger');
@@ -6763,7 +6999,7 @@
                     other: 0
                 };
                 const biWeeklyBuckets = new Map();
-                const recognitionCategories = new Set(['present', 'late', 'absent', 'sick']);
+                const recognitionCategories = new Set(['present', 'training', 'late', 'absent', 'sick']);
                 const userStatsMap = new Map();
                 const recognitionPeriodMaps = {
                     weekly: new Map(),
@@ -7243,6 +7479,7 @@
                         bucket.users.set(identityKey, {
                             displayName: '',
                             present: 0,
+                            punctual: 0,
                             total: 0,
                             late: 0,
                             absent: 0,
@@ -7253,8 +7490,9 @@
                     const userBucketStat = bucket.users.get(identityKey);
                     userBucketStat.displayName = chooseDisplayName(userBucketStat.displayName, displayName);
 
-                    if (category === 'present') {
+                    if (category === 'present' || category === 'training') {
                         userBucketStat.present += 1;
+                        userBucketStat.punctual += 1;
                     } else if (category === 'late') {
                         userBucketStat.late += 1;
                     } else if (category === 'absent') {
@@ -7290,9 +7528,56 @@
                     if (!trimmedCurrent) {
                         return trimmedCandidate;
                     }
+                    const candidateHasWhitespace = /\s/.test(trimmedCandidate);
+                    const currentHasWhitespace = /\s/.test(trimmedCurrent);
+                    if (candidateHasWhitespace && !currentHasWhitespace) {
+                        return trimmedCandidate;
+                    }
+                    if (!candidateHasWhitespace && currentHasWhitespace) {
+                        return trimmedCurrent;
+                    }
+                    const candidateLooksLikeEmail = trimmedCandidate.includes('@');
+                    const currentLooksLikeEmail = trimmedCurrent.includes('@');
+                    if (!candidateLooksLikeEmail && currentLooksLikeEmail) {
+                        return trimmedCandidate;
+                    }
+                    if (candidateLooksLikeEmail && !currentLooksLikeEmail) {
+                        return trimmedCurrent;
+                    }
                     const currentScore = scoreDisplayName(trimmedCurrent);
                     const candidateScore = scoreDisplayName(trimmedCandidate);
                     return candidateScore > currentScore ? trimmedCandidate : trimmedCurrent;
+                };
+
+                const resolvePreferredFullName = (entity) => {
+                    if (!entity || typeof entity !== 'object') {
+                        return '';
+                    }
+
+                    const candidates = [
+                        entity.fullName,
+                        entity.FullName,
+                        entity.name,
+                        entity.Name
+                    ];
+
+                    let fallback = '';
+                    for (const candidate of candidates) {
+                        if (typeof candidate === 'string') {
+                            const trimmed = candidate.trim();
+                            if (!trimmed) {
+                                continue;
+                            }
+                            if (/\s/.test(trimmed)) {
+                                return trimmed;
+                            }
+                            if (!fallback) {
+                                fallback = trimmed;
+                            }
+                        }
+                    }
+
+                    return fallback;
                 };
 
                 const resolveRecordDisplayName = (record) => {
@@ -7454,10 +7739,20 @@
                             }
 
                             let displayName = resolveRecordDisplayName(record);
+                            const recordFullName = resolvePreferredFullName(record);
+                            if (recordFullName) {
+                                displayName = chooseDisplayName(displayName, recordFullName);
+                            }
                             if (identityInfo && identityInfo.user) {
-                                const preferred = identityInfo.user.FullName
-                                    || identityInfo.user.UserName
+                                const identityFullName = resolvePreferredFullName(identityInfo.user);
+                                if (identityFullName) {
+                                    displayName = chooseDisplayName(displayName, identityFullName);
+                                }
+
+                                const preferred = identityInfo.user.UserName
+                                    || identityInfo.user.username
                                     || identityInfo.user.Email
+                                    || identityInfo.user.email
                                     || identityInfo.user.user
                                     || identityInfo.user.User
                                     || '';
@@ -7469,6 +7764,8 @@
                                 userStat = {
                                     displayName: '',
                                     present: 0,
+                                    training: 0,
+                                    punctual: 0,
                                     total: 0,
                                     late: 0,
                                     absent: 0,
@@ -7481,6 +7778,10 @@
 
                             if (category === 'present') {
                                 userStat.present += 1;
+                                userStat.punctual += 1;
+                            } else if (category === 'training') {
+                                userStat.training += 1;
+                                userStat.punctual += 1;
                             } else if (category === 'late') {
                                 userStat.late += 1;
                             } else if (category === 'absent') {
@@ -7518,7 +7819,7 @@
                         });
                     }
                     const bucket = biWeeklyBuckets.get(bucketInfo.key);
-                    if (category === 'present') {
+                    if (category === 'present' || category === 'training') {
                         bucket.present += 1;
                     }
                     bucket.total += 1;
@@ -7531,8 +7832,8 @@
                     return Number(((numerator / denominator) * 100).toFixed(2));
                 };
 
-                const monthlyPercent = monthStats.map(stat => safePercent(stat.present, stat.total));
-                const monthlyPresent = monthStats.map(stat => stat.present);
+                const monthlyPercent = monthStats.map(stat => safePercent((stat.present || 0) + (stat.training || 0), stat.total));
+                const monthlyPresent = monthStats.map(stat => (stat.present || 0) + (stat.training || 0));
                 const monthlyAbsent = monthStats.map(stat => stat.absent);
                 const monthlyLate = monthStats.map(stat => stat.late);
                 const monthlyLeaves = monthStats.map(stat =>
@@ -7541,7 +7842,6 @@
                     stat.bereavement +
                     stat.leaveOfAbsence +
                     stat.personalLeave +
-                    stat.training +
                     stat.other
                 );
 
@@ -7558,7 +7858,7 @@
                 const monthlyAbsentTrend = computeTrend(monthlyAbsent);
 
                 const yearlyTrends = {
-                    punctual: monthStats.map(stat => safePercent(stat.present, stat.total)),
+                    punctual: monthStats.map(stat => safePercent((stat.present || 0) + (stat.training || 0), stat.total)),
                     late: monthStats.map(stat => safePercent(stat.late, stat.total)),
                     absent: monthStats.map(stat => safePercent(stat.absent, stat.total)),
                     sick: monthStats.map(stat => safePercent(stat.sick, stat.total)),
@@ -7570,7 +7870,7 @@
                     const total = stat.total || 0;
                     return {
                         month: monthName,
-                        punctual: safePercent(stat.present, total),
+                        punctual: safePercent((stat.present || 0) + (stat.training || 0), total),
                         bereavement: safePercent(stat.bereavement, total),
                         absent: safePercent(stat.absent, total),
                         late: safePercent(stat.late, total),
@@ -7618,14 +7918,15 @@
                     const latestBucket = buckets[0];
                     const entries = Array.from(latestBucket.users.values()).map(stat => {
                         const totalTracked = stat.total || 0;
+                        const punctualCount = (stat.punctual || 0);
                         const punctualRate = totalTracked > 0
-                            ? Number(((stat.present / totalTracked) * 100).toFixed(2))
+                            ? Number(((punctualCount / totalTracked) * 100).toFixed(2))
                             : 0;
                         const displayName = (stat.displayName || '').toString().trim() || 'Team Member';
 
                         return {
                             displayName,
-                            present: stat.present,
+                            present: punctualCount,
                             total: totalTracked,
                             punctualRate
                         };
@@ -7651,14 +7952,15 @@
                 const topPunctual = Array.from(userStatsMap.values())
                     .map(stat => {
                         const totalTracked = stat.total || 0;
+                        const punctualCount = stat.punctual || 0;
                         const punctualRate = totalTracked > 0
-                            ? Number(((stat.present / totalTracked) * 100).toFixed(2))
+                            ? Number(((punctualCount / totalTracked) * 100).toFixed(2))
                             : 0;
                         const displayName = (stat.displayName || '').toString().trim() || 'Team Member';
 
                         return {
                             displayName,
-                            present: stat.present,
+                            present: punctualCount,
                             total: totalTracked,
                             punctualRate
                         };
@@ -7759,6 +8061,930 @@
 
                     return recordKeys.some(key => keySet.has(key));
                 });
+            }
+
+            collectAttendanceDashboardRecordUsers(records = []) {
+                const entries = new Map();
+
+                if (!Array.isArray(records)) {
+                    this.attendanceDashboardRecordUsers = [];
+                    return;
+                }
+
+                const rankDisplayName = (value) => {
+                    const text = (value || '').toString().trim();
+                    if (!text) {
+                        return -Infinity;
+                    }
+                    let score = text.length;
+                    if (/\s/.test(text)) {
+                        score += 10;
+                    }
+                    if (/@/.test(text)) {
+                        score -= 5;
+                    }
+                    return score;
+                };
+
+                const updateEntry = (key, value, label) => {
+                    if (!key || !value) {
+                        return;
+                    }
+
+                    const trimmedValue = value.toString().trim();
+                    if (!trimmedValue) {
+                        return;
+                    }
+
+                    const trimmedLabel = (label || '').toString().trim();
+                    const existing = entries.get(key);
+
+                    if (!existing) {
+                        entries.set(key, {
+                            value: trimmedValue,
+                            label: trimmedLabel || trimmedValue
+                        });
+                        return;
+                    }
+
+                    if (!existing.value && trimmedValue) {
+                        existing.value = trimmedValue;
+                    }
+
+                    const currentLabelScore = rankDisplayName(existing.label);
+                    const candidateLabelScore = rankDisplayName(trimmedLabel || trimmedValue);
+                    if (candidateLabelScore > currentLabelScore) {
+                        existing.label = trimmedLabel || trimmedValue;
+                    }
+                };
+
+                records.forEach(record => {
+                    if (!record || typeof record !== 'object') {
+                        return;
+                    }
+
+                    const idCandidates = [
+                        record.ID,
+                        record.Id,
+                        record.id,
+                        record.UserID,
+                        record.UserId,
+                        record.userID,
+                        record.userId
+                    ].map(candidate => this.normalizeUserIdValue(candidate)).filter(Boolean);
+
+                    const nameCandidates = [
+                        record.userName,
+                        record.UserName,
+                        record.username,
+                        record.user,
+                        record.User,
+                        record.fullName,
+                        record.FullName
+                    ].map(candidate => (candidate || '').toString().trim()).filter(Boolean);
+
+                    const emailCandidates = [
+                        record.email,
+                        record.Email
+                    ].map(candidate => (candidate || '').toString().trim()).filter(Boolean);
+
+                    const preferredValue = idCandidates.find(Boolean)
+                        || nameCandidates.find(Boolean)
+                        || emailCandidates.find(Boolean);
+
+                    const normalizedKey = this.normalizeUserIdValue(preferredValue)
+                        || this.normalizePersonKey(preferredValue);
+
+                    if (!normalizedKey) {
+                        return;
+                    }
+
+                    const labelCandidates = [
+                        ...nameCandidates,
+                        ...emailCandidates,
+                        preferredValue
+                    ];
+                    const preferredLabel = labelCandidates.find(candidate => candidate && /\s/.test(candidate))
+                        || labelCandidates.find(candidate => candidate)
+                        || preferredValue;
+
+                    updateEntry(normalizedKey, preferredValue, preferredLabel);
+                });
+
+                this.attendanceDashboardRecordUsers = Array.from(entries.values());
+                if (typeof this.updateUserDropdowns === 'function') {
+                    this.updateUserDropdowns();
+                }
+            }
+
+            setupAttendancePeriodControls() {
+                const granularitySelect = document.getElementById('attendanceDashboardGranularity');
+                const periodSelect = document.getElementById('attendanceDashboardPeriod');
+                const exportButton = document.getElementById('attendanceExportButton');
+
+                if (granularitySelect) {
+                    const normalized = this.normalizeGranularity(granularitySelect.value || this.attendanceDashboardGranularity);
+                    this.attendanceDashboardGranularity = normalized;
+                    granularitySelect.value = normalized;
+
+                    if (!granularitySelect.dataset.luminaAttendanceGranularityListener) {
+                        granularitySelect.addEventListener('change', (event) => {
+                            this.handleAttendanceGranularityChange(event.target.value);
+                        });
+                        granularitySelect.dataset.luminaAttendanceGranularityListener = 'true';
+                    }
+                }
+
+                if (periodSelect && !periodSelect.dataset.luminaAttendancePeriodListener) {
+                    periodSelect.addEventListener('change', (event) => {
+                        this.handleAttendancePeriodChange(event.target.value);
+                    });
+                    periodSelect.dataset.luminaAttendancePeriodListener = 'true';
+                }
+
+                if (exportButton && !exportButton.dataset.luminaAttendanceExportListener) {
+                    exportButton.addEventListener('click', (event) => {
+                        event.preventDefault();
+                        this.exportAttendanceReport().catch(error => {
+                            console.error('Attendance export failed:', error);
+                        });
+                    });
+                    exportButton.dataset.luminaAttendanceExportListener = 'true';
+                }
+
+                this.refreshAttendancePeriodOptions();
+            }
+
+            normalizeGranularity(value) {
+                const text = typeof value === 'string' ? value.trim().toLowerCase() : '';
+                if (!text) {
+                    return 'Week';
+                }
+
+                const normalized = text.replace(/[^a-z]/g, '');
+                switch (normalized) {
+                    case 'week':
+                    case 'weekly':
+                        return 'Week';
+                    case 'biweekly':
+                    case 'biweek':
+                        return 'BiWeekly';
+                    case 'month':
+                    case 'monthly':
+                        return 'Month';
+                    case 'quarter':
+                    case 'quarterly':
+                        return 'Quarter';
+                    case 'year':
+                    case 'yearly':
+                        return 'Year';
+                    default:
+                        return 'Week';
+                }
+            }
+
+            refreshAttendancePeriodOptions() {
+                const granularity = this.normalizeGranularity(this.attendanceDashboardGranularity);
+                this.attendanceDashboardGranularity = granularity;
+
+                const year = this.attendanceDashboardYear || this.getSelectedAttendanceYear();
+                const periodSelect = document.getElementById('attendanceDashboardPeriod');
+
+                if (!Number.isFinite(year)) {
+                    if (periodSelect) {
+                        periodSelect.innerHTML = '<option value="">No periods available</option>';
+                        periodSelect.disabled = true;
+                    }
+                    this.renderAttendanceSummary(null, null, granularity);
+                    return;
+                }
+
+                if (this.attendancePeriodOptionsYear !== year || !this.attendancePeriodOptions || typeof this.attendancePeriodOptions !== 'object') {
+                    this.attendancePeriodOptions = this.buildAttendancePeriodOptionsForYear(year);
+                    this.attendancePeriodOptionsYear = year;
+                }
+
+                const options = (this.attendancePeriodOptions && this.attendancePeriodOptions[granularity])
+                    ? this.attendancePeriodOptions[granularity]
+                    : [];
+
+                if (periodSelect) {
+                    periodSelect.innerHTML = '';
+                    if (!options.length) {
+                        const placeholder = document.createElement('option');
+                        placeholder.value = '';
+                        placeholder.textContent = 'No periods available';
+                        periodSelect.appendChild(placeholder);
+                        periodSelect.disabled = true;
+                    } else {
+                        periodSelect.disabled = false;
+                        options.forEach(optionInfo => {
+                            const option = document.createElement('option');
+                            option.value = optionInfo.value;
+                            option.textContent = optionInfo.label;
+                            periodSelect.appendChild(option);
+                        });
+                    }
+                }
+
+                if (!options.some(option => option.value === this.attendanceDashboardPeriod)) {
+                    this.attendanceDashboardPeriod = options.length ? options[0].value : '';
+                }
+
+                if (periodSelect) {
+                    periodSelect.value = this.attendanceDashboardPeriod || '';
+                }
+
+                this.updateAttendanceSummaryDisplay();
+            }
+
+            buildAttendancePeriodOptionsForYear(year) {
+                return {
+                    Week: this.buildWeeklyPeriodOptions(year),
+                    BiWeekly: this.buildBiWeeklyPeriodOptions(year),
+                    Month: this.buildMonthlyPeriodOptions(year),
+                    Quarter: this.buildQuarterlyPeriodOptions(year),
+                    Year: this.buildYearlyPeriodOptions(year)
+                };
+            }
+
+            buildWeeklyPeriodOptions(year) {
+                const options = [];
+                const reference = new Date(year, 0, 4);
+                const firstWeek = this.computeIsoWeekInfo(reference);
+                if (!firstWeek) {
+                    return options;
+                }
+
+                let cursor = new Date(firstWeek.start.getTime());
+                let safety = 0;
+                const seenWeeks = new Set();
+
+                while (safety < 60) {
+                    const info = this.computeIsoWeekInfo(cursor);
+                    if (!info || info.year > year) {
+                        break;
+                    }
+
+                    if (info.year === year && !seenWeeks.has(info.week)) {
+                        const rangeLabel = this.formatDateRangeLabel(info.start, info.end);
+                        options.push({
+                            value: `${info.year}-W${String(info.week).padStart(2, '0')}`,
+                            label: `Week ${info.week} • ${rangeLabel}`,
+                            descriptor: `Week ${info.week}`,
+                            start: new Date(info.start.getTime()),
+                            end: new Date(info.end.getTime()),
+                            sortKey: info.start.getTime()
+                        });
+                        seenWeeks.add(info.week);
+                    }
+
+                    cursor.setDate(cursor.getDate() + 7);
+                    safety += 1;
+                }
+
+                return options.sort((a, b) => b.sortKey - a.sortKey);
+            }
+
+            buildBiWeeklyPeriodOptions(year) {
+                const options = [];
+                const reference = new Date(year, 0, 4);
+                const firstWeek = this.computeIsoWeekInfo(reference);
+                if (!firstWeek) {
+                    return options;
+                }
+
+                let cursor = new Date(firstWeek.start.getTime());
+                let safety = 0;
+                const seen = new Set();
+
+                while (safety < 30) {
+                    const periodInfo = this.getBiWeeklyPeriodInfo(cursor);
+                    if (!periodInfo || periodInfo.year > year) {
+                        break;
+                    }
+
+                    if (periodInfo.year === year && !seen.has(periodInfo.key)) {
+                        options.push({
+                            value: periodInfo.key,
+                            label: `${periodInfo.descriptor} • ${this.formatDateRangeLabel(periodInfo.start, periodInfo.end)}`,
+                            descriptor: periodInfo.descriptor,
+                            start: new Date(periodInfo.start.getTime()),
+                            end: new Date(periodInfo.end.getTime()),
+                            sortKey: periodInfo.start.getTime()
+                        });
+                        seen.add(periodInfo.key);
+                    }
+
+                    cursor.setDate(cursor.getDate() + 14);
+                    safety += 1;
+                }
+
+                return options.sort((a, b) => b.sortKey - a.sortKey);
+            }
+
+            buildMonthlyPeriodOptions(year) {
+                const options = [];
+                for (let month = 0; month < 12; month++) {
+                    const start = new Date(year, month, 1, 0, 0, 0, 0);
+                    const end = new Date(year, month + 1, 0, 23, 59, 59, 999);
+                    const monthLabel = start.toLocaleDateString('en-US', { month: 'long' });
+                    options.push({
+                        value: `${year}-${String(month + 1).padStart(2, '0')}`,
+                        label: `${monthLabel} ${year}`,
+                        descriptor: `${monthLabel} ${year}`,
+                        start,
+                        end,
+                        sortKey: start.getTime()
+                    });
+                }
+                return options.sort((a, b) => b.sortKey - a.sortKey);
+            }
+
+            buildQuarterlyPeriodOptions(year) {
+                const options = [];
+                for (let quarter = 1; quarter <= 4; quarter++) {
+                    const startMonth = (quarter - 1) * 3;
+                    const start = new Date(year, startMonth, 1, 0, 0, 0, 0);
+                    const end = new Date(year, startMonth + 3, 0, 23, 59, 59, 999);
+                    const descriptor = `Q${quarter} ${year}`;
+                    const startLabel = start.toLocaleDateString('en-US', { month: 'short' });
+                    const endLabel = end.toLocaleDateString('en-US', { month: 'short' });
+                    options.push({
+                        value: `Q${quarter}-${year}`,
+                        label: `${descriptor} • ${startLabel} – ${endLabel}`,
+                        descriptor,
+                        start,
+                        end,
+                        sortKey: start.getTime()
+                    });
+                }
+                return options.sort((a, b) => b.sortKey - a.sortKey);
+            }
+
+            buildYearlyPeriodOptions(year) {
+                const start = new Date(year, 0, 1, 0, 0, 0, 0);
+                const end = new Date(year, 11, 31, 23, 59, 59, 999);
+                return [{
+                    value: `${year}`,
+                    label: `${year}`,
+                    descriptor: `${year}`,
+                    start,
+                    end,
+                    sortKey: start.getTime()
+                }];
+            }
+
+            formatDateRangeLabel(start, end) {
+                if (!(start instanceof Date) || Number.isNaN(start.getTime()) || !(end instanceof Date) || Number.isNaN(end.getTime())) {
+                    return '';
+                }
+
+                const sameYear = start.getFullYear() === end.getFullYear();
+                const startOptions = sameYear ? { month: 'short', day: 'numeric' } : { month: 'short', day: 'numeric', year: 'numeric' };
+                const endOptions = { month: 'short', day: 'numeric', year: 'numeric' };
+                const startLabel = start.toLocaleDateString('en-US', startOptions);
+                const endLabel = end.toLocaleDateString('en-US', endOptions);
+                return `${startLabel} – ${endLabel}`;
+            }
+
+            getGranularityDisplayName(value) {
+                const normalized = this.normalizeGranularity(value);
+                switch (normalized) {
+                    case 'BiWeekly':
+                        return 'Bi-Weekly';
+                    case 'Month':
+                        return 'Monthly';
+                    case 'Quarter':
+                        return 'Quarterly';
+                    case 'Year':
+                        return 'Yearly';
+                    default:
+                        return 'Weekly';
+                }
+            }
+
+            handleAttendanceGranularityChange(value) {
+                this.attendanceDashboardGranularity = this.normalizeGranularity(value);
+                this.attendanceDashboardPeriod = '';
+                this.refreshAttendancePeriodOptions();
+            }
+
+            handleAttendancePeriodChange(value) {
+                this.attendanceDashboardPeriod = value || '';
+                this.updateAttendanceSummaryDisplay();
+            }
+
+            updateAttendanceSummaryDisplay() {
+                const granularity = this.normalizeGranularity(this.attendanceDashboardGranularity);
+                const options = (this.attendancePeriodOptions && this.attendancePeriodOptions[granularity])
+                    ? this.attendancePeriodOptions[granularity]
+                    : [];
+
+                let periodOption = options.find(option => option.value === this.attendanceDashboardPeriod) || null;
+                if (!periodOption && options.length) {
+                    periodOption = options[0];
+                    this.attendanceDashboardPeriod = periodOption.value;
+                    const periodSelect = document.getElementById('attendanceDashboardPeriod');
+                    if (periodSelect) {
+                        periodSelect.value = this.attendanceDashboardPeriod;
+                    }
+                }
+
+                const filteredRecords = this.filterAttendanceDashboardRecords(this.attendanceDashboardRecords, this.attendanceDashboardUserFilter);
+                const summary = periodOption ? this.calculateAttendanceSummaryForOption(filteredRecords, periodOption) : null;
+
+                this.renderAttendanceSummary(summary, periodOption, granularity);
+            }
+
+            calculateAttendanceSummaryForOption(records, option) {
+                if (!option || !option.start || !option.end) {
+                    return { total: 0, counts: {}, percentages: {}, attendanceRate: 0, punctualRate: 0 };
+                }
+
+                const startMs = option.start.getTime();
+                const endMs = option.end.getTime();
+                if (!Array.isArray(records) || !Number.isFinite(startMs) || !Number.isFinite(endMs)) {
+                    return { total: 0, counts: {}, percentages: {}, attendanceRate: 0, punctualRate: 0 };
+                }
+
+                const counts = {
+                    present: 0,
+                    late: 0,
+                    absent: 0,
+                    sick: 0,
+                    vacation: 0,
+                    bereavement: 0,
+                    noCallNoShow: 0,
+                    leaveOfAbsence: 0,
+                    personalLeave: 0,
+                    training: 0,
+                    other: 0
+                };
+
+                let total = 0;
+
+                records.forEach(record => {
+                    const date = this.parseAttendanceRecordDate(record);
+                    if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+                        return;
+                    }
+
+                    const time = date.getTime();
+                    if (time < startMs || time > endMs) {
+                        return;
+                    }
+
+                    const status = record?.status || record?.Status || record?.state || record?.State || '';
+                    const category = this.categorizeAttendanceStatus(status);
+
+                    if (Object.prototype.hasOwnProperty.call(counts, category)) {
+                        counts[category] += 1;
+                    } else {
+                        counts.other += 1;
+                    }
+
+                    total += 1;
+                });
+
+                const percentages = {};
+                Object.keys(counts).forEach(key => {
+                    percentages[key] = total ? Math.round((counts[key] / total) * 1000) / 10 : 0;
+                });
+
+                const attended = total - counts.absent - counts.noCallNoShow;
+                const attendanceRate = total ? Math.max(0, Math.round((attended / total) * 1000) / 10) : 0;
+                const punctualCount = counts.present + counts.training;
+                const punctualRate = total ? Math.round((punctualCount / total) * 1000) / 10 : 0;
+
+                return {
+                    total,
+                    counts,
+                    percentages,
+                    attendanceRate,
+                    punctualRate,
+                    punctualCount,
+                    punctualPercent: punctualRate
+                };
+            }
+
+            parseAttendanceRecordDate(record) {
+                const candidates = [
+                    record?.date,
+                    record?.Date,
+                    record?.dateString,
+                    record?.DateString,
+                    record?.attendanceDate,
+                    record?.AttendanceDate,
+                    record?.timestamp,
+                    record?.Timestamp,
+                    record?.timestampMs
+                ];
+
+                for (const candidate of candidates) {
+                    if (!candidate && candidate !== 0) {
+                        continue;
+                    }
+
+                    if (candidate instanceof Date) {
+                        const cloned = new Date(candidate.getTime());
+                        if (!Number.isNaN(cloned.getTime())) {
+                            cloned.setHours(0, 0, 0, 0);
+                            return cloned;
+                        }
+                        continue;
+                    }
+
+                    if (typeof candidate === 'number' && Number.isFinite(candidate)) {
+                        const parsed = new Date(candidate);
+                        if (!Number.isNaN(parsed.getTime())) {
+                            parsed.setHours(0, 0, 0, 0);
+                            return parsed;
+                        }
+                        continue;
+                    }
+
+                    if (typeof candidate === 'string') {
+                        const trimmed = candidate.trim();
+                        if (!trimmed) {
+                            continue;
+                        }
+                        const parsed = new Date(trimmed);
+                        if (!Number.isNaN(parsed.getTime())) {
+                            parsed.setHours(0, 0, 0, 0);
+                            return parsed;
+                        }
+                    }
+                }
+
+                return null;
+            }
+
+            resolveAttendanceSummaryUserLabel() {
+                if (!this.attendanceDashboardUserFilter) {
+                    return 'All users';
+                }
+
+                const user = this.resolveAttendanceDashboardUser(this.attendanceDashboardUserFilter);
+                if (user) {
+                    return user.FullName || user.fullName || user.UserName || user.username || user.Email || user.email || this.attendanceDashboardUserFilter;
+                }
+
+                return this.attendanceDashboardUserFilter;
+            }
+
+            renderAttendanceSummary(summary, option, granularity) {
+                const titleEl = document.getElementById('attendanceSummaryTitle');
+                const subtitleEl = document.getElementById('attendanceSummarySubtitle');
+                const metricsEl = document.getElementById('attendanceSummaryMetrics');
+                const footnoteEl = document.getElementById('attendanceSummaryFootnote');
+
+                if (titleEl) {
+                    titleEl.textContent = `${this.getGranularityDisplayName(granularity)} Overview`;
+                }
+
+                if (subtitleEl) {
+                    if (option) {
+                        const userLabel = this.resolveAttendanceSummaryUserLabel();
+                        subtitleEl.textContent = `${option.descriptor} • ${this.formatDateRangeLabel(option.start, option.end)} · ${userLabel}`;
+                    } else {
+                        subtitleEl.textContent = 'No periods available for the selected year.';
+                    }
+                }
+
+                if (footnoteEl) {
+                    footnoteEl.textContent = 'Weeks and bi-weekly cycles begin on Monday and may span multiple months.';
+                }
+
+                if (!metricsEl) {
+                    return;
+                }
+
+                if (!option) {
+                    metricsEl.innerHTML = '<div class="text-muted small">No periods available for the selected filters.</div>';
+                    return;
+                }
+
+                if (!summary || !summary.total) {
+                    metricsEl.innerHTML = '<div class="text-muted small">No attendance records found for the selected filters.</div>';
+                    return;
+                }
+
+                const punctualCountValue = Number.isFinite(summary.punctualCount)
+                    ? summary.punctualCount
+                    : (summary.counts.present + summary.counts.training);
+                const punctualPercentValue = Number.isFinite(summary.punctualPercent)
+                    ? summary.punctualPercent
+                    : (summary.percentages.present + summary.percentages.training);
+
+                const metrics = [
+                    {
+                        label: 'Total Logged',
+                        value: this.formatInteger(summary.total),
+                        subtext: 'Attendance entries'
+                    },
+                    {
+                        label: 'Attendance Rate',
+                        value: this.formatPercentage(summary.attendanceRate),
+                        subtext: 'Present or excused'
+                    },
+                    {
+                        label: 'Punctual Rate',
+                        value: this.formatPercentage(summary.punctualRate),
+                        subtext: 'On-time percentage'
+                    },
+                    {
+                        label: 'Punctual',
+                        value: this.formatInteger(punctualCountValue),
+                        subtext: this.formatPercentage(punctualPercentValue)
+                    },
+                    {
+                        label: 'Late',
+                        value: this.formatInteger(summary.counts.late),
+                        subtext: this.formatPercentage(summary.percentages.late)
+                    },
+                    {
+                        label: 'Absent',
+                        value: this.formatInteger(summary.counts.absent),
+                        subtext: this.formatPercentage(summary.percentages.absent)
+                    },
+                    {
+                        label: 'Sick',
+                        value: this.formatInteger(summary.counts.sick),
+                        subtext: this.formatPercentage(summary.percentages.sick)
+                    },
+                    {
+                        label: 'Vacation',
+                        value: this.formatInteger(summary.counts.vacation),
+                        subtext: this.formatPercentage(summary.percentages.vacation)
+                    },
+                    {
+                        label: 'No Call/No Show',
+                        value: this.formatInteger(summary.counts.noCallNoShow),
+                        subtext: this.formatPercentage(summary.percentages.noCallNoShow)
+                    }
+                ];
+
+                const metricsHtml = metrics.map(metric => `
+                    <div class="attendance-summary-metric">
+                        <div class="attendance-summary-metric-label">${this.escapeHtml(metric.label)}</div>
+                        <div class="attendance-summary-metric-value">${this.escapeHtml(metric.value)}</div>
+                        <div class="attendance-summary-metric-subtext">${this.escapeHtml(metric.subtext)}</div>
+                    </div>
+                `).join('');
+
+                const recognitionHtml = this.buildAttendanceSummaryRecognitionSection(granularity, option);
+
+                metricsEl.innerHTML = `${metricsHtml}${recognitionHtml}`;
+            }
+
+            buildAttendanceSummaryRecognitionSection(granularity, option) {
+                if (granularity !== 'Week') {
+                    return '';
+                }
+
+                let recognitionData = this.attendanceRecognitionLeaders;
+                if (!recognitionData || typeof recognitionData !== 'object') {
+                    recognitionData = this.resolveAttendanceRecognitionData(this.attendanceDashboardData || {});
+                    this.attendanceRecognitionLeaders = recognitionData;
+                }
+
+                const weeklyRecognition = recognitionData && typeof recognitionData === 'object'
+                    ? recognitionData.weekly || { label: '', entries: [] }
+                    : { label: '', entries: [] };
+
+                const labelText = (() => {
+                    const bucketLabel = typeof weeklyRecognition.label === 'string' ? weeklyRecognition.label.trim() : '';
+                    if (bucketLabel) {
+                        return bucketLabel;
+                    }
+                    if (option && typeof option.descriptor === 'string' && option.descriptor.trim()) {
+                        return option.descriptor.trim();
+                    }
+                    return 'Most recent week';
+                })();
+
+                const safeEntries = Array.isArray(weeklyRecognition.entries)
+                    ? weeklyRecognition.entries.filter(entry => entry && typeof entry === 'object').slice(0, 3)
+                    : [];
+
+                const ordinalSuffix = (value) => {
+                    if (value === 1) return 'st';
+                    if (value === 2) return 'nd';
+                    if (value === 3) return 'rd';
+                    return 'th';
+                };
+
+                const parseNumericValue = (value) => {
+                    if (typeof value === 'number' && Number.isFinite(value)) {
+                        return value;
+                    }
+
+                    if (typeof value === 'string') {
+                        const trimmed = value.trim();
+                        if (!trimmed) {
+                            return NaN;
+                        }
+
+                        const normalized = trimmed.replace(/[^0-9.\-]+/g, '');
+                        if (!normalized) {
+                            return NaN;
+                        }
+
+                        const parsed = Number(normalized);
+                        return Number.isFinite(parsed) ? parsed : NaN;
+                    }
+
+                    return NaN;
+                };
+
+                if (!safeEntries.length) {
+                    return `
+                        <div class="attendance-summary-recognition">
+                            <div class="attendance-summary-recognition-header">
+                                <span class="attendance-summary-recognition-title">Punctuality Recognition</span>
+                                <span class="attendance-summary-recognition-period">${this.escapeHtml(labelText)}</span>
+                            </div>
+                            <div class="attendance-summary-recognition-empty">Recognition updates as attendance is recorded.</div>
+                        </div>
+                    `;
+                }
+
+                const itemsHtml = safeEntries.map((entry, index) => {
+                    const rank = index + 1;
+                    const suffix = ordinalSuffix(rank);
+                    const rankLabel = `${rank}${suffix}`;
+                    const safeName = this.escapeHtml(entry.displayName || entry.name || entry.identifier || 'Team Member');
+                    const presentValue = parseNumericValue(entry.present);
+                    const totalValue = parseNumericValue(entry.total);
+                    const safePresent = Number.isFinite(presentValue) ? presentValue : 0;
+                    const safeTotal = Number.isFinite(totalValue) ? totalValue : 0;
+
+                    const punctualRateValue = (() => {
+                        const directRate = parseNumericValue(entry.punctualRate);
+                        if (Number.isFinite(directRate)) {
+                            return directRate;
+                        }
+                        if (safeTotal > 0) {
+                            return (safePresent / safeTotal) * 100;
+                        }
+                        return 0;
+                    })();
+
+                    const punctualRate = Number.isFinite(punctualRateValue)
+                        ? Math.min(Math.max(punctualRateValue, 0), 100)
+                        : 0;
+
+                    const meta = this.escapeHtml(`On time for ${safePresent} of ${safeTotal} tracked shifts (${punctualRate.toFixed(2)}%)`);
+
+                    return `
+                        <li class="attendance-summary-recognition-item">
+                            <div class="attendance-summary-recognition-rank">${this.escapeHtml(rankLabel)}</div>
+                            <div class="attendance-summary-recognition-details">
+                                <div class="attendance-summary-recognition-name">${safeName}</div>
+                                <div class="attendance-summary-recognition-meta">${meta}</div>
+                            </div>
+                        </li>
+                    `;
+                }).join('');
+
+                return `
+                    <div class="attendance-summary-recognition" role="region" aria-label="Weekly punctuality recognition">
+                        <div class="attendance-summary-recognition-header">
+                            <span class="attendance-summary-recognition-title">Punctuality Recognition</span>
+                            <span class="attendance-summary-recognition-period">${this.escapeHtml(labelText)}</span>
+                        </div>
+                        <ol class="attendance-summary-recognition-list">
+                            ${itemsHtml}
+                        </ol>
+                    </div>
+                `;
+            }
+
+            async exportAttendanceReport() {
+                const granularity = this.normalizeGranularity(this.attendanceDashboardGranularity);
+                const periodValue = this.attendanceDashboardPeriod;
+
+                if (!periodValue) {
+                    this.showToast('Select a period to export before downloading.', 'warning');
+                    return;
+                }
+
+                try {
+                    this.showLoading(true, {
+                        title: 'Exporting Attendance Report',
+                        detail: 'Generating CSV snapshot…'
+                    });
+
+                    const agentFilter = this.attendanceDashboardUserFilter || '';
+                    const csvContent = await this.callServerFunction('exportAttendanceCsv', granularity, periodValue, agentFilter, {});
+
+                    if (typeof csvContent !== 'string' || !csvContent.trim()) {
+                        throw new Error('No CSV content was returned.');
+                    }
+
+                    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                    const url = URL.createObjectURL(blob);
+                    const safeGranularity = granularity.toLowerCase();
+                    const safePeriod = periodValue.replace(/[^A-Za-z0-9_-]+/g, '-');
+                    const safeUser = agentFilter ? agentFilter.replace(/[^A-Za-z0-9_-]+/g, '') : 'all';
+                    const filename = `attendance-${safeGranularity}-${safePeriod}-${safeUser}.csv`;
+
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = filename;
+                    document.body.appendChild(link);
+                    link.click();
+                    setTimeout(() => {
+                        document.body.removeChild(link);
+                        URL.revokeObjectURL(url);
+                    }, 0);
+
+                    this.showToast('Attendance report exported successfully.', 'success');
+                } catch (error) {
+                    console.error('Error exporting attendance report:', error);
+                    this.showToast('Failed to export attendance report: ' + error.message, 'danger');
+                } finally {
+                    this.showLoading(false);
+                }
+            }
+
+            formatPercentage(value) {
+                if (!Number.isFinite(value)) {
+                    return '0%';
+                }
+
+                const normalized = Math.max(0, Math.min(100, value));
+                const rounded = Math.round(normalized * 10) / 10;
+                if (Math.abs(rounded - Math.round(rounded)) < 0.01) {
+                    return `${Math.round(rounded)}%`;
+                }
+                return `${rounded.toFixed(1)}%`;
+            }
+
+            formatInteger(value) {
+                if (!Number.isFinite(value)) {
+                    return '0';
+                }
+                return Math.round(value).toLocaleString();
+            }
+
+            computeIsoWeekInfo(date) {
+                if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+                    return null;
+                }
+
+                const target = new Date(date.getTime());
+                target.setHours(0, 0, 0, 0);
+                const day = (target.getDay() + 6) % 7;
+                target.setDate(target.getDate() - day + 3);
+                const isoYear = target.getFullYear();
+                const jan4 = new Date(isoYear, 0, 4);
+                const week1Start = this.getMondayStart(jan4);
+                const diffDays = Math.round((target.getTime() - week1Start.getTime()) / 86400000);
+                const week = Math.floor(diffDays / 7) + 1;
+                const start = new Date(week1Start.getTime());
+                start.setDate(start.getDate() + (week - 1) * 7);
+                start.setHours(0, 0, 0, 0);
+                const end = new Date(start.getTime());
+                end.setDate(end.getDate() + 6);
+                end.setHours(23, 59, 59, 999);
+                return { year: isoYear, week, start, end };
+            }
+
+            getMondayStart(date) {
+                const base = new Date(date.getTime());
+                const day = (base.getDay() + 6) % 7;
+                base.setDate(base.getDate() - day);
+                base.setHours(0, 0, 0, 0);
+                return base;
+            }
+
+            getBiWeeklyPeriodInfo(date) {
+                const info = this.computeIsoWeekInfo(date);
+                if (!info) {
+                    return null;
+                }
+
+                const normalizedWeek = info.week % 2 === 0 ? info.week - 1 : info.week;
+                const biIndex = Math.floor((normalizedWeek - 1) / 2) + 1;
+                const start = new Date(info.start.getTime());
+                if (info.week % 2 === 0) {
+                    start.setDate(start.getDate() - 7);
+                }
+                start.setHours(0, 0, 0, 0);
+                const end = new Date(start.getTime());
+                end.setDate(end.getDate() + 13);
+                end.setHours(23, 59, 59, 999);
+
+                return {
+                    key: `${info.year}-BW${String(biIndex).padStart(2, '0')}`,
+                    descriptor: `Bi-Week ${biIndex}`,
+                    start,
+                    end,
+                    order: start.getTime(),
+                    year: info.year
+                };
             }
 
             resolveAttendanceDashboardUser(filterValue) {
@@ -7885,6 +9111,7 @@
                 }
 
                 this.attendanceDashboardRecords = Array.from(existingMap.values());
+                this.collectAttendanceDashboardRecordUsers(this.attendanceDashboardRecords);
 
                 if (!Number.isFinite(this.attendanceDashboardYear)) {
                     this.attendanceDashboardYear = resolvedYear;
@@ -7905,7 +9132,18 @@
                     return 'other';
                 }
 
-                if (normalized === 'present' || normalized === 'on time' || normalized === 'punctual') {
+                const tokens = normalized.split(/[^a-z0-9]+/).filter(Boolean);
+                const collapsed = normalized.replace(/[^a-z0-9]/g, '');
+                const hasToken = (value) => tokens.includes(value);
+
+                if (
+                    hasToken('present')
+                    || hasToken('punctual')
+                    || collapsed.includes('ontime')
+                    || normalized.includes('on time')
+                    || normalized.includes('on-time')
+                    || normalized.includes('check in')
+                ) {
                     return 'present';
                 }
 
@@ -7922,6 +9160,10 @@
                 }
 
                 if (normalized.includes('no show')) {
+                    return 'noCallNoShow';
+                }
+
+                if (normalized.includes('ncns')) {
                     return 'noCallNoShow';
                 }
 
@@ -7945,8 +9187,18 @@
                     return 'sick';
                 }
 
-                if (normalized === 'late' || normalized.includes('tardy')) {
+                if (
+                    hasToken('late')
+                    || normalized === 'late'
+                    || normalized.includes('late arrival')
+                    || normalized.includes('late-arrival')
+                    || normalized.includes('tardy')
+                ) {
                     return 'late';
+                }
+
+                if (normalized.includes('call out') || normalized.includes('call-out')) {
+                    return 'absent';
                 }
 
                 if (normalized.includes('absent')) {
@@ -7957,13 +9209,16 @@
             }
 
             getBiWeeklyBucketKey(date) {
-                const startDay = Math.floor((date.getDate() - 1) / 14) * 14 + 1;
-                const endDay = Math.min(startDay + 13, new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate());
-                const monthLabel = date.toLocaleString('en-US', { month: 'short' });
-                const label = `${monthLabel} ${startDay}-${endDay}`;
-                const order = new Date(date.getFullYear(), date.getMonth(), startDay).getTime();
-                const key = `${date.getFullYear()}-${date.getMonth()}-${startDay}`;
-                return { key, label, order };
+                const periodInfo = this.getBiWeeklyPeriodInfo(date);
+                if (!periodInfo) {
+                    return { key: '', label: '', order: 0 };
+                }
+
+                return {
+                    key: periodInfo.key,
+                    label: this.formatDateRangeLabel(periodInfo.start, periodInfo.end),
+                    order: periodInfo.order
+                };
             }
 
             initializeAttendanceDashboard() {
@@ -7976,6 +9231,8 @@
                 if (!yearlyTrendCanvas) {
                     return;
                 }
+
+                this.setupAttendancePeriodControls();
 
                 const palette = {
                     punctual: '#009639',
@@ -8192,7 +9449,7 @@
                             datasets: [
                                 {
                                     type: 'bar',
-                                    label: 'Present',
+                                    label: 'Punctual (incl. Training)',
                                     data: data.monthlyPresent,
                                     backgroundColor: palette.punctual,
                                     borderRadius: 6,
@@ -8320,7 +9577,13 @@
                             },
                             scales: {
                                 x: { ticks: { maxRotation: 0, minRotation: 0 } },
-                                y: { beginAtZero: true }
+                                y: {
+                                    beginAtZero: true,
+                                    suggestedMax: 100,
+                                    ticks: {
+                                        callback: (value) => `${value}%`
+                                    }
+                                }
                             }
                         }
                     });
@@ -8612,14 +9875,17 @@
 
                 const safeIndex = Math.min(Math.max(monthIndex, 0), data.months.length - 1);
                 const monthName = data.months[safeIndex];
-                const percentValue = data.monthlyPercent[safeIndex] || 0;
+                const rawPercent = Array.isArray(data.monthlyPercent)
+                    ? data.monthlyPercent[safeIndex]
+                    : 0;
+                const percentValue = Number.isFinite(rawPercent) ? rawPercent : 0;
 
                 chart.data.labels = [monthName];
                 chart.data.datasets[0].data = [percentValue];
                 chart.update();
 
                 if (valueDisplay) {
-                    valueDisplay.textContent = `${percentValue.toFixed(2)}%`;
+                    valueDisplay.textContent = `${percentValue.toFixed(1)}%`;
                 }
             }
 
@@ -10958,6 +12224,8 @@
                     return;
                 }
 
+                this.collectAttendanceDashboardRecordUsers(this.attendanceDashboardRecords);
+
                 const activeYear = Number.isFinite(this.attendanceDashboardYear)
                     ? this.attendanceDashboardYear
                     : this.getSelectedAttendanceYear();
@@ -13020,8 +14288,10 @@
         }
 
         function exportAttendanceReport() {
-            if (window.scheduleManager) {
-                window.scheduleManager.showToast('Report export - coming soon!', 'info');
+            if (window.scheduleManager && typeof window.scheduleManager.exportAttendanceReport === 'function') {
+                window.scheduleManager.exportAttendanceReport().catch(error => {
+                    console.error('Attendance export failed:', error);
+                });
             }
         }
 
