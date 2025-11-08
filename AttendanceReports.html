@@ -4379,6 +4379,8 @@
       this.initializeYearSelector();
       this.loadUserList();
       this.setupEventListeners();
+      this.updateMatrixOptions();
+      this.updateUserSelectionVisibility();
       this.updatePeriodOptions();
       this.updatePreview();
     }
@@ -4585,6 +4587,11 @@
       if (exportType === 'Custom') {
         if (periodSection) periodSection.style.display = 'none';
         if (customSection) customSection.style.display = 'block';
+        const periodSelect = document.getElementById('periodSelect');
+        if (periodSelect) {
+          periodSelect.value = '';
+          periodSelect.disabled = true;
+        }
       } else {
         if (periodSection) periodSection.style.display = 'block';
         if (customSection) customSection.style.display = 'none';
@@ -4596,51 +4603,70 @@
       const select = document.getElementById('periodSelect');
       if (!select) return;
 
-      const { resetSelection = false } = options;
-      const yearValue = document.getElementById('yearSelect')?.value || new Date().getFullYear().toString();
-      const fallbackYear = new Date().getFullYear();
+      const { resetSelection = false, yearOverride = null } = options;
+      const now = new Date();
+      const yearSelect = document.getElementById('yearSelect');
+      const yearValue = yearOverride !== null
+        ? yearOverride.toString()
+        : (yearSelect?.value || now.getFullYear().toString());
+      const fallbackYear = now.getFullYear();
       const year = parseInt(yearValue, 10) || fallbackYear;
       const previousValue = select.value;
 
       select.innerHTML = '<option value="">Select a period...</option>';
 
-      const fragment = document.createDocumentFragment();
+      let optionCount = 0;
+      const addOption = (value, label) => {
+        const option = document.createElement('option');
+        option.value = value;
+        option.textContent = label;
+        select.appendChild(option);
+        optionCount += 1;
+      };
 
       switch (type) {
         case 'Week': {
           const totalWeeks = this.getISOWeeksInYear(year);
-          for (let week = 1; week <= totalWeeks; week++) {
-            const option = document.createElement('option');
-            option.value = `${year}-W${week.toString().padStart(2, '0')}`;
-            option.textContent = `Week ${week}, ${year}`;
-            fragment.appendChild(option);
+          const safeWeekTotal = Number.isFinite(totalWeeks) && totalWeeks > 0 ? totalWeeks : 52;
+          for (let week = 1; week <= safeWeekTotal; week++) {
+            const value = `${year}-W${week.toString().padStart(2, '0')}`;
+            addOption(value, `Week ${week}, ${year}`);
           }
           break;
         }
 
         case 'Month': {
           const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-          for (let month = 1; month <= 12; month++) {
-            const option = document.createElement('option');
-            option.value = `${year}-${month.toString().padStart(2, '0')}`;
-            option.textContent = `${months[month - 1]} ${year}`;
-            fragment.appendChild(option);
-          }
+          months.forEach((monthLabel, index) => {
+            const month = index + 1;
+            const value = `${year}-${month.toString().padStart(2, '0')}`;
+            addOption(value, `${monthLabel} ${year}`);
+          });
           break;
         }
 
         case 'Quarter': {
           for (let quarter = 1; quarter <= 4; quarter++) {
-            const option = document.createElement('option');
-            option.value = `Q${quarter}-${year}`;
-            option.textContent = `Q${quarter} ${year}`;
-            fragment.appendChild(option);
+            const value = `Q${quarter}-${year}`;
+            addOption(value, `Q${quarter} ${year}`);
           }
           break;
         }
+
+        default:
+          console.warn('Unsupported export period type:', type);
       }
 
-      select.appendChild(fragment);
+      if (!optionCount) {
+        if (yearOverride === null && year !== fallbackYear) {
+          this.populatePeriodOptions(type, { resetSelection, yearOverride: fallbackYear });
+          return;
+        }
+        select.disabled = true;
+        return;
+      }
+
+      select.disabled = false;
 
       let newValue = '';
       if (!resetSelection && previousValue && select.querySelector(`[value="${previousValue}"]`)) {
@@ -5407,20 +5433,26 @@
     window.exportHistoryManager = new AttendanceExportHistoryManager();
 
     // Initialize export manager when modal is shown
-    document.getElementById('exportModal')?.addEventListener('shown.bs.modal', function () {
+    const exportModalEl = document.getElementById('exportModal');
+    const ensureExportManager = () => {
+      if (!exportModalEl) {
+        return;
+      }
+
       if (!window.exportManager) {
         window.exportManager = new EnhancedExportManager();
+      } else if (typeof window.exportManager.updatePeriodOptions === 'function') {
+        window.exportManager.updateMatrixOptions();
+        window.exportManager.updateUserSelectionVisibility();
+        window.exportManager.updatePeriodOptions();
+        window.exportManager.updatePreview();
       }
-    });
+    };
 
-    // Initialize matrix options visibility
-    setTimeout(() => {
-      const initialFormat = document.querySelector('input[name="exportFormat"]:checked')?.value || 'daily_pivot';
-      if (initialFormat === 'daily_pivot') {
-        const matrixOptions = document.getElementById('pivotMatrixOptions');
-        if (matrixOptions) matrixOptions.style.display = 'block';
-      }
-    }, 100);
+    if (exportModalEl) {
+      ensureExportManager();
+      exportModalEl.addEventListener('shown.bs.modal', ensureExportManager);
+    }
 
     console.log('📊 Data Format: DurationMin column contains seconds (despite name)');
     console.log('📋 All calculations convert seconds to decimal hours for display');
