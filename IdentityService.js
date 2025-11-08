@@ -32,22 +32,56 @@ var IdentityService = (function () {
     return String(email).trim().toLowerCase();
   }
 
-  function hashToken(token) {
+  function normalizeHashValue(hash, utils) {
     try {
-      const digest = Utilities.computeDigest(
-        Utilities.DigestAlgorithm.SHA_256,
-        String(token || ''),
-        Utilities.Charset.UTF_8
-      );
-
-      const utils = getPasswordUtils();
-      if (!utils || typeof utils.digestToHex !== 'function') {
-        throw new Error('Password utilities digestToHex unavailable');
+      const resolvedUtils = utils || getPasswordUtils();
+      if (resolvedUtils && typeof resolvedUtils.normalizeHash === 'function') {
+        return resolvedUtils.normalizeHash(hash);
       }
+    } catch (err) {
+      console.warn('normalizeHashValue: unable to normalize hash via password utilities', err);
+    }
+    if (hash === null || typeof hash === 'undefined') {
+      return '';
+    }
+    return String(hash).trim().toLowerCase();
+  }
 
-      return utils.digestToHex(digest);
+  function normalizePasswordInputValue(raw, utils) {
+    try {
+      const resolvedUtils = utils || getPasswordUtils();
+      if (resolvedUtils && typeof resolvedUtils.normalizePasswordInput === 'function') {
+        return resolvedUtils.normalizePasswordInput(raw);
+      }
+    } catch (err) {
+      console.warn('normalizePasswordInputValue: unable to normalize input via password utilities', err);
+    }
+    if (raw === null || typeof raw === 'undefined') {
+      return '';
+    }
+    return String(raw);
+  }
+
+  function createNormalizedPasswordHash(raw) {
+    const utils = getPasswordUtils();
+    if (!utils || typeof utils.createPasswordHash !== 'function') {
+      throw new Error('Password utilities createPasswordHash unavailable');
+    }
+
+    const normalizedInput = normalizePasswordInputValue(raw, utils);
+    const hashed = utils.createPasswordHash(normalizedInput);
+    return normalizeHashValue(hashed, utils);
+  }
+
+  function hashToken(token) {
+    if (token === null || typeof token === 'undefined') {
+      return '';
+    }
+
+    try {
+      return createNormalizedPasswordHash(String(token));
     } catch (error) {
-      console.warn('hashToken: Failed to compute digest via password utilities', error);
+      console.warn('hashToken: Failed to compute hash via password utilities', error);
       return '';
     }
   }
@@ -230,7 +264,7 @@ var IdentityService = (function () {
 
     setColumnValue(rowContext, 'EmailConfirmation', token);
     if (hasColumn(rowContext, 'EmailConfirmationTokenHash')) {
-      setColumnValue(rowContext, 'EmailConfirmationTokenHash', hashToken(token));
+      setColumnValue(rowContext, 'EmailConfirmationTokenHash', normalizeHashValue(hashToken(token)));
     }
     if (hasColumn(rowContext, 'EmailConfirmationSentAt')) {
       setColumnValue(rowContext, 'EmailConfirmationSentAt', issuedAt);
@@ -259,7 +293,7 @@ var IdentityService = (function () {
       setColumnValue(rowContext, 'EmailConfirmation', token);
     }
     if (hasColumn(rowContext, 'ResetPasswordTokenHash')) {
-      setColumnValue(rowContext, 'ResetPasswordTokenHash', hashToken(token));
+      setColumnValue(rowContext, 'ResetPasswordTokenHash', normalizeHashValue(hashToken(token)));
     }
     if (hasColumn(rowContext, 'ResetPasswordSentAt')) {
       setColumnValue(rowContext, 'ResetPasswordSentAt', issuedAt);
@@ -302,9 +336,9 @@ var IdentityService = (function () {
     }
 
     try {
-      const tokenHash = hashToken(token);
+      const tokenHash = normalizeHashValue(hashToken(token));
       const match = findUserRow(function (row) {
-        if (row.EmailConfirmationTokenHash && String(row.EmailConfirmationTokenHash).trim() === tokenHash) {
+        if (row.EmailConfirmationTokenHash && normalizeHashValue(row.EmailConfirmationTokenHash) === tokenHash) {
           return true;
         }
         if (row.EmailConfirmation && String(row.EmailConfirmation).trim() === String(token)) {
@@ -443,9 +477,9 @@ var IdentityService = (function () {
   }
 
   function findResetMatch(token) {
-    const tokenHash = hashToken(token);
+    const tokenHash = normalizeHashValue(hashToken(token));
     return findUserRow(function (row) {
-      if (row.ResetPasswordTokenHash && String(row.ResetPasswordTokenHash).trim() === tokenHash) {
+      if (row.ResetPasswordTokenHash && normalizeHashValue(row.ResetPasswordTokenHash) === tokenHash) {
         return true;
       }
       if (row.ResetPasswordToken && String(row.ResetPasswordToken).trim() === String(token)) {
@@ -486,8 +520,7 @@ var IdentityService = (function () {
         }
       }
 
-      const utils = getPasswordUtils();
-      const passwordHash = utils.createPasswordHash(newPassword);
+      const passwordHash = createNormalizedPasswordHash(newPassword);
       setColumnValue(match, 'PasswordHash', passwordHash);
 
       clearColumns(match, [
