@@ -4304,12 +4304,25 @@
 
     startPerformanceMonitoring() {
       const monitor = document.getElementById('performanceMonitor');
+      if (!monitor) {
+        console.warn('Performance monitor container not found');
+        return;
+      }
+
+      const responseTimeEl = document.getElementById('responseTime');
+      const dataQualityEl = document.getElementById('dataQuality');
+
+      if (!responseTimeEl || !dataQualityEl) {
+        console.warn('Performance monitor metrics missing');
+        return;
+      }
+
       monitor.style.display = 'block';
       setInterval(() => {
         const responseTime = ((Date.now() - this.performanceMetrics.loadStartTime) / 1000).toFixed(1);
         const dataQuality = this.currentData ? 'Good' : 'Loading';
-        document.getElementById('responseTime').textContent = `${responseTime}s`;
-        document.getElementById('dataQuality').textContent = dataQuality;
+        responseTimeEl.textContent = `${responseTime}s`;
+        dataQualityEl.textContent = dataQuality;
       }, 5000);
     }
 
@@ -5495,6 +5508,18 @@
       } catch (error) {
         console.error('Failed to initialize export manager:', error);
         window.exportManager = null;
+      }
+    }
+
+    // Initialize export manager when modal is shown
+    document.getElementById('exportModal')?.addEventListener('shown.bs.modal', function () {
+      if (!window.exportManager) {
+        try {
+          window.exportManager = new EnhancedExportManager();
+        } catch (error) {
+          console.error('Failed to initialize export manager on modal show:', error);
+          window.exportManager = null;
+        }
       }
     }
 
