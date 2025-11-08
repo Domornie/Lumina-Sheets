@@ -2221,8 +2221,13 @@
           select.appendChild(opt);
         }
 
-        if (this.currentAgent && select.querySelector(`option[value="${this.currentAgent}"]`)) {
-          select.value = this.currentAgent;
+        this.synchronizeAgentFilterOptions();
+
+        if (this.currentAgent) {
+          const hasCurrentAgent = Array.from(select.options).some(opt => opt.value === this.currentAgent);
+          if (hasCurrentAgent) {
+            select.value = this.currentAgent;
+          }
         }
       } catch (error) {
         console.error('Error loading user list:', error);
@@ -2233,6 +2238,112 @@
           select.innerHTML = '<option value="">👥 All Agents</option><option value="" disabled>Error loading users</option>';
         }
       }
+    }
+
+    extractAgentNamesFromData(options = {}) {
+      const { requireTimelineEvent = false } = options || {};
+
+      if (!this.currentData) {
+        return [];
+      }
+
+      const allNames = new Set();
+      const timelineNames = new Set();
+
+      const addName = (value, { timeline = false } = {}) => {
+        if (typeof value !== 'string') return;
+        const trimmed = value.trim();
+        if (!trimmed) return;
+
+        allNames.add(trimmed);
+        if (timeline) {
+          timelineNames.add(trimmed);
+        }
+      };
+
+      try {
+        const filteredRows = Array.isArray(this.currentData.filteredRows)
+          ? this.currentData.filteredRows
+          : [];
+        filteredRows.forEach(row => {
+          const name = row?.user || row?.User || row?.agentName;
+          addName(name, { timeline: true });
+        });
+
+        const attendanceFeed = Array.isArray(this.currentData.attendanceFeed)
+          ? this.currentData.attendanceFeed
+          : [];
+        attendanceFeed.forEach(entry => {
+          const name = entry?.user || entry?.User || entry?.agent;
+          addName(name, { timeline: true });
+        });
+
+        const userCompliance = Array.isArray(this.currentData.userCompliance)
+          ? this.currentData.userCompliance
+          : [];
+        userCompliance.forEach(entry => addName(entry?.user || entry?.User || entry?.agent));
+
+        const topAttendance = Array.isArray(this.currentData.top5Attendance)
+          ? this.currentData.top5Attendance
+          : [];
+        topAttendance.forEach(entry => addName(entry?.user || entry?.User || entry?.agent));
+
+        const attendanceStats = Array.isArray(this.currentData.attendanceStats)
+          ? this.currentData.attendanceStats
+          : [];
+        attendanceStats.forEach(entry => addName(entry?.user || entry?.User || entry?.agent));
+
+        const dailyMetrics = Array.isArray(this.currentData.dailyMetrics)
+          ? this.currentData.dailyMetrics
+          : [];
+        dailyMetrics.forEach(entry => addName(entry?.user || entry?.User || entry?.agent));
+      } catch (error) {
+        console.warn('Unable to extract agent names from data:', error);
+      }
+
+      const targetSet = requireTimelineEvent ? timelineNames : allNames;
+      return Array.from(targetSet);
+    }
+
+    synchronizeAgentFilterOptions() {
+      const select = document.getElementById('agentSelect');
+      if (!select) {
+        return;
+      }
+
+      const timelineNames = this.extractAgentNamesFromData({ requireTimelineEvent: true })
+        .filter(name => typeof name === 'string')
+        .map(name => name.trim())
+        .filter(Boolean);
+
+      const combined = Array.from(new Set(timelineNames))
+        .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+
+      const previousValue = this.currentAgent || select.value || '';
+
+      select.innerHTML = '<option value="">👥 All Agents</option>';
+
+      combined.forEach(name => {
+        const option = document.createElement('option');
+        option.value = name;
+        option.textContent = name;
+        select.appendChild(option);
+      });
+
+      if (previousValue && combined.includes(previousValue)) {
+        select.value = previousValue;
+      } else {
+        if (previousValue) {
+          if (this.currentAgent === previousValue) {
+            this.currentAgent = '';
+            this.loadDataDebounced();
+          }
+        }
+
+        select.value = '';
+      }
+
+      window.INITIAL_USER_LIST = [...combined];
     }
 
     updatePeriodSelector(shouldTriggerLoad = false) {
@@ -2541,6 +2652,7 @@
         this.renderAttendanceTable();
         this.renderDailyBreakdownBars();
 
+        this.synchronizeAgentFilterOptions();
         this.renderIntelligentInsights();
         this.updateViewMode();
         this.showToast('Attendance dashboard updated', 'success');
