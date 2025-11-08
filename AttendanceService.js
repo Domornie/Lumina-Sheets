@@ -1165,7 +1165,13 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter, poli
     const weekdaysInPeriod = countWeekdaysInclusive(periodStart, periodEnd);
     const expectedCapacitySecs = weekdaysInPeriod * DAILY_SHIFT_SECS;
 
-    const top5Attendance = Array.from(userTotalAdjustedSecs.entries())
+    const agentDirectoryHasEntries = Boolean(
+      agentDirectory
+      && ((agentDirectory.normalizedNames && agentDirectory.normalizedNames.size)
+        || (agentDirectory.normalizedEmails && agentDirectory.normalizedEmails.size))
+    );
+
+    const top5Candidates = Array.from(userTotalAdjustedSecs.entries())
       .map(([user, secs]) => {
         const adherencePercent = expectedCapacitySecs > 0
           ? (secs / expectedCapacitySecs) * 100
@@ -1178,12 +1184,18 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter, poli
           percentage: Number.isFinite(normalizedPercent) ? normalizedPercent : 0
         };
       })
-      .filter(entry =>
-        isAgentPerson_(entry.user, agentDirectory)
-        && !isManagerPerson_(entry.user, managerDirectory)
-      )
-      .sort((a, b) => b.percentage - a.percentage)
-      .slice(0, 5);
+      .filter(entry => !isManagerPerson_(entry.user, managerDirectory))
+      .sort((a, b) => b.percentage - a.percentage);
+
+    const agentFilteredTop5 = agentDirectoryHasEntries
+      ? top5Candidates.filter(entry => isAgentPerson_(entry.user, agentDirectory))
+      : top5Candidates;
+
+    const effectiveTop5 = agentFilteredTop5.length > 0
+      ? agentFilteredTop5
+      : top5Candidates;
+
+    const top5Attendance = effectiveTop5.slice(0, 5);
 
     const totalOvertimeHours = Math.round((totalOvertimeSecs / 3600) * 100) / 100;
 
