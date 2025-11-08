@@ -59,6 +59,10 @@ const CACHE_TTL_MEDIUM = 300; // 5 minute cache
 const LARGE_CACHE_CHUNK_SIZE = 90000; // stay below 100k Apps Script cache limit per entry
 const ATTENDANCE_CACHE_VERSION = 'v4';
 
+const ATTENDANCE_EXPORT_FOLDER_NAME = 'Lumina Attendance Exports';
+const ATTENDANCE_EXPORT_FOLDER_DESCRIPTION = 'Centralized daily pivot exports generated from Lumina Attendance.';
+const ATTENDANCE_EXPORT_FOLDER_PROP_KEY = 'ATTENDANCE_EXPORT_FOLDER_ID';
+
 function cloneDate(value) {
   if (value instanceof Date && !isNaN(value.getTime())) {
     return new Date(value.getTime());
@@ -160,6 +164,34 @@ function normalizeDateValue(value) {
   }
 
   return null;
+}
+
+function formatDateIdentifier(date) {
+  if (!(date instanceof Date) || isNaN(date.getTime())) {
+    return '';
+  }
+
+  if (typeof Utilities !== 'undefined' && Utilities.formatDate) {
+    return Utilities.formatDate(date, ATTENDANCE_TIMEZONE, 'yyyy-MM-dd');
+  }
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function formatDisplayDate(date) {
+  if (!(date instanceof Date) || isNaN(date.getTime())) {
+    return '';
+  }
+
+  if (typeof Utilities !== 'undefined' && Utilities.formatDate) {
+    return Utilities.formatDate(date, ATTENDANCE_TIMEZONE, 'MMM d, yyyy');
+  }
+
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  return `${months[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
 }
 
 function toIsoDateString(date) {
@@ -314,6 +346,140 @@ function rpc(label, fn, fallback, maxTime = 20000) {
     }
     return (typeof fallback === 'function') ? fallback(err) : fallback;
   }
+}
+
+function getActiveUserEmailSafe() {
+  if (typeof Session === 'undefined' || typeof Session.getActiveUser !== 'function') {
+    return '';
+  }
+
+  try {
+    const activeUser = Session.getActiveUser();
+    if (!activeUser || typeof activeUser.getEmail !== 'function') {
+      return '';
+    }
+
+    const email = activeUser.getEmail();
+    if (typeof email === 'string' && email && !/anonymous/i.test(email)) {
+      return email.trim();
+    }
+  } catch (error) {
+    console.warn('Failed to resolve active user email:', error);
+  }
+
+  return '';
+}
+
+function ensureDriveEntityAccessForUser(entity, userEmail) {
+  if (!entity || typeof entity.addEditor !== 'function' || !userEmail) {
+    return;
+  }
+
+  try {
+    const existingEditors = (typeof entity.getEditors === 'function')
+      ? entity.getEditors().map(editor => {
+        if (editor && typeof editor.getEmail === 'function') {
+          const email = editor.getEmail();
+          return typeof email === 'string' ? email.toLowerCase() : '';
+        }
+        return '';
+      })
+      : [];
+
+    if (!existingEditors.includes(userEmail.toLowerCase())) {
+      entity.addEditor(userEmail);
+    }
+  } catch (error) {
+    console.warn('Unable to ensure Drive access for user:', error);
+  }
+}
+
+function ensureDriveEntityLinkViewAccess(entity) {
+  if (!entity || typeof entity.setSharing !== 'function' || typeof DriveApp === 'undefined') {
+    return;
+  }
+
+  try {
+    const currentAccess = (typeof entity.getSharingAccess === 'function')
+      ? entity.getSharingAccess()
+      : null;
+    const currentPermission = (typeof entity.getSharingPermission === 'function')
+      ? entity.getSharingPermission()
+      : null;
+
+    if (currentAccess !== DriveApp.Access.ANYONE_WITH_LINK
+      || currentPermission !== DriveApp.Permission.VIEW) {
+      entity.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    }
+  } catch (error) {
+    console.warn('Unable to ensure Drive entity link access:', error);
+  }
+}
+
+function getOrCreateAttendanceExportFolder_() {
+  if (typeof DriveApp === 'undefined') {
+    throw new Error('Drive services unavailable');
+  }
+
+  const props = (typeof PropertiesService !== 'undefined' && PropertiesService.getScriptProperties)
+    ? PropertiesService.getScriptProperties()
+    : null;
+
+  if (props) {
+    const cachedId = props.getProperty(ATTENDANCE_EXPORT_FOLDER_PROP_KEY);
+    if (cachedId) {
+      try {
+        const cachedFolder = DriveApp.getFolderById(cachedId);
+        if (cachedFolder) {
+          return cachedFolder;
+        }
+      } catch (error) {
+        console.warn('Cached attendance export folder unavailable:', error);
+        props.deleteProperty(ATTENDANCE_EXPORT_FOLDER_PROP_KEY);
+      }
+    }
+  }
+
+  let folder = null;
+  try {
+    const matches = DriveApp.getFoldersByName(ATTENDANCE_EXPORT_FOLDER_NAME);
+    if (matches.hasNext()) {
+      folder = matches.next();
+    }
+  } catch (error) {
+    console.warn('Error while locating attendance export folder:', error);
+  }
+
+  if (!folder) {
+    folder = DriveApp.createFolder(ATTENDANCE_EXPORT_FOLDER_NAME);
+    try {
+      folder.setDescription(ATTENDANCE_EXPORT_FOLDER_DESCRIPTION);
+    } catch (descError) {
+      console.warn('Unable to set attendance export folder description:', descError);
+    }
+  }
+
+  if (props && folder) {
+    try {
+      props.setProperty(ATTENDANCE_EXPORT_FOLDER_PROP_KEY, folder.getId());
+    } catch (error) {
+      console.warn('Failed to cache attendance export folder id:', error);
+    }
+  }
+
+  return folder;
+}
+
+function ensureAttendanceExportFolderForActiveUser() {
+  const folder = getOrCreateAttendanceExportFolder_();
+  const userEmail = getActiveUserEmailSafe();
+  if (folder && userEmail) {
+    ensureDriveEntityAccessForUser(folder, userEmail);
+  }
+  if (folder) {
+    ensureDriveEntityLinkViewAccess(folder);
+  }
+  return folder;
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -1884,15 +2050,22 @@ function generateEnhancedDailyPivotMatrix(params) {
   try {
     const { period, users, userSelection, dailyPivotOptions } = params;
     const hourPolicyOptions = params.hourPolicy || (dailyPivotOptions && dailyPivotOptions.hourPolicy) || {};
-    let granularity, periodValue;
+    let granularity = period.type || 'Week';
+    let periodValue = period.value;
+    let periodLabel = periodValue ? `${granularity} ${periodValue}` : granularity;
+    let customRangeInfo = null;
 
     // Determine period
     if (period.type === 'custom') {
-      granularity = 'Week';
-      periodValue = weekStringFromDate(new Date(period.start));
-    } else {
-      granularity = period.type;
-      periodValue = period.value;
+      const normalizedRange = normalizeCustomRangeBounds(period.start, period.end);
+      customRangeInfo = {
+        startIso: normalizedRange.startIso,
+        endIso: normalizedRange.endIso,
+        displayLabel: normalizedRange.displayLabel
+      };
+      granularity = 'CustomRange';
+      periodValue = `${customRangeInfo.startIso}::${customRangeInfo.endIso}`;
+      periodLabel = customRangeInfo.displayLabel;
     }
 
     // Get analytics data
@@ -1918,18 +2091,30 @@ function generateEnhancedDailyPivotMatrix(params) {
     // Generate enhanced export file (XLSX when possible, CSV fallback otherwise)
     const exportFile = generateEnhancedDailyPivotExport(pivotMatrix, params, {
       granularity,
-      periodValue
+      periodValue,
+      periodLabel,
+      customRange: customRangeInfo
     });
 
-    return {
+    const response = {
       success: true,
       type: 'daily_pivot_matrix',
       users: pivotMatrix.users.length,
       days: pivotMatrix.dateRange.length,
       dateRange: pivotMatrix.dateRange.length > 0 ?
         `${pivotMatrix.dateRange[0].date} to ${pivotMatrix.dateRange[pivotMatrix.dateRange.length - 1].date}` : 'No data',
+      periodValue,
+      periodLabel,
       ...exportFile
     };
+
+    if (customRangeInfo) {
+      response.rangeStart = customRangeInfo.startIso;
+      response.rangeEnd = customRangeInfo.endIso;
+      response.customRange = customRangeInfo;
+    }
+
+    return response;
 
   } catch (error) {
     console.error('Enhanced daily pivot matrix generation failed:', error);
@@ -2289,8 +2474,14 @@ function generateEnhancedDailyPivotExport(pivotMatrix, params, context) {
       .setFontSize(11);
 
     currentRow += 1;
-    const periodDescription = `${context.granularity || 'Period'} ${context.periodValue || 'Custom Range'}`;
-    sheet.getRange(currentRow, 1).setValue(`Period: ${periodDescription}`);
+    const friendlyGranularity = context.granularity === 'CustomRange'
+      ? 'Custom Range'
+      : (context.granularity || 'Period');
+    const periodDetails = (context.customRange && context.customRange.displayLabel)
+      || context.periodLabel
+      || context.periodValue
+      || 'Custom Range';
+    sheet.getRange(currentRow, 1).setValue(`Period: ${friendlyGranularity} – ${periodDetails}`);
     sheet.getRange(currentRow, 1, 1, exportWidth).merge()
       .setFontColor('#475569')
       .setFontSize(11);
@@ -2678,14 +2869,68 @@ function generateEnhancedDailyPivotExport(pivotMatrix, params, context) {
       file.setName(spreadsheetName);
     }
 
+    try {
+      const metadataDescription = `Exported ${Utilities.formatDate(new Date(), ATTENDANCE_TIMEZONE, 'MMM d, yyyy h:mm a')} • ${context.periodLabel || context.periodValue || 'Custom Range'}`;
+      file.setDescription(metadataDescription);
+    } catch (descriptionError) {
+      console.warn('Unable to set export file description:', descriptionError);
+    }
+
+    let folderId = '';
+    let folderUrl = '';
+    let folderName = '';
+    const activeUserEmail = getActiveUserEmailSafe();
+
+    try {
+      const exportFolder = ensureAttendanceExportFolderForActiveUser();
+      if (exportFolder) {
+        folderId = exportFolder.getId();
+        folderName = exportFolder.getName();
+        folderUrl = exportFolder.getUrl();
+
+        exportFolder.addFile(file);
+        try {
+          DriveApp.getRootFolder().removeFile(file);
+        } catch (removeError) {
+          console.warn('Unable to detach export from root folder:', removeError);
+        }
+
+        if (activeUserEmail) {
+          ensureDriveEntityAccessForUser(file, activeUserEmail);
+        }
+        ensureDriveEntityLinkViewAccess(file);
+      }
+    } catch (folderError) {
+      console.warn('Unable to route export into attendance folder:', folderError);
+      if (activeUserEmail) {
+        try {
+          ensureDriveEntityAccessForUser(file, activeUserEmail);
+        } catch (shareError) {
+          console.warn('Failed to share export file with active user:', shareError);
+        }
+      }
+      ensureDriveEntityLinkViewAccess(file);
+    }
+
     const spreadsheetUrl = spreadsheet.getUrl();
+    const createdAt = file.getDateCreated();
+    const updatedAt = file.getLastUpdated();
 
     return {
       fileId,
       spreadsheetUrl,
       mimeType: 'application/vnd.google-apps.spreadsheet',
       filename: `${spreadsheetName}.gsheet`,
-      fileType: 'google_sheet'
+      fileType: 'google_sheet',
+      spreadsheetName,
+      sheetTitle: sheet.getName(),
+      periodLabel: context.periodLabel,
+      customRange: context.customRange,
+      folderId,
+      folderName,
+      folderUrl,
+      createdAtIso: createdAt instanceof Date ? createdAt.toISOString() : '',
+      updatedAtIso: updatedAt instanceof Date ? updatedAt.toISOString() : ''
     };
   } catch (error) {
     try {
@@ -2858,6 +3103,89 @@ function generateEnhancedDailyPivotCsvFallback(pivotMatrix, params, context) {
     filename: `${fileBaseName}.csv`,
     mimeType: 'text/csv;charset=utf-8;'
   };
+}
+
+function listAttendanceExportFiles() {
+  return rpc('listAttendanceExportFiles', () => {
+    if (typeof DriveApp === 'undefined') {
+      throw new Error('Drive services unavailable');
+    }
+
+    const folder = ensureAttendanceExportFolderForActiveUser();
+    if (!folder) {
+      return { success: false, error: 'Attendance export folder is unavailable.' };
+    }
+
+    const timezone = ATTENDANCE_TIMEZONE
+      || ((typeof Session !== 'undefined' && typeof Session.getScriptTimeZone === 'function')
+        ? Session.getScriptTimeZone()
+        : 'America/Jamaica');
+    const files = [];
+    const iterator = folder.getFiles();
+    const userEmail = getActiveUserEmailSafe();
+
+    while (iterator.hasNext()) {
+      const file = iterator.next();
+      try {
+        const createdAt = file.getDateCreated();
+        const updatedAt = file.getLastUpdated();
+        const description = typeof file.getDescription === 'function' ? file.getDescription() : '';
+
+        if (userEmail) {
+          try {
+            ensureDriveEntityAccessForUser(file, userEmail);
+          } catch (shareFileError) {
+            console.warn('Unable to confirm export file sharing for active user:', shareFileError);
+          }
+        }
+        ensureDriveEntityLinkViewAccess(file);
+
+        files.push({
+          id: file.getId(),
+          name: file.getName(),
+          url: file.getUrl(),
+          description,
+          mimeType: file.getMimeType && file.getMimeType(),
+          createdAtIso: createdAt instanceof Date ? createdAt.toISOString() : '',
+          updatedAtIso: updatedAt instanceof Date ? updatedAt.toISOString() : '',
+          createdAtDisplay: (createdAt instanceof Date && !isNaN(createdAt.getTime()))
+            ? Utilities.formatDate(createdAt, timezone, 'MMM d, yyyy h:mm a')
+            : '',
+          updatedAtDisplay: (updatedAt instanceof Date && !isNaN(updatedAt.getTime()))
+            ? Utilities.formatDate(updatedAt, timezone, 'MMM d, yyyy h:mm a')
+            : ''
+        });
+      } catch (fileError) {
+        console.warn('Unable to capture export file metadata:', fileError);
+      }
+    }
+
+    files.sort((a, b) => {
+      const left = b.updatedAtIso || b.createdAtIso || '';
+      const right = a.updatedAtIso || a.createdAtIso || '';
+      return left.localeCompare(right);
+    });
+
+    const folderUrl = folder.getUrl();
+    const folderId = folder.getId();
+    const folderName = folder.getName();
+    if (userEmail) {
+      try {
+        ensureDriveEntityAccessForUser(folder, userEmail);
+      } catch (shareError) {
+        console.warn('Unable to confirm export folder sharing for active user:', shareError);
+      }
+    }
+    ensureDriveEntityLinkViewAccess(folder);
+
+    return {
+      success: true,
+      folderId,
+      folderName,
+      folderUrl,
+      files
+    };
+  }, { success: false, error: 'Unable to load attendance export history.', files: [] }, MAX_PROCESSING_TIME);
 }
 
 function buildDailyPivotFileBase(granularity, periodValue) {
@@ -3548,6 +3876,53 @@ function createEmptyAnalytics() {
 // PERIOD CALCULATION UTILITIES
 // ────────────────────────────────────────────────────────────────────────────
 
+function normalizeCustomRangeBounds(startInput, endInput) {
+  const startDate = normalizeDateValue(startInput);
+  const endDate = normalizeDateValue(endInput);
+
+  if (!(startDate instanceof Date) || isNaN(startDate.getTime())) {
+    throw new Error('Invalid custom range start date');
+  }
+  if (!(endDate instanceof Date) || isNaN(endDate.getTime())) {
+    throw new Error('Invalid custom range end date');
+  }
+
+  const start = createDateInLocalTime(
+    startDate.getFullYear(),
+    startDate.getMonth() + 1,
+    startDate.getDate(),
+    0,
+    0,
+    0
+  ) || new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate(), 0, 0, 0, 0);
+
+  const end = createDateInLocalTime(
+    endDate.getFullYear(),
+    endDate.getMonth() + 1,
+    endDate.getDate(),
+    23,
+    59,
+    59
+  ) || new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate(), 23, 59, 59, 999);
+
+  end.setMilliseconds(999);
+
+  if (end.getTime() < start.getTime()) {
+    throw new Error('Custom range end date must be on or after the start date');
+  }
+
+  const startIso = formatDateIdentifier(start);
+  const endIso = formatDateIdentifier(end);
+
+  return {
+    start,
+    end,
+    startIso,
+    endIso,
+    displayLabel: `${formatDisplayDate(start)} to ${formatDisplayDate(end)}`
+  };
+}
+
 function derivePeriodBounds(granularity, id) {
   function weekStartLocal(d) {
     const day = d.getDay();
@@ -3607,6 +3982,16 @@ function derivePeriodBounds(granularity, id) {
     return [new Date(y, 0, 1, 0, 0, 0, 0), new Date(y, 11, 31, 23, 59, 59, 999)];
   }
 
+  if (granularity === 'CustomRange') {
+    if (!id || typeof id !== 'string' || id.indexOf('::') === -1) {
+      throw new Error(`Invalid custom range identifier: ${id}`);
+    }
+
+    const [startToken, endToken] = id.split('::');
+    const { start, end } = normalizeCustomRangeBounds(startToken, endToken);
+    return [start, end];
+  }
+
   throw new Error(`Unknown granularity: ${granularity}`);
 }
 
@@ -3641,6 +4026,12 @@ function validateEnhancedExportParams(params) {
   if (params.period && params.period.type === 'custom') {
     if (!params.period.start || !params.period.end) {
       errors.push('Start and end dates are required for custom period');
+    } else {
+      try {
+        normalizeCustomRangeBounds(params.period.start, params.period.end);
+      } catch (rangeError) {
+        errors.push(rangeError.message);
+      }
     }
   }
   
