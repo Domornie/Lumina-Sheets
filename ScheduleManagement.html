@@ -843,168 +843,12 @@
         color: var(--jamaica-gold);
     }
 
-    .attendance-recognition-controls {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 0.75rem;
-        flex-wrap: wrap;
-        margin-bottom: 0.75rem;
+    .attendance-summary-recognition-slot {
+        margin-top: var(--spacing-sm);
     }
 
-    .attendance-recognition-filters {
-        display: inline-flex;
-        flex-wrap: wrap;
-        gap: 0.4rem;
-    }
-
-    .attendance-recognition-filter {
-        border: 1px solid rgba(0, 82, 204, 0.35);
-        background: rgba(0, 82, 204, 0.08);
-        color: var(--primary-dark);
-        font-size: 0.75rem;
-        font-weight: 600;
-        letter-spacing: 0.05em;
-        text-transform: uppercase;
-        padding: 0.35rem 0.75rem;
-        border-radius: var(--border-radius-sm);
-        transition: all 0.2s ease;
-        cursor: pointer;
-    }
-
-    .attendance-recognition-filter:hover,
-    .attendance-recognition-filter:focus {
-        background: rgba(0, 82, 204, 0.15);
-        color: var(--primary);
-        outline: none;
-        box-shadow: 0 0 0 2px rgba(0, 82, 204, 0.1);
-    }
-
-    .attendance-recognition-filter.active {
-        background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
-        color: white;
-        border-color: transparent;
-        box-shadow: var(--shadow-sm);
-    }
-
-    .attendance-recognition-period {
-        font-size: 0.75rem;
-        font-weight: 600;
-        color: rgba(15, 42, 86, 0.65);
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
-    }
-
-    .attendance-recognition {
-        display: flex;
-        flex-direction: column;
-        gap: 0.75rem;
-    }
-
-    .attendance-panel.attendance-panel--auto-height {
-        height: auto;
-    }
-
-    .attendance-recognition-item {
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-        padding: 0.75rem 1rem;
-        border-radius: var(--border-radius-sm);
-        border: 1px solid rgba(148, 163, 184, 0.35);
-        background: linear-gradient(135deg, rgba(0, 150, 57, 0.08) 0%, rgba(15, 42, 86, 0.04) 100%);
-        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45);
-    }
-
-    .attendance-recognition-item--second {
-        background: linear-gradient(135deg, rgba(15, 42, 86, 0.06) 0%, rgba(96, 125, 139, 0.08) 100%);
-    }
-
-    .attendance-recognition-item--third {
-        background: linear-gradient(135deg, rgba(249, 115, 22, 0.08) 0%, rgba(15, 42, 86, 0.04) 100%);
-    }
-
-    .attendance-recognition-rank {
-        font-weight: 700;
-        font-size: 1.25rem;
-        min-width: 48px;
-        text-align: center;
-        color: var(--primary);
-    }
-
-    .attendance-recognition-rank sup {
-        font-size: 0.55em;
-    }
-
-    .attendance-recognition-item--first .attendance-recognition-rank {
-        color: var(--jamaica-gold);
-    }
-
-    .attendance-recognition-item--second .attendance-recognition-rank {
-        color: #94a3b8;
-    }
-
-    .attendance-recognition-item--third .attendance-recognition-rank {
-        color: #f97316;
-    }
-
-    .attendance-recognition-icon {
-        font-size: 1.5rem;
-        color: var(--primary);
-    }
-
-    .attendance-recognition-item--first .attendance-recognition-icon {
-        color: var(--jamaica-gold);
-    }
-
-    .attendance-recognition-item--second .attendance-recognition-icon {
-        color: #94a3b8;
-    }
-
-    .attendance-recognition-item--third .attendance-recognition-icon {
-        color: #f97316;
-    }
-
-    .attendance-recognition-details {
-        display: flex;
-        flex-direction: column;
-        gap: 0.25rem;
-    }
-
-    .attendance-recognition-name {
-        font-weight: 600;
-        color: var(--dark);
-    }
-
-    .attendance-recognition-meta {
-        font-size: 0.8rem;
-        color: #64748b;
-    }
-
-    .attendance-recognition-empty {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        padding: 0.75rem 1rem;
-        border-radius: var(--border-radius-sm);
-        border: 1px dashed rgba(148, 163, 184, 0.6);
-        background: #f8fafc;
-        color: #475569;
-        font-size: 0.85rem;
-    }
-
-    .attendance-panel-dark .attendance-recognition-item {
-        background: rgba(255, 255, 255, 0.08);
-        border-color: rgba(255, 255, 255, 0.12);
-        box-shadow: none;
-    }
-
-    .attendance-panel-dark .attendance-recognition-name {
-        color: #fff;
-    }
-
-    .attendance-panel-dark .attendance-recognition-meta {
-        color: rgba(255, 255, 255, 0.75);
+    .attendance-summary-recognition-slot[hidden] {
+        display: none !important;
     }
 
     .attendance-panel-actions {
@@ -1038,6 +882,211 @@
 
     .attendance-dashboard-controls select {
         min-width: 180px;
+    }
+
+    .attendance-summary-panel {
+        background: white;
+        border: 1px solid #e2e8f0;
+        border-radius: var(--border-radius);
+        padding: var(--spacing-sm) var(--spacing-md);
+        margin-bottom: var(--spacing-md);
+        box-shadow: var(--shadow-sm);
+    }
+
+    .attendance-summary-header {
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+        margin-bottom: var(--spacing-sm);
+    }
+
+    .attendance-summary-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: var(--dark);
+    }
+
+    .attendance-summary-subtitle {
+        font-size: 0.85rem;
+        color: #475569;
+    }
+
+    .attendance-summary-grid {
+        display: grid;
+        gap: 0.75rem;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        margin-bottom: var(--spacing-sm);
+    }
+
+    .attendance-summary-metric {
+        background: linear-gradient(135deg, rgba(15, 42, 86, 0.02) 0%, rgba(14, 116, 144, 0.08) 100%);
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        border-radius: var(--border-radius-sm);
+        padding: 0.9rem 1rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+        box-shadow: var(--shadow-sm);
+    }
+
+    .attendance-summary-metric-label {
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #475569;
+    }
+
+    .attendance-summary-metric-value {
+        font-size: 1.6rem;
+        font-weight: 600;
+        color: var(--navy-primary);
+    }
+
+    .attendance-summary-metric-subtext {
+        font-size: 0.8rem;
+        color: #64748b;
+    }
+
+    .attendance-summary-footnote {
+        font-size: 0.75rem;
+        color: #64748b;
+    }
+
+    .attendance-summary-recognition {
+        border-top: 1px solid #e2e8f0;
+        padding-top: var(--spacing-sm);
+        display: flex;
+        flex-direction: column;
+        gap: 0.65rem;
+    }
+
+    .attendance-summary-recognition-header {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 0.5rem;
+    }
+
+    .attendance-summary-recognition-title {
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: var(--navy-primary);
+    }
+
+    .attendance-summary-recognition-period {
+        font-size: 0.75rem;
+        color: #64748b;
+    }
+
+    .attendance-summary-recognition-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .attendance-summary-recognition-item {
+        display: flex;
+        align-items: center;
+        gap: 0.85rem;
+        border: 1px solid rgba(148, 163, 184, 0.25);
+        border-radius: var(--border-radius-sm);
+        padding: 0.75rem 0.95rem;
+        background: linear-gradient(135deg, rgba(14, 116, 144, 0.04) 0%, rgba(15, 23, 42, 0.01) 100%);
+        box-shadow: var(--shadow-sm);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .attendance-summary-recognition-item:hover {
+        transform: translateY(-1px);
+        box-shadow: var(--shadow);
+    }
+
+    .attendance-summary-recognition-item--first {
+        border-color: rgba(0, 150, 57, 0.35);
+        background: linear-gradient(135deg, rgba(0, 150, 57, 0.12) 0%, rgba(14, 116, 144, 0.05) 100%);
+    }
+
+    .attendance-summary-recognition-item--second {
+        border-color: rgba(0, 82, 204, 0.28);
+        background: linear-gradient(135deg, rgba(0, 82, 204, 0.08) 0%, rgba(14, 116, 144, 0.04) 100%);
+    }
+
+    .attendance-summary-recognition-item--third {
+        border-color: rgba(249, 115, 22, 0.25);
+        background: linear-gradient(135deg, rgba(249, 115, 22, 0.12) 0%, rgba(15, 23, 42, 0.03) 100%);
+    }
+
+    .attendance-summary-recognition-medal {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 42px;
+        height: 42px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.75);
+        color: var(--jamaica-gold);
+        font-size: 1.1rem;
+        box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.08);
+    }
+
+    .attendance-summary-recognition-item--second .attendance-summary-recognition-medal {
+        color: var(--primary);
+        background: rgba(0, 82, 204, 0.1);
+    }
+
+    .attendance-summary-recognition-item--third .attendance-summary-recognition-medal {
+        color: rgba(249, 115, 22, 0.9);
+        background: rgba(249, 115, 22, 0.12);
+    }
+
+    .attendance-summary-recognition-rank {
+        font-weight: 700;
+        color: var(--navy-primary);
+        font-size: 0.95rem;
+        min-width: 2.25rem;
+    }
+
+    .attendance-summary-recognition-rank sup {
+        font-size: 0.6em;
+    }
+
+    .attendance-summary-recognition-details {
+        display: flex;
+        flex-direction: column;
+        gap: 0.2rem;
+    }
+
+    .attendance-summary-recognition-name {
+        font-weight: 600;
+        font-size: 0.95rem;
+        color: #0f172a;
+    }
+
+    .attendance-summary-recognition-meta {
+        font-size: 0.75rem;
+        color: #64748b;
+    }
+
+    .attendance-summary-recognition-empty {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.85rem;
+        color: #94a3b8;
+    }
+
+    .attendance-summary-recognition-empty i {
+        color: var(--jamaica-gold);
+    }
+
+    @media (max-width: 991px) {
+        .attendance-summary-panel {
+            padding: var(--spacing-sm);
+        }
     }
 
     .attendance-summary-panel {
@@ -1840,6 +1889,9 @@
                         <div class="attendance-summary-grid" id="attendanceSummaryMetrics">
                             <div class="text-muted small">Attendance summary will appear here once data is available.</div>
                         </div>
+                        <div id="attendanceSummaryRecognition" class="attendance-summary-recognition-slot" hidden>
+                            <div class="text-muted small">Punctuality recognition appears here for weekly views.</div>
+                        </div>
                         <div class="attendance-summary-footnote" id="attendanceSummaryFootnote">Weeks and bi-weekly cycles begin on Monday and may span multiple months.</div>
                     </div>
                     <div class="attendance-dashboard">
@@ -1900,33 +1952,11 @@
                                 </div>
                             </div>
                             <div class="col-lg-4">
-                                <div class="d-flex flex-column gap-3 h-100">
-                                    <div class="attendance-panel attendance-panel--auto-height">
-                                        <div class="attendance-panel-title">Punctuality Recognition</div>
-                                        <div class="attendance-panel-subtitle mb-3">Celebrate our most punctual teammates across flexible timeframes.</div>
-                                        <div class="attendance-recognition-controls">
-                                            <div class="attendance-recognition-period" id="attendanceRecognitionPeriodLabel">Year-to-date leaders · Loading…</div>
-                                            <div class="attendance-recognition-filters" role="group" aria-label="Filter recognition period">
-                                                <button type="button" class="attendance-recognition-filter" data-recognition-period="weekly" aria-pressed="false">Weekly</button>
-                                                <button type="button" class="attendance-recognition-filter" data-recognition-period="biWeekly" aria-pressed="false">Bi-Weekly</button>
-                                                <button type="button" class="attendance-recognition-filter" data-recognition-period="monthly" aria-pressed="false">Monthly</button>
-                                                <button type="button" class="attendance-recognition-filter" data-recognition-period="quarterly" aria-pressed="false">Quarterly</button>
-                                                <button type="button" class="attendance-recognition-filter active" data-recognition-period="yearly" aria-pressed="true">Yearly</button>
-                                            </div>
-                                        </div>
-                                        <div id="attendancePunctualRecognition" class="attendance-recognition">
-                                            <div class="attendance-recognition-empty">
-                                                <i class="fas fa-medal"></i>
-                                                Recognition updates as attendance is recorded.
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="attendance-panel flex-grow-1 d-flex flex-column">
-                                        <div class="attendance-panel-title">Bi-Weekly Attendance</div>
-                                        <div class="attendance-panel-subtitle mb-3">Quickly spot cycle dips in punctuality.</div>
-                                        <div class="attendance-chart flex-grow-1">
-                                            <canvas id="attendanceBiWeeklyChart"></canvas>
-                                        </div>
+                                <div class="attendance-panel h-100 d-flex flex-column">
+                                    <div class="attendance-panel-title">Bi-Weekly Attendance</div>
+                                    <div class="attendance-panel-subtitle mb-3">Quickly spot cycle dips in punctuality.</div>
+                                    <div class="attendance-chart flex-grow-1">
+                                        <canvas id="attendanceBiWeeklyChart"></canvas>
                                     </div>
                                 </div>
                             </div>
@@ -2978,7 +3008,6 @@
                 this.attendanceDashboardPeriod = '';
                 this.attendancePeriodOptions = {};
                 this.attendancePeriodOptionsYear = null;
-                this.attendanceRecognitionPeriod = 'yearly';
                 this.attendanceRecognitionLeaders = {
                     weekly: { label: '', entries: [] },
                     biWeekly: { label: '', entries: [] },
@@ -8733,6 +8762,957 @@
                     </div>
                 `).join('');
 
+                metricsEl.innerHTML = metricsHtml;
+
+                const recognitionContainer = document.getElementById('attendanceSummaryRecognition');
+                if (recognitionContainer) {
+                    const recognitionHtml = this.buildAttendanceSummaryRecognitionSection(granularity, option);
+                    if (recognitionHtml) {
+                        recognitionContainer.innerHTML = recognitionHtml;
+                        recognitionContainer.removeAttribute('hidden');
+                    } else {
+                        recognitionContainer.innerHTML = '';
+                        recognitionContainer.setAttribute('hidden', '');
+                    }
+                }
+            }
+
+            buildAttendanceSummaryRecognitionSection(granularity, option) {
+                if (granularity !== 'Week') {
+                    return '';
+                }
+
+                let recognitionData = this.attendanceRecognitionLeaders;
+                if (!recognitionData || typeof recognitionData !== 'object') {
+                    recognitionData = this.resolveAttendanceRecognitionData(this.attendanceDashboardData || {});
+                    this.attendanceRecognitionLeaders = recognitionData;
+                }
+
+                const weeklyRecognition = recognitionData && typeof recognitionData === 'object'
+                    ? recognitionData.weekly || { label: '', entries: [] }
+                    : { label: '', entries: [] };
+
+                const labelText = (() => {
+                    const bucketLabel = typeof weeklyRecognition.label === 'string' ? weeklyRecognition.label.trim() : '';
+                    if (bucketLabel) {
+                        return bucketLabel;
+                    }
+                    if (option && typeof option.descriptor === 'string' && option.descriptor.trim()) {
+                        return option.descriptor.trim();
+                    }
+                    return 'Most recent week';
+                })();
+
+                const safeEntries = Array.isArray(weeklyRecognition.entries)
+                    ? weeklyRecognition.entries.filter(entry => entry && typeof entry === 'object').slice(0, 3)
+                    : [];
+
+                const ordinalSuffix = (value) => {
+                    if (value === 1) return 'st';
+                    if (value === 2) return 'nd';
+                    if (value === 3) return 'rd';
+                    return 'th';
+                };
+
+                const parseNumericValue = (value) => {
+                    if (typeof value === 'number' && Number.isFinite(value)) {
+                        return value;
+                    }
+
+                    if (typeof value === 'string') {
+                        const trimmed = value.trim();
+                        if (!trimmed) {
+                            return NaN;
+                        }
+
+                        const normalized = trimmed.replace(/[^0-9.\-]+/g, '');
+                        if (!normalized) {
+                            return NaN;
+                        }
+
+                        const parsed = Number(normalized);
+                        return Number.isFinite(parsed) ? parsed : NaN;
+                    }
+
+                    return NaN;
+                };
+
+                if (!safeEntries.length) {
+                    return `
+                        <div class="attendance-summary-recognition" role="region" aria-label="Weekly punctuality recognition">
+                            <div class="attendance-summary-recognition-header">
+                                <span class="attendance-summary-recognition-title">Punctuality Recognition</span>
+                                <span class="attendance-summary-recognition-period">${this.escapeHtml(labelText)}</span>
+                            </div>
+                            <div class="attendance-summary-recognition-empty">
+                                <i class="fas fa-medal" aria-hidden="true"></i>
+                                Weekly punctuality leaders will appear once attendance is logged.
+                            </div>
+                        </div>
+                    `;
+                }
+
+                const itemsHtml = safeEntries.slice(0, 3).map((entry, index) => {
+                    const rank = index + 1;
+                    const suffix = ordinalSuffix(rank);
+                    const rankLabel = `${rank}${suffix}`;
+                    const safeName = this.escapeHtml(entry.displayName || entry.name || entry.identifier || 'Team Member');
+                    const presentValue = parseNumericValue(entry.present);
+                    const totalValue = parseNumericValue(entry.total);
+                    const safePresent = Number.isFinite(presentValue) ? presentValue : 0;
+                    const safeTotal = Number.isFinite(totalValue) ? totalValue : 0;
+
+                    const punctualRateValue = (() => {
+                        const directRate = parseNumericValue(entry.punctualRate);
+                        if (Number.isFinite(directRate)) {
+                            return directRate;
+                        }
+                        if (safeTotal > 0) {
+                            return (safePresent / safeTotal) * 100;
+                        }
+                        return 0;
+                    })();
+
+                    const punctualRate = Number.isFinite(punctualRateValue)
+                        ? Math.min(Math.max(punctualRateValue, 0), 100)
+                        : 0;
+
+                    const meta = this.escapeHtml(`On time for ${safePresent} of ${safeTotal} tracked shifts (${punctualRate.toFixed(2)}%)`);
+
+                    const tierClass = ['first', 'second', 'third'][index] || 'other';
+                    const medalIcon = ['fas fa-trophy', 'fas fa-medal', 'fas fa-award'][index] || 'fas fa-user-clock';
+
+                    return `
+                        <li class="attendance-summary-recognition-item attendance-summary-recognition-item--${this.escapeHtml(tierClass)}" data-rank="${this.escapeHtml(rankLabel)}">
+                            <div class="attendance-summary-recognition-medal" aria-hidden="true">
+                                <i class="${medalIcon}"></i>
+                            </div>
+                            <div class="attendance-summary-recognition-rank">${this.escapeHtml(rankLabel)}</div>
+                            <div class="attendance-summary-recognition-details">
+                                <div class="attendance-summary-recognition-name">${safeName}</div>
+                                <div class="attendance-summary-recognition-meta">${meta}</div>
+                            </div>
+                        </li>
+                    `;
+                }).join('');
+
+                return `
+                    <div class="attendance-summary-recognition" role="region" aria-label="Weekly punctuality recognition">
+                        <div class="attendance-summary-recognition-header">
+                            <span class="attendance-summary-recognition-title">Punctuality Recognition</span>
+                            <span class="attendance-summary-recognition-period">${this.escapeHtml(labelText)}</span>
+                        </div>
+                        <ol class="attendance-summary-recognition-list">
+                            ${itemsHtml}
+                        </ol>
+                    </div>
+                `;
+            }
+
+            async exportAttendanceReport() {
+                const granularity = this.normalizeGranularity(this.attendanceDashboardGranularity);
+                const periodValue = this.attendanceDashboardPeriod;
+
+                if (!periodValue) {
+                    this.showToast('Select a period to export before downloading.', 'warning');
+                    return;
+                }
+
+                try {
+                    this.showLoading(true, {
+                        title: 'Exporting Attendance Report',
+                        detail: 'Generating CSV snapshot…'
+                    });
+
+                    const agentFilter = this.attendanceDashboardUserFilter || '';
+                    const csvContent = await this.callServerFunction('exportAttendanceCsv', granularity, periodValue, agentFilter, {});
+
+                    if (typeof csvContent !== 'string' || !csvContent.trim()) {
+                        throw new Error('No CSV content was returned.');
+                    }
+
+                    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                    const url = URL.createObjectURL(blob);
+                    const safeGranularity = granularity.toLowerCase();
+                    const safePeriod = periodValue.replace(/[^A-Za-z0-9_-]+/g, '-');
+                    const safeUser = agentFilter ? agentFilter.replace(/[^A-Za-z0-9_-]+/g, '') : 'all';
+                    const filename = `attendance-${safeGranularity}-${safePeriod}-${safeUser}.csv`;
+
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = filename;
+                    document.body.appendChild(link);
+                    link.click();
+                    setTimeout(() => {
+                        document.body.removeChild(link);
+                        URL.revokeObjectURL(url);
+                    }, 0);
+
+                    this.showToast('Attendance report exported successfully.', 'success');
+                } catch (error) {
+                    console.error('Error exporting attendance report:', error);
+                    this.showToast('Failed to export attendance report: ' + error.message, 'danger');
+                } finally {
+                    this.showLoading(false);
+                }
+            }
+
+            formatPercentage(value) {
+                if (!Number.isFinite(value)) {
+                    return '0%';
+                }
+
+                const normalized = Math.max(0, Math.min(100, value));
+                const rounded = Math.round(normalized * 10) / 10;
+                if (Math.abs(rounded - Math.round(rounded)) < 0.01) {
+                    return `${Math.round(rounded)}%`;
+                }
+                return `${rounded.toFixed(1)}%`;
+            }
+
+            formatInteger(value) {
+                if (!Number.isFinite(value)) {
+                    return '0';
+                }
+                return Math.round(value).toLocaleString();
+            }
+
+            computeIsoWeekInfo(date) {
+                if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+                    return null;
+                }
+
+                const target = new Date(date.getTime());
+                target.setHours(0, 0, 0, 0);
+                const day = (target.getDay() + 6) % 7;
+                target.setDate(target.getDate() - day + 3);
+                const isoYear = target.getFullYear();
+                const jan4 = new Date(isoYear, 0, 4);
+                const week1Start = this.getMondayStart(jan4);
+                const diffDays = Math.round((target.getTime() - week1Start.getTime()) / 86400000);
+                const week = Math.floor(diffDays / 7) + 1;
+                const start = new Date(week1Start.getTime());
+                start.setDate(start.getDate() + (week - 1) * 7);
+                start.setHours(0, 0, 0, 0);
+                const end = new Date(start.getTime());
+                end.setDate(end.getDate() + 6);
+                end.setHours(23, 59, 59, 999);
+                return { year: isoYear, week, start, end };
+            }
+
+            getMondayStart(date) {
+                const base = new Date(date.getTime());
+                const day = (base.getDay() + 6) % 7;
+                base.setDate(base.getDate() - day);
+                base.setHours(0, 0, 0, 0);
+                return base;
+            }
+
+            getBiWeeklyPeriodInfo(date) {
+                const info = this.computeIsoWeekInfo(date);
+                if (!info) {
+                    return null;
+                }
+
+                const normalizedWeek = info.week % 2 === 0 ? info.week - 1 : info.week;
+                const biIndex = Math.floor((normalizedWeek - 1) / 2) + 1;
+                const start = new Date(info.start.getTime());
+                if (info.week % 2 === 0) {
+                    start.setDate(start.getDate() - 7);
+                }
+                start.setHours(0, 0, 0, 0);
+                const end = new Date(start.getTime());
+                end.setDate(end.getDate() + 13);
+                end.setHours(23, 59, 59, 999);
+
+                return {
+                    key: `${info.year}-BW${String(biIndex).padStart(2, '0')}`,
+                    descriptor: `Bi-Week ${biIndex}`,
+                    start,
+                    end,
+                    order: start.getTime(),
+                    year: info.year
+                };
+            }
+
+            resolveAttendanceDashboardUser(filterValue) {
+                const normalizedValue = this.normalizeUserIdValue(filterValue);
+                if (!normalizedValue || !Array.isArray(this.availableUsers)) {
+                    return null;
+                }
+
+                const matchById = this.availableUsers.find(user => {
+                    const userId = this.normalizeUserIdValue(user.ID || user.UserID || user.id || user.userId || user.username);
+                    return userId && userId === normalizedValue;
+                });
+
+                if (!Array.isArray(records)) {
+                    this.attendanceDashboardRecordUsers = [];
+                    return;
+                }
+
+                const rankDisplayName = (value) => {
+                    const text = (value || '').toString().trim();
+                    if (!text) {
+                        return -Infinity;
+                    }
+                    let score = text.length;
+                    if (/\s/.test(text)) {
+                        score += 10;
+                    }
+                    if (/@/.test(text)) {
+                        score -= 5;
+                    }
+                    return score;
+                };
+
+                const updateEntry = (key, value, label) => {
+                    if (!key || !value) {
+                        return;
+                    }
+
+                    const trimmedValue = value.toString().trim();
+                    if (!trimmedValue) {
+                        return;
+                    }
+
+                    const trimmedLabel = (label || '').toString().trim();
+                    const existing = entries.get(key);
+
+                    if (!existing) {
+                        entries.set(key, {
+                            value: trimmedValue,
+                            label: trimmedLabel || trimmedValue
+                        });
+                        return;
+                    }
+
+                    if (!existing.value && trimmedValue) {
+                        existing.value = trimmedValue;
+                    }
+
+                    const currentLabelScore = rankDisplayName(existing.label);
+                    const candidateLabelScore = rankDisplayName(trimmedLabel || trimmedValue);
+                    if (candidateLabelScore > currentLabelScore) {
+                        existing.label = trimmedLabel || trimmedValue;
+                    }
+                };
+
+                records.forEach(record => {
+                    if (!record || typeof record !== 'object') {
+                        return;
+                    }
+
+                    const idCandidates = [
+                        record.ID,
+                        record.Id,
+                        record.id,
+                        record.UserID,
+                        record.UserId,
+                        record.userID,
+                        record.userId
+                    ].map(candidate => this.normalizeUserIdValue(candidate)).filter(Boolean);
+
+                    const nameCandidates = [
+                        record.userName,
+                        record.UserName,
+                        record.username,
+                        record.user,
+                        record.User,
+                        record.fullName,
+                        record.FullName
+                    ].map(candidate => (candidate || '').toString().trim()).filter(Boolean);
+
+                    const emailCandidates = [
+                        record.email,
+                        record.Email
+                    ].map(candidate => (candidate || '').toString().trim()).filter(Boolean);
+
+                    const preferredValue = idCandidates.find(Boolean)
+                        || nameCandidates.find(Boolean)
+                        || emailCandidates.find(Boolean);
+
+                    const normalizedKey = this.normalizeUserIdValue(preferredValue)
+                        || this.normalizePersonKey(preferredValue);
+
+                    if (!normalizedKey) {
+                        return;
+                    }
+
+                    const labelCandidates = [
+                        ...nameCandidates,
+                        ...emailCandidates,
+                        preferredValue
+                    ];
+                    const preferredLabel = labelCandidates.find(candidate => candidate && /\s/.test(candidate))
+                        || labelCandidates.find(candidate => candidate)
+                        || preferredValue;
+
+                    updateEntry(normalizedKey, preferredValue, preferredLabel);
+                });
+
+                this.attendanceDashboardRecordUsers = Array.from(entries.values());
+                if (typeof this.updateUserDropdowns === 'function') {
+                    this.updateUserDropdowns();
+                }
+            }
+
+            setupAttendancePeriodControls() {
+                const granularitySelect = document.getElementById('attendanceDashboardGranularity');
+                const periodSelect = document.getElementById('attendanceDashboardPeriod');
+                const exportButton = document.getElementById('attendanceExportButton');
+
+                if (granularitySelect) {
+                    const normalized = this.normalizeGranularity(granularitySelect.value || this.attendanceDashboardGranularity);
+                    this.attendanceDashboardGranularity = normalized;
+                    granularitySelect.value = normalized;
+
+                    if (!granularitySelect.dataset.luminaAttendanceGranularityListener) {
+                        granularitySelect.addEventListener('change', (event) => {
+                            this.handleAttendanceGranularityChange(event.target.value);
+                        });
+                        granularitySelect.dataset.luminaAttendanceGranularityListener = 'true';
+                    }
+                }
+
+                if (periodSelect && !periodSelect.dataset.luminaAttendancePeriodListener) {
+                    periodSelect.addEventListener('change', (event) => {
+                        this.handleAttendancePeriodChange(event.target.value);
+                    });
+                    periodSelect.dataset.luminaAttendancePeriodListener = 'true';
+                }
+
+                if (exportButton && !exportButton.dataset.luminaAttendanceExportListener) {
+                    exportButton.addEventListener('click', (event) => {
+                        event.preventDefault();
+                        this.exportAttendanceReport().catch(error => {
+                            console.error('Attendance export failed:', error);
+                        });
+                    });
+                    exportButton.dataset.luminaAttendanceExportListener = 'true';
+                }
+
+                this.refreshAttendancePeriodOptions();
+            }
+
+            normalizeGranularity(value) {
+                const text = typeof value === 'string' ? value.trim().toLowerCase() : '';
+                if (!text) {
+                    return 'Week';
+                }
+
+                const normalized = text.replace(/[^a-z]/g, '');
+                switch (normalized) {
+                    case 'week':
+                    case 'weekly':
+                        return 'Week';
+                    case 'biweekly':
+                    case 'biweek':
+                        return 'BiWeekly';
+                    case 'month':
+                    case 'monthly':
+                        return 'Month';
+                    case 'quarter':
+                    case 'quarterly':
+                        return 'Quarter';
+                    case 'year':
+                    case 'yearly':
+                        return 'Year';
+                    default:
+                        return 'Week';
+                }
+            }
+
+            refreshAttendancePeriodOptions() {
+                const granularity = this.normalizeGranularity(this.attendanceDashboardGranularity);
+                this.attendanceDashboardGranularity = granularity;
+
+                const year = this.attendanceDashboardYear || this.getSelectedAttendanceYear();
+                const periodSelect = document.getElementById('attendanceDashboardPeriod');
+
+                if (!Number.isFinite(year)) {
+                    if (periodSelect) {
+                        periodSelect.innerHTML = '<option value="">No periods available</option>';
+                        periodSelect.disabled = true;
+                    }
+                    this.renderAttendanceSummary(null, null, granularity);
+                    return;
+                }
+
+                if (this.attendancePeriodOptionsYear !== year || !this.attendancePeriodOptions || typeof this.attendancePeriodOptions !== 'object') {
+                    this.attendancePeriodOptions = this.buildAttendancePeriodOptionsForYear(year);
+                    this.attendancePeriodOptionsYear = year;
+                }
+
+                const options = (this.attendancePeriodOptions && this.attendancePeriodOptions[granularity])
+                    ? this.attendancePeriodOptions[granularity]
+                    : [];
+
+                if (periodSelect) {
+                    periodSelect.innerHTML = '';
+                    if (!options.length) {
+                        const placeholder = document.createElement('option');
+                        placeholder.value = '';
+                        placeholder.textContent = 'No periods available';
+                        periodSelect.appendChild(placeholder);
+                        periodSelect.disabled = true;
+                    } else {
+                        periodSelect.disabled = false;
+                        options.forEach(optionInfo => {
+                            const option = document.createElement('option');
+                            option.value = optionInfo.value;
+                            option.textContent = optionInfo.label;
+                            periodSelect.appendChild(option);
+                        });
+                    }
+                }
+
+                if (!options.some(option => option.value === this.attendanceDashboardPeriod)) {
+                    this.attendanceDashboardPeriod = options.length ? options[0].value : '';
+                }
+
+                if (periodSelect) {
+                    periodSelect.value = this.attendanceDashboardPeriod || '';
+                }
+
+                this.updateAttendanceSummaryDisplay();
+            }
+
+            buildAttendancePeriodOptionsForYear(year) {
+                return {
+                    Week: this.buildWeeklyPeriodOptions(year),
+                    BiWeekly: this.buildBiWeeklyPeriodOptions(year),
+                    Month: this.buildMonthlyPeriodOptions(year),
+                    Quarter: this.buildQuarterlyPeriodOptions(year),
+                    Year: this.buildYearlyPeriodOptions(year)
+                };
+            }
+
+            buildWeeklyPeriodOptions(year) {
+                const options = [];
+                const reference = new Date(year, 0, 4);
+                const firstWeek = this.computeIsoWeekInfo(reference);
+                if (!firstWeek) {
+                    return options;
+                }
+
+                let cursor = new Date(firstWeek.start.getTime());
+                let safety = 0;
+                const seenWeeks = new Set();
+
+                while (safety < 60) {
+                    const info = this.computeIsoWeekInfo(cursor);
+                    if (!info || info.year > year) {
+                        break;
+                    }
+
+                    if (info.year === year && !seenWeeks.has(info.week)) {
+                        const rangeLabel = this.formatDateRangeLabel(info.start, info.end);
+                        options.push({
+                            value: `${info.year}-W${String(info.week).padStart(2, '0')}`,
+                            label: `Week ${info.week} • ${rangeLabel}`,
+                            descriptor: `Week ${info.week}`,
+                            start: new Date(info.start.getTime()),
+                            end: new Date(info.end.getTime()),
+                            sortKey: info.start.getTime()
+                        });
+                        seenWeeks.add(info.week);
+                    }
+
+                    cursor.setDate(cursor.getDate() + 7);
+                    safety += 1;
+                }
+
+                return options.sort((a, b) => b.sortKey - a.sortKey);
+            }
+
+            buildBiWeeklyPeriodOptions(year) {
+                const options = [];
+                const reference = new Date(year, 0, 4);
+                const firstWeek = this.computeIsoWeekInfo(reference);
+                if (!firstWeek) {
+                    return options;
+                }
+
+                let cursor = new Date(firstWeek.start.getTime());
+                let safety = 0;
+                const seen = new Set();
+
+                while (safety < 30) {
+                    const periodInfo = this.getBiWeeklyPeriodInfo(cursor);
+                    if (!periodInfo || periodInfo.year > year) {
+                        break;
+                    }
+
+                    if (periodInfo.year === year && !seen.has(periodInfo.key)) {
+                        options.push({
+                            value: periodInfo.key,
+                            label: `${periodInfo.descriptor} • ${this.formatDateRangeLabel(periodInfo.start, periodInfo.end)}`,
+                            descriptor: periodInfo.descriptor,
+                            start: new Date(periodInfo.start.getTime()),
+                            end: new Date(periodInfo.end.getTime()),
+                            sortKey: periodInfo.start.getTime()
+                        });
+                        seen.add(periodInfo.key);
+                    }
+
+                    cursor.setDate(cursor.getDate() + 14);
+                    safety += 1;
+                }
+
+                return options.sort((a, b) => b.sortKey - a.sortKey);
+            }
+
+            buildMonthlyPeriodOptions(year) {
+                const options = [];
+                for (let month = 0; month < 12; month++) {
+                    const start = new Date(year, month, 1, 0, 0, 0, 0);
+                    const end = new Date(year, month + 1, 0, 23, 59, 59, 999);
+                    const monthLabel = start.toLocaleDateString('en-US', { month: 'long' });
+                    options.push({
+                        value: `${year}-${String(month + 1).padStart(2, '0')}`,
+                        label: `${monthLabel} ${year}`,
+                        descriptor: `${monthLabel} ${year}`,
+                        start,
+                        end,
+                        sortKey: start.getTime()
+                    });
+                }
+                return options.sort((a, b) => b.sortKey - a.sortKey);
+            }
+
+            buildQuarterlyPeriodOptions(year) {
+                const options = [];
+                for (let quarter = 1; quarter <= 4; quarter++) {
+                    const startMonth = (quarter - 1) * 3;
+                    const start = new Date(year, startMonth, 1, 0, 0, 0, 0);
+                    const end = new Date(year, startMonth + 3, 0, 23, 59, 59, 999);
+                    const descriptor = `Q${quarter} ${year}`;
+                    const startLabel = start.toLocaleDateString('en-US', { month: 'short' });
+                    const endLabel = end.toLocaleDateString('en-US', { month: 'short' });
+                    options.push({
+                        value: `Q${quarter}-${year}`,
+                        label: `${descriptor} • ${startLabel} – ${endLabel}`,
+                        descriptor,
+                        start,
+                        end,
+                        sortKey: start.getTime()
+                    });
+                }
+                return options.sort((a, b) => b.sortKey - a.sortKey);
+            }
+
+            buildYearlyPeriodOptions(year) {
+                const start = new Date(year, 0, 1, 0, 0, 0, 0);
+                const end = new Date(year, 11, 31, 23, 59, 59, 999);
+                return [{
+                    value: `${year}`,
+                    label: `${year}`,
+                    descriptor: `${year}`,
+                    start,
+                    end,
+                    sortKey: start.getTime()
+                }];
+            }
+
+            formatDateRangeLabel(start, end) {
+                if (!(start instanceof Date) || Number.isNaN(start.getTime()) || !(end instanceof Date) || Number.isNaN(end.getTime())) {
+                    return '';
+                }
+
+                const sameYear = start.getFullYear() === end.getFullYear();
+                const startOptions = sameYear ? { month: 'short', day: 'numeric' } : { month: 'short', day: 'numeric', year: 'numeric' };
+                const endOptions = { month: 'short', day: 'numeric', year: 'numeric' };
+                const startLabel = start.toLocaleDateString('en-US', startOptions);
+                const endLabel = end.toLocaleDateString('en-US', endOptions);
+                return `${startLabel} – ${endLabel}`;
+            }
+
+            getGranularityDisplayName(value) {
+                const normalized = this.normalizeGranularity(value);
+                switch (normalized) {
+                    case 'BiWeekly':
+                        return 'Bi-Weekly';
+                    case 'Month':
+                        return 'Monthly';
+                    case 'Quarter':
+                        return 'Quarterly';
+                    case 'Year':
+                        return 'Yearly';
+                    default:
+                        return 'Weekly';
+                }
+            }
+
+            handleAttendanceGranularityChange(value) {
+                this.attendanceDashboardGranularity = this.normalizeGranularity(value);
+                this.attendanceDashboardPeriod = '';
+                this.refreshAttendancePeriodOptions();
+            }
+
+            handleAttendancePeriodChange(value) {
+                this.attendanceDashboardPeriod = value || '';
+                this.updateAttendanceSummaryDisplay();
+            }
+
+            updateAttendanceSummaryDisplay() {
+                const granularity = this.normalizeGranularity(this.attendanceDashboardGranularity);
+                const options = (this.attendancePeriodOptions && this.attendancePeriodOptions[granularity])
+                    ? this.attendancePeriodOptions[granularity]
+                    : [];
+
+                let periodOption = options.find(option => option.value === this.attendanceDashboardPeriod) || null;
+                if (!periodOption && options.length) {
+                    periodOption = options[0];
+                    this.attendanceDashboardPeriod = periodOption.value;
+                    const periodSelect = document.getElementById('attendanceDashboardPeriod');
+                    if (periodSelect) {
+                        periodSelect.value = this.attendanceDashboardPeriod;
+                    }
+                }
+
+                const filteredRecords = this.filterAttendanceDashboardRecords(this.attendanceDashboardRecords, this.attendanceDashboardUserFilter);
+                const summary = periodOption ? this.calculateAttendanceSummaryForOption(filteredRecords, periodOption) : null;
+
+                this.renderAttendanceSummary(summary, periodOption, granularity);
+            }
+
+            calculateAttendanceSummaryForOption(records, option) {
+                if (!option || !option.start || !option.end) {
+                    return { total: 0, counts: {}, percentages: {}, attendanceRate: 0, punctualRate: 0 };
+                }
+
+                const startMs = option.start.getTime();
+                const endMs = option.end.getTime();
+                if (!Array.isArray(records) || !Number.isFinite(startMs) || !Number.isFinite(endMs)) {
+                    return { total: 0, counts: {}, percentages: {}, attendanceRate: 0, punctualRate: 0 };
+                }
+
+                const counts = {
+                    present: 0,
+                    late: 0,
+                    absent: 0,
+                    sick: 0,
+                    vacation: 0,
+                    bereavement: 0,
+                    noCallNoShow: 0,
+                    leaveOfAbsence: 0,
+                    personalLeave: 0,
+                    training: 0,
+                    other: 0
+                };
+
+                let total = 0;
+
+                records.forEach(record => {
+                    const date = this.parseAttendanceRecordDate(record);
+                    if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+                        return;
+                    }
+
+                    const time = date.getTime();
+                    if (time < startMs || time > endMs) {
+                        return;
+                    }
+
+                    const status = record?.status || record?.Status || record?.state || record?.State || '';
+                    const category = this.categorizeAttendanceStatus(status);
+
+                    if (Object.prototype.hasOwnProperty.call(counts, category)) {
+                        counts[category] += 1;
+                    } else {
+                        counts.other += 1;
+                    }
+
+                    total += 1;
+                });
+
+                const percentages = {};
+                Object.keys(counts).forEach(key => {
+                    percentages[key] = total ? Math.round((counts[key] / total) * 1000) / 10 : 0;
+                });
+
+                const attended = total - counts.absent - counts.noCallNoShow;
+                const attendanceRate = total ? Math.max(0, Math.round((attended / total) * 1000) / 10) : 0;
+                const punctualCount = counts.present + counts.training;
+                const punctualRate = total ? Math.round((punctualCount / total) * 1000) / 10 : 0;
+
+                return {
+                    total,
+                    counts,
+                    percentages,
+                    attendanceRate,
+                    punctualRate,
+                    punctualCount,
+                    punctualPercent: punctualRate
+                };
+            }
+
+            parseAttendanceRecordDate(record) {
+                const candidates = [
+                    record?.date,
+                    record?.Date,
+                    record?.dateString,
+                    record?.DateString,
+                    record?.attendanceDate,
+                    record?.AttendanceDate,
+                    record?.timestamp,
+                    record?.Timestamp,
+                    record?.timestampMs
+                ];
+
+                for (const candidate of candidates) {
+                    if (!candidate && candidate !== 0) {
+                        continue;
+                    }
+
+                    if (candidate instanceof Date) {
+                        const cloned = new Date(candidate.getTime());
+                        if (!Number.isNaN(cloned.getTime())) {
+                            cloned.setHours(0, 0, 0, 0);
+                            return cloned;
+                        }
+                        continue;
+                    }
+
+                    if (typeof candidate === 'number' && Number.isFinite(candidate)) {
+                        const parsed = new Date(candidate);
+                        if (!Number.isNaN(parsed.getTime())) {
+                            parsed.setHours(0, 0, 0, 0);
+                            return parsed;
+                        }
+                        continue;
+                    }
+
+                    if (typeof candidate === 'string') {
+                        const trimmed = candidate.trim();
+                        if (!trimmed) {
+                            continue;
+                        }
+                        const parsed = new Date(trimmed);
+                        if (!Number.isNaN(parsed.getTime())) {
+                            parsed.setHours(0, 0, 0, 0);
+                            return parsed;
+                        }
+                    }
+                }
+
+                return null;
+            }
+
+            resolveAttendanceSummaryUserLabel() {
+                if (!this.attendanceDashboardUserFilter) {
+                    return 'All users';
+                }
+
+                const user = this.resolveAttendanceDashboardUser(this.attendanceDashboardUserFilter);
+                if (user) {
+                    return user.FullName || user.fullName || user.UserName || user.username || user.Email || user.email || this.attendanceDashboardUserFilter;
+                }
+
+                return this.attendanceDashboardUserFilter;
+            }
+
+            renderAttendanceSummary(summary, option, granularity) {
+                const titleEl = document.getElementById('attendanceSummaryTitle');
+                const subtitleEl = document.getElementById('attendanceSummarySubtitle');
+                const metricsEl = document.getElementById('attendanceSummaryMetrics');
+                const footnoteEl = document.getElementById('attendanceSummaryFootnote');
+
+                if (titleEl) {
+                    titleEl.textContent = `${this.getGranularityDisplayName(granularity)} Overview`;
+                }
+
+                if (subtitleEl) {
+                    if (option) {
+                        const userLabel = this.resolveAttendanceSummaryUserLabel();
+                        subtitleEl.textContent = `${option.descriptor} • ${this.formatDateRangeLabel(option.start, option.end)} · ${userLabel}`;
+                    } else {
+                        subtitleEl.textContent = 'No periods available for the selected year.';
+                    }
+                }
+
+                if (footnoteEl) {
+                    footnoteEl.textContent = 'Weeks and bi-weekly cycles begin on Monday and may span multiple months.';
+                }
+
+                if (!metricsEl) {
+                    return;
+                }
+
+                if (!option) {
+                    metricsEl.innerHTML = '<div class="text-muted small">No periods available for the selected filters.</div>';
+                    return;
+                }
+
+                if (!summary || !summary.total) {
+                    metricsEl.innerHTML = '<div class="text-muted small">No attendance records found for the selected filters.</div>';
+                    return;
+                }
+
+                const punctualCountValue = Number.isFinite(summary.punctualCount)
+                    ? summary.punctualCount
+                    : (summary.counts.present + summary.counts.training);
+                const punctualPercentValue = Number.isFinite(summary.punctualPercent)
+                    ? summary.punctualPercent
+                    : (summary.percentages.present + summary.percentages.training);
+
+                const metrics = [
+                    {
+                        label: 'Total Logged',
+                        value: this.formatInteger(summary.total),
+                        subtext: 'Attendance entries'
+                    },
+                    {
+                        label: 'Attendance Rate',
+                        value: this.formatPercentage(summary.attendanceRate),
+                        subtext: 'Present or excused'
+                    },
+                    {
+                        label: 'Punctual Rate',
+                        value: this.formatPercentage(summary.punctualRate),
+                        subtext: 'On-time percentage'
+                    },
+                    {
+                        label: 'Punctual',
+                        value: this.formatInteger(punctualCountValue),
+                        subtext: this.formatPercentage(punctualPercentValue)
+                    },
+                    {
+                        label: 'Late',
+                        value: this.formatInteger(summary.counts.late),
+                        subtext: this.formatPercentage(summary.percentages.late)
+                    },
+                    {
+                        label: 'Absent',
+                        value: this.formatInteger(summary.counts.absent),
+                        subtext: this.formatPercentage(summary.percentages.absent)
+                    },
+                    {
+                        label: 'Sick',
+                        value: this.formatInteger(summary.counts.sick),
+                        subtext: this.formatPercentage(summary.percentages.sick)
+                    },
+                    {
+                        label: 'Vacation',
+                        value: this.formatInteger(summary.counts.vacation),
+                        subtext: this.formatPercentage(summary.percentages.vacation)
+                    },
+                    {
+                        label: 'No Call/No Show',
+                        value: this.formatInteger(summary.counts.noCallNoShow),
+                        subtext: this.formatPercentage(summary.percentages.noCallNoShow)
+                    }
+                ];
+
+                const metricsHtml = metrics.map(metric => `
+                    <div class="attendance-summary-metric">
+                        <div class="attendance-summary-metric-label">${this.escapeHtml(metric.label)}</div>
+                        <div class="attendance-summary-metric-value">${this.escapeHtml(metric.value)}</div>
+                        <div class="attendance-summary-metric-subtext">${this.escapeHtml(metric.subtext)}</div>
+                    </div>
+                `).join('');
+
                 const recognitionHtml = this.buildAttendanceSummaryRecognitionSection(granularity, option);
 
                 metricsEl.innerHTML = `${metricsHtml}${recognitionHtml}`;
@@ -9311,8 +10291,7 @@
                 }
 
                 this.attendanceRecognitionLeaders = this.resolveAttendanceRecognitionData(data);
-                this.attachAttendanceRecognitionFilterListeners();
-                this.updateAttendanceRecognitionPanel();
+                this.updateAttendanceSummaryDisplay();
 
                 if (!this.attendanceDashboardInitialized) {
                     const yearlyTrendCtx = yearlyTrendCanvas.getContext('2d');
@@ -9889,116 +10868,22 @@
                 }
             }
 
-            renderAttendancePunctualRecognition(entries) {
-                const container = document.getElementById('attendancePunctualRecognition');
-                if (!container) {
-                    return;
-                }
-
-                const safeEntries = Array.isArray(entries)
-                    ? entries.filter(entry => entry && typeof entry === 'object')
-                    : [];
-
-                if (!safeEntries.length) {
-                    container.innerHTML = `
-                        <div class="attendance-recognition-empty">
-                            <i class="fas fa-medal"></i>
-                            Recognition updates as attendance is recorded.
-                        </div>
-                    `;
-                    return;
-                }
-
-                const ordinalSuffix = (value) => {
-                    if (value === 1) return 'st';
-                    if (value === 2) return 'nd';
-                    if (value === 3) return 'rd';
-                    return 'th';
-                };
-
-                const parseNumericValue = (value) => {
-                    if (typeof value === 'number' && Number.isFinite(value)) {
-                        return value;
-                    }
-
-                    if (typeof value === 'string') {
-                        const trimmed = value.trim();
-                        if (!trimmed) {
-                            return NaN;
-                        }
-
-                        const normalized = trimmed.replace(/[^0-9.\-]+/g, '');
-                        if (!normalized) {
-                            return NaN;
-                        }
-
-                        const parsed = Number(normalized);
-                        return Number.isFinite(parsed) ? parsed : NaN;
-                    }
-
-                    return NaN;
-                };
-
-                const html = safeEntries.slice(0, 3).map((entry, index) => {
-                    const rank = index + 1;
-                    const suffix = ordinalSuffix(rank);
-                    const rankHtml = `${rank}<sup>${suffix}</sup>`;
-                    const safeName = this.escapeHtml(entry.displayName || entry.name || entry.identifier || 'Team Member');
-                    const presentValue = parseNumericValue(entry.present);
-                    const totalValue = parseNumericValue(entry.total);
-                    const safePresent = Number.isFinite(presentValue) ? presentValue : 0;
-                    const safeTotal = Number.isFinite(totalValue) ? totalValue : 0;
-
-                    const punctualRateValue = (() => {
-                        const directRate = parseNumericValue(entry.punctualRate);
-                        if (Number.isFinite(directRate)) {
-                            return directRate;
-                        }
-
-                        if (safeTotal > 0) {
-                            return (safePresent / safeTotal) * 100;
-                        }
-
-                        return 0;
-                    })();
-
-                    const punctualRate = Number.isFinite(punctualRateValue)
-                        ? Math.min(Math.max(punctualRateValue, 0), 100)
-                        : 0;
-
-                    const meta = this.escapeHtml(`On time for ${safePresent} of ${safeTotal} tracked shifts (${punctualRate.toFixed(2)}%)`);
-                    const tierClass = ['first', 'second', 'third'][index] || 'other';
-
-                    return `
-                        <div class="attendance-recognition-item attendance-recognition-item--${tierClass}">
-                            <div class="attendance-recognition-rank" aria-hidden="true">${rankHtml}</div>
-                            <div class="attendance-recognition-icon" aria-hidden="true">
-                                <i class="fas fa-medal"></i>
-                            </div>
-                            <div class="attendance-recognition-details">
-                                <div class="attendance-recognition-name">${safeName}</div>
-                                <div class="attendance-recognition-meta">${meta}</div>
-                            </div>
-                        </div>
-                    `;
-                }).join('');
-
-                container.innerHTML = html;
-            }
-
             resolveAttendanceRecognitionData(data) {
                 const fallbackEntries = Array.isArray(data?.topPunctual)
                     ? data.topPunctual.filter(entry => entry && typeof entry === 'object')
                     : [];
                 const fallbackYear = Number.isFinite(data?.year)
                     ? data.year
-                    : (Number.isFinite(this.attendanceDashboardYear) ? this.attendanceDashboardYear : new Date().getFullYear());
+                    : (Number.isFinite(this.attendanceDashboardYear)
+                        ? this.attendanceDashboardYear
+                        : new Date().getFullYear());
                 const recognition = data && typeof data === 'object' ? data.recognition : null;
 
                 const ensureBucket = (bucket, defaultLabel = '') => {
                     if (!bucket || typeof bucket !== 'object') {
                         return { label: defaultLabel, entries: [] };
                     }
+
                     const label = typeof bucket.label === 'string' ? bucket.label : defaultLabel;
                     const entries = Array.isArray(bucket.entries)
                         ? bucket.entries.filter(entry => entry && typeof entry === 'object')
@@ -10011,7 +10896,10 @@
                     biWeekly: ensureBucket(recognition?.biWeekly, 'Most recent bi-weekly period'),
                     monthly: ensureBucket(recognition?.monthly, 'Most recent month'),
                     quarterly: ensureBucket(recognition?.quarterly, 'Most recent quarter'),
-                    yearly: ensureBucket(recognition?.yearly, fallbackYear ? `Year to date (${fallbackYear})` : 'Year to date')
+                    yearly: ensureBucket(
+                        recognition?.yearly,
+                        fallbackYear ? `Year to date (${fallbackYear})` : 'Year to date'
+                    )
                 };
 
                 if (!resolved.yearly.entries.length && fallbackEntries.length) {
@@ -10019,80 +10907,12 @@
                 }
 
                 if (!resolved.yearly.label) {
-                    resolved.yearly.label = fallbackYear ? `Year to date (${fallbackYear})` : 'Year to date';
+                    resolved.yearly.label = fallbackYear
+                        ? `Year to date (${fallbackYear})`
+                        : 'Year to date';
                 }
 
                 return resolved;
-            }
-
-            attachAttendanceRecognitionFilterListeners() {
-                const buttons = document.querySelectorAll('[data-recognition-period]');
-                buttons.forEach(button => {
-                    if (button.dataset.luminaRecognitionListener) {
-                        return;
-                    }
-
-                    button.addEventListener('click', (event) => {
-                        const target = event.currentTarget;
-                        const period = target && target.dataset ? target.dataset.recognitionPeriod : null;
-                        this.handleAttendanceRecognitionPeriodChange(period);
-                    });
-
-                    button.dataset.luminaRecognitionListener = 'true';
-                });
-            }
-
-            handleAttendanceRecognitionPeriodChange(period) {
-                const validPeriods = new Set(['weekly', 'biWeekly', 'monthly', 'quarterly', 'yearly']);
-                const normalized = (period || '').toString().trim();
-                const selected = validPeriods.has(normalized) ? normalized : 'yearly';
-                this.attendanceRecognitionPeriod = selected;
-                this.updateAttendanceRecognitionPanel();
-            }
-
-            getRecognitionPeriodDescriptor(type) {
-                switch (type) {
-                    case 'weekly':
-                        return 'Weekly leaders';
-                    case 'biWeekly':
-                        return 'Bi-weekly leaders';
-                    case 'monthly':
-                        return 'Monthly leaders';
-                    case 'quarterly':
-                        return 'Quarterly leaders';
-                    default:
-                        return 'Year-to-date leaders';
-                }
-            }
-
-            updateAttendanceRecognitionPanel() {
-                const validPeriods = ['weekly', 'biWeekly', 'monthly', 'quarterly', 'yearly'];
-                const current = validPeriods.includes(this.attendanceRecognitionPeriod)
-                    ? this.attendanceRecognitionPeriod
-                    : 'yearly';
-                this.attendanceRecognitionPeriod = current;
-
-                const data = this.attendanceRecognitionLeaders || {};
-                const selection = data[current] || { label: '', entries: [] };
-
-                this.renderAttendancePunctualRecognition(selection.entries);
-
-                const labelElement = document.getElementById('attendanceRecognitionPeriodLabel');
-                if (labelElement) {
-                    const descriptor = this.getRecognitionPeriodDescriptor(current);
-                    const periodLabel = (selection.label || '').toString().trim();
-                    labelElement.textContent = periodLabel
-                        ? `${descriptor} · ${periodLabel}`
-                        : `${descriptor} · No data yet`;
-                }
-
-                const buttons = document.querySelectorAll('[data-recognition-period]');
-                buttons.forEach(button => {
-                    const buttonPeriod = button.dataset ? button.dataset.recognitionPeriod : '';
-                    const isActive = buttonPeriod === current;
-                    button.classList.toggle('active', isActive);
-                    button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
-                });
             }
 
             handleAttendanceDashboardUserFilterChange(rawValue) {
