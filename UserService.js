@@ -212,6 +212,22 @@ function _userGetPasswordUtilities_() {
   return null;
 }
 
+function _userCreatePasswordHash_(raw) {
+  const utils = _userGetPasswordUtilities_();
+  if (!utils || typeof utils.createPasswordHash !== 'function') {
+    throw new Error('Password utilities createPasswordHash unavailable');
+  }
+  return utils.createPasswordHash(raw);
+}
+
+function _userNormalizeHash_(hash) {
+  const utils = _userGetPasswordUtilities_();
+  if (utils && typeof utils.normalizeHash === 'function') {
+    return utils.normalizeHash(hash);
+  }
+  return String(hash == null ? '' : hash).trim().toLowerCase();
+}
+
 function _userDigestToHex_(digest) {
   if (!digest) {
     return '';
@@ -2641,6 +2657,25 @@ function clientRegisterUser(userData) {
     const createdAt = _now_();
     const setupToken = Utilities.getUuid();
 
+    let passwordHashValue = '';
+    let resetRequiredFlag = (data.requirePasswordChange === null || typeof data.requirePasswordChange === 'undefined')
+      ? _strToBool_(data.canLogin)
+      : !!data.requirePasswordChange;
+    let sendSetupEmail = !!data.canLogin;
+    if (data.initialPassword) {
+      try {
+        passwordHashValue = _userNormalizeHash_(_userCreatePasswordHash_(data.initialPassword));
+        resetRequiredFlag = (data.requirePasswordChange === null || typeof data.requirePasswordChange === 'undefined')
+          ? false
+          : !!data.requirePasswordChange;
+        sendSetupEmail = false;
+      } catch (hashErr) {
+        _userLog_('[clientRegisterUser] initial password hashing failed', { error: hashErr && hashErr.message }, 'warn');
+      }
+    }
+
+    const emailConfirmationToken = sendSetupEmail ? setupToken : '';
+
     // Benefits compute
     const probEnd = data.probationEnd || calcProbationEndDate_(data.hireDate || '', data.probationMonths || '');
     const eligibleDate = data.insuranceEligibleDate || calcInsuranceEligibleDate_(probEnd, G.INSURANCE_MONTHS_AFTER_PROBATION);
@@ -2659,9 +2694,9 @@ function clientRegisterUser(userData) {
       FullName: data.fullName || '',
       Email: data.email,
       CampaignID: data.campaignId || '',
-      PasswordHash: '',
-      ResetRequired: _boolToStr_(data.canLogin),
-      EmailConfirmation: setupToken,
+      PasswordHash: passwordHashValue,
+      ResetRequired: _boolToStr_(resetRequiredFlag),
+      EmailConfirmation: emailConfirmationToken,
       EmailConfirmed: 'TRUE',
       PhoneNumber: data.phoneNumber || '',
       EmploymentStatus: data.employmentStatus || '',
@@ -2732,7 +2767,7 @@ function clientRegisterUser(userData) {
       _userLog_('[clientRegisterUser] cache invalidation failed', { error: cacheErr && cacheErr.message }, 'warn');
     }
 
-    if (data.canLogin && typeof sendPasswordSetupEmail === 'function') {
+    if (sendSetupEmail && typeof sendPasswordSetupEmail === 'function') {
       try {
         _userLog_('[clientRegisterUser] sending password setup email', { email: data.email, userId: id });
         sendPasswordSetupEmail(data.email, {
@@ -2753,12 +2788,20 @@ function clientRegisterUser(userData) {
       });
     } catch (nerr) { writeError && writeError('clientRegisterUser:notify', nerr); }
 
+    const resultMessage = (function () {
+      if (!data.canLogin) {
+        return `User created. ${(data.pages || []).length} page(s) assigned. Login disabled.`;
+      }
+      if (sendSetupEmail) {
+        return `User created. ${(data.pages || []).length} page(s) assigned. Password setup email sent.`;
+      }
+      return `User created. ${(data.pages || []).length} page(s) assigned. Initial password applied.`;
+    })();
+
     const result = {
       success: true,
       userId: id,
-      message: (data.canLogin
-        ? `User created. ${(data.pages || []).length} page(s) assigned. Password setup email sent.`
-        : `User created. ${(data.pages || []).length} page(s) assigned. Login disabled.`)
+      message: resultMessage
     };
     _userLog_('[clientRegisterUser] success response', result);
     return result;
@@ -2879,14 +2922,35 @@ function clientUpdateUser(userId, userData) {
 
     const normalizedRoleIds = normalizeRoleIds_(data.roles);
 
+    let nextPasswordHash = current['PasswordHash'];
+    let nextResetRequired = current['ResetRequired'];
+    let nextSecurityStamp = current['SecurityStamp'];
+    let passwordWasUpdated = false;
+
+    if (data.initialPassword) {
+      try {
+        nextPasswordHash = _userNormalizeHash_(_userCreatePasswordHash_(data.initialPassword));
+        const requireChangeFlag = (data.requirePasswordChange === null || typeof data.requirePasswordChange === 'undefined')
+          ? false
+          : !!data.requirePasswordChange;
+        nextResetRequired = _boolToStr_(requireChangeFlag);
+        nextSecurityStamp = Utilities.getUuid();
+        passwordWasUpdated = true;
+      } catch (hashErr) {
+        _userLog_('[clientUpdateUser] password hashing failed', { error: hashErr && hashErr.message }, 'warn');
+      }
+    } else if (typeof data.requirePasswordChange === 'boolean') {
+      nextResetRequired = _boolToStr_(data.requirePasswordChange);
+    }
+
     const updated = {
       ID: userId,
       UserName: data.userName, // This should now be properly set
       FullName: data.fullName || '',
       Email: String(data.email).trim(),
       CampaignID: data.campaignId || '',
-      PasswordHash: current['PasswordHash'],
-      ResetRequired: current['ResetRequired'],
+      PasswordHash: nextPasswordHash,
+      ResetRequired: nextResetRequired,
       EmailConfirmation: current['EmailConfirmation'],
       EmailConfirmed: 'TRUE',
       PhoneNumber: data.phoneNumber || '',
@@ -2912,8 +2976,19 @@ function clientUpdateUser(userId, userData) {
       InsuranceEligible: _boolToStr_(qualified),
       InsuranceEnrolled: enrolled,
       InsuranceSignedUp: _boolToStr_(enrolled),
-      InsuranceCardReceivedDate: _toIsoDateOnly_(data.insuranceCardReceivedDate || current['InsuranceCardReceivedDate'] || '')
+      InsuranceCardReceivedDate: _toIsoDateOnly_(data.insuranceCardReceivedDate || current['InsuranceCardReceivedDate'] || ''),
+      SecurityStamp: current['SecurityStamp']
     };
+
+    if (Object.prototype.hasOwnProperty.call(updated, 'SecurityStamp') || Object.prototype.hasOwnProperty.call(current, 'SecurityStamp')) {
+      updated.SecurityStamp = passwordWasUpdated ? nextSecurityStamp : current['SecurityStamp'];
+    }
+    if (passwordWasUpdated) {
+      if (Object.prototype.hasOwnProperty.call(current, 'ResetPasswordToken')) updated.ResetPasswordToken = '';
+      if (Object.prototype.hasOwnProperty.call(current, 'ResetPasswordTokenHash')) updated.ResetPasswordTokenHash = '';
+      if (Object.prototype.hasOwnProperty.call(current, 'ResetPasswordSentAt')) updated.ResetPasswordSentAt = '';
+      if (Object.prototype.hasOwnProperty.call(current, 'ResetPasswordExpiresAt')) updated.ResetPasswordExpiresAt = '';
+    }
     _userLog_('[clientUpdateUser] updated row payload', { updated });
 
     const row = [];
@@ -3298,8 +3373,15 @@ function clientAdminResetPassword(userId, requestingUserId) {
       const expiresAtDate = new Date(sentAt.getTime() + 60 * 60000);
       const sentAtIso = sentAt.toISOString();
       const expiresAtIso = expiresAtDate.toISOString();
-      const digest = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, String(token), Utilities.Charset.UTF_8);
-      const tokenHash = _userDigestToHex_(digest);
+
+      let tokenHash = '';
+      try {
+        tokenHash = _userNormalizeHash_(_userCreatePasswordHash_(token));
+      } catch (hashErr) {
+        _userLog_('[clientAdminResetPassword] token hashing failed, falling back to digest', { error: hashErr && hashErr.message }, 'warn');
+        const digest = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, String(token), Utilities.Charset.UTF_8);
+        tokenHash = _userDigestToHex_(digest);
+      }
 
       if (idx['EmailConfirmation'] >= 0) sheet.getRange(rowIndex + 1, idx['EmailConfirmation'] + 1).setValue(token);
       if (idx['ResetPasswordToken'] >= 0) sheet.getRange(rowIndex + 1, idx['ResetPasswordToken'] + 1).setValue(token);
@@ -4344,6 +4426,36 @@ function _normalizeIncoming_(userData) {
   out.email = String(out.email || '').trim();
   out.phoneNumber = String(out.phoneNumber || '').trim();
   out.campaignId = String(out.campaignId || '').trim();
+
+  const passwordKeys = ['initialPassword', 'password', 'defaultPassword', 'temporaryPassword', 'tempPassword'];
+  let resolvedPassword = '';
+  for (let i = 0; i < passwordKeys.length; i++) {
+    const key = passwordKeys[i];
+    if (!Object.prototype.hasOwnProperty.call(out, key)) continue;
+    const candidate = String(out[key] == null ? '' : out[key]).trim();
+    if (candidate) {
+      resolvedPassword = candidate;
+      break;
+    }
+  }
+  out.initialPassword = resolvedPassword;
+  passwordKeys.forEach(function (key) {
+    if (key !== 'initialPassword' && Object.prototype.hasOwnProperty.call(out, key)) {
+      out[key] = '';
+    }
+  });
+
+  const requireKeys = ['requirePasswordChange', 'forcePasswordReset', 'resetRequired'];
+  let requireChange = null;
+  for (let i = 0; i < requireKeys.length; i++) {
+    const key = requireKeys[i];
+    if (!Object.prototype.hasOwnProperty.call(out, key)) continue;
+    const value = out[key];
+    if (value === '' || value === null || typeof value === 'undefined') continue;
+    requireChange = _strToBool_(value);
+    break;
+  }
+  out.requirePasswordChange = (requireChange === null) ? null : !!requireChange;
 
   out.employmentStatus = normalizeEmploymentStatus(out.employmentStatus);
   out.country = String(out.country || '').trim();
