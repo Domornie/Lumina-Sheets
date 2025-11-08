@@ -3613,9 +3613,11 @@
                             && attendanceDashboardPane.classList.contains('show')
                             && attendanceDashboardPane.classList.contains('active');
 
-                        if (attendanceDashboardActive || wasInitialized) {
-                            this.initializeAttendanceDashboard();
+                        if (!attendanceDashboardActive && !wasInitialized) {
+                            console.debug('Attendance dashboard will initialize in the background for unified state data.');
                         }
+
+                        this.initializeAttendanceDashboard();
                     }
                 }
 
@@ -8247,8 +8249,108 @@
                         }));
                 }
 
+                const normalizeRecognitionEntries = (entries, fallbackEntries = []) => {
+                    const fallback = Array.isArray(fallbackEntries)
+                        ? fallbackEntries.filter(entry => entry && typeof entry === 'object')
+                        : [];
+
+                    const sanitizeEntry = (entry) => {
+                        const candidate = entry && typeof entry === 'object' ? entry : {};
+                        return {
+                            identityKey: candidate.identityKey
+                                || candidate.id
+                                || candidate.userId
+                                || candidate.user
+                                || candidate.username
+                                || '',
+                            displayName: candidate.displayName
+                                || candidate.name
+                                || candidate.fullName
+                                || '',
+                            fullName: candidate.fullName
+                                || candidate.displayName
+                                || candidate.name
+                                || '',
+                            present: ensureNumber(
+                                candidate.present ?? candidate.punctual ?? candidate.count,
+                                0
+                            ),
+                            total: ensureNumber(
+                                candidate.total ?? candidate.shifts ?? candidate.entries ?? candidate.attendance,
+                                0
+                            ),
+                            punctualRate: ensureNumber(
+                                candidate.punctualRate ?? candidate.rate ?? candidate.percentage,
+                                0
+                            )
+                        };
+                    };
+
+                    if (!Array.isArray(entries) || !entries.length) {
+                        return fallback.map(sanitizeEntry);
+                    }
+
+                    const sanitized = entries
+                        .filter(entry => entry && typeof entry === 'object')
+                        .map(sanitizeEntry);
+
+                    if (!sanitized.length) {
+                        return fallback.map(sanitizeEntry);
+                    }
+
+                    return sanitized;
+                };
+
                 if (source.recognition && typeof source.recognition === 'object') {
-                    resolved.recognition = source.recognition;
+                    const fallbackRecognition = resolved.recognition && typeof resolved.recognition === 'object'
+                        ? resolved.recognition
+                        : {};
+                    const sanitized = this.resolveAttendanceRecognitionData({
+                        recognition: source.recognition,
+                        topPunctual: resolved.topPunctual,
+                        year: resolved.year
+                    });
+
+                    const buildBucket = (key, defaultLabel) => {
+                        const fallbackBucket = fallbackRecognition[key] || {};
+                        const sanitizedBucket = sanitized[key] || {};
+                        const labelCandidates = [
+                            sanitizedBucket.label,
+                            fallbackBucket.label,
+                            defaultLabel
+                        ];
+                        const resolvedLabel = labelCandidates.find(label => typeof label === 'string' && label.trim());
+
+                        return {
+                            label: resolvedLabel ? resolvedLabel.trim() : defaultLabel,
+                            entries: normalizeRecognitionEntries(
+                                sanitizedBucket.entries,
+                                fallbackBucket.entries
+                            )
+                        };
+                    };
+
+                    resolved.recognition = {
+                        weekly: buildBucket('weekly', 'Most recent week'),
+                        biWeekly: buildBucket('biWeekly', 'Most recent bi-weekly period'),
+                        monthly: buildBucket('monthly', 'Most recent month'),
+                        quarterly: buildBucket('quarterly', 'Most recent quarter'),
+                        yearly: (() => {
+                            const defaultLabel = resolved.year
+                                ? `${resolved.year}`
+                                : 'Year to date';
+                            const bucket = buildBucket('yearly', defaultLabel);
+                            if (!bucket.entries.length && Array.isArray(resolved.topPunctual) && resolved.topPunctual.length) {
+                                bucket.entries = normalizeRecognitionEntries(resolved.topPunctual.slice(0, 3));
+                            }
+                            if (!bucket.label) {
+                                bucket.label = defaultLabel;
+                            }
+                            return bucket;
+                        })()
+                    };
+                } else {
+                    resolved.recognition = this.resolveAttendanceRecognitionData(resolved);
                 }
 
                 return resolved;
