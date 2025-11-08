@@ -723,6 +723,152 @@
       padding: 1.5rem 2rem;
     }
 
+    #exportHistoryModal .modal-dialog {
+      max-width: 860px;
+    }
+
+    .export-history-modal-content {
+      border-radius: 24px;
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      box-shadow: 0 25px 60px rgba(15, 23, 42, 0.18);
+      background: linear-gradient(180deg, rgba(248, 250, 252, 0.96) 0%, #ffffff 100%);
+      overflow: hidden;
+    }
+
+    .export-history-modal-header {
+      border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+      background: linear-gradient(135deg, rgba(30, 64, 175, 0.12) 0%, rgba(37, 99, 235, 0.08) 100%);
+      padding: 1.5rem 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .export-history-modal-header .modal-title {
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      color: var(--gray-800);
+    }
+
+    .export-history-modal-header .modal-title i {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 40px;
+      height: 40px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, rgba(30, 64, 175, 0.9) 0%, rgba(59, 130, 246, 0.9) 100%);
+      color: #fff;
+      font-size: 1rem;
+      box-shadow: 0 12px 24px rgba(30, 64, 175, 0.25);
+    }
+
+    .export-history-modal-body {
+      padding: 2rem;
+      background: linear-gradient(180deg, rgba(241, 245, 249, 0.85) 0%, #ffffff 100%);
+    }
+
+    .export-history-modal-footer {
+      border-top: 1px solid rgba(148, 163, 184, 0.18);
+      padding: 1.25rem 2rem;
+      display: flex;
+      gap: 0.75rem;
+      justify-content: flex-end;
+      background: linear-gradient(180deg, rgba(241, 245, 249, 0.92) 0%, #ffffff 100%);
+    }
+
+    .export-history-content {
+      min-height: 240px;
+    }
+
+    .export-history-loading {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2.5rem 1rem;
+      color: var(--gray-500);
+    }
+
+    .export-history-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.85rem;
+    }
+
+    .export-history-item {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 1rem 1.25rem;
+      border-radius: 18px;
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      background: rgba(255, 255, 255, 0.95);
+      box-shadow: var(--shadow-sm);
+      transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    }
+
+    .export-history-item:hover {
+      transform: translateY(-2px);
+      border-color: rgba(37, 99, 235, 0.35);
+      box-shadow: var(--shadow-md);
+    }
+
+    .export-history-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 16px;
+      background: linear-gradient(135deg, rgba(14, 165, 233, 0.18) 0%, rgba(14, 165, 233, 0.06) 100%);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: #0ea5e9;
+      font-size: 1.1rem;
+    }
+
+    .export-history-details {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .export-history-details h6 {
+      margin: 0;
+      font-weight: 600;
+      color: var(--gray-800);
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+
+    .export-history-meta {
+      margin-top: 0.35rem;
+      font-size: 0.8rem;
+      color: var(--gray-500);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+
+    .export-history-empty {
+      text-align: center;
+      padding: 2.5rem 1rem;
+      color: var(--gray-500);
+      border: 1px dashed rgba(148, 163, 184, 0.35);
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.9);
+    }
+
+    .export-history-error {
+      padding: 1rem 1.25rem;
+      border-radius: 16px;
+      background: rgba(248, 113, 113, 0.12);
+      border: 1px solid rgba(220, 38, 38, 0.3);
+      color: #b91c1c;
+    }
+
+
     #exportModal .form-label {
       font-weight: 600;
       letter-spacing: 0.02em;
@@ -1056,6 +1202,9 @@
   <div class="d-flex gap-3 mb-4 flex-wrap">
     <button id="exportBtn" class="btn btn-light" onclick="showEnhancedExportModal()">
       <i class="fas fa-table me-2"></i>Export Matrix
+    </button>
+    <button id="viewExportsBtn" class="btn btn-outline-primary" onclick="window.exportHistoryManager?.show()">
+      <i class="fas fa-folder-open me-2"></i>Saved Exports
     </button>
     <button id="aiInsightsBtn" class="btn btn-ai" onclick="refreshAIInsights()">
       <i class="fas fa-magic me-2"></i>View Analytics
@@ -1558,6 +1707,38 @@
   </div>
 </div>
 
+<!-- Export History Modal -->
+<div class="modal fade" id="exportHistoryModal" tabindex="-1" aria-labelledby="exportHistoryLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content export-history-modal-content">
+      <div class="modal-header export-history-modal-header">
+        <h5 class="modal-title" id="exportHistoryLabel">
+          <i class="fas fa-folder-open"></i>
+          Saved Attendance Exports
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body export-history-modal-body">
+        <div id="exportHistoryContent" class="export-history-content">
+          <div class="export-history-loading">
+            <div class="spinner-border text-primary" role="status"></div>
+            <p class="text-muted mt-3 mb-0">Loading saved exports...</p>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer export-history-modal-footer">
+        <a id="exportHistoryFolderLink" class="btn btn-outline-primary" href="#" target="_blank" rel="noopener" style="display: none;">
+          <i class="fas fa-external-link-alt me-2"></i>Open Folder in Drive
+        </a>
+        <button type="button" class="btn btn-light" onclick="window.exportHistoryManager?.refresh(true)">
+          <i class="fas fa-sync me-2"></i>Refresh
+        </button>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Export Progress Modal -->
 <div class="modal fade" id="exportProgressModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
   <div class="modal-dialog modal-dialog-centered">
@@ -1713,6 +1894,47 @@
         onFailure(e);
       }
     });
+  }
+
+  function getBootstrapModal(element) {
+    if (!element) {
+      return null;
+    }
+
+    const ModalClass = window.bootstrap?.Modal;
+    if (!ModalClass) {
+      return null;
+    }
+
+    try {
+      return typeof ModalClass.getInstance === 'function'
+        ? ModalClass.getInstance(element)
+        : null;
+    } catch (error) {
+      console.warn('Unable to retrieve bootstrap modal instance:', error);
+      return null;
+    }
+  }
+
+  function ensureBootstrapModal(element, options) {
+    if (!element) {
+      return null;
+    }
+
+    const ModalClass = window.bootstrap?.Modal;
+    if (!ModalClass) {
+      return null;
+    }
+
+    try {
+      if (typeof ModalClass.getOrCreateInstance === 'function') {
+        return ModalClass.getOrCreateInstance(element, options);
+      }
+      return new ModalClass(element, options);
+    } catch (error) {
+      console.warn('Unable to initialize bootstrap modal instance:', error);
+      return null;
+    }
   }
 
   // DURATION CONVERSION FUNCTIONS
@@ -4516,8 +4738,8 @@
           return;
         }
 
-        const exportModal = bootstrap.Modal.getInstance(document.getElementById('exportModal'));
-        const progressModal = new bootstrap.Modal(document.getElementById('exportProgressModal'));
+        const exportModal = getBootstrapModal(document.getElementById('exportModal'));
+        const progressModal = ensureBootstrapModal(document.getElementById('exportProgressModal'));
 
         if (exportModal) exportModal.hide();
         if (progressModal) progressModal.show();
@@ -4571,40 +4793,65 @@
         this.updateExportProgress(75, 'Finalizing export...');
 
         if (result && result.success !== false) {
-          this.updateExportProgress(100, 'Export completed successfully!');
+          const isGoogleSheetExport = (result.fileType === 'google_sheet')
+            || (typeof result.filename === 'string' && result.filename.toLowerCase().endsWith('.gsheet'));
 
-          if (result.spreadsheetUrl) {
+          let handled = false;
+
+          if (isGoogleSheetExport) {
+            this.updateExportProgress(90, 'Opening Google Sheets export...');
+            const targetUrl = result.spreadsheetUrl || result.url;
+            if (targetUrl) {
+              this.openSpreadsheet(targetUrl);
+              handled = true;
+            } else {
+              this.showErrorMessage('Google Sheets link unavailable for this export.');
+            }
+          } else if (result.spreadsheetUrl) {
             this.openSpreadsheet(result.spreadsheetUrl);
-          } else if (result.fileData) {
+            handled = true;
+          }
+
+          if (!handled && result.fileData) {
             this.downloadFile(
               result.fileData,
               result.filename || `attendance_export_${new Date().toISOString().split('T')[0]}.xlsx`,
               result.mimeType || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
               (result.encoding || '').toLowerCase() === 'base64'
             );
-          } else if (result.csvData) {
+            handled = true;
+          } else if (!handled && result.csvData) {
             this.downloadFile(
               result.csvData,
               result.filename || `attendance_export_${new Date().toISOString().split('T')[0]}.csv`,
               result.mimeType || 'text/csv;charset=utf-8;',
               false
             );
-          } else if (typeof result === 'string') {
+            handled = true;
+          } else if (!handled && typeof result === 'string') {
             this.downloadFile(
               result,
               `attendance_export_${new Date().toISOString().split('T')[0]}.csv`,
               'text/csv;charset=utf-8;',
               false
             );
+            handled = true;
           }
 
-          const successMessage = result.fileType === 'google_sheet'
-            ? 'Daily pivot matrix opened in Google Sheets.'
+          this.updateExportProgress(100, 'Export completed successfully!');
+
+          const successMessage = isGoogleSheetExport
+            ? (result.folderName
+              ? `Daily pivot matrix saved to "${result.folderName}" and opened in Google Sheets.`
+              : 'Daily pivot matrix opened in Google Sheets.')
             : 'Export completed successfully!';
 
           setTimeout(() => {
             if (progressModal) progressModal.hide();
             this.showSuccessMessage(successMessage);
+            if (window.exportHistoryManager && typeof window.exportHistoryManager.handleExportSuccess === 'function') {
+              window.exportHistoryManager.handleExportSuccess(result);
+            }
           }, 1000);
 
         } else {
@@ -4613,7 +4860,7 @@
 
       } catch (error) {
         console.error('Export error:', error);
-        const progressModal = bootstrap.Modal.getInstance(document.getElementById('exportProgressModal'));
+        const progressModal = getBootstrapModal(document.getElementById('exportProgressModal'));
         if (progressModal) progressModal.hide();
         this.showErrorMessage('Export failed: ' + error.message);
       }
@@ -4668,8 +4915,8 @@
           alert('Please select both start and end dates for custom range.');
           return false;
         }
-        if (new Date(params.period.start) >= new Date(params.period.end)) {
-          alert('Start date must be before end date.');
+        if (new Date(params.period.start) > new Date(params.period.end)) {
+          alert('Start date must be on or before the end date.');
           return false;
         }
       } else {
@@ -4764,10 +5011,219 @@
   let dashboard;
   let analyticsModalInstance;
   let employeeTrendsModalInstance;
+  class AttendanceExportHistoryManager {
+    constructor() {
+      this.modalElement = document.getElementById('exportHistoryModal');
+      this.contentElement = document.getElementById('exportHistoryContent');
+      this.folderLinkElement = document.getElementById('exportHistoryFolderLink');
+      this.modalInstance = this.modalElement ? ensureBootstrapModal(this.modalElement) : null;
+      this.cache = null;
+      this.lastLoaded = 0;
+      this.isRefreshing = false;
+    }
+
+    async show(forceRefresh = false) {
+      if (!this.modalInstance && this.modalElement) {
+        this.modalInstance = ensureBootstrapModal(this.modalElement);
+      }
+
+      if (!this.modalInstance) {
+        console.warn('Export history modal unavailable - unable to display saved exports.');
+        return;
+      }
+      this.renderLoading('Loading saved exports...');
+      this.modalInstance.show();
+      await this.refresh(forceRefresh);
+    }
+
+    async refresh(forceRefresh = false) {
+      if (!this.contentElement || this.isRefreshing) {
+        return;
+      }
+
+      const shouldUseCache = this.cache && !forceRefresh && (Date.now() - this.lastLoaded < 60000);
+      if (shouldUseCache) {
+        this.render(this.cache);
+        return;
+      }
+
+      this.isRefreshing = true;
+      this.renderLoading('Loading saved exports...');
+
+      try {
+        const result = await safeServerCall('listAttendanceExportFiles', [], { timeoutMs: 20000 });
+        if (result?.success) {
+          this.cache = result;
+          this.lastLoaded = Date.now();
+          this.render(result);
+        } else {
+          const errorMessage = typeof result?.error === 'string' && result.error.trim()
+            ? result.error.trim()
+            : 'Unable to load attendance export history.';
+          this.renderError(errorMessage);
+        }
+      } catch (error) {
+        console.error('Failed to load attendance export history:', error);
+        this.renderError('Failed to load attendance export history.');
+      } finally {
+        this.isRefreshing = false;
+      }
+    }
+
+    invalidate() {
+      this.cache = null;
+      this.lastLoaded = 0;
+    }
+
+    handleExportSuccess(result) {
+      this.invalidate();
+      if (this.isModalVisible()) {
+        this.refresh(true);
+      } else if (result && typeof result === 'object') {
+        const file = {
+          id: result.fileId || '',
+          name: result.spreadsheetName || result.periodLabel || 'Daily Pivot Matrix',
+          url: result.spreadsheetUrl || result.url || '',
+          description: result.periodLabel || '',
+          createdAtDisplay: result.createdAtIso ? this.formatDisplayDate(result.createdAtIso) : '',
+          updatedAtDisplay: result.updatedAtIso ? this.formatDisplayDate(result.updatedAtIso) : '',
+          createdAtIso: result.createdAtIso || '',
+          updatedAtIso: result.updatedAtIso || ''
+        };
+
+        if (file.url) {
+          this.cache = this.cache || { success: true, files: [], folderId: result.folderId, folderName: result.folderName, folderUrl: result.folderUrl };
+          this.cache.files = [file, ...(Array.isArray(this.cache.files) ? this.cache.files : [])];
+          this.lastLoaded = Date.now();
+        }
+      }
+    }
+
+    isModalVisible() {
+      return !!(this.modalElement && this.modalElement.classList.contains('show'));
+    }
+
+    renderLoading(message) {
+      if (!this.contentElement) {
+        return;
+      }
+      this.contentElement.innerHTML = `
+        <div class="export-history-loading">
+          <div class="spinner-border text-primary" role="status"></div>
+          <p class="text-muted mt-3 mb-0">${escapeHtml(message || 'Loading...')}</p>
+        </div>
+      `;
+      if (this.folderLinkElement) {
+        this.folderLinkElement.style.display = 'none';
+        this.folderLinkElement.href = '#';
+      }
+    }
+
+    renderError(message) {
+      if (!this.contentElement) {
+        return;
+      }
+      this.contentElement.innerHTML = `
+        <div class="export-history-error">
+          <i class="fas fa-exclamation-triangle me-2"></i>${escapeHtml(message || 'An unexpected error occurred.')}
+        </div>
+      `;
+      if (this.folderLinkElement) {
+        this.folderLinkElement.style.display = 'none';
+        this.folderLinkElement.href = '#';
+      }
+    }
+
+    render(data) {
+      if (!this.contentElement) {
+        return;
+      }
+
+      if (!data || !Array.isArray(data.files) || data.files.length === 0) {
+        this.contentElement.innerHTML = `
+          <div class="export-history-empty">
+            <i class="fas fa-info-circle mb-2"></i>
+            <p class="mb-0">No attendance exports have been saved yet.</p>
+          </div>
+        `;
+      } else {
+        const itemsHtml = data.files.map(file => this.renderItemHtml(file)).join('');
+        this.contentElement.innerHTML = `<div class="export-history-list">${itemsHtml}</div>`;
+      }
+
+      if (this.folderLinkElement) {
+        if (data && typeof data.folderUrl === 'string' && data.folderUrl) {
+          this.folderLinkElement.href = data.folderUrl;
+          this.folderLinkElement.style.display = 'inline-flex';
+        } else {
+          this.folderLinkElement.style.display = 'none';
+          this.folderLinkElement.href = '#';
+        }
+      }
+    }
+
+    renderItemHtml(file) {
+      const name = escapeHtml(file?.name || 'Attendance Matrix');
+      const urlValue = typeof file?.url === 'string' ? file.url : '';
+      const url = /^https?:/i.test(urlValue) ? urlValue : '#';
+      const updated = escapeHtml(file?.updatedAtDisplay || file?.createdAtDisplay || '');
+      const description = escapeHtml(file?.description || '');
+
+      const metaSegments = [];
+      if (updated) {
+        metaSegments.push(`<span><i class="fas fa-clock me-1"></i>${updated}</span>`);
+      }
+      if (description) {
+        metaSegments.push(`<span><i class="fas fa-calendar-alt me-1"></i>${description}</span>`);
+      }
+
+      return `
+        <div class="export-history-item">
+          <div class="export-history-icon">
+            <i class="fas fa-file-spreadsheet"></i>
+          </div>
+          <div class="export-history-details">
+            <h6>${name}</h6>
+            ${metaSegments.length > 0 ? `<div class="export-history-meta">${metaSegments.join('')}</div>` : ''}
+          </div>
+          <a class="btn btn-sm btn-primary" href="${url}" target="_blank" rel="noopener">
+            <i class="fas fa-external-link-alt me-1"></i>Open
+          </a>
+        </div>
+      `;
+    }
+
+    formatDisplayDate(isoString) {
+      if (typeof isoString !== 'string' || !isoString) {
+        return '';
+      }
+      try {
+        const date = new Date(isoString);
+        if (Number.isNaN(date.getTime())) {
+          return '';
+        }
+        return date.toLocaleString(undefined, {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+          hour: 'numeric',
+          minute: '2-digit'
+        });
+      } catch (error) {
+        console.warn('Unable to format export history date:', error);
+        return '';
+      }
+    }
+  }
+
 
   function showEnhancedExportModal() {
-    const modal = new bootstrap.Modal(document.getElementById('exportModal'));
-    modal.show();
+    const modal = ensureBootstrapModal(document.getElementById('exportModal'));
+    if (modal) {
+      modal.show();
+    } else {
+      console.warn('Export modal unavailable - bootstrap modal support missing.');
+    }
   }
 
   function exportData() {
@@ -4790,7 +5246,7 @@
     if (!analyticsModalInstance) {
       const modalEl = document.getElementById('analyticsModal');
       if (modalEl) {
-        analyticsModalInstance = new bootstrap.Modal(modalEl);
+        analyticsModalInstance = ensureBootstrapModal(modalEl);
       }
     }
 
@@ -4807,7 +5263,7 @@
     if (!employeeTrendsModalInstance) {
       const modalEl = document.getElementById('employeeTrendsModal');
       if (modalEl) {
-        employeeTrendsModalInstance = new bootstrap.Modal(modalEl);
+        employeeTrendsModalInstance = ensureBootstrapModal(modalEl);
       }
     }
 
@@ -4841,10 +5297,31 @@
     dashboard = new AttendanceDashboard();
     window.dashboard = dashboard;
 
+    try {
+      window.exportHistoryManager = new AttendanceExportHistoryManager();
+    } catch (error) {
+      console.error('Failed to initialize export history manager:', error);
+      window.exportHistoryManager = null;
+    }
+
+    if (!window.exportManager) {
+      try {
+        window.exportManager = new EnhancedExportManager();
+      } catch (error) {
+        console.error('Failed to initialize export manager:', error);
+        window.exportManager = null;
+      }
+    }
+
     // Initialize export manager when modal is shown
     document.getElementById('exportModal')?.addEventListener('shown.bs.modal', function () {
       if (!window.exportManager) {
-        window.exportManager = new EnhancedExportManager();
+        try {
+          window.exportManager = new EnhancedExportManager();
+        } catch (error) {
+          console.error('Failed to initialize export manager on modal show:', error);
+          window.exportManager = null;
+        }
       }
     });
 
