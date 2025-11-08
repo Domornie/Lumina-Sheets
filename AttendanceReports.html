@@ -1887,6 +1887,47 @@
     });
   }
 
+  function getBootstrapModal(element) {
+    if (!element) {
+      return null;
+    }
+
+    const ModalClass = window.bootstrap?.Modal;
+    if (!ModalClass) {
+      return null;
+    }
+
+    try {
+      return typeof ModalClass.getInstance === 'function'
+        ? ModalClass.getInstance(element)
+        : null;
+    } catch (error) {
+      console.warn('Unable to retrieve bootstrap modal instance:', error);
+      return null;
+    }
+  }
+
+  function ensureBootstrapModal(element, options) {
+    if (!element) {
+      return null;
+    }
+
+    const ModalClass = window.bootstrap?.Modal;
+    if (!ModalClass) {
+      return null;
+    }
+
+    try {
+      if (typeof ModalClass.getOrCreateInstance === 'function') {
+        return ModalClass.getOrCreateInstance(element, options);
+      }
+      return new ModalClass(element, options);
+    } catch (error) {
+      console.warn('Unable to initialize bootstrap modal instance:', error);
+      return null;
+    }
+  }
+
   // DURATION CONVERSION FUNCTIONS
   function convertSecondsToDecimalHours(seconds) {
     return Math.round(seconds / 3600 * 100) / 100;
@@ -4826,8 +4867,8 @@
           return;
         }
 
-        const exportModal = bootstrap.Modal.getInstance(document.getElementById('exportModal'));
-        const progressModal = new bootstrap.Modal(document.getElementById('exportProgressModal'));
+        const exportModal = getBootstrapModal(document.getElementById('exportModal'));
+        const progressModal = ensureBootstrapModal(document.getElementById('exportProgressModal'));
 
         if (exportModal) exportModal.hide();
         if (progressModal) progressModal.show();
@@ -4948,7 +4989,7 @@
 
       } catch (error) {
         console.error('Export error:', error);
-        const progressModal = bootstrap.Modal.getInstance(document.getElementById('exportProgressModal'));
+        const progressModal = getBootstrapModal(document.getElementById('exportProgressModal'));
         if (progressModal) progressModal.hide();
         this.showErrorMessage('Export failed: ' + error.message);
       }
@@ -5159,14 +5200,19 @@
       this.modalElement = document.getElementById('exportHistoryModal');
       this.contentElement = document.getElementById('exportHistoryContent');
       this.folderLinkElement = document.getElementById('exportHistoryFolderLink');
-      this.modalInstance = this.modalElement ? new bootstrap.Modal(this.modalElement) : null;
+      this.modalInstance = this.modalElement ? ensureBootstrapModal(this.modalElement) : null;
       this.cache = null;
       this.lastLoaded = 0;
       this.isRefreshing = false;
     }
 
     async show(forceRefresh = false) {
+      if (!this.modalInstance && this.modalElement) {
+        this.modalInstance = ensureBootstrapModal(this.modalElement);
+      }
+
       if (!this.modalInstance) {
+        console.warn('Export history modal unavailable - unable to display saved exports.');
         return;
       }
       this.renderLoading('Loading saved exports...');
@@ -5356,8 +5402,12 @@
 
 
   function showEnhancedExportModal() {
-    const modal = new bootstrap.Modal(document.getElementById('exportModal'));
-    modal.show();
+    const modal = ensureBootstrapModal(document.getElementById('exportModal'));
+    if (modal) {
+      modal.show();
+    } else {
+      console.warn('Export modal unavailable - bootstrap modal support missing.');
+    }
   }
 
   function exportData() {
@@ -5380,7 +5430,7 @@
     if (!analyticsModalInstance) {
       const modalEl = document.getElementById('analyticsModal');
       if (modalEl) {
-        analyticsModalInstance = new bootstrap.Modal(modalEl);
+        analyticsModalInstance = ensureBootstrapModal(modalEl);
       }
     }
 
@@ -5397,7 +5447,7 @@
     if (!employeeTrendsModalInstance) {
       const modalEl = document.getElementById('employeeTrendsModal');
       if (modalEl) {
-        employeeTrendsModalInstance = new bootstrap.Modal(modalEl);
+        employeeTrendsModalInstance = ensureBootstrapModal(modalEl);
       }
     }
 
@@ -5432,6 +5482,22 @@
     window.dashboard = dashboard;
     window.exportHistoryManager = new AttendanceExportHistoryManager();
 
+    try {
+      window.exportHistoryManager = new AttendanceExportHistoryManager();
+    } catch (error) {
+      console.error('Failed to initialize export history manager:', error);
+      window.exportHistoryManager = null;
+    }
+
+    if (!window.exportManager) {
+      try {
+        window.exportManager = new EnhancedExportManager();
+      } catch (error) {
+        console.error('Failed to initialize export manager:', error);
+        window.exportManager = null;
+      }
+    }
+
     // Initialize export manager when modal is shown
     const exportModalEl = document.getElementById('exportModal');
     const ensureExportManager = () => {
@@ -5440,12 +5506,12 @@
       }
 
       if (!window.exportManager) {
-        window.exportManager = new EnhancedExportManager();
-      } else if (typeof window.exportManager.updatePeriodOptions === 'function') {
-        window.exportManager.updateMatrixOptions();
-        window.exportManager.updateUserSelectionVisibility();
-        window.exportManager.updatePeriodOptions();
-        window.exportManager.updatePreview();
+        try {
+          window.exportManager = new EnhancedExportManager();
+        } catch (error) {
+          console.error('Failed to initialize export manager on modal show:', error);
+          window.exportManager = null;
+        }
       }
     };
 
