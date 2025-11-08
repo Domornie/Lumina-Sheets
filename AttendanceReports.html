@@ -1173,6 +1173,15 @@
   window.COMPANY_TIMEZONE_LABEL = <?= JSON.stringify(attendanceTimezoneLabel || 'Company Time') ?>;
 </script>
 
+<!-- PERFORMANCE MONITOR -->
+<div id="performanceMonitor" class="performance-monitor" style="display: none;">
+  <h6><i class="fas fa-tachometer-alt me-2"></i>System Health</h6>
+  <div class="d-flex justify-content-between"><span>Response:</span><span id="responseTime">--</span></div>
+  <div class="d-flex justify-content-between"><span>Data Format:</span><span>Seconds→Hours</span></div>
+  <div class="d-flex justify-content-between"><span>Timezone:</span><span id="monitorTimezone">--</span></div>
+  <div class="d-flex justify-content-between"><span>Quality:</span><span id="dataQuality">--</span></div>
+</div>
+
 <!-- MAIN CONTAINER -->
 <div class="container-fluid px-4 py-3">
 
@@ -1887,47 +1896,6 @@
     });
   }
 
-  function getBootstrapModal(element) {
-    if (!element) {
-      return null;
-    }
-
-    const ModalClass = window.bootstrap?.Modal;
-    if (!ModalClass) {
-      return null;
-    }
-
-    try {
-      return typeof ModalClass.getInstance === 'function'
-        ? ModalClass.getInstance(element)
-        : null;
-    } catch (error) {
-      console.warn('Unable to retrieve bootstrap modal instance:', error);
-      return null;
-    }
-  }
-
-  function ensureBootstrapModal(element, options) {
-    if (!element) {
-      return null;
-    }
-
-    const ModalClass = window.bootstrap?.Modal;
-    if (!ModalClass) {
-      return null;
-    }
-
-    try {
-      if (typeof ModalClass.getOrCreateInstance === 'function') {
-        return ModalClass.getOrCreateInstance(element, options);
-      }
-      return new ModalClass(element, options);
-    } catch (error) {
-      console.warn('Unable to initialize bootstrap modal instance:', error);
-      return null;
-    }
-  }
-
   // DURATION CONVERSION FUNCTIONS
   function convertSecondsToDecimalHours(seconds) {
     return Math.round(seconds / 3600 * 100) / 100;
@@ -2253,13 +2221,8 @@
           select.appendChild(opt);
         }
 
-        this.synchronizeAgentFilterOptions();
-
-        if (this.currentAgent) {
-          const hasCurrentAgent = Array.from(select.options).some(opt => opt.value === this.currentAgent);
-          if (hasCurrentAgent) {
-            select.value = this.currentAgent;
-          }
+        if (this.currentAgent && select.querySelector(`option[value="${this.currentAgent}"]`)) {
+          select.value = this.currentAgent;
         }
       } catch (error) {
         console.error('Error loading user list:', error);
@@ -2270,112 +2233,6 @@
           select.innerHTML = '<option value="">👥 All Agents</option><option value="" disabled>Error loading users</option>';
         }
       }
-    }
-
-    extractAgentNamesFromData(options = {}) {
-      const { requireTimelineEvent = false } = options || {};
-
-      if (!this.currentData) {
-        return [];
-      }
-
-      const allNames = new Set();
-      const timelineNames = new Set();
-
-      const addName = (value, { timeline = false } = {}) => {
-        if (typeof value !== 'string') return;
-        const trimmed = value.trim();
-        if (!trimmed) return;
-
-        allNames.add(trimmed);
-        if (timeline) {
-          timelineNames.add(trimmed);
-        }
-      };
-
-      try {
-        const filteredRows = Array.isArray(this.currentData.filteredRows)
-          ? this.currentData.filteredRows
-          : [];
-        filteredRows.forEach(row => {
-          const name = row?.user || row?.User || row?.agentName;
-          addName(name, { timeline: true });
-        });
-
-        const attendanceFeed = Array.isArray(this.currentData.attendanceFeed)
-          ? this.currentData.attendanceFeed
-          : [];
-        attendanceFeed.forEach(entry => {
-          const name = entry?.user || entry?.User || entry?.agent;
-          addName(name, { timeline: true });
-        });
-
-        const userCompliance = Array.isArray(this.currentData.userCompliance)
-          ? this.currentData.userCompliance
-          : [];
-        userCompliance.forEach(entry => addName(entry?.user || entry?.User || entry?.agent));
-
-        const topAttendance = Array.isArray(this.currentData.top5Attendance)
-          ? this.currentData.top5Attendance
-          : [];
-        topAttendance.forEach(entry => addName(entry?.user || entry?.User || entry?.agent));
-
-        const attendanceStats = Array.isArray(this.currentData.attendanceStats)
-          ? this.currentData.attendanceStats
-          : [];
-        attendanceStats.forEach(entry => addName(entry?.user || entry?.User || entry?.agent));
-
-        const dailyMetrics = Array.isArray(this.currentData.dailyMetrics)
-          ? this.currentData.dailyMetrics
-          : [];
-        dailyMetrics.forEach(entry => addName(entry?.user || entry?.User || entry?.agent));
-      } catch (error) {
-        console.warn('Unable to extract agent names from data:', error);
-      }
-
-      const targetSet = requireTimelineEvent ? timelineNames : allNames;
-      return Array.from(targetSet);
-    }
-
-    synchronizeAgentFilterOptions() {
-      const select = document.getElementById('agentSelect');
-      if (!select) {
-        return;
-      }
-
-      const timelineNames = this.extractAgentNamesFromData({ requireTimelineEvent: true })
-        .filter(name => typeof name === 'string')
-        .map(name => name.trim())
-        .filter(Boolean);
-
-      const combined = Array.from(new Set(timelineNames))
-        .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
-
-      const previousValue = this.currentAgent || select.value || '';
-
-      select.innerHTML = '<option value="">👥 All Agents</option>';
-
-      combined.forEach(name => {
-        const option = document.createElement('option');
-        option.value = name;
-        option.textContent = name;
-        select.appendChild(option);
-      });
-
-      if (previousValue && combined.includes(previousValue)) {
-        select.value = previousValue;
-      } else {
-        if (previousValue) {
-          if (this.currentAgent === previousValue) {
-            this.currentAgent = '';
-            this.loadDataDebounced();
-          }
-        }
-
-        select.value = '';
-      }
-
-      window.INITIAL_USER_LIST = [...combined];
     }
 
     updatePeriodSelector(shouldTriggerLoad = false) {
@@ -2684,7 +2541,6 @@
         this.renderAttendanceTable();
         this.renderDailyBreakdownBars();
 
-        this.synchronizeAgentFilterOptions();
         this.renderIntelligentInsights();
         this.updateViewMode();
         this.showToast('Attendance dashboard updated', 'success');
@@ -4304,25 +4160,12 @@
 
     startPerformanceMonitoring() {
       const monitor = document.getElementById('performanceMonitor');
-      if (!monitor) {
-        console.warn('Performance monitor container not found');
-        return;
-      }
-
-      const responseTimeEl = document.getElementById('responseTime');
-      const dataQualityEl = document.getElementById('dataQuality');
-
-      if (!responseTimeEl || !dataQualityEl) {
-        console.warn('Performance monitor metrics missing');
-        return;
-      }
-
       monitor.style.display = 'block';
       setInterval(() => {
         const responseTime = ((Date.now() - this.performanceMetrics.loadStartTime) / 1000).toFixed(1);
         const dataQuality = this.currentData ? 'Good' : 'Loading';
-        responseTimeEl.textContent = `${responseTime}s`;
-        dataQualityEl.textContent = dataQuality;
+        document.getElementById('responseTime').textContent = `${responseTime}s`;
+        document.getElementById('dataQuality').textContent = dataQuality;
       }, 5000);
     }
 
@@ -4433,8 +4276,6 @@
       this.initializeYearSelector();
       this.loadUserList();
       this.setupEventListeners();
-      this.updateMatrixOptions();
-      this.updateUserSelectionVisibility();
       this.updatePeriodOptions();
       this.updatePreview();
     }
@@ -4641,11 +4482,6 @@
       if (exportType === 'Custom') {
         if (periodSection) periodSection.style.display = 'none';
         if (customSection) customSection.style.display = 'block';
-        const periodSelect = document.getElementById('periodSelect');
-        if (periodSelect) {
-          periodSelect.value = '';
-          periodSelect.disabled = true;
-        }
       } else {
         if (periodSection) periodSection.style.display = 'block';
         if (customSection) customSection.style.display = 'none';
@@ -4657,70 +4493,51 @@
       const select = document.getElementById('periodSelect');
       if (!select) return;
 
-      const { resetSelection = false, yearOverride = null } = options;
-      const now = new Date();
-      const yearSelect = document.getElementById('yearSelect');
-      const yearValue = yearOverride !== null
-        ? yearOverride.toString()
-        : (yearSelect?.value || now.getFullYear().toString());
-      const fallbackYear = now.getFullYear();
+      const { resetSelection = false } = options;
+      const yearValue = document.getElementById('yearSelect')?.value || new Date().getFullYear().toString();
+      const fallbackYear = new Date().getFullYear();
       const year = parseInt(yearValue, 10) || fallbackYear;
       const previousValue = select.value;
 
       select.innerHTML = '<option value="">Select a period...</option>';
 
-      let optionCount = 0;
-      const addOption = (value, label) => {
-        const option = document.createElement('option');
-        option.value = value;
-        option.textContent = label;
-        select.appendChild(option);
-        optionCount += 1;
-      };
+      const fragment = document.createDocumentFragment();
 
       switch (type) {
         case 'Week': {
           const totalWeeks = this.getISOWeeksInYear(year);
-          const safeWeekTotal = Number.isFinite(totalWeeks) && totalWeeks > 0 ? totalWeeks : 52;
-          for (let week = 1; week <= safeWeekTotal; week++) {
-            const value = `${year}-W${week.toString().padStart(2, '0')}`;
-            addOption(value, `Week ${week}, ${year}`);
+          for (let week = 1; week <= totalWeeks; week++) {
+            const option = document.createElement('option');
+            option.value = `${year}-W${week.toString().padStart(2, '0')}`;
+            option.textContent = `Week ${week}, ${year}`;
+            fragment.appendChild(option);
           }
           break;
         }
 
         case 'Month': {
           const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-          months.forEach((monthLabel, index) => {
-            const month = index + 1;
-            const value = `${year}-${month.toString().padStart(2, '0')}`;
-            addOption(value, `${monthLabel} ${year}`);
-          });
+          for (let month = 1; month <= 12; month++) {
+            const option = document.createElement('option');
+            option.value = `${year}-${month.toString().padStart(2, '0')}`;
+            option.textContent = `${months[month - 1]} ${year}`;
+            fragment.appendChild(option);
+          }
           break;
         }
 
         case 'Quarter': {
           for (let quarter = 1; quarter <= 4; quarter++) {
-            const value = `Q${quarter}-${year}`;
-            addOption(value, `Q${quarter} ${year}`);
+            const option = document.createElement('option');
+            option.value = `Q${quarter}-${year}`;
+            option.textContent = `Q${quarter} ${year}`;
+            fragment.appendChild(option);
           }
           break;
         }
-
-        default:
-          console.warn('Unsupported export period type:', type);
       }
 
-      if (!optionCount) {
-        if (yearOverride === null && year !== fallbackYear) {
-          this.populatePeriodOptions(type, { resetSelection, yearOverride: fallbackYear });
-          return;
-        }
-        select.disabled = true;
-        return;
-      }
-
-      select.disabled = false;
+      select.appendChild(fragment);
 
       let newValue = '';
       if (!resetSelection && previousValue && select.querySelector(`[value="${previousValue}"]`)) {
@@ -4880,8 +4697,8 @@
           return;
         }
 
-        const exportModal = getBootstrapModal(document.getElementById('exportModal'));
-        const progressModal = ensureBootstrapModal(document.getElementById('exportProgressModal'));
+        const exportModal = bootstrap.Modal.getInstance(document.getElementById('exportModal'));
+        const progressModal = new bootstrap.Modal(document.getElementById('exportProgressModal'));
 
         if (exportModal) exportModal.hide();
         if (progressModal) progressModal.show();
@@ -5002,7 +4819,7 @@
 
       } catch (error) {
         console.error('Export error:', error);
-        const progressModal = getBootstrapModal(document.getElementById('exportProgressModal'));
+        const progressModal = bootstrap.Modal.getInstance(document.getElementById('exportProgressModal'));
         if (progressModal) progressModal.hide();
         this.showErrorMessage('Export failed: ' + error.message);
       }
@@ -5213,19 +5030,14 @@
       this.modalElement = document.getElementById('exportHistoryModal');
       this.contentElement = document.getElementById('exportHistoryContent');
       this.folderLinkElement = document.getElementById('exportHistoryFolderLink');
-      this.modalInstance = this.modalElement ? ensureBootstrapModal(this.modalElement) : null;
+      this.modalInstance = this.modalElement ? new bootstrap.Modal(this.modalElement) : null;
       this.cache = null;
       this.lastLoaded = 0;
       this.isRefreshing = false;
     }
 
     async show(forceRefresh = false) {
-      if (!this.modalInstance && this.modalElement) {
-        this.modalInstance = ensureBootstrapModal(this.modalElement);
-      }
-
       if (!this.modalInstance) {
-        console.warn('Export history modal unavailable - unable to display saved exports.');
         return;
       }
       this.renderLoading('Loading saved exports...');
@@ -5415,12 +5227,8 @@
 
 
   function showEnhancedExportModal() {
-    const modal = ensureBootstrapModal(document.getElementById('exportModal'));
-    if (modal) {
-      modal.show();
-    } else {
-      console.warn('Export modal unavailable - bootstrap modal support missing.');
-    }
+    const modal = new bootstrap.Modal(document.getElementById('exportModal'));
+    modal.show();
   }
 
   function exportData() {
@@ -5443,7 +5251,7 @@
     if (!analyticsModalInstance) {
       const modalEl = document.getElementById('analyticsModal');
       if (modalEl) {
-        analyticsModalInstance = ensureBootstrapModal(modalEl);
+        analyticsModalInstance = new bootstrap.Modal(modalEl);
       }
     }
 
@@ -5460,7 +5268,7 @@
     if (!employeeTrendsModalInstance) {
       const modalEl = document.getElementById('employeeTrendsModal');
       if (modalEl) {
-        employeeTrendsModalInstance = ensureBootstrapModal(modalEl);
+        employeeTrendsModalInstance = new bootstrap.Modal(modalEl);
       }
     }
 
@@ -5495,55 +5303,21 @@
     window.dashboard = dashboard;
     window.exportHistoryManager = new AttendanceExportHistoryManager();
 
-    try {
-      window.exportHistoryManager = new AttendanceExportHistoryManager();
-    } catch (error) {
-      console.error('Failed to initialize export history manager:', error);
-      window.exportHistoryManager = null;
-    }
-
-    if (!window.exportManager) {
-      try {
-        window.exportManager = new EnhancedExportManager();
-      } catch (error) {
-        console.error('Failed to initialize export manager:', error);
-        window.exportManager = null;
-      }
-    }
-
     // Initialize export manager when modal is shown
     document.getElementById('exportModal')?.addEventListener('shown.bs.modal', function () {
       if (!window.exportManager) {
-        try {
-          window.exportManager = new EnhancedExportManager();
-        } catch (error) {
-          console.error('Failed to initialize export manager on modal show:', error);
-          window.exportManager = null;
-        }
+        window.exportManager = new EnhancedExportManager();
       }
-    }
+    });
 
-    // Initialize export manager when modal is shown
-    const exportModalEl = document.getElementById('exportModal');
-    const ensureExportManager = () => {
-      if (!exportModalEl) {
-        return;
+    // Initialize matrix options visibility
+    setTimeout(() => {
+      const initialFormat = document.querySelector('input[name="exportFormat"]:checked')?.value || 'daily_pivot';
+      if (initialFormat === 'daily_pivot') {
+        const matrixOptions = document.getElementById('pivotMatrixOptions');
+        if (matrixOptions) matrixOptions.style.display = 'block';
       }
-
-      if (!window.exportManager) {
-        try {
-          window.exportManager = new EnhancedExportManager();
-        } catch (error) {
-          console.error('Failed to initialize export manager on modal show:', error);
-          window.exportManager = null;
-        }
-      }
-    };
-
-    if (exportModalEl) {
-      ensureExportManager();
-      exportModalEl.addEventListener('shown.bs.modal', ensureExportManager);
-    }
+    }, 100);
 
     console.log('📊 Data Format: DurationMin column contains seconds (despite name)');
     console.log('📋 All calculations convert seconds to decimal hours for display');
