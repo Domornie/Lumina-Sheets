@@ -3589,12 +3589,24 @@
                         const year = this.attendanceDashboardPrefetch.year || this.getSelectedAttendanceYear();
                         this.attendanceDashboardYear = year;
                         this.attendanceDashboardRecords = this.attendanceDashboardPrefetch.records.slice();
+                        this.collectAttendanceDashboardRecordUsers(this.attendanceDashboardRecords);
                         const filteredRecords = this.filterAttendanceDashboardRecords(
                             this.attendanceDashboardRecords,
                             this.attendanceDashboardUserFilter
                         );
-                        this.attendanceDashboardData = this.computeAttendanceDashboard(filteredRecords, year);
+                        const computedDashboard = this.computeAttendanceDashboard(filteredRecords, year);
+                        this.attendanceDashboardData = computedDashboard;
+                        const wasInitialized = this.attendanceDashboardInitialized;
                         this.destroyAttendanceDashboardCharts();
+
+                        const attendanceDashboardPane = document.getElementById('attendance-dashboard');
+                        const attendanceDashboardActive = attendanceDashboardPane
+                            && attendanceDashboardPane.classList.contains('show')
+                            && attendanceDashboardPane.classList.contains('active');
+
+                        if (attendanceDashboardActive || wasInitialized) {
+                            this.initializeAttendanceDashboard();
+                        }
                     }
                 }
 
