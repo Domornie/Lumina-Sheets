@@ -142,6 +142,21 @@ var AuthenticationService = (function () {
     }
   }
 
+  function normalizePasswordInput(raw) {
+    try {
+      const utils = tryGetPasswordUtils('normalizePasswordInput');
+      if (utils && typeof utils.normalizePasswordInput === 'function') {
+        return utils.normalizePasswordInput(raw);
+      }
+    } catch (error) {
+      console.warn('normalizePasswordInput: unable to normalize via password utilities', error);
+    }
+    if (raw === null || typeof raw === 'undefined') {
+      return '';
+    }
+    return String(raw);
+  }
+
   // ─── Consistent normalization helpers ─────────────────────────────────────────
 
   function normalizeEmail(email) {
@@ -4793,7 +4808,7 @@ var AuthenticationService = (function () {
       }
 
       // Attempt verification with multiple methods for robustness
-      const inputStr = String(inputPassword);
+      const inputStr = normalizePasswordInput(inputPassword);
       
       // Method 1: Direct verification
       try {
@@ -5046,7 +5061,8 @@ var AuthenticationService = (function () {
     try {
       // Input validation
       const normalizedEmail = normalizeEmail(email);
-      const passwordStr = normalizeString(password);
+      const passwordInput = normalizePasswordInput(password);
+      const passwordStr = normalizeString(passwordInput);
       const sanitizedMetadata = sanitizeClientMetadata(clientMetadata);
 
       if (!normalizedEmail) {
@@ -5110,7 +5126,7 @@ var AuthenticationService = (function () {
 
       // Check password
       console.log('login: Verifying password...');
-      const passwordCheck = verifyUserPassword(passwordStr, user.PasswordHash, { email: normalizedEmail });
+      const passwordCheck = verifyUserPassword(passwordInput, user.PasswordHash, { email: normalizedEmail });
       
       if (!passwordCheck.success) {
         console.log('login: Password verification failed:', passwordCheck.reason);
