@@ -59,6 +59,10 @@ const CACHE_TTL_MEDIUM = 300; // 5 minute cache
 const LARGE_CACHE_CHUNK_SIZE = 90000; // stay below 100k Apps Script cache limit per entry
 const ATTENDANCE_CACHE_VERSION = 'v4';
 
+const ATTENDANCE_EXPORT_FOLDER_NAME = 'Lumina Attendance Exports';
+const ATTENDANCE_EXPORT_FOLDER_DESCRIPTION = 'Centralized daily pivot exports generated from Lumina Attendance.';
+const ATTENDANCE_EXPORT_FOLDER_PROP_KEY = 'ATTENDANCE_EXPORT_FOLDER_ID';
+
 function cloneDate(value) {
   if (value instanceof Date && !isNaN(value.getTime())) {
     return new Date(value.getTime());
@@ -342,6 +346,115 @@ function rpc(label, fn, fallback, maxTime = 20000) {
     }
     return (typeof fallback === 'function') ? fallback(err) : fallback;
   }
+}
+
+function getActiveUserEmailSafe() {
+  if (typeof Session === 'undefined' || typeof Session.getActiveUser !== 'function') {
+    return '';
+  }
+
+  try {
+    const activeUser = Session.getActiveUser();
+    if (!activeUser || typeof activeUser.getEmail !== 'function') {
+      return '';
+    }
+
+    const email = activeUser.getEmail();
+    if (typeof email === 'string' && email && !/anonymous/i.test(email)) {
+      return email.trim();
+    }
+  } catch (error) {
+    console.warn('Failed to resolve active user email:', error);
+  }
+
+  return '';
+}
+
+function ensureDriveEntityAccessForUser(entity, userEmail) {
+  if (!entity || typeof entity.addEditor !== 'function' || !userEmail) {
+    return;
+  }
+
+  try {
+    const existingEditors = (typeof entity.getEditors === 'function')
+      ? entity.getEditors().map(editor => {
+        if (editor && typeof editor.getEmail === 'function') {
+          const email = editor.getEmail();
+          return typeof email === 'string' ? email.toLowerCase() : '';
+        }
+        return '';
+      })
+      : [];
+
+    if (!existingEditors.includes(userEmail.toLowerCase())) {
+      entity.addEditor(userEmail);
+    }
+  } catch (error) {
+    console.warn('Unable to ensure Drive access for user:', error);
+  }
+}
+
+function getOrCreateAttendanceExportFolder_() {
+  if (typeof DriveApp === 'undefined') {
+    throw new Error('Drive services unavailable');
+  }
+
+  const props = (typeof PropertiesService !== 'undefined' && PropertiesService.getScriptProperties)
+    ? PropertiesService.getScriptProperties()
+    : null;
+
+  if (props) {
+    const cachedId = props.getProperty(ATTENDANCE_EXPORT_FOLDER_PROP_KEY);
+    if (cachedId) {
+      try {
+        const cachedFolder = DriveApp.getFolderById(cachedId);
+        if (cachedFolder) {
+          return cachedFolder;
+        }
+      } catch (error) {
+        console.warn('Cached attendance export folder unavailable:', error);
+        props.deleteProperty(ATTENDANCE_EXPORT_FOLDER_PROP_KEY);
+      }
+    }
+  }
+
+  let folder = null;
+  try {
+    const matches = DriveApp.getFoldersByName(ATTENDANCE_EXPORT_FOLDER_NAME);
+    if (matches.hasNext()) {
+      folder = matches.next();
+    }
+  } catch (error) {
+    console.warn('Error while locating attendance export folder:', error);
+  }
+
+  if (!folder) {
+    folder = DriveApp.createFolder(ATTENDANCE_EXPORT_FOLDER_NAME);
+    try {
+      folder.setDescription(ATTENDANCE_EXPORT_FOLDER_DESCRIPTION);
+    } catch (descError) {
+      console.warn('Unable to set attendance export folder description:', descError);
+    }
+  }
+
+  if (props && folder) {
+    try {
+      props.setProperty(ATTENDANCE_EXPORT_FOLDER_PROP_KEY, folder.getId());
+    } catch (error) {
+      console.warn('Failed to cache attendance export folder id:', error);
+    }
+  }
+
+  return folder;
+}
+
+function ensureAttendanceExportFolderForActiveUser() {
+  const folder = getOrCreateAttendanceExportFolder_();
+  const userEmail = getActiveUserEmailSafe();
+  if (folder && userEmail) {
+    ensureDriveEntityAccessForUser(folder, userEmail);
+  }
+  return folder;
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -2731,7 +2844,50 @@ function generateEnhancedDailyPivotExport(pivotMatrix, params, context) {
       file.setName(spreadsheetName);
     }
 
+    try {
+      const metadataDescription = `Exported ${Utilities.formatDate(new Date(), ATTENDANCE_TIMEZONE, 'MMM d, yyyy h:mm a')} • ${context.periodLabel || context.periodValue || 'Custom Range'}`;
+      file.setDescription(metadataDescription);
+    } catch (descriptionError) {
+      console.warn('Unable to set export file description:', descriptionError);
+    }
+
+    let folderId = '';
+    let folderUrl = '';
+    let folderName = '';
+    const activeUserEmail = getActiveUserEmailSafe();
+
+    try {
+      const exportFolder = ensureAttendanceExportFolderForActiveUser();
+      if (exportFolder) {
+        folderId = exportFolder.getId();
+        folderName = exportFolder.getName();
+        folderUrl = exportFolder.getUrl();
+
+        exportFolder.addFile(file);
+        try {
+          DriveApp.getRootFolder().removeFile(file);
+        } catch (removeError) {
+          console.warn('Unable to detach export from root folder:', removeError);
+        }
+
+        if (activeUserEmail) {
+          ensureDriveEntityAccessForUser(file, activeUserEmail);
+        }
+      }
+    } catch (folderError) {
+      console.warn('Unable to route export into attendance folder:', folderError);
+      if (activeUserEmail) {
+        try {
+          ensureDriveEntityAccessForUser(file, activeUserEmail);
+        } catch (shareError) {
+          console.warn('Failed to share export file with active user:', shareError);
+        }
+      }
+    }
+
     const spreadsheetUrl = spreadsheet.getUrl();
+    const createdAt = file.getDateCreated();
+    const updatedAt = file.getLastUpdated();
 
     return {
       fileId,
@@ -2742,7 +2898,12 @@ function generateEnhancedDailyPivotExport(pivotMatrix, params, context) {
       spreadsheetName,
       sheetTitle: sheet.getName(),
       periodLabel: context.periodLabel,
-      customRange: context.customRange
+      customRange: context.customRange,
+      folderId,
+      folderName,
+      folderUrl,
+      createdAtIso: createdAt instanceof Date ? createdAt.toISOString() : '',
+      updatedAtIso: updatedAt instanceof Date ? updatedAt.toISOString() : ''
     };
   } catch (error) {
     try {
@@ -2915,6 +3076,87 @@ function generateEnhancedDailyPivotCsvFallback(pivotMatrix, params, context) {
     filename: `${fileBaseName}.csv`,
     mimeType: 'text/csv;charset=utf-8;'
   };
+}
+
+function listAttendanceExportFiles() {
+  return rpc('listAttendanceExportFiles', () => {
+    if (typeof DriveApp === 'undefined') {
+      throw new Error('Drive services unavailable');
+    }
+
+    const folder = ensureAttendanceExportFolderForActiveUser();
+    if (!folder) {
+      return { success: false, error: 'Attendance export folder is unavailable.' };
+    }
+
+    const timezone = ATTENDANCE_TIMEZONE
+      || ((typeof Session !== 'undefined' && typeof Session.getScriptTimeZone === 'function')
+        ? Session.getScriptTimeZone()
+        : 'America/Jamaica');
+    const files = [];
+    const iterator = folder.getFiles();
+    const userEmail = getActiveUserEmailSafe();
+
+    while (iterator.hasNext()) {
+      const file = iterator.next();
+      try {
+        const createdAt = file.getDateCreated();
+        const updatedAt = file.getLastUpdated();
+        const description = typeof file.getDescription === 'function' ? file.getDescription() : '';
+
+        if (userEmail) {
+          try {
+            ensureDriveEntityAccessForUser(file, userEmail);
+          } catch (shareFileError) {
+            console.warn('Unable to confirm export file sharing for active user:', shareFileError);
+          }
+        }
+
+        files.push({
+          id: file.getId(),
+          name: file.getName(),
+          url: file.getUrl(),
+          description,
+          mimeType: file.getMimeType && file.getMimeType(),
+          createdAtIso: createdAt instanceof Date ? createdAt.toISOString() : '',
+          updatedAtIso: updatedAt instanceof Date ? updatedAt.toISOString() : '',
+          createdAtDisplay: (createdAt instanceof Date && !isNaN(createdAt.getTime()))
+            ? Utilities.formatDate(createdAt, timezone, 'MMM d, yyyy h:mm a')
+            : '',
+          updatedAtDisplay: (updatedAt instanceof Date && !isNaN(updatedAt.getTime()))
+            ? Utilities.formatDate(updatedAt, timezone, 'MMM d, yyyy h:mm a')
+            : ''
+        });
+      } catch (fileError) {
+        console.warn('Unable to capture export file metadata:', fileError);
+      }
+    }
+
+    files.sort((a, b) => {
+      const left = b.updatedAtIso || b.createdAtIso || '';
+      const right = a.updatedAtIso || a.createdAtIso || '';
+      return left.localeCompare(right);
+    });
+
+    const folderUrl = folder.getUrl();
+    const folderId = folder.getId();
+    const folderName = folder.getName();
+    if (userEmail) {
+      try {
+        ensureDriveEntityAccessForUser(folder, userEmail);
+      } catch (shareError) {
+        console.warn('Unable to confirm export folder sharing for active user:', shareError);
+      }
+    }
+
+    return {
+      success: true,
+      folderId,
+      folderName,
+      folderUrl,
+      files
+    };
+  }, { success: false, error: 'Unable to load attendance export history.', files: [] }, MAX_PROCESSING_TIME);
 }
 
 function buildDailyPivotFileBase(granularity, periodValue) {
