@@ -162,6 +162,34 @@ function normalizeDateValue(value) {
   return null;
 }
 
+function formatDateIdentifier(date) {
+  if (!(date instanceof Date) || isNaN(date.getTime())) {
+    return '';
+  }
+
+  if (typeof Utilities !== 'undefined' && Utilities.formatDate) {
+    return Utilities.formatDate(date, ATTENDANCE_TIMEZONE, 'yyyy-MM-dd');
+  }
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function formatDisplayDate(date) {
+  if (!(date instanceof Date) || isNaN(date.getTime())) {
+    return '';
+  }
+
+  if (typeof Utilities !== 'undefined' && Utilities.formatDate) {
+    return Utilities.formatDate(date, ATTENDANCE_TIMEZONE, 'MMM d, yyyy');
+  }
+
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  return `${months[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
+}
+
 function toIsoDateString(date) {
   if (!(date instanceof Date) || isNaN(date.getTime())) {
     return '';
@@ -1884,15 +1912,22 @@ function generateEnhancedDailyPivotMatrix(params) {
   try {
     const { period, users, userSelection, dailyPivotOptions } = params;
     const hourPolicyOptions = params.hourPolicy || (dailyPivotOptions && dailyPivotOptions.hourPolicy) || {};
-    let granularity, periodValue;
+    let granularity = period.type || 'Week';
+    let periodValue = period.value;
+    let periodLabel = periodValue ? `${granularity} ${periodValue}` : granularity;
+    let customRangeInfo = null;
 
     // Determine period
     if (period.type === 'custom') {
-      granularity = 'Week';
-      periodValue = weekStringFromDate(new Date(period.start));
-    } else {
-      granularity = period.type;
-      periodValue = period.value;
+      const normalizedRange = normalizeCustomRangeBounds(period.start, period.end);
+      customRangeInfo = {
+        startIso: normalizedRange.startIso,
+        endIso: normalizedRange.endIso,
+        displayLabel: normalizedRange.displayLabel
+      };
+      granularity = 'CustomRange';
+      periodValue = `${customRangeInfo.startIso}::${customRangeInfo.endIso}`;
+      periodLabel = customRangeInfo.displayLabel;
     }
 
     // Get analytics data
@@ -1918,18 +1953,30 @@ function generateEnhancedDailyPivotMatrix(params) {
     // Generate enhanced export file (XLSX when possible, CSV fallback otherwise)
     const exportFile = generateEnhancedDailyPivotExport(pivotMatrix, params, {
       granularity,
-      periodValue
+      periodValue,
+      periodLabel,
+      customRange: customRangeInfo
     });
 
-    return {
+    const response = {
       success: true,
       type: 'daily_pivot_matrix',
       users: pivotMatrix.users.length,
       days: pivotMatrix.dateRange.length,
       dateRange: pivotMatrix.dateRange.length > 0 ?
         `${pivotMatrix.dateRange[0].date} to ${pivotMatrix.dateRange[pivotMatrix.dateRange.length - 1].date}` : 'No data',
+      periodValue,
+      periodLabel,
       ...exportFile
     };
+
+    if (customRangeInfo) {
+      response.rangeStart = customRangeInfo.startIso;
+      response.rangeEnd = customRangeInfo.endIso;
+      response.customRange = customRangeInfo;
+    }
+
+    return response;
 
   } catch (error) {
     console.error('Enhanced daily pivot matrix generation failed:', error);
@@ -2289,8 +2336,14 @@ function generateEnhancedDailyPivotExport(pivotMatrix, params, context) {
       .setFontSize(11);
 
     currentRow += 1;
-    const periodDescription = `${context.granularity || 'Period'} ${context.periodValue || 'Custom Range'}`;
-    sheet.getRange(currentRow, 1).setValue(`Period: ${periodDescription}`);
+    const friendlyGranularity = context.granularity === 'CustomRange'
+      ? 'Custom Range'
+      : (context.granularity || 'Period');
+    const periodDetails = (context.customRange && context.customRange.displayLabel)
+      || context.periodLabel
+      || context.periodValue
+      || 'Custom Range';
+    sheet.getRange(currentRow, 1).setValue(`Period: ${friendlyGranularity} – ${periodDetails}`);
     sheet.getRange(currentRow, 1, 1, exportWidth).merge()
       .setFontColor('#475569')
       .setFontSize(11);
@@ -2685,7 +2738,11 @@ function generateEnhancedDailyPivotExport(pivotMatrix, params, context) {
       spreadsheetUrl,
       mimeType: 'application/vnd.google-apps.spreadsheet',
       filename: `${spreadsheetName}.gsheet`,
-      fileType: 'google_sheet'
+      fileType: 'google_sheet',
+      spreadsheetName,
+      sheetTitle: sheet.getName(),
+      periodLabel: context.periodLabel,
+      customRange: context.customRange
     };
   } catch (error) {
     try {
@@ -3548,6 +3605,53 @@ function createEmptyAnalytics() {
 // PERIOD CALCULATION UTILITIES
 // ────────────────────────────────────────────────────────────────────────────
 
+function normalizeCustomRangeBounds(startInput, endInput) {
+  const startDate = normalizeDateValue(startInput);
+  const endDate = normalizeDateValue(endInput);
+
+  if (!(startDate instanceof Date) || isNaN(startDate.getTime())) {
+    throw new Error('Invalid custom range start date');
+  }
+  if (!(endDate instanceof Date) || isNaN(endDate.getTime())) {
+    throw new Error('Invalid custom range end date');
+  }
+
+  const start = createDateInLocalTime(
+    startDate.getFullYear(),
+    startDate.getMonth() + 1,
+    startDate.getDate(),
+    0,
+    0,
+    0
+  ) || new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate(), 0, 0, 0, 0);
+
+  const end = createDateInLocalTime(
+    endDate.getFullYear(),
+    endDate.getMonth() + 1,
+    endDate.getDate(),
+    23,
+    59,
+    59
+  ) || new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate(), 23, 59, 59, 999);
+
+  end.setMilliseconds(999);
+
+  if (end.getTime() < start.getTime()) {
+    throw new Error('Custom range end date must be on or after the start date');
+  }
+
+  const startIso = formatDateIdentifier(start);
+  const endIso = formatDateIdentifier(end);
+
+  return {
+    start,
+    end,
+    startIso,
+    endIso,
+    displayLabel: `${formatDisplayDate(start)} to ${formatDisplayDate(end)}`
+  };
+}
+
 function derivePeriodBounds(granularity, id) {
   function weekStartLocal(d) {
     const day = d.getDay();
@@ -3607,6 +3711,16 @@ function derivePeriodBounds(granularity, id) {
     return [new Date(y, 0, 1, 0, 0, 0, 0), new Date(y, 11, 31, 23, 59, 59, 999)];
   }
 
+  if (granularity === 'CustomRange') {
+    if (!id || typeof id !== 'string' || id.indexOf('::') === -1) {
+      throw new Error(`Invalid custom range identifier: ${id}`);
+    }
+
+    const [startToken, endToken] = id.split('::');
+    const { start, end } = normalizeCustomRangeBounds(startToken, endToken);
+    return [start, end];
+  }
+
   throw new Error(`Unknown granularity: ${granularity}`);
 }
 
@@ -3641,6 +3755,12 @@ function validateEnhancedExportParams(params) {
   if (params.period && params.period.type === 'custom') {
     if (!params.period.start || !params.period.end) {
       errors.push('Start and end dates are required for custom period');
+    } else {
+      try {
+        normalizeCustomRangeBounds(params.period.start, params.period.end);
+      } catch (rangeError) {
+        errors.push(rangeError.message);
+      }
     }
   }
   

@@ -4571,35 +4571,50 @@
         this.updateExportProgress(75, 'Finalizing export...');
 
         if (result && result.success !== false) {
-          this.updateExportProgress(100, 'Export completed successfully!');
+          const isGoogleSheetExport = (result.fileType === 'google_sheet')
+            || (typeof result.filename === 'string' && result.filename.toLowerCase().endsWith('.gsheet'));
 
-          if (result.spreadsheetUrl) {
+          let handled = false;
+
+          if (isGoogleSheetExport) {
+            this.updateExportProgress(90, 'Packaging Google Sheets download...');
+            this.downloadGoogleSheet(result);
+            handled = true;
+          } else if (result.spreadsheetUrl) {
             this.openSpreadsheet(result.spreadsheetUrl);
-          } else if (result.fileData) {
+            handled = true;
+          }
+
+          if (!handled && result.fileData) {
             this.downloadFile(
               result.fileData,
               result.filename || `attendance_export_${new Date().toISOString().split('T')[0]}.xlsx`,
               result.mimeType || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
               (result.encoding || '').toLowerCase() === 'base64'
             );
-          } else if (result.csvData) {
+            handled = true;
+          } else if (!handled && result.csvData) {
             this.downloadFile(
               result.csvData,
               result.filename || `attendance_export_${new Date().toISOString().split('T')[0]}.csv`,
               result.mimeType || 'text/csv;charset=utf-8;',
               false
             );
-          } else if (typeof result === 'string') {
+            handled = true;
+          } else if (!handled && typeof result === 'string') {
             this.downloadFile(
               result,
               `attendance_export_${new Date().toISOString().split('T')[0]}.csv`,
               'text/csv;charset=utf-8;',
               false
             );
+            handled = true;
           }
 
-          const successMessage = result.fileType === 'google_sheet'
-            ? 'Daily pivot matrix opened in Google Sheets.'
+          this.updateExportProgress(100, 'Export completed successfully!');
+
+          const successMessage = isGoogleSheetExport
+            ? 'Daily pivot matrix downloaded as a Google Sheets file.'
             : 'Export completed successfully!';
 
           setTimeout(() => {
@@ -4668,8 +4683,8 @@
           alert('Please select both start and end dates for custom range.');
           return false;
         }
-        if (new Date(params.period.start) >= new Date(params.period.end)) {
-          alert('Start date must be before end date.');
+        if (new Date(params.period.start) > new Date(params.period.end)) {
+          alert('Start date must be on or before the end date.');
           return false;
         }
       } else {
@@ -4725,6 +4740,61 @@
       a.click();
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
+    }
+
+    downloadGoogleSheet(result) {
+      const url = result?.spreadsheetUrl || result?.url;
+      if (!url) {
+        this.showErrorMessage('Google Sheets link unavailable for this export.');
+        return;
+      }
+
+      const providedName = (typeof result?.filename === 'string' && result.filename.trim())
+        ? result.filename.trim()
+        : '';
+      let finalName = providedName || `attendance_matrix_${new Date().toISOString().split('T')[0]}.gsheet`;
+
+      if (!/\.gsheet$/i.test(finalName)) {
+        const baseName = finalName.replace(/\.(csv|xlsx)$/ig, '').trim() || `attendance_matrix_${new Date().toISOString().split('T')[0]}`;
+        finalName = `${baseName}.gsheet`;
+      }
+
+      const descriptor = {
+        url,
+        mimeType: 'application/vnd.google-apps.spreadsheet'
+      };
+
+      if (typeof result?.spreadsheetName === 'string' && result.spreadsheetName.trim()) {
+        descriptor.name = result.spreadsheetName.trim();
+      } else if (typeof result?.sheetTitle === 'string' && result.sheetTitle.trim()) {
+        descriptor.name = result.sheetTitle.trim();
+      } else {
+        descriptor.name = finalName.replace(/\.gsheet$/i, '');
+      }
+
+      if (typeof result?.fileId === 'string' && result.fileId.trim()) {
+        descriptor.documentId = result.fileId.trim();
+      }
+
+      if (typeof result?.periodLabel === 'string' && result.periodLabel.trim()) {
+        descriptor.periodLabel = result.periodLabel.trim();
+      }
+
+      if (result?.customRange && typeof result.customRange === 'object') {
+        const rangeStart = typeof result.customRange.startIso === 'string' ? result.customRange.startIso : '';
+        const rangeEnd = typeof result.customRange.endIso === 'string' ? result.customRange.endIso : '';
+        if (rangeStart || rangeEnd) {
+          descriptor.rangeStart = rangeStart;
+          descriptor.rangeEnd = rangeEnd;
+          const label = typeof result.customRange.displayLabel === 'string' ? result.customRange.displayLabel : '';
+          if (label) {
+            descriptor.rangeLabel = label;
+          }
+        }
+      }
+
+      const jsonDescriptor = JSON.stringify(descriptor, null, 2);
+      this.downloadFile(jsonDescriptor, finalName, 'application/json', false);
     }
 
     openSpreadsheet(url) {
