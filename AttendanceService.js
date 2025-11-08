@@ -394,6 +394,28 @@ function ensureDriveEntityAccessForUser(entity, userEmail) {
   }
 }
 
+function ensureDriveEntityLinkViewAccess(entity) {
+  if (!entity || typeof entity.setSharing !== 'function' || typeof DriveApp === 'undefined') {
+    return;
+  }
+
+  try {
+    const currentAccess = (typeof entity.getSharingAccess === 'function')
+      ? entity.getSharingAccess()
+      : null;
+    const currentPermission = (typeof entity.getSharingPermission === 'function')
+      ? entity.getSharingPermission()
+      : null;
+
+    if (currentAccess !== DriveApp.Access.ANYONE_WITH_LINK
+      || currentPermission !== DriveApp.Permission.VIEW) {
+      entity.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    }
+  } catch (error) {
+    console.warn('Unable to ensure Drive entity link access:', error);
+  }
+}
+
 function getOrCreateAttendanceExportFolder_() {
   if (typeof DriveApp === 'undefined') {
     throw new Error('Drive services unavailable');
@@ -453,6 +475,9 @@ function ensureAttendanceExportFolderForActiveUser() {
   const userEmail = getActiveUserEmailSafe();
   if (folder && userEmail) {
     ensureDriveEntityAccessForUser(folder, userEmail);
+  }
+  if (folder) {
+    ensureDriveEntityLinkViewAccess(folder);
   }
   return folder;
 }
@@ -2873,6 +2898,7 @@ function generateEnhancedDailyPivotExport(pivotMatrix, params, context) {
         if (activeUserEmail) {
           ensureDriveEntityAccessForUser(file, activeUserEmail);
         }
+        ensureDriveEntityLinkViewAccess(file);
       }
     } catch (folderError) {
       console.warn('Unable to route export into attendance folder:', folderError);
@@ -2883,6 +2909,7 @@ function generateEnhancedDailyPivotExport(pivotMatrix, params, context) {
           console.warn('Failed to share export file with active user:', shareError);
         }
       }
+      ensureDriveEntityLinkViewAccess(file);
     }
 
     const spreadsheetUrl = spreadsheet.getUrl();
@@ -3111,6 +3138,7 @@ function listAttendanceExportFiles() {
             console.warn('Unable to confirm export file sharing for active user:', shareFileError);
           }
         }
+        ensureDriveEntityLinkViewAccess(file);
 
         files.push({
           id: file.getId(),
@@ -3148,6 +3176,7 @@ function listAttendanceExportFiles() {
         console.warn('Unable to confirm export folder sharing for active user:', shareError);
       }
     }
+    ensureDriveEntityLinkViewAccess(folder);
 
     return {
       success: true,
