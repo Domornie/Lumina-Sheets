@@ -3578,23 +3578,46 @@
                         dashboard: state.attendance.dashboard || null
                     };
 
-                    if (this.attendanceDashboardPrefetch.records.length && this.attendanceDashboardPrefetch.year) {
-                        this.mergeAttendanceDashboardRecords(
-                            this.attendanceDashboardPrefetch.records,
-                            this.attendanceDashboardPrefetch.year
-                        );
-                    }
+                    const snapshot = state.attendance.dashboard || null;
+                    const prefetch = this.attendanceDashboardPrefetch;
+                    const prefetchRecords = Array.isArray(prefetch.records)
+                        ? prefetch.records.slice()
+                        : [];
+                    const resolvedPrefetchYear = Number.parseInt(prefetch.year, 10);
+                    const prefetchYear = Number.isFinite(resolvedPrefetchYear)
+                        ? resolvedPrefetchYear
+                        : this.getSelectedAttendanceYear();
+                    const hasPrefetchRecords = prefetchRecords.length > 0;
 
-                    if (state.attendance.dashboard && state.attendance.dashboard.success) {
-                        const year = this.attendanceDashboardPrefetch.year || this.getSelectedAttendanceYear();
-                        this.attendanceDashboardYear = year;
-                        this.attendanceDashboardRecords = this.attendanceDashboardPrefetch.records.slice();
+                    if (hasPrefetchRecords) {
+                        this.attendanceDashboardYear = prefetchYear;
+                        this.attendanceDashboardRecords = prefetchRecords.slice();
+                        this.collectAttendanceDashboardRecordUsers(this.attendanceDashboardRecords);
                         const filteredRecords = this.filterAttendanceDashboardRecords(
                             this.attendanceDashboardRecords,
                             this.attendanceDashboardUserFilter
                         );
-                        this.attendanceDashboardData = this.computeAttendanceDashboard(filteredRecords, year);
-                        this.destroyAttendanceDashboardCharts();
+                        const computedDashboard = this.computeAttendanceDashboard(filteredRecords, prefetchYear);
+                        const reconciledDashboard = snapshot
+                            ? this.reconcileAttendanceDashboardSnapshot(snapshot, computedDashboard, prefetchYear)
+                            : computedDashboard;
+                        this.applyAttendanceDashboardHydration(reconciledDashboard, prefetchYear);
+                    } else if (snapshot) {
+                        const fallbackYearCandidate = Number.parseInt(snapshot.year, 10);
+                        const fallbackYear = Number.isFinite(fallbackYearCandidate)
+                            ? fallbackYearCandidate
+                            : (Number.isFinite(this.attendanceDashboardYear)
+                                ? this.attendanceDashboardYear
+                                : this.getSelectedAttendanceYear());
+                        const fallbackComputed = this.computeAttendanceDashboard([], fallbackYear);
+                        const reconciledDashboard = this.reconcileAttendanceDashboardSnapshot(
+                            snapshot,
+                            fallbackComputed,
+                            fallbackYear
+                        );
+                        this.attendanceDashboardRecords = [];
+                        this.collectAttendanceDashboardRecordUsers(this.attendanceDashboardRecords);
+                        this.applyAttendanceDashboardHydration(reconciledDashboard, fallbackYear);
                     }
                 }
 
@@ -6882,10 +6905,13 @@
                             this.attendanceDashboardRecords,
                             this.attendanceDashboardUserFilter
                         );
-                        this.attendanceDashboardData = this.computeAttendanceDashboard(filteredPrefetchRecords, year);
-                        this.destroyAttendanceDashboardCharts();
-                        this.attendancePeriodOptionsYear = null;
-                        this.attendanceDashboardPeriod = '';
+                        const computedPrefetchDashboard = this.computeAttendanceDashboard(filteredPrefetchRecords, year);
+                        const reconciledPrefetchDashboard = this.reconcileAttendanceDashboardSnapshot(
+                            prefetch.dashboard,
+                            computedPrefetchDashboard,
+                            year
+                        );
+                        this.applyAttendanceDashboardHydration(reconciledPrefetchDashboard, year);
                         return;
                     }
 
@@ -6902,25 +6928,58 @@
                     this.attendanceDashboardPrefetch = {
                         year,
                         records: records.slice(),
-                        dashboard: prefetch && prefetch.dashboard ? prefetch.dashboard : null
+                        dashboard: response.dashboard || (prefetch && prefetch.dashboard ? prefetch.dashboard : null)
                     };
                     this.attendanceDashboardRecords = records;
                     this.attendanceDashboardYear = year;
                     this.collectAttendanceDashboardRecordUsers(this.attendanceDashboardRecords);
                     const filteredRecords = this.filterAttendanceDashboardRecords(records, this.attendanceDashboardUserFilter);
-                    this.attendanceDashboardData = this.computeAttendanceDashboard(filteredRecords, year);
-                    this.destroyAttendanceDashboardCharts();
-                    this.attendancePeriodOptionsYear = null;
-                    this.attendanceDashboardPeriod = '';
+                    const computedResponseDashboard = this.computeAttendanceDashboard(filteredRecords, year);
+                    const reconciledResponseDashboard = this.reconcileAttendanceDashboardSnapshot(
+                        this.attendanceDashboardPrefetch.dashboard,
+                        computedResponseDashboard,
+                        year
+                    );
+                    this.applyAttendanceDashboardHydration(reconciledResponseDashboard, year);
                 } catch (error) {
                     console.error('Error loading attendance dashboard data:', error);
                     this.attendanceDashboardYear = year;
                     this.attendanceDashboardRecords = [];
                     this.collectAttendanceDashboardRecordUsers(this.attendanceDashboardRecords);
-                    this.attendanceDashboardData = this.computeAttendanceDashboard([], year);
-                    this.destroyAttendanceDashboardCharts();
+                    const fallbackDashboard = this.computeAttendanceDashboard([], year);
+                    this.applyAttendanceDashboardHydration(fallbackDashboard, year);
                     this.showToast('Failed to load attendance dashboard: ' + error.message, 'danger');
                 }
+            }
+
+            applyAttendanceDashboardHydration(data, year) {
+                if (!data || typeof data !== 'object') {
+                    return;
+                }
+
+                if (Number.isFinite(year)) {
+                    this.attendanceDashboardYear = year;
+                }
+
+                this.attendanceDashboardData = data;
+                this.attendanceRecognitionLeaders = this.resolveAttendanceRecognitionData(data);
+                this.attendancePeriodOptions = null;
+                this.attendancePeriodOptionsYear = null;
+                this.attendanceDashboardPeriod = '';
+
+                const wasInitialized = this.attendanceDashboardInitialized;
+                this.destroyAttendanceDashboardCharts();
+
+                const attendanceDashboardPane = document.getElementById('attendance-dashboard');
+                const attendanceDashboardActive = attendanceDashboardPane
+                    && attendanceDashboardPane.classList.contains('show')
+                    && attendanceDashboardPane.classList.contains('active');
+
+                if (!attendanceDashboardActive && !wasInitialized) {
+                    console.debug('Attendance dashboard will initialize in the background with refreshed data.');
+                }
+
+                this.initializeAttendanceDashboard();
             }
 
             destroyAttendanceDashboardCharts() {
@@ -8016,6 +8075,307 @@
                     monthlyAnalysis,
                     yearlyTotals: yearlyTotalsChart
                 };
+            }
+
+            reconcileAttendanceDashboardSnapshot(snapshot, fallbackData, year) {
+                const ensureNumber = (value, defaultValue = 0) => {
+                    const numeric = Number(value);
+                    return Number.isFinite(numeric) ? numeric : defaultValue;
+                };
+
+                const ensureNumberArray = (value, fallbackArray = []) => {
+                    if (!Array.isArray(value) || !value.length) {
+                        return fallbackArray.slice();
+                    }
+                    return value.map((entry, index) => ensureNumber(entry, fallbackArray[index] || 0));
+                };
+
+                const ensureStringArray = (value, fallbackArray = []) => {
+                    if (!Array.isArray(value) || !value.length) {
+                        return fallbackArray.slice();
+                    }
+                    return value.map((entry, index) => {
+                        const fallbackValue = fallbackArray[index] || '';
+                        if (entry === null || typeof entry === 'undefined') {
+                            return fallbackValue;
+                        }
+                        return typeof entry === 'string' ? entry : String(entry);
+                    });
+                };
+
+                const cloneFallback = () => {
+                    if (fallbackData && typeof fallbackData === 'object') {
+                        try {
+                            return JSON.parse(JSON.stringify(fallbackData));
+                        } catch (error) {
+                            console.warn('Unable to deep clone attendance dashboard fallback data. Using shallow copy.', error);
+                            return { ...fallbackData };
+                        }
+                    }
+                    return this.computeAttendanceDashboard([], year);
+                };
+
+                const resolved = cloneFallback();
+                if (!snapshot || typeof snapshot !== 'object') {
+                    return resolved;
+                }
+
+                const source = snapshot.data
+                    || snapshot.snapshot
+                    || snapshot.metrics
+                    || snapshot;
+
+                if (!source || typeof source !== 'object') {
+                    return resolved;
+                }
+
+                if (Array.isArray(source.months) && source.months.length) {
+                    resolved.months = ensureStringArray(source.months, resolved.months || []);
+                }
+
+                const resolvedYear = ensureNumber(source.year, resolved.year || year);
+                if (Number.isFinite(resolvedYear)) {
+                    resolved.year = resolvedYear;
+                }
+
+                if (source.yearlyTrends && typeof source.yearlyTrends === 'object') {
+                    const fallbackTrends = resolved.yearlyTrends || {};
+                    resolved.yearlyTrends = {
+                        punctual: ensureNumberArray(source.yearlyTrends.punctual, fallbackTrends.punctual || []),
+                        late: ensureNumberArray(source.yearlyTrends.late, fallbackTrends.late || []),
+                        absent: ensureNumberArray(source.yearlyTrends.absent, fallbackTrends.absent || []),
+                        sick: ensureNumberArray(source.yearlyTrends.sick, fallbackTrends.sick || []),
+                        vacation: ensureNumberArray(source.yearlyTrends.vacation, fallbackTrends.vacation || [])
+                    };
+                }
+
+                resolved.monthlyPercent = ensureNumberArray(source.monthlyPercent, resolved.monthlyPercent || []);
+                resolved.monthlyPresent = ensureNumberArray(source.monthlyPresent, resolved.monthlyPresent || []);
+                resolved.monthlyPresentTrend = ensureNumberArray(
+                    source.monthlyPresentTrend,
+                    resolved.monthlyPresentTrend || []
+                );
+                resolved.monthlyAbsent = ensureNumberArray(source.monthlyAbsent, resolved.monthlyAbsent || []);
+                resolved.monthlyAbsentTrend = ensureNumberArray(
+                    source.monthlyAbsentTrend,
+                    resolved.monthlyAbsentTrend || []
+                );
+
+                if (source.monthlyLeaves && typeof source.monthlyLeaves === 'object') {
+                    const fallbackLeaves = resolved.monthlyLeaves || { leaves: [], late: [] };
+                    resolved.monthlyLeaves = {
+                        leaves: ensureNumberArray(source.monthlyLeaves.leaves, fallbackLeaves.leaves || []),
+                        late: ensureNumberArray(source.monthlyLeaves.late, fallbackLeaves.late || [])
+                    };
+                }
+
+                if (source.biWeekly && typeof source.biWeekly === 'object') {
+                    const fallbackBiWeekly = resolved.biWeekly || { labels: [], punctual: [] };
+                    resolved.biWeekly = {
+                        labels: ensureStringArray(source.biWeekly.labels, fallbackBiWeekly.labels || []),
+                        punctual: ensureNumberArray(source.biWeekly.punctual, fallbackBiWeekly.punctual || [])
+                    };
+                }
+
+                if (Array.isArray(source.monthlyAnalysis) && source.monthlyAnalysis.length) {
+                    resolved.monthlyAnalysis = source.monthlyAnalysis.map((entry, index) => {
+                        const fallbackEntry = resolved.monthlyAnalysis && resolved.monthlyAnalysis[index]
+                            ? resolved.monthlyAnalysis[index]
+                            : {};
+                        const toLabel = (value, fallbackValue = '') => {
+                            if (typeof value === 'string' && value.trim()) {
+                                return value.trim();
+                            }
+                            if (typeof value === 'number') {
+                                return String(value);
+                            }
+                            return fallbackValue;
+                        };
+                        return {
+                            month: toLabel(entry.month, fallbackEntry.month || ''),
+                            punctual: ensureNumber(entry.punctual, fallbackEntry.punctual || 0),
+                            bereavement: ensureNumber(entry.bereavement, fallbackEntry.bereavement || 0),
+                            absent: ensureNumber(entry.absent, fallbackEntry.absent || 0),
+                            late: ensureNumber(entry.late, fallbackEntry.late || 0),
+                            noCallNoShow: ensureNumber(
+                                entry.noCallNoShow,
+                                fallbackEntry.noCallNoShow || 0
+                            ),
+                            vacation: ensureNumber(entry.vacation, fallbackEntry.vacation || 0),
+                            sick: ensureNumber(entry.sick, fallbackEntry.sick || 0),
+                            leaveOfAbsence: ensureNumber(
+                                entry.leaveOfAbsence,
+                                fallbackEntry.leaveOfAbsence || 0
+                            ),
+                            personalLeave: ensureNumber(entry.personalLeave, fallbackEntry.personalLeave || 0),
+                            training: ensureNumber(entry.training, fallbackEntry.training || 0),
+                            other: ensureNumber(entry.other, fallbackEntry.other || 0)
+                        };
+                    });
+                }
+
+                if (source.yearlyTotals && typeof source.yearlyTotals === 'object') {
+                    const fallbackTotals = resolved.yearlyTotals || {};
+                    resolved.yearlyTotals = {
+                        punctual: ensureNumber(source.yearlyTotals.punctual, fallbackTotals.punctual || 0),
+                        bereavement: ensureNumber(source.yearlyTotals.bereavement, fallbackTotals.bereavement || 0),
+                        absent: ensureNumber(source.yearlyTotals.absent, fallbackTotals.absent || 0),
+                        late: ensureNumber(source.yearlyTotals.late, fallbackTotals.late || 0),
+                        noCallNoShow: ensureNumber(source.yearlyTotals.noCallNoShow, fallbackTotals.noCallNoShow || 0),
+                        vacation: ensureNumber(source.yearlyTotals.vacation, fallbackTotals.vacation || 0),
+                        sick: ensureNumber(source.yearlyTotals.sick, fallbackTotals.sick || 0),
+                        leaveOfAbsence: ensureNumber(
+                            source.yearlyTotals.leaveOfAbsence,
+                            fallbackTotals.leaveOfAbsence || 0
+                        ),
+                        personalLeave: ensureNumber(
+                            source.yearlyTotals.personalLeave,
+                            fallbackTotals.personalLeave || 0
+                        ),
+                        training: ensureNumber(source.yearlyTotals.training, fallbackTotals.training || 0),
+                        other: ensureNumber(source.yearlyTotals.other, fallbackTotals.other || 0)
+                    };
+                }
+
+                if (Array.isArray(source.topPunctual)) {
+                    resolved.topPunctual = source.topPunctual
+                        .filter(entry => entry && typeof entry === 'object')
+                        .map(entry => ({
+                            identityKey: entry.identityKey
+                                || entry.id
+                                || entry.userId
+                                || entry.user
+                                || entry.username
+                                || entry.email
+                                || '',
+                            displayName: entry.displayName
+                                || entry.name
+                                || entry.fullName
+                                || '',
+                            fullName: entry.fullName
+                                || entry.displayName
+                                || entry.name
+                                || '',
+                            present: ensureNumber(
+                                entry.present ?? entry.punctual ?? entry.count,
+                                0
+                            ),
+                            total: ensureNumber(
+                                entry.total ?? entry.shifts ?? entry.entries ?? entry.attendance,
+                                0
+                            ),
+                            punctualRate: ensureNumber(
+                                entry.punctualRate ?? entry.rate ?? entry.percentage,
+                                0
+                            )
+                        }));
+                }
+
+                const normalizeRecognitionEntries = (entries, fallbackEntries = []) => {
+                    const fallback = Array.isArray(fallbackEntries)
+                        ? fallbackEntries.filter(entry => entry && typeof entry === 'object')
+                        : [];
+
+                    const sanitizeEntry = (entry) => {
+                        const candidate = entry && typeof entry === 'object' ? entry : {};
+                        return {
+                            identityKey: candidate.identityKey
+                                || candidate.id
+                                || candidate.userId
+                                || candidate.user
+                                || candidate.username
+                                || '',
+                            displayName: candidate.displayName
+                                || candidate.name
+                                || candidate.fullName
+                                || '',
+                            fullName: candidate.fullName
+                                || candidate.displayName
+                                || candidate.name
+                                || '',
+                            present: ensureNumber(
+                                candidate.present ?? candidate.punctual ?? candidate.count,
+                                0
+                            ),
+                            total: ensureNumber(
+                                candidate.total ?? candidate.shifts ?? candidate.entries ?? candidate.attendance,
+                                0
+                            ),
+                            punctualRate: ensureNumber(
+                                candidate.punctualRate ?? candidate.rate ?? candidate.percentage,
+                                0
+                            )
+                        };
+                    };
+
+                    if (!Array.isArray(entries) || !entries.length) {
+                        return fallback.map(sanitizeEntry);
+                    }
+
+                    const sanitized = entries
+                        .filter(entry => entry && typeof entry === 'object')
+                        .map(sanitizeEntry);
+
+                    if (!sanitized.length) {
+                        return fallback.map(sanitizeEntry);
+                    }
+
+                    return sanitized;
+                };
+
+                if (source.recognition && typeof source.recognition === 'object') {
+                    const fallbackRecognition = resolved.recognition && typeof resolved.recognition === 'object'
+                        ? resolved.recognition
+                        : {};
+                    const sanitized = this.resolveAttendanceRecognitionData({
+                        recognition: source.recognition,
+                        topPunctual: resolved.topPunctual,
+                        year: resolved.year
+                    });
+
+                    const buildBucket = (key, defaultLabel) => {
+                        const fallbackBucket = fallbackRecognition[key] || {};
+                        const sanitizedBucket = sanitized[key] || {};
+                        const labelCandidates = [
+                            sanitizedBucket.label,
+                            fallbackBucket.label,
+                            defaultLabel
+                        ];
+                        const resolvedLabel = labelCandidates.find(label => typeof label === 'string' && label.trim());
+
+                        return {
+                            label: resolvedLabel ? resolvedLabel.trim() : defaultLabel,
+                            entries: normalizeRecognitionEntries(
+                                sanitizedBucket.entries,
+                                fallbackBucket.entries
+                            )
+                        };
+                    };
+
+                    resolved.recognition = {
+                        weekly: buildBucket('weekly', 'Most recent week'),
+                        biWeekly: buildBucket('biWeekly', 'Most recent bi-weekly period'),
+                        monthly: buildBucket('monthly', 'Most recent month'),
+                        quarterly: buildBucket('quarterly', 'Most recent quarter'),
+                        yearly: (() => {
+                            const defaultLabel = resolved.year
+                                ? `${resolved.year}`
+                                : 'Year to date';
+                            const bucket = buildBucket('yearly', defaultLabel);
+                            if (!bucket.entries.length && Array.isArray(resolved.topPunctual) && resolved.topPunctual.length) {
+                                bucket.entries = normalizeRecognitionEntries(resolved.topPunctual.slice(0, 3));
+                            }
+                            if (!bucket.label) {
+                                bucket.label = defaultLabel;
+                            }
+                            return bucket;
+                        })()
+                    };
+                } else {
+                    resolved.recognition = this.resolveAttendanceRecognitionData(resolved);
+                }
+
+                return resolved;
             }
 
             filterAttendanceDashboardRecords(records, filterValue = this.attendanceDashboardUserFilter) {
