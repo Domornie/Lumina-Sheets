@@ -827,6 +827,7 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter, poli
     let totalRowsConsidered = 0;
 
     const managerDirectory = buildManagerDirectory_();
+    const agentDirectory = buildAgentDirectory_();
 
     const registerFeedRow = (row, timestampMs) => {
       if (!timestampMs) return;
@@ -1177,7 +1178,10 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter, poli
           percentage: Number.isFinite(normalizedPercent) ? normalizedPercent : 0
         };
       })
-      .filter(entry => !isManagerPerson_(entry.user, managerDirectory))
+      .filter(entry =>
+        isAgentPerson_(entry.user, agentDirectory)
+        && !isManagerPerson_(entry.user, managerDirectory)
+      )
       .sort((a, b) => b.percentage - a.percentage)
       .slice(0, 5);
 
@@ -3496,6 +3500,8 @@ function normalizePersonKey_(value) {
   return String(value || '').trim().toLowerCase();
 }
 
+const AGENT_ROLE_KEYWORDS = ['agent', 'agents'];
+
 function buildManagerDirectory_() {
   const directory = {
     normalizedNames: new Set(),
@@ -3615,6 +3621,63 @@ function buildManagerDirectory_() {
   return directory;
 }
 
+function buildAgentDirectory_() {
+  const directory = {
+    normalizedNames: new Set(),
+    normalizedEmails: new Set()
+  };
+
+  const addUserToDirectory = user => {
+    if (!user) return;
+
+    [
+      user.FullName,
+      user.fullName,
+      user.UserName,
+      user.userName,
+      user.name,
+      user.DisplayName,
+      user.displayName,
+      user.PreferredName,
+      user.preferredName
+    ].forEach(candidate => {
+      const key = normalizePersonKey_(candidate);
+      if (key) {
+        directory.normalizedNames.add(key);
+      }
+    });
+
+    [
+      user.Email,
+      user.email,
+      user.WorkEmail,
+      user.workEmail
+    ].forEach(candidate => {
+      const key = normalizePersonKey_(candidate);
+      if (key) {
+        directory.normalizedEmails.add(key);
+      }
+    });
+  };
+
+  try {
+    if (typeof getUsers === 'function') {
+      const users = getUsers() || [];
+      users.forEach(user => {
+        if (!user) return;
+        if (!isAgentUserRecord_(user)) {
+          return;
+        }
+        addUserToDirectory(user);
+      });
+    }
+  } catch (error) {
+    console.warn('buildAgentDirectory_ failed:', error);
+  }
+
+  return directory;
+}
+
 function isManagerPerson_(name, directory) {
   if (!directory) {
     return false;
@@ -3630,6 +3693,107 @@ function isManagerPerson_(name, directory) {
   }
 
   return false;
+}
+
+function isAgentPerson_(name, directory) {
+  if (!directory) {
+    return false;
+  }
+
+  const normalized = normalizePersonKey_(name);
+  if (!normalized) {
+    return false;
+  }
+
+  if (directory.normalizedNames && directory.normalizedNames.has(normalized)) {
+    return true;
+  }
+
+  if (directory.normalizedEmails && directory.normalizedEmails.has(normalized)) {
+    return true;
+  }
+
+  return false;
+}
+
+function isAgentUserRecord_(user) {
+  if (!user) {
+    return false;
+  }
+
+  if (typeof user.isAgent === 'boolean' && user.isAgent) {
+    return true;
+  }
+
+  const agentFields = [
+    user.roleNames,
+    user.roles,
+    user.Role,
+    user.role,
+    user.PrimaryRole,
+    user.primaryRole,
+    user.JobTitle,
+    user.jobTitle,
+    user.Title,
+    user.title,
+    user.Position,
+    user.position,
+    user.Persona,
+    user.persona,
+    user.PersonaName,
+    user.personaName,
+    user.PersonaLabel,
+    user.personaLabel,
+    user.Department,
+    user.department,
+    user.Team,
+    user.team
+  ];
+
+  return agentFields.some(value => candidateHasAgentKeyword_(value));
+}
+
+function candidateHasAgentKeyword_(value) {
+  if (value == null) {
+    return false;
+  }
+
+  if (Array.isArray(value)) {
+    return value.some(candidateHasAgentKeyword_);
+  }
+
+  if (typeof value === 'object') {
+    const possible = [
+      value.Name,
+      value.name,
+      value.Title,
+      value.title,
+      value.Label,
+      value.label,
+      value.Role,
+      value.role,
+      value.Value,
+      value.value,
+      value.text,
+      value.Text
+    ];
+    return possible.some(candidateHasAgentKeyword_);
+  }
+
+  const tokens = normalizeWordTokens_(value);
+  if (!tokens.length) {
+    return false;
+  }
+
+  return tokens.some(token => AGENT_ROLE_KEYWORDS.includes(token));
+}
+
+function normalizeWordTokens_(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean);
 }
 
 function createBasicAnalytics(filtered, granularity, periodId, agentFilter, periodStart, periodEnd, managerDirectory, hourPolicy) {
