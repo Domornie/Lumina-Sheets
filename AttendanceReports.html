@@ -4933,6 +4933,61 @@
       window.URL.revokeObjectURL(url);
     }
 
+    downloadGoogleSheet(result) {
+      const url = result?.spreadsheetUrl || result?.url;
+      if (!url) {
+        this.showErrorMessage('Google Sheets link unavailable for this export.');
+        return;
+      }
+
+      const providedName = (typeof result?.filename === 'string' && result.filename.trim())
+        ? result.filename.trim()
+        : '';
+      let finalName = providedName || `attendance_matrix_${new Date().toISOString().split('T')[0]}.gsheet`;
+
+      if (!/\.gsheet$/i.test(finalName)) {
+        const baseName = finalName.replace(/\.(csv|xlsx)$/ig, '').trim() || `attendance_matrix_${new Date().toISOString().split('T')[0]}`;
+        finalName = `${baseName}.gsheet`;
+      }
+
+      const descriptor = {
+        url,
+        mimeType: 'application/vnd.google-apps.spreadsheet'
+      };
+
+      if (typeof result?.spreadsheetName === 'string' && result.spreadsheetName.trim()) {
+        descriptor.name = result.spreadsheetName.trim();
+      } else if (typeof result?.sheetTitle === 'string' && result.sheetTitle.trim()) {
+        descriptor.name = result.sheetTitle.trim();
+      } else {
+        descriptor.name = finalName.replace(/\.gsheet$/i, '');
+      }
+
+      if (typeof result?.fileId === 'string' && result.fileId.trim()) {
+        descriptor.documentId = result.fileId.trim();
+      }
+
+      if (typeof result?.periodLabel === 'string' && result.periodLabel.trim()) {
+        descriptor.periodLabel = result.periodLabel.trim();
+      }
+
+      if (result?.customRange && typeof result.customRange === 'object') {
+        const rangeStart = typeof result.customRange.startIso === 'string' ? result.customRange.startIso : '';
+        const rangeEnd = typeof result.customRange.endIso === 'string' ? result.customRange.endIso : '';
+        if (rangeStart || rangeEnd) {
+          descriptor.rangeStart = rangeStart;
+          descriptor.rangeEnd = rangeEnd;
+          const label = typeof result.customRange.displayLabel === 'string' ? result.customRange.displayLabel : '';
+          if (label) {
+            descriptor.rangeLabel = label;
+          }
+        }
+      }
+
+      const jsonDescriptor = JSON.stringify(descriptor, null, 2);
+      this.downloadFile(jsonDescriptor, finalName, 'application/json', false);
+    }
+
     openSpreadsheet(url) {
       if (!url) {
         this.showErrorMessage('Google Sheets link unavailable for this export.');
