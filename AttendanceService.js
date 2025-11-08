@@ -3697,7 +3697,16 @@ function isManagerPerson_(name, directory) {
 
 function isAgentPerson_(name, directory) {
   if (!directory) {
-    return false;
+    return true;
+  }
+
+  const hasDirectoryEntries = Boolean(
+    (directory.normalizedNames && directory.normalizedNames.size)
+      || (directory.normalizedEmails && directory.normalizedEmails.size)
+  );
+
+  if (!hasDirectoryEntries) {
+    return true;
   }
 
   const normalized = normalizePersonKey_(name);
