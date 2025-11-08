@@ -2221,8 +2221,13 @@
           select.appendChild(opt);
         }
 
-        if (this.currentAgent && select.querySelector(`option[value="${this.currentAgent}"]`)) {
-          select.value = this.currentAgent;
+        this.synchronizeAgentFilterOptions();
+
+        if (this.currentAgent) {
+          const hasCurrentAgent = Array.from(select.options).some(opt => opt.value === this.currentAgent);
+          if (hasCurrentAgent) {
+            select.value = this.currentAgent;
+          }
         }
       } catch (error) {
         console.error('Error loading user list:', error);
@@ -2232,6 +2237,76 @@
         if (select) {
           select.innerHTML = '<option value="">👥 All Agents</option><option value="" disabled>Error loading users</option>';
         }
+      }
+    }
+
+    extractAgentNamesFromData() {
+      const names = new Set();
+      const addName = (value) => {
+        if (typeof value !== 'string') return;
+        const trimmed = value.trim();
+        if (trimmed) {
+          names.add(trimmed);
+        }
+      };
+
+      if (!this.currentData) {
+        return [];
+      }
+
+      try {
+        if (Array.isArray(this.currentData.filteredRows)) {
+          this.currentData.filteredRows.forEach(row => addName(row.user || row.User || row.agentName));
+        }
+
+        if (Array.isArray(this.currentData.userCompliance)) {
+          this.currentData.userCompliance.forEach(entry => addName(entry.user || entry.User || entry.agent));
+        }
+
+        if (Array.isArray(this.currentData.top5Attendance)) {
+          this.currentData.top5Attendance.forEach(entry => addName(entry.user || entry.User || entry.agent));
+        }
+      } catch (error) {
+        console.warn('Unable to extract agent names from data:', error);
+      }
+
+      return Array.from(names);
+    }
+
+    synchronizeAgentFilterOptions() {
+      const select = document.getElementById('agentSelect');
+      if (!select) {
+        return;
+      }
+
+      const existingOptions = Array.from(select.options)
+        .map(option => option.value)
+        .filter(value => value && typeof value === 'string');
+
+      const dataNames = this.extractAgentNamesFromData();
+      const combined = Array.from(new Set([...existingOptions, ...dataNames]))
+        .filter(Boolean)
+        .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+
+      const previousValue = this.currentAgent || select.value || '';
+
+      select.innerHTML = '<option value="">👥 All Agents</option>';
+
+      combined.forEach(name => {
+        const option = document.createElement('option');
+        option.value = name;
+        option.textContent = name;
+        select.appendChild(option);
+      });
+
+      if (previousValue && combined.includes(previousValue)) {
+        select.value = previousValue;
+      } else {
+        select.value = '';
+      }
+
+      if (combined.length) {
+        window.INITIAL_USER_LIST = [...combined];
       }
     }
 
@@ -2541,6 +2616,7 @@
         this.renderAttendanceTable();
         this.renderDailyBreakdownBars();
 
+        this.synchronizeAgentFilterOptions();
         this.renderIntelligentInsights();
         this.updateViewMode();
         this.showToast('Attendance dashboard updated', 'success');
