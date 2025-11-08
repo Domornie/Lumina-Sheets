@@ -3578,46 +3578,46 @@
                         dashboard: state.attendance.dashboard || null
                     };
 
-                    if (this.attendanceDashboardPrefetch.records.length && this.attendanceDashboardPrefetch.year) {
-                        this.mergeAttendanceDashboardRecords(
-                            this.attendanceDashboardPrefetch.records,
-                            this.attendanceDashboardPrefetch.year
-                        );
-                    }
+                    const snapshot = state.attendance.dashboard || null;
+                    const prefetch = this.attendanceDashboardPrefetch;
+                    const prefetchRecords = Array.isArray(prefetch.records)
+                        ? prefetch.records.slice()
+                        : [];
+                    const resolvedPrefetchYear = Number.parseInt(prefetch.year, 10);
+                    const prefetchYear = Number.isFinite(resolvedPrefetchYear)
+                        ? resolvedPrefetchYear
+                        : this.getSelectedAttendanceYear();
+                    const hasPrefetchRecords = prefetchRecords.length > 0;
 
-                    if (state.attendance.dashboard && state.attendance.dashboard.success) {
-                        const year = this.attendanceDashboardPrefetch.year || this.getSelectedAttendanceYear();
-                        this.attendanceDashboardYear = year;
-                        this.attendanceDashboardRecords = this.attendanceDashboardPrefetch.records.slice();
+                    if (hasPrefetchRecords) {
+                        this.attendanceDashboardYear = prefetchYear;
+                        this.attendanceDashboardRecords = prefetchRecords.slice();
                         this.collectAttendanceDashboardRecordUsers(this.attendanceDashboardRecords);
                         const filteredRecords = this.filterAttendanceDashboardRecords(
                             this.attendanceDashboardRecords,
                             this.attendanceDashboardUserFilter
                         );
-                        const computedDashboard = this.computeAttendanceDashboard(filteredRecords, year);
+                        const computedDashboard = this.computeAttendanceDashboard(filteredRecords, prefetchYear);
+                        const reconciledDashboard = snapshot
+                            ? this.reconcileAttendanceDashboardSnapshot(snapshot, computedDashboard, prefetchYear)
+                            : computedDashboard;
+                        this.applyAttendanceDashboardHydration(reconciledDashboard, prefetchYear);
+                    } else if (snapshot) {
+                        const fallbackYearCandidate = Number.parseInt(snapshot.year, 10);
+                        const fallbackYear = Number.isFinite(fallbackYearCandidate)
+                            ? fallbackYearCandidate
+                            : (Number.isFinite(this.attendanceDashboardYear)
+                                ? this.attendanceDashboardYear
+                                : this.getSelectedAttendanceYear());
+                        const fallbackComputed = this.computeAttendanceDashboard([], fallbackYear);
                         const reconciledDashboard = this.reconcileAttendanceDashboardSnapshot(
-                            state.attendance.dashboard,
-                            computedDashboard,
-                            year
+                            snapshot,
+                            fallbackComputed,
+                            fallbackYear
                         );
-                        this.attendanceDashboardData = reconciledDashboard;
-                        this.attendanceRecognitionLeaders = this.resolveAttendanceRecognitionData(reconciledDashboard);
-                        this.attendancePeriodOptions = null;
-                        this.attendancePeriodOptionsYear = null;
-                        this.attendanceDashboardPeriod = '';
-                        const wasInitialized = this.attendanceDashboardInitialized;
-                        this.destroyAttendanceDashboardCharts();
-
-                        const attendanceDashboardPane = document.getElementById('attendance-dashboard');
-                        const attendanceDashboardActive = attendanceDashboardPane
-                            && attendanceDashboardPane.classList.contains('show')
-                            && attendanceDashboardPane.classList.contains('active');
-
-                        if (!attendanceDashboardActive && !wasInitialized) {
-                            console.debug('Attendance dashboard will initialize in the background for unified state data.');
-                        }
-
-                        this.initializeAttendanceDashboard();
+                        this.attendanceDashboardRecords = [];
+                        this.collectAttendanceDashboardRecordUsers(this.attendanceDashboardRecords);
+                        this.applyAttendanceDashboardHydration(reconciledDashboard, fallbackYear);
                     }
                 }
 
@@ -6906,16 +6906,12 @@
                             this.attendanceDashboardUserFilter
                         );
                         const computedPrefetchDashboard = this.computeAttendanceDashboard(filteredPrefetchRecords, year);
-                        this.attendanceDashboardData = this.reconcileAttendanceDashboardSnapshot(
+                        const reconciledPrefetchDashboard = this.reconcileAttendanceDashboardSnapshot(
                             prefetch.dashboard,
                             computedPrefetchDashboard,
                             year
                         );
-                        this.attendanceRecognitionLeaders = this.resolveAttendanceRecognitionData(this.attendanceDashboardData);
-                        this.destroyAttendanceDashboardCharts();
-                        this.attendancePeriodOptionsYear = null;
-                        this.attendancePeriodOptions = null;
-                        this.attendanceDashboardPeriod = '';
+                        this.applyAttendanceDashboardHydration(reconciledPrefetchDashboard, year);
                         return;
                     }
 
@@ -6939,25 +6935,51 @@
                     this.collectAttendanceDashboardRecordUsers(this.attendanceDashboardRecords);
                     const filteredRecords = this.filterAttendanceDashboardRecords(records, this.attendanceDashboardUserFilter);
                     const computedResponseDashboard = this.computeAttendanceDashboard(filteredRecords, year);
-                    this.attendanceDashboardData = this.reconcileAttendanceDashboardSnapshot(
+                    const reconciledResponseDashboard = this.reconcileAttendanceDashboardSnapshot(
                         this.attendanceDashboardPrefetch.dashboard,
                         computedResponseDashboard,
                         year
                     );
-                    this.attendanceRecognitionLeaders = this.resolveAttendanceRecognitionData(this.attendanceDashboardData);
-                    this.destroyAttendanceDashboardCharts();
-                    this.attendancePeriodOptionsYear = null;
-                    this.attendancePeriodOptions = null;
-                    this.attendanceDashboardPeriod = '';
+                    this.applyAttendanceDashboardHydration(reconciledResponseDashboard, year);
                 } catch (error) {
                     console.error('Error loading attendance dashboard data:', error);
                     this.attendanceDashboardYear = year;
                     this.attendanceDashboardRecords = [];
                     this.collectAttendanceDashboardRecordUsers(this.attendanceDashboardRecords);
-                    this.attendanceDashboardData = this.computeAttendanceDashboard([], year);
-                    this.destroyAttendanceDashboardCharts();
+                    const fallbackDashboard = this.computeAttendanceDashboard([], year);
+                    this.applyAttendanceDashboardHydration(fallbackDashboard, year);
                     this.showToast('Failed to load attendance dashboard: ' + error.message, 'danger');
                 }
+            }
+
+            applyAttendanceDashboardHydration(data, year) {
+                if (!data || typeof data !== 'object') {
+                    return;
+                }
+
+                if (Number.isFinite(year)) {
+                    this.attendanceDashboardYear = year;
+                }
+
+                this.attendanceDashboardData = data;
+                this.attendanceRecognitionLeaders = this.resolveAttendanceRecognitionData(data);
+                this.attendancePeriodOptions = null;
+                this.attendancePeriodOptionsYear = null;
+                this.attendanceDashboardPeriod = '';
+
+                const wasInitialized = this.attendanceDashboardInitialized;
+                this.destroyAttendanceDashboardCharts();
+
+                const attendanceDashboardPane = document.getElementById('attendance-dashboard');
+                const attendanceDashboardActive = attendanceDashboardPane
+                    && attendanceDashboardPane.classList.contains('show')
+                    && attendanceDashboardPane.classList.contains('active');
+
+                if (!attendanceDashboardActive && !wasInitialized) {
+                    console.debug('Attendance dashboard will initialize in the background with refreshed data.');
+                }
+
+                this.initializeAttendanceDashboard();
             }
 
             destroyAttendanceDashboardCharts() {
