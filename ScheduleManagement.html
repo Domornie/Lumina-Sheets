@@ -2576,6 +2576,10 @@
                             </h5>
                         </div>
                         <div class="modern-card-body">
+                            <div class="alert alert-info-modern mb-4" role="status">
+                                <i class="fas fa-magic me-2"></i>
+                                <strong>Generate a shift slot configuration:</strong> choose the time range, campaign, and coverage details below. The summary panel updates live so you can confirm the slot that will be created for your agents.
+                            </div>
                             <form id="shiftSlotForm">
                                 <!-- Basic Information -->
                                 <div class="mb-4">
@@ -2659,6 +2663,28 @@
                                     ></textarea>
                                 </div>
 
+                                <div class="border rounded-3 bg-light p-3 mb-4" id="shiftSlotSummary" aria-live="polite">
+                                    <div class="d-flex align-items-center mb-2">
+                                        <i class="fas fa-clipboard-check text-primary me-2"></i>
+                                        <h6 class="mb-0">Shift Slot Summary</h6>
+                                    </div>
+                                    <dl class="row mb-0 small">
+                                        <dt class="col-sm-4">Slot name</dt>
+                                        <dd class="col-sm-8" id="slotSummaryName">Add a descriptive slot name.</dd>
+                                        <dt class="col-sm-4">Time range</dt>
+                                        <dd class="col-sm-8" id="slotSummaryTime">Select start and end times.</dd>
+                                        <dt class="col-sm-4">Days covered</dt>
+                                        <dd class="col-sm-8" id="slotSummaryDays">Choose one or more days.</dd>
+                                        <dt class="col-sm-4">Campaign</dt>
+                                        <dd class="col-sm-8" id="slotSummaryDepartment">Select a campaign or department.</dd>
+                                        <dt class="col-sm-4">Location</dt>
+                                        <dd class="col-sm-8" id="slotSummaryLocation">Specify where this shift is worked.</dd>
+                                        <dt class="col-sm-4">Configuration</dt>
+                                        <dd class="col-sm-8" id="slotSummaryConfiguration">System break, lunch, and rule settings will be applied automatically.</dd>
+                                        <dt class="col-sm-4">Notes</dt>
+                                        <dd class="col-sm-8" id="slotSummaryNotes">Optional notes appear for managers.</dd>
+                                    </dl>
+                                </div>
 
                                 <div class="d-flex gap-3">
                                     <button type="submit" class="btn btn-success-modern btn-modern flex-fill">
@@ -3377,6 +3403,28 @@
                 [startTime, endTime].forEach(input => {
                     input?.addEventListener('change', this.calculateOptimalBreakTimes.bind(this));
                 });
+
+                const summaryUpdater = this.updateShiftSlotSummary.bind(this);
+                ['slotName', 'slotStartTime', 'slotEndTime', 'slotDepartment', 'slotLocation', 'slotDescription'].forEach(id => {
+                    const element = document.getElementById(id);
+                    if (!element) {
+                        return;
+                    }
+                    const events = element.tagName === 'SELECT' ? ['change'] : ['input', 'change'];
+                    events.forEach(eventName => element.addEventListener(eventName, summaryUpdater));
+                });
+
+                ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'].forEach(id => {
+                    const checkbox = document.getElementById(id);
+                    checkbox?.addEventListener('change', summaryUpdater);
+                });
+
+                ['enableOvertime', 'enableStaggeredBreaks'].forEach(id => {
+                    const toggle = document.getElementById(id);
+                    toggle?.addEventListener('change', summaryUpdater);
+                });
+
+                summaryUpdater();
             }
 
             initializeBreakDurationCalculator() {
@@ -5823,11 +5871,21 @@
                     }
 
                     let normalized = this.normalizeShiftSlotCreationResponse(result);
-                    if (!normalized.success && !usedLegacyEndpoint && normalized.needsLegacyFallback) {
-                        console.warn('Enhanced endpoint returned an unexpected response. Falling back to legacy shift slot creation.');
-                        usedLegacyEndpoint = true;
-                        result = await this.callServerFunction('clientCreateShiftSlot', slotData);
-                        normalized = this.normalizeShiftSlotCreationResponse(result);
+                    if (!normalized.success && normalized.needsLegacyFallback && !usedLegacyEndpoint) {
+                        const verified = await this.confirmShiftSlotCreation(slotData, { attempts: 2, delayMs: 400 });
+                        if (verified) {
+                            console.info('Shift slot creation verified after ambiguous enhanced response.');
+                            normalized = Object.assign({}, normalized, {
+                                success: true,
+                                needsLegacyFallback: false,
+                                message: normalized.message || 'Shift slot created successfully.'
+                            });
+                        } else {
+                            console.warn('Enhanced endpoint returned an unexpected response. Falling back to legacy shift slot creation.');
+                            usedLegacyEndpoint = true;
+                            result = await this.callServerFunction('clientCreateShiftSlot', slotData);
+                            normalized = this.normalizeShiftSlotCreationResponse(result);
+                        }
                     }
 
                     if (normalized.success) {
@@ -6473,6 +6531,70 @@
                 };
             }
 
+            updateShiftSlotSummary() {
+                const setSummaryText = (id, text) => {
+                    const element = document.getElementById(id);
+                    if (element) {
+                        element.textContent = text;
+                    }
+                };
+
+                const nameValue = (document.getElementById('slotName')?.value || '').trim();
+                setSummaryText('slotSummaryName', nameValue || 'Add a descriptive slot name.');
+
+                const startValue = document.getElementById('slotStartTime')?.value || '';
+                const endValue = document.getElementById('slotEndTime')?.value || '';
+                const formattedStart = startValue ? this.formatTimeValue(startValue) : '';
+                const formattedEnd = endValue ? this.formatTimeValue(endValue) : '';
+                if (formattedStart || formattedEnd) {
+                    const startLabel = formattedStart || '—';
+                    const endLabel = formattedEnd || '—';
+                    setSummaryText('slotSummaryTime', `${startLabel} – ${endLabel}`);
+                } else {
+                    setSummaryText('slotSummaryTime', 'Select start and end times.');
+                }
+
+                const dayIds = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+                const selectedDays = dayIds
+                    .map((id, index) => ({ checkbox: document.getElementById(id), index }))
+                    .filter(entry => entry.checkbox && entry.checkbox.checked)
+                    .map(entry => parseInt(entry.checkbox.value ?? entry.index, 10))
+                    .filter(Number.isFinite)
+                    .sort((a, b) => a - b);
+
+                if (selectedDays.length) {
+                    setSummaryText('slotSummaryDays', this.formatDaysOfWeek(selectedDays));
+                } else {
+                    setSummaryText('slotSummaryDays', 'Choose one or more days.');
+                }
+
+                const department = (document.getElementById('slotDepartment')?.value || '').trim();
+                setSummaryText('slotSummaryDepartment', department || 'Select a campaign or department.');
+
+                const location = (document.getElementById('slotLocation')?.value || '').trim();
+                setSummaryText('slotSummaryLocation', location || 'Specify where this shift is worked.');
+
+                const overtimeToggle = document.getElementById('enableOvertime');
+                const staggeredToggle = document.getElementById('enableStaggeredBreaks');
+                const configurationBits = [];
+
+                if (staggeredToggle) {
+                    configurationBits.push(staggeredToggle.checked ? 'Staggered breaks enabled' : 'Staggered breaks disabled');
+                }
+
+                if (overtimeToggle) {
+                    configurationBits.push(overtimeToggle.checked ? 'Overtime rules enabled' : 'Overtime rules disabled');
+                }
+
+                const configurationSummary = configurationBits.length
+                    ? configurationBits.join(' • ')
+                    : 'System break, lunch, and rule settings will be applied automatically.';
+                setSummaryText('slotSummaryConfiguration', configurationSummary);
+
+                const notes = (document.getElementById('slotDescription')?.value || '').trim();
+                setSummaryText('slotSummaryNotes', notes || 'Optional notes appear for managers.');
+            }
+
             resetShiftSlotForm() {
                 document.getElementById('shiftSlotForm').reset();
 
@@ -6503,6 +6625,8 @@
                 if (staggeredConfig) {
                     staggeredConfig.style.display = 'block';
                 }
+
+                this.updateShiftSlotSummary();
             }
 
             calculateOptimalBreakTimes() {
@@ -16203,20 +16327,56 @@
                 }
 
                 try {
+                    const formatFromParts = (hours, minutes) => {
+                        if (!Number.isFinite(hours) || !Number.isFinite(minutes)) {
+                            return '';
+                        }
+                        const normalizedHours = ((hours % 24) + 24) % 24;
+                        const normalizedMinutes = ((minutes % 60) + 60) % 60;
+                        const date = new Date(2000, 0, 1, normalizedHours, normalizedMinutes, 0, 0);
+                        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    };
+
                     if (typeof timeValue === 'string') {
-                        if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(timeValue)) {
-                            const [hours, minutes] = timeValue.split(':');
-                            const date = new Date();
-                            date.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0);
-                            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                        const trimmed = timeValue.trim();
+                        if (!trimmed) {
+                            return '';
                         }
 
-                        const parsed = new Date(timeValue);
+                        const meridiemMatch = trimmed.match(/^(\d{1,2})(?::(\d{2}))?\s*(AM|PM)$/i);
+                        if (meridiemMatch) {
+                            let hours = parseInt(meridiemMatch[1], 10);
+                            const minutes = parseInt(meridiemMatch[2] || '0', 10);
+                            const modifier = meridiemMatch[3].toUpperCase();
+                            if (hours === 12) {
+                                hours = 0;
+                            }
+                            if (modifier === 'PM') {
+                                hours += 12;
+                            }
+                            return formatFromParts(hours, minutes);
+                        }
+
+                        const compactMatch = trimmed.match(/^(\d{1,2})(\d{2})$/);
+                        if (compactMatch) {
+                            const hours = parseInt(compactMatch[1], 10);
+                            const minutes = parseInt(compactMatch[2], 10);
+                            return formatFromParts(hours, minutes);
+                        }
+
+                        const colonMatch = trimmed.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+                        if (colonMatch) {
+                            const hours = parseInt(colonMatch[1], 10);
+                            const minutes = parseInt(colonMatch[2], 10);
+                            return formatFromParts(hours, minutes);
+                        }
+
+                        const parsed = new Date(trimmed);
                         if (!isNaN(parsed.getTime())) {
                             return parsed.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                         }
 
-                        return timeValue;
+                        return trimmed;
                     }
 
                     if (timeValue instanceof Date) {
@@ -16226,9 +16386,9 @@
                     if (typeof timeValue === 'number') {
                         if (timeValue >= 0 && timeValue < 1) {
                             const totalMinutes = Math.round(timeValue * 24 * 60);
-                            const hours = Math.floor(totalMinutes / 60).toString().padStart(2, '0');
-                            const minutes = (totalMinutes % 60).toString().padStart(2, '0');
-                            return `${hours}:${minutes}`;
+                            const hours = Math.floor(totalMinutes / 60);
+                            const minutes = totalMinutes % 60;
+                            return formatFromParts(hours, minutes);
                         }
 
                         const date = new Date(timeValue);

@@ -1942,11 +1942,48 @@ function clientDeleteShiftSlot(slot) {
     }
 
     if (rowToDelete === -1 || !deletedSlotRecord) {
-      return {
-        success: false,
-        error: 'Shift slot not found. It may have already been deleted.',
-        slotId: normalizedId
-      };
+      const fallbackSeparatorIndex = normalizedId.indexOf('|');
+      if (fallbackSeparatorIndex !== -1) {
+        const fallbackName = normalizedId.slice(0, fallbackSeparatorIndex).trim().toLowerCase();
+        const fallbackTimeRange = normalizedId.slice(fallbackSeparatorIndex + 1).trim();
+        const [fallbackStartRaw, fallbackEndRaw] = fallbackTimeRange.split('-').map(part => part ? part.trim() : '');
+        const fallbackStart = normalizeTimeTo12Hour(fallbackStartRaw || '') || '';
+        const fallbackEnd = normalizeTimeTo12Hour(fallbackEndRaw || '') || '';
+
+        for (let rowIndex = 1; rowIndex < data.length; rowIndex++) {
+          const rowValues = data[rowIndex];
+          const record = {};
+
+          headers.forEach((header, columnIndex) => {
+            record[header] = rowValues[columnIndex];
+          });
+
+          const recordName = (record.Name || record.SlotName || '').toString().trim().toLowerCase();
+          if (!recordName || recordName !== fallbackName) {
+            continue;
+          }
+
+          const recordStart = normalizeTimeTo12Hour(record.StartTime || record.startTime || record['Start Time'] || '') || '';
+          const recordEnd = normalizeTimeTo12Hour(record.EndTime || record.endTime || record['End Time'] || '') || '';
+
+          const startMatches = fallbackStart ? recordStart === fallbackStart : true;
+          const endMatches = fallbackEnd ? recordEnd === fallbackEnd : true;
+
+          if (startMatches && endMatches) {
+            rowToDelete = rowIndex + 1;
+            deletedSlotRecord = record;
+            break;
+          }
+        }
+      }
+
+      if (rowToDelete === -1 || !deletedSlotRecord) {
+        return {
+          success: false,
+          error: 'Shift slot not found. It may have already been deleted.',
+          slotId: normalizedId
+        };
+      }
     }
 
     sheet.deleteRow(rowToDelete);
