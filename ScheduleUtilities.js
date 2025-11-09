@@ -473,7 +473,7 @@ const SCHEDULE_GENERATION_HEADERS = [
 
 const SHIFT_SLOTS_HEADERS = [
   'ID', 'Name', 'StartTime', 'EndTime', 'DaysOfWeek', 'Department', 'Location', 'Description', 'CreatedBy',
-  'Notes', 'Status', 'CreatedAt', 'UpdatedAt', 'UpdatedBy'
+  'Notes', 'Status', 'CreatedAt', 'UpdatedAt', 'UpdatedBy', 'ConfigurationJSON'
 ];
 
 const SHIFT_ASSIGNMENTS_HEADERS = [
