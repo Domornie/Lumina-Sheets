@@ -1764,7 +1764,7 @@ function clientCreateShiftSlot(slotData) {
       };
     }
 
-    const campaign = (slotData.campaign || slotData.Campaign || 'General').toString().trim();
+    const campaign = (slotData.campaign || slotData.Campaign || slotData.department || slotData.Department || 'General').toString().trim();
     const slotName = slotData.name.toString().trim();
 
     const duplicate = existingSlots.some(slot => {
@@ -1782,9 +1782,6 @@ function clientCreateShiftSlot(slotData) {
       };
     }
 
-    const slotConfiguration = normalizeSlotConfiguration(slotData || {}, slotData || {});
-    const serializedConfiguration = slotConfiguration.serialized || serializeSlotConfiguration(slotConfiguration);
-
     const slotRecord = {
       ID: slotId,
       Name: slotName,
@@ -1800,13 +1797,12 @@ function clientCreateShiftSlot(slotData) {
       CreatedAt: now,
       UpdatedAt: now,
       UpdatedBy: actorLabel,
-      ConfigurationJSON: serializedConfiguration,
+      ConfigurationJSON: '',
       // compatibility aliases
       SlotId: slotId,
       SlotName: slotName,
       Campaign: campaign,
-      DaysCSV: daysCsv,
-      SlotConfiguration: slotConfiguration
+      DaysCSV: daysCsv
     };
 
     const rowData = SHIFT_SLOTS_HEADERS.map(header => Object.prototype.hasOwnProperty.call(slotRecord, header) ? slotRecord[header] : '');

@@ -5855,36 +5855,18 @@
 
                     console.log('Creating shift slot with data:', slotData);
 
-                    let result;
-                    let usedLegacyEndpoint = false;
-
-                    try {
-                        result = await this.callServerFunction('clientCreateEnhancedShiftSlot', slotData);
-                    } catch (primaryError) {
-                        if (this.shouldFallbackToLegacySlotCreation(primaryError)) {
-                            console.warn('Enhanced endpoint unavailable, retrying legacy shift slot creation.', primaryError);
-                            usedLegacyEndpoint = true;
-                            result = await this.callServerFunction('clientCreateShiftSlot', slotData);
-                        } else {
-                            throw primaryError;
-                        }
-                    }
+                    const result = await this.callServerFunction('clientCreateShiftSlot', slotData);
 
                     let normalized = this.normalizeShiftSlotCreationResponse(result);
-                    if (!normalized.success && normalized.needsLegacyFallback && !usedLegacyEndpoint) {
+                    if (!normalized.success && normalized.needsLegacyFallback) {
                         const verified = await this.confirmShiftSlotCreation(slotData, { attempts: 2, delayMs: 400 });
                         if (verified) {
-                            console.info('Shift slot creation verified after ambiguous enhanced response.');
+                            console.info('Shift slot creation verified after ambiguous response.');
                             normalized = Object.assign({}, normalized, {
                                 success: true,
                                 needsLegacyFallback: false,
                                 message: normalized.message || 'Shift slot created successfully.'
                             });
-                        } else {
-                            console.warn('Enhanced endpoint returned an unexpected response. Falling back to legacy shift slot creation.');
-                            usedLegacyEndpoint = true;
-                            result = await this.callServerFunction('clientCreateShiftSlot', slotData);
-                            normalized = this.normalizeShiftSlotCreationResponse(result);
                         }
                     }
 
@@ -5895,16 +5877,6 @@
                         await this.loadShiftSlots();
                     } else {
                         if (normalized.needsLegacyFallback) {
-                            const confirmed = await this.confirmShiftSlotCreation(slotData, { attempts: 4, delayMs: 450 });
-                            if (confirmed) {
-                                const fallbackMessage = 'Shift slot created successfully. Server confirmation was delayed, but we verified it and refreshed the schedule.';
-                                console.info('Shift slot creation confirmed via post-check despite missing server response.');
-                                this.showToast(fallbackMessage, 'success');
-                                this.resetShiftSlotForm();
-                                await this.loadShiftSlots();
-                                return;
-                            }
-
                             const fallbackMessage = 'The server did not confirm the shift slot creation. We refreshed the schedule so you can verify the new slot manually.';
                             console.warn('Shift slot creation could not be confirmed due to missing server response.');
                             this.showToast(fallbackMessage, 'warning');
@@ -5960,23 +5932,6 @@
                 } finally {
                     this.showLoading(false);
                 }
-            }
-
-            shouldFallbackToLegacySlotCreation(error) {
-                if (!error) {
-                    return false;
-                }
-
-                const message = typeof error === 'string' ? error : (error.message || '');
-                if (!message) {
-                    return false;
-                }
-
-                const normalized = message.toLowerCase();
-                return normalized.includes('not a function') ||
-                    normalized.includes('is not defined') ||
-                    normalized.includes('unknown function') ||
-                    normalized.includes('cannot call');
             }
 
             normalizeShiftSlotCreationResponse(rawResult) {
