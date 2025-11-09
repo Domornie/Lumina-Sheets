@@ -462,6 +462,8 @@ function writeShiftAssignments(assignments, actorId, notes, statusOverride) {
     );
   });
 
+  invalidateScheduleCaches();
+
   return { success: true, count: rows.length };
 }
 
@@ -516,6 +518,373 @@ function buildDateSeries(startDateStr, endDateStr) {
   }
 
   return dates;
+}
+
+function safeParseJson(value, fallback = null) {
+  if (!value && value !== 0) {
+    return fallback;
+  }
+
+  if (typeof value === 'object') {
+    return value;
+  }
+
+  if (typeof value !== 'string') {
+    return fallback;
+  }
+
+  try {
+    return JSON.parse(value);
+  } catch (error) {
+    console.warn('Unable to parse JSON value:', error);
+    return fallback;
+  }
+}
+
+function coerceScheduleNumber(value, fallback = 0, { min = null, max = null } = {}) {
+  const fallbackNumber = Number(fallback);
+  let resolved = Number(value);
+
+  if (!Number.isFinite(resolved)) {
+    resolved = Number.isFinite(fallbackNumber) ? fallbackNumber : 0;
+  }
+
+  if (typeof min === 'number' && resolved < min) {
+    resolved = min;
+  }
+
+  if (typeof max === 'number' && resolved > max) {
+    resolved = max;
+  }
+
+  return resolved;
+}
+
+function coerceScheduleBoolean(value, fallback = false) {
+  if (value === null || typeof value === 'undefined' || value === '') {
+    return Boolean(fallback);
+  }
+  return scheduleFlagToBool(value);
+}
+
+function serializeSlotConfiguration(config = {}) {
+  const payload = {
+    capacity: Object.assign({}, config.capacity || {}),
+    breaks: Object.assign({}, config.breaks || {}),
+    overtime: Object.assign({}, config.overtime || {}),
+    advanced: Object.assign({}, config.advanced || {})
+  };
+  try {
+    return JSON.stringify(payload);
+  } catch (error) {
+    console.warn('Unable to serialize slot configuration:', error);
+    return JSON.stringify({});
+  }
+}
+
+function normalizeSlotConfiguration(slot = {}, fallbackOptions = {}) {
+  const fallbackNormalized = normalizeGenerationOptions(fallbackOptions || {});
+  const config = {
+    capacity: Object.assign({}, fallbackNormalized.capacity || {}),
+    breaks: Object.assign({}, fallbackNormalized.breaks || {}),
+    overtime: Object.assign({}, fallbackNormalized.overtime || {}),
+    advanced: Object.assign({}, fallbackNormalized.advanced || {})
+  };
+
+  const configurationCandidates = [
+    slot.SlotConfiguration,
+    slot.ConfigurationJSON,
+    slot.ConfigurationJson,
+    slot.ConfigJSON,
+    slot.Configuration,
+    slot.SettingsJSON,
+    slot.GenerationConfig,
+    slot.configuration,
+    slot.config
+  ];
+
+  for (let index = 0; index < configurationCandidates.length; index++) {
+    const candidate = configurationCandidates[index];
+    if (!candidate && candidate !== 0) {
+      continue;
+    }
+
+    const parsed = safeParseJson(candidate, null);
+    if (parsed) {
+      const normalized = normalizeGenerationOptions(parsed);
+      config.capacity = Object.assign(config.capacity, normalized.capacity || {});
+      config.breaks = Object.assign(config.breaks, normalized.breaks || {});
+      config.overtime = Object.assign(config.overtime, normalized.overtime || {});
+      config.advanced = Object.assign(config.advanced, normalized.advanced || {});
+      break;
+    }
+  }
+
+  const resolveNumberCandidate = (values, options = {}) => {
+    for (let i = 0; i < values.length; i++) {
+      const candidate = values[i];
+      if (candidate === null || typeof candidate === 'undefined' || candidate === '') {
+        continue;
+      }
+      const resolved = Number(candidate);
+      if (!Number.isFinite(resolved)) {
+        continue;
+      }
+      let output = resolved;
+      if (typeof options.min === 'number' && output < options.min) {
+        output = options.min;
+      }
+      if (typeof options.max === 'number' && output > options.max) {
+        output = options.max;
+      }
+      return output;
+    }
+    return null;
+  };
+
+  const resolveStringCandidate = (values, fallback = '') => {
+    for (let i = 0; i < values.length; i++) {
+      const candidate = values[i];
+      if (candidate === null || typeof candidate === 'undefined') {
+        continue;
+      }
+      const value = String(candidate).trim();
+      if (value) {
+        return value;
+      }
+    }
+    return fallback;
+  };
+
+  const resolveBooleanCandidate = (values, fallback) => {
+    for (let i = 0; i < values.length; i++) {
+      const candidate = values[i];
+      if (candidate === null || typeof candidate === 'undefined' || candidate === '') {
+        continue;
+      }
+      return scheduleFlagToBool(candidate);
+    }
+    return Boolean(fallback);
+  };
+
+  const capacityMax = resolveNumberCandidate([
+    slot.CapacityMax,
+    slot.MaxCapacity,
+    slot.capacityMax,
+    slot.maxCapacity
+  ], { min: 0 });
+  if (capacityMax !== null) {
+    config.capacity.max = capacityMax;
+  }
+
+  const capacityMin = resolveNumberCandidate([
+    slot.CapacityMin,
+    slot.MinCoverage,
+    slot.capacityMin,
+    slot.minCoverage
+  ], { min: 0 });
+  if (capacityMin !== null) {
+    config.capacity.min = capacityMin;
+  }
+
+  const break1 = resolveNumberCandidate([
+    slot.Break1Minutes,
+    slot.Break1Duration,
+    slot.BreakDuration,
+    slot.break1Minutes,
+    slot.break1Duration
+  ], { min: 0 });
+  if (break1 !== null) {
+    config.breaks.first = break1;
+  }
+
+  const break2 = resolveNumberCandidate([
+    slot.Break2Minutes,
+    slot.Break2Duration,
+    slot.break2Minutes,
+    slot.break2Duration
+  ], { min: 0 });
+  if (break2 !== null) {
+    config.breaks.second = break2;
+  }
+
+  const lunch = resolveNumberCandidate([
+    slot.LunchMinutes,
+    slot.LunchDuration,
+    slot.lunchMinutes,
+    slot.lunchDuration
+  ], { min: 0 });
+  if (lunch !== null) {
+    config.breaks.lunch = lunch;
+  }
+
+  const enableStaggered = resolveBooleanCandidate([
+    slot.EnableStaggeredBreaks,
+    slot.enableStaggeredBreaks
+  ], config.breaks.enableStaggered);
+  config.breaks.enableStaggered = enableStaggered;
+
+  const breakGroups = resolveNumberCandidate([
+    slot.BreakGroups,
+    slot.breakGroups
+  ], { min: 1 });
+  if (breakGroups !== null) {
+    config.breaks.groups = breakGroups;
+  }
+
+  const staggerInterval = resolveNumberCandidate([
+    slot.StaggerIntervalMinutes,
+    slot.StaggerInterval,
+    slot.staggerInterval
+  ], { min: 1 });
+  if (staggerInterval !== null) {
+    config.breaks.interval = staggerInterval;
+  }
+
+  const minCoveragePct = resolveNumberCandidate([
+    slot.MinCoveragePct,
+    slot.minCoveragePct
+  ], { min: 0, max: 100 });
+  if (minCoveragePct !== null) {
+    config.breaks.minCoveragePct = minCoveragePct;
+  }
+
+  config.advanced.allowSwaps = resolveBooleanCandidate([
+    slot.AllowSwaps,
+    slot.AllowSwap,
+    slot.allowSwaps,
+    slot.allowSwap
+  ], config.advanced.allowSwaps);
+
+  config.advanced.weekendPremium = resolveBooleanCandidate([
+    slot.WeekendPremium,
+    slot.weekendPremium
+  ], config.advanced.weekendPremium);
+
+  config.advanced.holidayPremium = resolveBooleanCandidate([
+    slot.HolidayPremium,
+    slot.holidayPremium
+  ], config.advanced.holidayPremium);
+
+  config.advanced.autoAssignment = resolveBooleanCandidate([
+    slot.AutoAssignment,
+    slot.autoAssignment
+  ], config.advanced.autoAssignment);
+
+  const restPeriod = resolveNumberCandidate([
+    slot.RestPeriodHours,
+    slot.RestPeriod,
+    slot.restPeriod
+  ], { min: 0 });
+  if (restPeriod !== null) {
+    config.advanced.restPeriod = restPeriod;
+  }
+
+  const notificationLead = resolveNumberCandidate([
+    slot.NotificationLeadHours,
+    slot.NotificationLead,
+    slot.notificationLead
+  ], { min: 0 });
+  if (notificationLead !== null) {
+    config.advanced.notificationLead = notificationLead;
+  }
+
+  const handoverTime = resolveNumberCandidate([
+    slot.HandoverMinutes,
+    slot.HandoverTime,
+    slot.handoverTime
+  ], { min: 0 });
+  if (handoverTime !== null) {
+    config.advanced.handoverTime = handoverTime;
+  }
+
+  config.overtime.enabled = resolveBooleanCandidate([
+    slot.OvertimeEnabled,
+    slot.EnableOvertime,
+    slot.enableOvertime
+  ], config.overtime.enabled);
+
+  const maxDailyOt = resolveNumberCandidate([
+    slot.MaxDailyOT,
+    slot.maxDailyOT,
+    slot.maxDailyOt
+  ], { min: 0 });
+  if (maxDailyOt !== null) {
+    config.overtime.maxDaily = maxDailyOt;
+  }
+
+  const maxWeeklyOt = resolveNumberCandidate([
+    slot.MaxWeeklyOT,
+    slot.maxWeeklyOT,
+    slot.maxWeeklyOt
+  ], { min: 0 });
+  if (maxWeeklyOt !== null) {
+    config.overtime.maxWeekly = maxWeeklyOt;
+  }
+
+  const overtimeApproval = resolveStringCandidate([
+    slot.OTApproval,
+    slot.otApproval
+  ], config.overtime.approval || 'supervisor');
+  config.overtime.approval = overtimeApproval || config.overtime.approval;
+
+  const overtimePolicy = resolveStringCandidate([
+    slot.OTPolicy,
+    slot.OvertimePolicy,
+    slot.otPolicy
+  ], config.overtime.policy || 'MANDATORY');
+  config.overtime.policy = overtimePolicy || config.overtime.policy;
+
+  const overtimeRate = resolveNumberCandidate([
+    slot.OTRate,
+    slot.otRate
+  ], { min: 1 });
+  if (overtimeRate !== null) {
+    config.overtime.rate = overtimeRate;
+  }
+
+  const sanitized = normalizeGenerationOptions(config);
+  sanitized.serialized = serializeSlotConfiguration(sanitized);
+  return sanitized;
+}
+
+function buildAssignmentBreakConfig(slotConfig = {}, dstAdjustments = [], overrides = {}) {
+  const breaks = Object.assign({
+    first: 0,
+    second: 0,
+    lunch: 0,
+    enableStaggered: false,
+    groups: '',
+    interval: '',
+    minCoveragePct: ''
+  }, slotConfig && slotConfig.breaks ? slotConfig.breaks : {});
+
+  const break1 = coerceScheduleNumber(overrides.break1 ?? breaks.first ?? 0, 0, { min: 0 });
+  const break2 = coerceScheduleNumber(overrides.break2 ?? breaks.second ?? 0, 0, { min: 0 });
+  const lunch = coerceScheduleNumber(overrides.lunch ?? breaks.lunch ?? 0, 0, { min: 0 });
+  const enableStaggered = coerceScheduleBoolean(overrides.enableStaggered ?? breaks.enableStaggered, false);
+  const groups = overrides.groups ?? breaks.groups ?? '';
+  const interval = overrides.interval ?? breaks.interval ?? '';
+  const minCoveragePct = overrides.minCoveragePct ?? breaks.minCoveragePct ?? '';
+
+  const payload = {
+    break1,
+    break2,
+    lunch,
+    enableStaggered,
+    groups,
+    interval,
+    minCoveragePct,
+    unproductive: (Number.isFinite(break1) ? break1 : 0)
+      + (Number.isFinite(break2) ? break2 : 0)
+      + (Number.isFinite(lunch) ? lunch : 0)
+  };
+
+  if (Array.isArray(dstAdjustments) && dstAdjustments.length) {
+    payload.dstAdjustments = dstAdjustments;
+  }
+
+  return payload;
 }
 
 function getSafeScheduleTimeZone() {
@@ -1413,6 +1782,9 @@ function clientCreateShiftSlot(slotData) {
       };
     }
 
+    const slotConfiguration = normalizeSlotConfiguration(slotData || {}, slotData || {});
+    const serializedConfiguration = slotConfiguration.serialized || serializeSlotConfiguration(slotConfiguration);
+
     const slotRecord = {
       ID: slotId,
       Name: slotName,
@@ -1428,11 +1800,13 @@ function clientCreateShiftSlot(slotData) {
       CreatedAt: now,
       UpdatedAt: now,
       UpdatedBy: actorLabel,
+      ConfigurationJSON: serializedConfiguration,
       // compatibility aliases
       SlotId: slotId,
       SlotName: slotName,
       Campaign: campaign,
-      DaysCSV: daysCsv
+      DaysCSV: daysCsv,
+      SlotConfiguration: slotConfiguration
     };
 
     const rowData = SHIFT_SLOTS_HEADERS.map(header => Object.prototype.hasOwnProperty.call(slotRecord, header) ? slotRecord[header] : '');
@@ -1568,11 +1942,48 @@ function clientDeleteShiftSlot(slot) {
     }
 
     if (rowToDelete === -1 || !deletedSlotRecord) {
-      return {
-        success: false,
-        error: 'Shift slot not found. It may have already been deleted.',
-        slotId: normalizedId
-      };
+      const fallbackSeparatorIndex = normalizedId.indexOf('|');
+      if (fallbackSeparatorIndex !== -1) {
+        const fallbackName = normalizedId.slice(0, fallbackSeparatorIndex).trim().toLowerCase();
+        const fallbackTimeRange = normalizedId.slice(fallbackSeparatorIndex + 1).trim();
+        const [fallbackStartRaw, fallbackEndRaw] = fallbackTimeRange.split('-').map(part => part ? part.trim() : '');
+        const fallbackStart = normalizeTimeTo12Hour(fallbackStartRaw || '') || '';
+        const fallbackEnd = normalizeTimeTo12Hour(fallbackEndRaw || '') || '';
+
+        for (let rowIndex = 1; rowIndex < data.length; rowIndex++) {
+          const rowValues = data[rowIndex];
+          const record = {};
+
+          headers.forEach((header, columnIndex) => {
+            record[header] = rowValues[columnIndex];
+          });
+
+          const recordName = (record.Name || record.SlotName || '').toString().trim().toLowerCase();
+          if (!recordName || recordName !== fallbackName) {
+            continue;
+          }
+
+          const recordStart = normalizeTimeTo12Hour(record.StartTime || record.startTime || record['Start Time'] || '') || '';
+          const recordEnd = normalizeTimeTo12Hour(record.EndTime || record.endTime || record['End Time'] || '') || '';
+
+          const startMatches = fallbackStart ? recordStart === fallbackStart : true;
+          const endMatches = fallbackEnd ? recordEnd === fallbackEnd : true;
+
+          if (startMatches && endMatches) {
+            rowToDelete = rowIndex + 1;
+            deletedSlotRecord = record;
+            break;
+          }
+        }
+      }
+
+      if (rowToDelete === -1 || !deletedSlotRecord) {
+        return {
+          success: false,
+          error: 'Shift slot not found. It may have already been deleted.',
+          slotId: normalizedId
+        };
+      }
     }
 
     sheet.deleteRow(rowToDelete);
@@ -2074,6 +2485,12 @@ function clientGetAllShiftSlots() {
       const statusValue = (slot.Status || '').toString().trim().toUpperCase();
       const status = statusValue || (scheduleFlagToBool(slot.IsActive, true) ? 'Active' : 'Archived');
 
+      const slotConfig = normalizeSlotConfiguration(slot || {}, {});
+      const configurationJson = slot.ConfigurationJSON || slotConfig.serialized || serializeSlotConfiguration(slotConfig);
+      const overtimeMinutes = slotConfig.overtime && slotConfig.overtime.enabled
+        ? Math.round(Number(slotConfig.overtime.maxDaily || 0) * 60)
+        : 0;
+
       return {
         ID: slotId,
         SlotId: slotId,
@@ -2092,7 +2509,32 @@ function clientGetAllShiftSlots() {
         CreatedAt: slot.CreatedAt || '',
         CreatedBy: slot.CreatedBy || '',
         UpdatedAt: slot.UpdatedAt || '',
-        UpdatedBy: slot.UpdatedBy || ''
+        UpdatedBy: slot.UpdatedBy || '',
+        ConfigurationJSON: configurationJson,
+        SlotConfiguration: slotConfig,
+        CapacityMax: slotConfig.capacity ? slotConfig.capacity.max : '',
+        CapacityMin: slotConfig.capacity ? slotConfig.capacity.min : '',
+        Break1Minutes: slotConfig.breaks ? slotConfig.breaks.first : '',
+        Break2Minutes: slotConfig.breaks ? slotConfig.breaks.second : '',
+        LunchMinutes: slotConfig.breaks ? slotConfig.breaks.lunch : '',
+        EnableStaggeredBreaks: slotConfig.breaks ? slotConfig.breaks.enableStaggered : false,
+        BreakGroups: slotConfig.breaks ? slotConfig.breaks.groups : '',
+        StaggerIntervalMinutes: slotConfig.breaks ? slotConfig.breaks.interval : '',
+        MinCoveragePct: slotConfig.breaks ? slotConfig.breaks.minCoveragePct : '',
+        AllowSwaps: slotConfig.advanced ? slotConfig.advanced.allowSwaps : true,
+        WeekendPremium: slotConfig.advanced ? slotConfig.advanced.weekendPremium : false,
+        HolidayPremium: slotConfig.advanced ? slotConfig.advanced.holidayPremium : false,
+        AutoAssignment: slotConfig.advanced ? slotConfig.advanced.autoAssignment : false,
+        RestPeriodHours: slotConfig.advanced ? slotConfig.advanced.restPeriod : '',
+        NotificationLeadHours: slotConfig.advanced ? slotConfig.advanced.notificationLead : '',
+        HandoverMinutes: slotConfig.advanced ? slotConfig.advanced.handoverTime : '',
+        OvertimeEnabled: slotConfig.overtime ? slotConfig.overtime.enabled : false,
+        MaxDailyOT: slotConfig.overtime ? slotConfig.overtime.maxDaily : '',
+        MaxWeeklyOT: slotConfig.overtime ? slotConfig.overtime.maxWeekly : '',
+        OvertimeApproval: slotConfig.overtime ? slotConfig.overtime.approval : '',
+        OvertimeRate: slotConfig.overtime ? slotConfig.overtime.rate : '',
+        OvertimePolicy: slotConfig.overtime ? slotConfig.overtime.policy : '',
+        OvertimeMinutes: overtimeMinutes
       };
     });
 
@@ -2419,19 +2861,37 @@ function clientGenerateSchedulesEnhanced(startDate, endDate, userNames, shiftSlo
     const actorLookupKey = actorInfo.lookupKey || 'system';
     const detectConflicts = options.detectConflicts !== false;
     const includeHolidays = options.includeHolidays !== false;
+    const normalizedGeneration = normalizeGenerationOptions(options || {});
     const advancedOptions = options.advanced || {};
     const capacityOptions = options.capacity || {};
     const breaksOptions = options.breaks || {};
     const overtimeOptions = options.overtime || {};
-    const allowSwaps = scheduleFlagToBool(advancedOptions.allowSwaps, true);
-    const restHours = Number(advancedOptions.restPeriod || 0);
-    const notificationLead = Number(advancedOptions.notificationLead || 0);
-    const handoverMinutes = Number(advancedOptions.handoverTime || 0);
-    const overtimeEnabled = scheduleFlagToBool(overtimeOptions.enabled, false);
-    const overtimeMinutes = overtimeEnabled ? Math.round(Number(overtimeOptions.maxDaily || 0) * 60) : '';
-    const maxCapacity = Number(capacityOptions.max || options.maxCapacity || 0) || null;
-    const minCoverage = Number(capacityOptions.min || options.minCoverage || 0) || 0;
-    const minCoveragePct = Number(breaksOptions.minCoveragePct || options.minCoveragePct || 0) || 0;
+
+    const globalAllowSwaps = coerceScheduleBoolean(advancedOptions.allowSwaps, normalizedGeneration.advanced.allowSwaps);
+    const globalRestHours = coerceScheduleNumber(advancedOptions.restPeriod, normalizedGeneration.advanced.restPeriod, { min: 0 });
+    const globalNotificationLead = coerceScheduleNumber(advancedOptions.notificationLead, normalizedGeneration.advanced.notificationLead, { min: 0 });
+    const globalHandoverMinutes = coerceScheduleNumber(advancedOptions.handoverTime, normalizedGeneration.advanced.handoverTime, { min: 0 });
+    const globalOvertimeEnabled = coerceScheduleBoolean(overtimeOptions.enabled, normalizedGeneration.overtime.enabled);
+    const globalOvertimeMaxDaily = coerceScheduleNumber(overtimeOptions.maxDaily, normalizedGeneration.overtime.maxDaily, { min: 0 });
+
+    const maxCapacityValue = coerceScheduleNumber(
+      Object.prototype.hasOwnProperty.call(capacityOptions, 'max') ? capacityOptions.max : options.maxCapacity,
+      normalizedGeneration.capacity.max,
+      { min: 0 }
+    );
+    const maxCapacity = maxCapacityValue > 0 ? maxCapacityValue : null;
+
+    const minCoverage = coerceScheduleNumber(
+      Object.prototype.hasOwnProperty.call(capacityOptions, 'min') ? capacityOptions.min : options.minCoverage,
+      normalizedGeneration.capacity.min,
+      { min: 0 }
+    );
+
+    const minCoveragePct = coerceScheduleNumber(
+      Object.prototype.hasOwnProperty.call(breaksOptions, 'minCoveragePct') ? breaksOptions.minCoveragePct : options.minCoveragePct,
+      normalizedGeneration.breaks.minCoveragePct,
+      { min: 0, max: 100 }
+    );
 
     let selectedSlots = clientGetAllShiftSlots();
     selectedSlots = selectedSlots.filter(slot => (slot.Status || 'Active').toUpperCase() !== 'ARCHIVED');
@@ -2449,13 +2909,63 @@ function clientGenerateSchedulesEnhanced(startDate, endDate, userNames, shiftSlo
       };
     }
 
+    const slotConfigMap = new Map();
+    const slotRestRequirements = new Map();
+    selectedSlots = selectedSlots.map(slot => {
+      const config = normalizeSlotConfiguration(slot, normalizedGeneration);
+      const configurationJson = config.serialized || serializeSlotConfiguration(config);
+      if (slot && slot.SlotId) {
+        slotConfigMap.set(slot.SlotId, config);
+        const restRequirement = coerceScheduleNumber(config.advanced ? config.advanced.restPeriod : undefined, globalRestHours, { min: 0 });
+        slotRestRequirements.set(slot.SlotId, restRequirement);
+      }
+      return Object.assign({}, slot, {
+        SlotConfiguration: config,
+        ConfigurationJSON: configurationJson
+      });
+    });
+
     const slotMap = new Map(selectedSlots.map(slot => [slot.SlotId, slot]));
     const scheduleUsers = clientGetScheduleUsers(actorLookupKey || 'system', campaignId || null);
     const userKeyMap = new Map();
     const userIdMap = new Map();
     scheduleUsers.forEach(user => {
-      userKeyMap.set(normalizeUserKey(user.UserName || user.FullName), user);
-      userIdMap.set(String(user.ID), user);
+      if (!user) {
+        return;
+      }
+
+      const idCandidates = [
+        user.ID,
+        user.Id,
+        user.UserID,
+        user.UserId,
+        user.id,
+        user.userId,
+        user.AgentID,
+        user.AgentId
+      ];
+      idCandidates.forEach(candidate => {
+        const normalized = normalizeUserIdValue(candidate);
+        if (normalized && !userIdMap.has(normalized)) {
+          userIdMap.set(normalized, user);
+        }
+      });
+
+      const keyCandidates = [
+        user.UserName,
+        user.Username,
+        user.username,
+        user.FullName,
+        user.fullName,
+        user.Email,
+        user.email
+      ];
+      keyCandidates.forEach(candidate => {
+        const key = normalizeUserKey(candidate);
+        if (key && !userKeyMap.has(key)) {
+          userKeyMap.set(key, user);
+        }
+      });
     });
 
     let targetUsers = [];
@@ -2490,13 +3000,31 @@ function clientGenerateSchedulesEnhanced(startDate, endDate, userNames, shiftSlo
 
     const normalizedCampaignId = campaignId ? campaignId.toLowerCase() : '';
     const filteredUsers = targetUsers.filter(user => {
-      if (!user || !user.ID) {
+      if (!user) {
         return false;
       }
-      if (user.isActive === false) {
+
+      const normalizedId = normalizeUserIdValue(
+        user.ID || user.Id || user.UserID || user.UserId || user.id || user.userId
+      );
+      if (!normalizedId) {
         return false;
       }
-      const normalizedId = normalizeUserIdValue(user.ID || user.UserID || user.id || user.userId);
+
+      const activeFlag = coerceScheduleBoolean(
+        Object.prototype.hasOwnProperty.call(user, 'isActive') ? user.isActive
+          : (Object.prototype.hasOwnProperty.call(user, 'IsActive') ? user.IsActive : undefined),
+        true
+      );
+      if (!activeFlag) {
+        return false;
+      }
+
+      const employmentStatus = (user.EmploymentStatus || user.Status || user.employmentStatus || '').toString().trim().toLowerCase();
+      if (employmentStatus && ['inactive', 'terminated', 'disabled', 'separated', 'archived'].includes(employmentStatus)) {
+        return false;
+      }
+
       const explicitRequest = (normalizedId && explicitlyRequestedIds.has(normalizedId))
         || explicitlyRequestedNameKeys.has(normalizeUserKey(user.UserName || user.FullName || user.Username || user.Email));
 
@@ -2520,12 +3048,23 @@ function clientGenerateSchedulesEnhanced(startDate, endDate, userNames, shiftSlo
           return false;
         }
       }
-      if (user.HireDate) {
-        const hireDate = new Date(user.HireDate);
+
+      const hireDateCandidate = user.HireDate || user.hireDate || user.StartDate || user.startDate;
+      if (hireDateCandidate) {
+        const hireDate = new Date(hireDateCandidate);
         if (!isNaN(hireDate.getTime()) && hireDate > endDateObj) {
           return false;
         }
       }
+
+      const terminationCandidate = user.TerminationDate || user.terminationDate || user.EndDate || user.endDate;
+      if (terminationCandidate) {
+        const terminationDate = new Date(terminationCandidate);
+        if (!isNaN(terminationDate.getTime()) && terminationDate < startDateObj && !explicitRequest) {
+          return false;
+        }
+      }
+
       return true;
     });
 
@@ -2580,20 +3119,43 @@ function clientGenerateSchedulesEnhanced(startDate, endDate, userNames, shiftSlo
 
       slotCounts.set(assignedSlot.SlotId, (slotCounts.get(assignedSlot.SlotId) || 0) + 1);
 
+      const slotConfig = slotConfigMap.get(assignedSlot.SlotId) || normalizeSlotConfiguration(assignedSlot, normalizedGeneration);
       const dstAdjustments = buildDstAdjustmentsForSlot(assignedSlot, dateSeries, scheduleTimeZone);
-      const breakConfig = {
-        break1: breaksOptions.first || 15,
-        break2: breaksOptions.second || 0,
-        lunch: breaksOptions.lunch || 30,
-        enableStaggered: scheduleFlagToBool(breaksOptions.enableStaggered, false),
-        groups: breaksOptions.groups || '',
-        interval: breaksOptions.interval || '',
-        minCoveragePct: breaksOptions.minCoveragePct || '',
-        unproductive: (breaksOptions.first || 0) + (breaksOptions.second || 0) + (breaksOptions.lunch || 0)
-      };
+      const breakConfig = buildAssignmentBreakConfig(slotConfig, dstAdjustments);
 
-      if (dstAdjustments.length) {
-        breakConfig.dstAdjustments = dstAdjustments;
+      const allowSwapForSlot = coerceScheduleBoolean(
+        slotConfig.advanced ? slotConfig.advanced.allowSwaps : undefined,
+        globalAllowSwaps
+      );
+      const restHoursForSlot = coerceScheduleNumber(
+        slotConfig.advanced ? slotConfig.advanced.restPeriod : undefined,
+        globalRestHours,
+        { min: 0 }
+      );
+      const notificationLeadForSlot = coerceScheduleNumber(
+        slotConfig.advanced ? slotConfig.advanced.notificationLead : undefined,
+        globalNotificationLead,
+        { min: 0 }
+      );
+      const handoverMinutesForSlot = coerceScheduleNumber(
+        slotConfig.advanced ? slotConfig.advanced.handoverTime : undefined,
+        globalHandoverMinutes,
+        { min: 0 }
+      );
+      const overtimeEnabledForSlot = coerceScheduleBoolean(
+        slotConfig.overtime ? slotConfig.overtime.enabled : undefined,
+        globalOvertimeEnabled
+      );
+      const overtimeMaxDailyForSlot = coerceScheduleNumber(
+        slotConfig.overtime ? slotConfig.overtime.maxDaily : undefined,
+        globalOvertimeMaxDaily,
+        { min: 0 }
+      );
+      const overtimeMinutesForSlot = overtimeEnabledForSlot ? Math.round(overtimeMaxDailyForSlot * 60) : '';
+
+      if (assignedSlot && assignedSlot.SlotId) {
+        const existingRestRequirement = slotRestRequirements.get(assignedSlot.SlotId) || 0;
+        slotRestRequirements.set(assignedSlot.SlotId, Math.max(existingRestRequirement, restHoursForSlot));
       }
 
       const dstNotes = summarizeDstAdjustments(dstAdjustments);
@@ -2609,13 +3171,13 @@ function clientGenerateSchedulesEnhanced(startDate, endDate, userNames, shiftSlo
         StartDate: normalizedStart,
         EndDate: normalizedEnd,
         Status: 'PENDING',
-        AllowSwap: allowSwaps,
+        AllowSwap: allowSwapForSlot,
         Premiums: '',
         BreaksConfigJSON: JSON.stringify(breakConfig),
-        OvertimeMinutes: overtimeMinutes || '',
-        RestPeriodHours: restHours || '',
-        NotificationLeadHours: notificationLead || '',
-        HandoverMinutes: handoverMinutes || '',
+        OvertimeMinutes: overtimeMinutesForSlot || '',
+        RestPeriodHours: restHoursForSlot || '',
+        NotificationLeadHours: notificationLeadForSlot || '',
+        HandoverMinutes: handoverMinutesForSlot || '',
         Notes: assignmentNotes,
         CreatedAt: now,
         CreatedBy: actorLabel,
@@ -2641,20 +3203,38 @@ function clientGenerateSchedulesEnhanced(startDate, endDate, userNames, shiftSlo
     const conflicts = [];
     const assignmentPremiums = new Map();
 
+    const getRestRequirement = slotId => {
+      if (!slotId) {
+        return globalRestHours || 0;
+      }
+      if (slotRestRequirements.has(slotId)) {
+        return slotRestRequirements.get(slotId) || 0;
+      }
+      const slotRecord = slotMap.get(slotId);
+      if (slotRecord) {
+        const config = slotConfigMap.get(slotId) || normalizeSlotConfiguration(slotRecord, normalizedGeneration);
+        const restRequirement = coerceScheduleNumber(config.advanced ? config.advanced.restPeriod : undefined, globalRestHours, { min: 0 });
+        slotRestRequirements.set(slotId, restRequirement);
+        return restRequirement || 0;
+      }
+      return globalRestHours || 0;
+    };
+
     const checkRestPeriod = (existing, generatedSlot, assignment) => {
-      if (!restHours || !generatedSlot) {
+      const restRequirement = Math.max(
+        getRestRequirement(existing.SlotId),
+        getRestRequirement(assignment.SlotId)
+      );
+      if (!restRequirement || !generatedSlot) {
         return false;
       }
-      const candidateSlot = slotMap.get(existing.SlotId);
-      if (!candidateSlot) {
-        return false;
-      }
+      const candidateSlot = slotMap.get(existing.SlotId) || {};
       const existingStart = new Date(`${existing.StartDate}T00:00:00`);
       const existingEnd = new Date(`${existing.EndDate}T00:00:00`);
       const generatedStart = new Date(`${assignment.StartDate}T00:00:00`);
       const generatedEnd = new Date(`${assignment.EndDate}T00:00:00`);
-      const existingStartMinutes = parseTimeToMinutes(candidateSlot.StartTime || candidateSlot.startTime || '');
-      const existingEndMinutes = parseTimeToMinutes(candidateSlot.EndTime || candidateSlot.endTime || '');
+      const existingStartMinutes = parseTimeToMinutes(candidateSlot.StartTime || candidateSlot.startTime || existing.StartTime || '');
+      const existingEndMinutes = parseTimeToMinutes(candidateSlot.EndTime || candidateSlot.endTime || existing.EndTime || '');
       const generatedStartMinutes = parseTimeToMinutes(generatedSlot.StartTime || generatedSlot.startTime || '');
       const generatedEndMinutes = parseTimeToMinutes(generatedSlot.EndTime || generatedSlot.endTime || '');
 
@@ -2676,7 +3256,7 @@ function clientGenerateSchedulesEnhanced(startDate, endDate, userNames, shiftSlo
       }
 
       const diffHours = (generatedStart.getTime() - existingEnd.getTime()) / (1000 * 60 * 60);
-      return diffHours < restHours;
+      return diffHours < restRequirement;
     };
 
     const normalizedAssignments = assignments.filter(assignment => {
@@ -2726,7 +3306,8 @@ function clientGenerateSchedulesEnhanced(startDate, endDate, userNames, shiftSlo
         }
       }
 
-      if (restHours > 0) {
+      const restRequirement = Math.max(globalRestHours || 0, getRestRequirement(assignment.SlotId));
+      if (restRequirement > 0) {
         const restConflict = existingForUser.some(existing => checkRestPeriod(existing, slot, assignment));
         if (restConflict) {
           conflicts.push({
@@ -2735,7 +3316,7 @@ function clientGenerateSchedulesEnhanced(startDate, endDate, userNames, shiftSlo
             type: 'REST_VIOLATION',
             periodStart: assignment.StartDate,
             periodEnd: assignment.EndDate,
-            error: `Rest period requirement of ${restHours} hours would be violated`
+            error: `Rest period requirement of ${restRequirement} hours would be violated`
           });
           if (detectConflicts) {
             return false;
@@ -2744,25 +3325,31 @@ function clientGenerateSchedulesEnhanced(startDate, endDate, userNames, shiftSlo
       }
 
       const premiumSet = new Set();
+      const slotConfig = slotConfigMap.get(assignment.SlotId) || slot.SlotConfiguration || normalizeSlotConfiguration(slot, normalizedGeneration);
+      const advancedConfig = slotConfig && slotConfig.advanced ? slotConfig.advanced : {};
+      const overtimeConfig = slotConfig && slotConfig.overtime ? slotConfig.overtime : {};
       const datesForAssignment = dateSeries.filter(date => date >= assignment.StartDate && date <= assignment.EndDate);
       const hasWeekend = datesForAssignment.some(isWeekendDate);
-      if (hasWeekend && scheduleFlagToBool(advancedOptions.weekendPremium, false)) {
+      if (hasWeekend && coerceScheduleBoolean(advancedConfig.weekendPremium, false)) {
         premiumSet.add('Weekend');
       }
       const hasHoliday = datesForAssignment.some(date => {
         const entries = holidayMap.get(date) || [];
         return entries.some(entry => (entry.region || '').toLowerCase() === 'jamaica');
       });
-      if (hasHoliday && scheduleFlagToBool(advancedOptions.holidayPremium, true)) {
+      if (hasHoliday && coerceScheduleBoolean(advancedConfig.holidayPremium, true)) {
         premiumSet.add('Holiday');
       }
-      if (overtimeEnabled) {
+      if (coerceScheduleBoolean(overtimeConfig.enabled, globalOvertimeEnabled)) {
         premiumSet.add('Overtime');
       }
       assignmentPremiums.set(assignment.AssignmentId, Array.from(premiumSet));
       assignment.Premiums = Array.from(premiumSet).join(',');
       return true;
     });
+
+    const weekendPremiumGlobal = coerceScheduleBoolean(normalizedGeneration.advanced.weekendPremium, false);
+    const holidayPremiumGlobal = coerceScheduleBoolean(normalizedGeneration.advanced.holidayPremium, true);
 
     const coverageDetails = dateSeries.map(date => {
       let total = 0;
@@ -2793,8 +3380,8 @@ function clientGenerateSchedulesEnhanced(startDate, endDate, userNames, shiftSlo
         holidayRegions: holidayEntries.map(entry => entry.region || ''),
         slotBreakdown: breakdown,
         premium: {
-          weekend: weekend && scheduleFlagToBool(advancedOptions.weekendPremium, false),
-          holiday: holidayEntries.some(entry => (entry.region || '').toLowerCase() === 'jamaica') && scheduleFlagToBool(advancedOptions.holidayPremium, true)
+          weekend: weekend && weekendPremiumGlobal,
+          holiday: holidayEntries.some(entry => (entry.region || '').toLowerCase() === 'jamaica') && holidayPremiumGlobal
         }
       };
     });
@@ -3640,9 +4227,51 @@ function clientGetCountryHolidays(countryCode, year) {
     const userKeyMap = new Map();
     const userIdMap = new Map();
     scheduleUsers.forEach(user => {
-      userKeyMap.set(normalizeUserKey(user.UserName || user.FullName), user);
-      userIdMap.set(String(user.ID), user);
+      if (!user) {
+        return;
+      }
+
+      const idCandidates = [
+        user.ID,
+        user.Id,
+        user.UserID,
+        user.UserId,
+        user.id,
+        user.userId
+      ];
+      idCandidates.forEach(candidate => {
+        const normalized = normalizeUserIdValue(candidate);
+        if (normalized && !userIdMap.has(normalized)) {
+          userIdMap.set(normalized, user);
+        }
+      });
+
+      const keyCandidates = [
+        user.UserName,
+        user.Username,
+        user.username,
+        user.FullName,
+        user.fullName,
+        user.Email,
+        user.email
+      ];
+      keyCandidates.forEach(candidate => {
+        const key = normalizeUserKey(candidate);
+        if (key && !userKeyMap.has(key)) {
+          userKeyMap.set(key, user);
+        }
+      });
     });
+
+    const slotConfig = normalizeSlotConfiguration(slot, slot.SlotConfiguration || {});
+    const allowSwapOverride = Object.prototype.hasOwnProperty.call(request, 'allowSwaps') ? request.allowSwaps : undefined;
+    const allowSwapForSlot = coerceScheduleBoolean(allowSwapOverride, slotConfig.advanced ? slotConfig.advanced.allowSwaps : true);
+    const restHoursForSlot = coerceScheduleNumber(slotConfig.advanced ? slotConfig.advanced.restPeriod : undefined, 0, { min: 0 });
+    const notificationLeadForSlot = coerceScheduleNumber(slotConfig.advanced ? slotConfig.advanced.notificationLead : undefined, 0, { min: 0 });
+    const handoverMinutesForSlot = coerceScheduleNumber(slotConfig.advanced ? slotConfig.advanced.handoverTime : undefined, 0, { min: 0 });
+    const overtimeEnabledForSlot = coerceScheduleBoolean(slotConfig.overtime ? slotConfig.overtime.enabled : undefined, false);
+    const overtimeMaxDailyForSlot = coerceScheduleNumber(slotConfig.overtime ? slotConfig.overtime.maxDaily : undefined, 0, { min: 0 });
+    const overtimeMinutesForSlot = overtimeEnabledForSlot ? Math.round(overtimeMaxDailyForSlot * 60) : '';
 
     const existingAssignments = readShiftAssignments()
       .map(normalizeAssignmentRecord)
@@ -3655,14 +4284,17 @@ function clientGetCountryHolidays(countryCode, year) {
     const archivedAssignments = [];
     const now = new Date();
     const dateSeries = buildDateSeries(normalizedStart, normalizedEnd);
+    const weekendPremiumEnabled = coerceScheduleBoolean(slotConfig.advanced ? slotConfig.advanced.weekendPremium : false, false);
+    const considerHolidayPremium = coerceScheduleBoolean(slotConfig.advanced ? slotConfig.advanced.holidayPremium : true, true);
+    const holidayMap = considerHolidayPremium ? loadHolidayMap(normalizedStart, normalizedEnd) : new Map();
 
     userEntries.forEach(entry => {
       if (!entry) {
         return;
       }
       const nameKey = normalizeUserKey(entry.UserName || entry.FullName || entry.name || entry);
-      const idKey = String(entry.ID || entry.id || entry.userId || entry);
-      const user = userKeyMap.get(nameKey) || userIdMap.get(idKey);
+      const idKey = normalizeUserIdValue(entry.ID || entry.id || entry.userId || entry);
+      const user = userKeyMap.get(nameKey) || (idKey ? userIdMap.get(idKey) : null);
       if (!user) {
         failedUsers.push({
           entry,
@@ -3710,18 +4342,25 @@ function clientGetCountryHolidays(countryCode, year) {
       }
 
       const dstAdjustments = buildDstAdjustmentsForSlot(slot, dateSeries, scheduleTimeZone);
-      const baseBreakConfig = {
-        break1: 15,
-        break2: 15,
-        lunch: 30,
-        enableStaggered: false,
-        groups: '',
-        interval: '',
-        unproductive: 60
-      };
+      const breakConfig = buildAssignmentBreakConfig(slotConfig, dstAdjustments);
+      const premiumSet = new Set();
 
-      if (dstAdjustments.length) {
-        baseBreakConfig.dstAdjustments = dstAdjustments;
+      if (weekendPremiumEnabled && dateSeries.some(isWeekendDate)) {
+        premiumSet.add('Weekend');
+      }
+
+      if (considerHolidayPremium && holidayMap.size) {
+        const hasHoliday = dateSeries.some(date => {
+          const entries = holidayMap.get(date) || [];
+          return entries.some(entry => (entry.region || '').toLowerCase() === 'jamaica');
+        });
+        if (hasHoliday) {
+          premiumSet.add('Holiday');
+        }
+      }
+
+      if (overtimeEnabledForSlot) {
+        premiumSet.add('Overtime');
       }
 
       const dstNotes = summarizeDstAdjustments(dstAdjustments);
@@ -3737,13 +4376,13 @@ function clientGetCountryHolidays(countryCode, year) {
         StartDate: normalizedStart,
         EndDate: normalizedEnd,
         Status: 'PENDING',
-        AllowSwap: scheduleFlagToBool(request.allowSwaps, true),
-        Premiums: '',
-        BreaksConfigJSON: JSON.stringify(baseBreakConfig),
-        OvertimeMinutes: '',
-        RestPeriodHours: '',
-        NotificationLeadHours: '',
-        HandoverMinutes: '',
+        AllowSwap: allowSwapForSlot,
+        Premiums: Array.from(premiumSet).join(','),
+        BreaksConfigJSON: JSON.stringify(breakConfig),
+        OvertimeMinutes: overtimeMinutesForSlot || '',
+        RestPeriodHours: restHoursForSlot || '',
+        NotificationLeadHours: notificationLeadForSlot || '',
+        HandoverMinutes: handoverMinutesForSlot || '',
         Notes: assignmentNotes,
         CreatedAt: now,
         CreatedBy: actorLabel,
@@ -3753,9 +4392,24 @@ function clientGetCountryHolidays(countryCode, year) {
     });
 
     if (!createdAssignments.length) {
+      const reasonMessages = [];
+      if (conflicts.length) {
+        reasonMessages.push('Assignments were blocked by existing conflicts.');
+      }
+      if (failedUsers.length) {
+        const uniqueReasons = Array.from(new Set(failedUsers.map(entry => entry.reason).filter(Boolean)));
+        if (uniqueReasons.length) {
+          reasonMessages.push(uniqueReasons.join(' '));
+        } else {
+          reasonMessages.push(`${failedUsers.length} user${failedUsers.length === 1 ? '' : 's'} could not be assigned to the slot.`);
+        }
+      }
+      const failureMessage = reasonMessages.length
+        ? `No assignments were created successfully. ${reasonMessages.join(' ')}`
+        : 'No assignments were created successfully. No eligible users met the slot configuration for the selected date range.';
       return {
         success: false,
-        error: conflicts.length ? 'Assignments blocked by existing conflicts.' : 'No assignments were created.',
+        error: failureMessage,
         conflicts,
         failed: failedUsers
       };

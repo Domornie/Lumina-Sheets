@@ -1207,37 +1207,54 @@
             // Enhanced Time Formatting Functions
             formatTime(timeStr) {
                 if (!timeStr) return 'N/A';
-                
+
                 try {
-                    // Handle various time formats
-                    if (timeStr.includes(':')) {
-                        const [hours, minutes] = timeStr.split(':');
-                        const hour = parseInt(hours);
-                        const min = parseInt(minutes) || 0;
-                        
-                        // Convert to 12-hour format with AM/PM
-                        if (hour === 0) {
-                            return `12:${min.toString().padStart(2, '0')} AM`;
-                        } else if (hour < 12) {
-                            return `${hour}:${min.toString().padStart(2, '0')} AM`;
-                        } else if (hour === 12) {
-                            return `12:${min.toString().padStart(2, '0')} PM`;
-                        } else {
-                            return `${hour - 12}:${min.toString().padStart(2, '0')} PM`;
-                        }
+                    const trimmed = timeStr.toString().trim();
+                    if (!trimmed) {
+                        return 'N/A';
                     }
-                    
-                    // Handle numeric time (like 800 for 8:00)
-                    if (!isNaN(timeStr)) {
-                        const numTime = parseInt(timeStr);
-                        if (numTime >= 0 && numTime <= 2359) {
-                            const hours = Math.floor(numTime / 100);
-                            const minutes = numTime % 100;
-                            return this.formatTime(`${hours}:${minutes}`);
+
+                    const formatFromParts = (hours, minutes) => {
+                        const normalizedHours = ((Number(hours) % 24) + 24) % 24;
+                        const normalizedMinutes = ((Number(minutes) % 60) + 60) % 60;
+                        const date = new Date(2000, 0, 1, normalizedHours, normalizedMinutes, 0, 0);
+                        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    };
+
+                    const meridiemMatch = trimmed.match(/^(\d{1,2})(?::(\d{2}))?\s*(AM|PM)$/i);
+                    if (meridiemMatch) {
+                        let hours = parseInt(meridiemMatch[1], 10);
+                        const minutes = parseInt(meridiemMatch[2] || '0', 10);
+                        const modifier = meridiemMatch[3].toUpperCase();
+                        if (hours === 12) {
+                            hours = 0;
                         }
+                        if (modifier === 'PM') {
+                            hours += 12;
+                        }
+                        return formatFromParts(hours, minutes);
                     }
-                    
-                    return timeStr;
+
+                    if (/^\d{3,4}$/.test(trimmed)) {
+                        const numericValue = parseInt(trimmed, 10);
+                        const hours = Math.floor(numericValue / 100);
+                        const minutes = numericValue % 100;
+                        return formatFromParts(hours, minutes);
+                    }
+
+                    const colonMatch = trimmed.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+                    if (colonMatch) {
+                        const hours = parseInt(colonMatch[1], 10);
+                        const minutes = parseInt(colonMatch[2], 10);
+                        return formatFromParts(hours, minutes);
+                    }
+
+                    const parsed = new Date(trimmed);
+                    if (!isNaN(parsed.getTime())) {
+                        return parsed.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    }
+
+                    return trimmed;
                 } catch (error) {
                     console.warn('Error formatting time:', timeStr, error);
                     return timeStr;
