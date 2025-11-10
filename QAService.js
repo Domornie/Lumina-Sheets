@@ -710,12 +710,14 @@ function saveQARecord_(data, audioResult, scoreResult) {
         case 'callbackrecordinglink':
         case 'callbackrecordingurl':
         case 'callbackcallurl':
-        case 'callbackaudiourl': {
+        case 'callbackaudiourl':
+        case 'callbackrecording':
+        case 'callbacklink': {
           const callbackUrl = callbackAudio && callbackAudio.url ? String(callbackAudio.url).trim() : '';
           if (callbackUrl) {
             return callbackUrl;
           }
-          const callbackCandidates = ['callbackCallLink', 'callbackRecordingUrl', 'callbackCallUrl', 'callbackAudioUrl'];
+          const callbackCandidates = ['callbackCallLink', 'callbackRecordingUrl', 'callbackCallUrl', 'callbackAudioUrl', 'callbackRecording', 'callbackLink'];
           for (let i = 0; i < callbackCandidates.length; i++) {
             const candidate = getDataValue(callbackCandidates[i]);
             if (candidate !== undefined) {
