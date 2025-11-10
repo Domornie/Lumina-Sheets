@@ -111,145 +111,6 @@
       font-size: .875rem;
     }
 
-    /* MODERN DATA TABLES */
-    .modern-data-table {
-      border-collapse: separate;
-      border-spacing: 0;
-      border-radius: var(--border-radius);
-      overflow: hidden;
-      background: #fff;
-    }
-
-    .modern-data-table thead th {
-      background: linear-gradient(135deg, rgba(102, 126, 234, .15) 0%, rgba(118, 75, 162, .15) 100%);
-      border-bottom: none;
-      color: var(--gray-600);
-      font-size: .7rem;
-      letter-spacing: .08em;
-      text-transform: uppercase;
-      padding-top: .9rem;
-      padding-bottom: .9rem;
-    }
-
-    .modern-data-table tbody tr {
-      background: #fff;
-      transition: transform .2s ease, box-shadow .2s ease;
-    }
-
-    .modern-data-table tbody tr:hover {
-      transform: translateX(4px);
-      box-shadow: var(--shadow-sm);
-    }
-
-    .modern-data-table tbody td {
-      border-top: 1px solid var(--gray-200);
-      vertical-align: middle;
-    }
-
-    .modern-metric-cell {
-      vertical-align: middle;
-    }
-
-    .metric-pill {
-      display: inline-flex;
-      align-items: center;
-      gap: .4rem;
-      padding: .35rem .75rem;
-      border-radius: var(--border-radius-full);
-      font-weight: 600;
-      font-size: .85rem;
-      background: rgba(241, 245, 249, .9);
-      color: var(--gray-700);
-      box-shadow: var(--shadow-sm);
-    }
-
-    .metric-pill i {
-      font-size: .8rem;
-    }
-
-    .metric-pill-primary {
-      background: rgba(0, 49, 119, .12);
-      color: var(--navy-primary);
-    }
-
-    .metric-pill-warning {
-      background: rgba(255, 184, 0, .15);
-      color: #b45309;
-    }
-
-    .metric-pill-info {
-      background: rgba(0, 191, 255, .15);
-      color: #0369a1;
-    }
-
-    .metric-pill-success {
-      background: rgba(16, 185, 129, .15);
-      color: #0f766e;
-    }
-
-    .metric-pill-neutral {
-      background: rgba(100, 116, 139, .12);
-      color: var(--gray-600);
-    }
-
-    .metric-subtext {
-      font-size: .75rem;
-      color: var(--gray-500);
-      margin-top: .35rem;
-    }
-
-    .attendance-summary-table tbody tr td:first-child {
-      min-width: 200px;
-    }
-
-    /* WEEKLY LOGIN TABLE */
-    .weekly-login-table thead th {
-      text-transform: uppercase;
-      font-size: .68rem;
-      letter-spacing: .08em;
-      border-bottom: none;
-    }
-
-    .weekly-login-table tbody td {
-      border-top: 1px solid var(--gray-200);
-    }
-
-    .weekly-login-cell {
-      display: flex;
-      flex-direction: column;
-      gap: .4rem;
-    }
-
-    @media (min-width: 768px) {
-      .weekly-login-cell {
-        flex-direction: row;
-      }
-    }
-
-    .weekly-login-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: .35rem;
-      padding: .35rem .7rem;
-      border-radius: var(--border-radius-full);
-      font-size: .75rem;
-      font-weight: 600;
-      background: rgba(241, 245, 249, .9);
-      color: var(--gray-700);
-      box-shadow: var(--shadow-sm);
-      white-space: nowrap;
-    }
-
-    .weekly-login-badge.login {
-      background: rgba(16, 185, 129, .15);
-      color: #047857;
-    }
-
-    .weekly-login-badge.logout {
-      background: rgba(255, 184, 0, .18);
-      color: #b45309;
-    }
-
     /* INTELLIGENT INSIGHTS PANEL */
     .intelligent-insights-panel {
       background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
@@ -384,52 +245,6 @@
       -webkit-text-fill-color: transparent;
       background-clip: text;
       display: block;
-    }
-
-    /* RECOGNITION */
-    .recognition-banner {
-      display: flex;
-      flex-direction: column;
-      gap: 1.5rem;
-    }
-
-    .recognition-icon {
-      width: 64px;
-      height: 64px;
-      border-radius: var(--border-radius-full);
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      background: var(--gradient-success);
-      color: #fff;
-      font-size: 1.75rem;
-      box-shadow: var(--shadow-md);
-    }
-
-    .recognition-score .display-6 {
-      font-size: 2.75rem;
-    }
-
-    .recognition-mentions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.75rem;
-    }
-
-    .recognition-mentions .badge {
-      background: rgba(16, 185, 129, 0.12);
-      color: var(--gray-700);
-      border: 1px solid rgba(16, 185, 129, 0.35);
-      font-weight: 600;
-      padding: 0.5rem 0.75rem;
-    }
-
-    @media (min-width: 992px) {
-      .recognition-banner {
-        flex-direction: row;
-        align-items: center;
-        justify-content: space-between;
-      }
     }
 
     .kpi-card .value {
@@ -722,152 +537,6 @@
       background: linear-gradient(180deg, rgba(241, 245, 249, 0.9) 0%, #ffffff 100%);
       padding: 1.5rem 2rem;
     }
-
-    #exportHistoryModal .modal-dialog {
-      max-width: 860px;
-    }
-
-    .export-history-modal-content {
-      border-radius: 24px;
-      border: 1px solid rgba(148, 163, 184, 0.2);
-      box-shadow: 0 25px 60px rgba(15, 23, 42, 0.18);
-      background: linear-gradient(180deg, rgba(248, 250, 252, 0.96) 0%, #ffffff 100%);
-      overflow: hidden;
-    }
-
-    .export-history-modal-header {
-      border-bottom: 1px solid rgba(148, 163, 184, 0.18);
-      background: linear-gradient(135deg, rgba(30, 64, 175, 0.12) 0%, rgba(37, 99, 235, 0.08) 100%);
-      padding: 1.5rem 2rem;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-
-    .export-history-modal-header .modal-title {
-      font-weight: 700;
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-      color: var(--gray-800);
-    }
-
-    .export-history-modal-header .modal-title i {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 40px;
-      height: 40px;
-      border-radius: 14px;
-      background: linear-gradient(135deg, rgba(30, 64, 175, 0.9) 0%, rgba(59, 130, 246, 0.9) 100%);
-      color: #fff;
-      font-size: 1rem;
-      box-shadow: 0 12px 24px rgba(30, 64, 175, 0.25);
-    }
-
-    .export-history-modal-body {
-      padding: 2rem;
-      background: linear-gradient(180deg, rgba(241, 245, 249, 0.85) 0%, #ffffff 100%);
-    }
-
-    .export-history-modal-footer {
-      border-top: 1px solid rgba(148, 163, 184, 0.18);
-      padding: 1.25rem 2rem;
-      display: flex;
-      gap: 0.75rem;
-      justify-content: flex-end;
-      background: linear-gradient(180deg, rgba(241, 245, 249, 0.92) 0%, #ffffff 100%);
-    }
-
-    .export-history-content {
-      min-height: 240px;
-    }
-
-    .export-history-loading {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 2.5rem 1rem;
-      color: var(--gray-500);
-    }
-
-    .export-history-list {
-      display: flex;
-      flex-direction: column;
-      gap: 0.85rem;
-    }
-
-    .export-history-item {
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-      padding: 1rem 1.25rem;
-      border-radius: 18px;
-      border: 1px solid rgba(148, 163, 184, 0.25);
-      background: rgba(255, 255, 255, 0.95);
-      box-shadow: var(--shadow-sm);
-      transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
-    }
-
-    .export-history-item:hover {
-      transform: translateY(-2px);
-      border-color: rgba(37, 99, 235, 0.35);
-      box-shadow: var(--shadow-md);
-    }
-
-    .export-history-icon {
-      width: 48px;
-      height: 48px;
-      border-radius: 16px;
-      background: linear-gradient(135deg, rgba(14, 165, 233, 0.18) 0%, rgba(14, 165, 233, 0.06) 100%);
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      color: #0ea5e9;
-      font-size: 1.1rem;
-    }
-
-    .export-history-details {
-      flex: 1;
-      min-width: 0;
-    }
-
-    .export-history-details h6 {
-      margin: 0;
-      font-weight: 600;
-      color: var(--gray-800);
-      display: flex;
-      align-items: center;
-      gap: 0.35rem;
-    }
-
-    .export-history-meta {
-      margin-top: 0.35rem;
-      font-size: 0.8rem;
-      color: var(--gray-500);
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.75rem;
-    }
-
-    .export-history-empty {
-      text-align: center;
-      padding: 2.5rem 1rem;
-      color: var(--gray-500);
-      border: 1px dashed rgba(148, 163, 184, 0.35);
-      border-radius: 18px;
-      background: rgba(255, 255, 255, 0.9);
-    }
-
-    .export-history-error {
-      padding: 1rem 1.25rem;
-      border-radius: 16px;
-      background: rgba(248, 113, 113, 0.12);
-      border: 1px solid rgba(220, 38, 38, 0.3);
-      color: #b91c1c;
-    }
-
 
     #exportModal .form-label {
       font-weight: 600;
@@ -1173,6 +842,15 @@
   window.COMPANY_TIMEZONE_LABEL = <?= JSON.stringify(attendanceTimezoneLabel || 'Company Time') ?>;
 </script>
 
+<!-- PERFORMANCE MONITOR -->
+<div id="performanceMonitor" class="performance-monitor" style="display: none;">
+  <h6><i class="fas fa-tachometer-alt me-2"></i>System Health</h6>
+  <div class="d-flex justify-content-between"><span>Response:</span><span id="responseTime">--</span></div>
+  <div class="d-flex justify-content-between"><span>Data Format:</span><span>Seconds→Hours</span></div>
+  <div class="d-flex justify-content-between"><span>Timezone:</span><span id="monitorTimezone">--</span></div>
+  <div class="d-flex justify-content-between"><span>Quality:</span><span id="dataQuality">--</span></div>
+</div>
+
 <!-- MAIN CONTAINER -->
 <div class="container-fluid px-4 py-3">
 
@@ -1193,9 +871,6 @@
   <div class="d-flex gap-3 mb-4 flex-wrap">
     <button id="exportBtn" class="btn btn-light" onclick="showEnhancedExportModal()">
       <i class="fas fa-table me-2"></i>Export Matrix
-    </button>
-    <button id="viewExportsBtn" class="btn btn-outline-primary" onclick="window.exportHistoryManager?.show()">
-      <i class="fas fa-folder-open me-2"></i>Saved Exports
     </button>
     <button id="aiInsightsBtn" class="btn btn-ai" onclick="refreshAIInsights()">
       <i class="fas fa-magic me-2"></i>View Analytics
@@ -1243,34 +918,6 @@
         </select>
       </div>
     </div>
-    <div class="row align-items-center mt-3 gy-3">
-      <div class="col-lg-4 col-md-6">
-        <label class="form-label fw-bold">Overtime</label>
-        <div class="form-check form-switch">
-          <input class="form-check-input" type="checkbox" id="overtimeToggle">
-          <label class="form-check-label" for="overtimeToggle">Enable overtime allowance</label>
-        </div>
-        <small class="text-muted">When disabled, billable hours are capped at 8.0 hours per day.</small>
-      </div>
-      <div class="col-lg-4 col-md-6">
-        <label class="form-label fw-bold">Overtime Allowance</label>
-        <select class="form-select" id="overtimeAmount" disabled>
-          <option value="0.5">+0.5 hours</option>
-          <option value="1">+1.0 hours</option>
-          <option value="2">+2.0 hours</option>
-          <option value="3">+3.0 hours</option>
-          <option value="4">+4.0 hours</option>
-          <option value="5">+5.0 hours</option>
-        </select>
-        <small class="text-muted">Select the maximum overtime allowed beyond the 8 hour baseline.</small>
-      </div>
-      <div class="col-lg-4">
-        <label class="form-label fw-bold d-block">Quick Action</label>
-        <button class="btn btn-outline-danger w-100" id="capHoursBtn" type="button">
-          <i class="fas fa-compress-arrows-alt me-2"></i>Cap Billable Hours at 8h
-        </button>
-      </div>
-    </div>
   </div>
 </div>
 
@@ -1316,20 +963,6 @@
 <!-- STATE SUMMARY CARDS -->
 <div id="stateSummarySection" class="mb-4">
   <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4" id="stateSummaryRow"></div>
-</div>
-
-<!-- RECOGNITION SECTION -->
-<div id="recognitionSection" class="mb-4">
-  <div class="card ai-enhanced">
-    <div class="card-header">
-      <h5><i class="fas fa-medal"></i>Adherence Recognition</h5>
-    </div>
-    <div class="card-body" id="adherenceRecognition">
-      <div class="loading-state">
-        <i class="fas fa-spinner fa-spin"></i> Calculating adherence leaders...
-      </div>
-    </div>
-  </div>
 </div>
 
 <!-- KPI CARDS ROW -->
@@ -1402,25 +1035,11 @@
 <div id="dailyOverviewSection" class="mb-4">
   <div class="card ai-enhanced">
     <div class="card-header">
-      <h5><i class="fas fa-chart-line"></i><span id="dailyOverviewTitle">Daily Attendance Overview</span></h5>
+      <h5><i class="fas fa-chart-line"></i>Daily Attendance Overview</h5>
     </div>
     <div class="card-body">
       <div class="chart-container">
         <canvas id="dailyAttendanceChart"></canvas>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- WEEKLY LOGIN/LOGOUT TABLE -->
-<div id="weeklyLoginLogoutSection" class="mb-4">
-  <div class="card ai-enhanced">
-    <div class="card-header">
-      <h5><i class="fas fa-user-clock"></i>Weekly Login & Logout (Mon-Sun)</h5>
-    </div>
-    <div id="weeklyLoginLogoutContainer" class="card-body">
-      <div class="loading-state">
-        <i class="fas fa-spinner fa-spin"></i> Compiling weekly login/logout times...
       </div>
     </div>
   </div>
@@ -1698,38 +1317,6 @@
   </div>
 </div>
 
-<!-- Export History Modal -->
-<div class="modal fade" id="exportHistoryModal" tabindex="-1" aria-labelledby="exportHistoryLabel" aria-hidden="true">
-  <div class="modal-dialog modal-lg modal-dialog-scrollable">
-    <div class="modal-content export-history-modal-content">
-      <div class="modal-header export-history-modal-header">
-        <h5 class="modal-title" id="exportHistoryLabel">
-          <i class="fas fa-folder-open"></i>
-          Saved Attendance Exports
-        </h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <div class="modal-body export-history-modal-body">
-        <div id="exportHistoryContent" class="export-history-content">
-          <div class="export-history-loading">
-            <div class="spinner-border text-primary" role="status"></div>
-            <p class="text-muted mt-3 mb-0">Loading saved exports...</p>
-          </div>
-        </div>
-      </div>
-      <div class="modal-footer export-history-modal-footer">
-        <a id="exportHistoryFolderLink" class="btn btn-outline-primary" href="#" target="_blank" rel="noopener" style="display: none;">
-          <i class="fas fa-external-link-alt me-2"></i>Open Folder in Drive
-        </a>
-        <button type="button" class="btn btn-light" onclick="window.exportHistoryManager?.refresh(true)">
-          <i class="fas fa-sync me-2"></i>Refresh
-        </button>
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-      </div>
-    </div>
-  </div>
-</div>
-
 <!-- Export Progress Modal -->
 <div class="modal fade" id="exportProgressModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
   <div class="modal-dialog modal-dialog-centered">
@@ -1892,19 +1479,6 @@
     return Math.round(seconds / 3600 * 100) / 100;
   }
 
-  function formatDecimalHours(seconds) {
-    const value = convertSecondsToDecimalHours(seconds || 0);
-    const normalized = Math.abs(value) < 0.005 ? 0 : value;
-    return normalized.toFixed(2) + 'h';
-  }
-
-  function formatSignedDecimalHours(seconds) {
-    const value = convertSecondsToDecimalHours(seconds || 0);
-    const normalized = Math.abs(value) < 0.005 ? 0 : value;
-    const sign = normalized > 0 ? '+' : '';
-    return `${sign}${normalized.toFixed(2)}h`;
-  }
-
   function convertSecondsToHHMMSS(seconds) {
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
@@ -1921,35 +1495,6 @@
       return Math.round(seconds / 60) + 'm';
     }
     return seconds + 's';
-  }
-
-  function escapeHtml(value) {
-    const div = document.createElement('div');
-    div.textContent = value == null ? '' : String(value);
-    return div.innerHTML;
-  }
-
-  function readHourPolicyFromControls() {
-    const toggle = document.getElementById('overtimeToggle');
-    const select = document.getElementById('overtimeAmount');
-    const enabled = !!(toggle && toggle.checked);
-
-    let allowance = 0;
-    if (enabled && select) {
-      const parsed = parseFloat(select.value);
-      if (Number.isFinite(parsed)) {
-        allowance = Math.max(0, Math.min(parsed, 5));
-      }
-      if (allowance <= 0) {
-        allowance = 0.5;
-      }
-    }
-
-    return {
-      overtimeEnabled: enabled,
-      overtimeAllowanceHours: enabled ? allowance : 0,
-      baseCapHours: 8
-    };
   }
 
   // MAIN ATTENDANCE DASHBOARD CLASS
@@ -1969,16 +1514,6 @@
         totalItems: 0,
         totalPages: 0
       };
-
-      this.weeklyPagination = {
-        currentPage: 1,
-        itemsPerPage: 10,
-        totalItems: 0,
-        totalPages: 0
-      };
-
-      this.hourPolicy = { overtimeEnabled: false, overtimeAllowanceHours: 0 };
-      this.periodCache = {};
 
       this.loadDataDebounced = debounce(() => this.loadData(), 250);
       this._reqSeq = 0;
@@ -2007,7 +1542,8 @@
     setupEventListeners() {
       document.getElementById('granularitySelect').addEventListener('change', (e) => {
         this.currentGranularity = e.target.value;
-        this.updatePeriodSelector(true);
+        this.updatePeriodSelector();
+        this.loadDataDebounced();
       });
 
       document.getElementById('agentSelect').addEventListener('change', (e) => {
@@ -2021,43 +1557,9 @@
       });
 
       document.getElementById('weekInput').addEventListener('change', (e) => {
-        this.setCurrentPeriod(e.target.value);
+        this.currentPeriod = e.target.value;
         this.loadDataDebounced();
       });
-
-      const overtimeToggle = document.getElementById('overtimeToggle');
-      if (overtimeToggle) {
-        overtimeToggle.addEventListener('change', () => {
-          const policy = readHourPolicyFromControls();
-          this.hourPolicy = {
-            overtimeEnabled: policy.overtimeEnabled,
-            overtimeAllowanceHours: policy.overtimeAllowanceHours
-          };
-          this.syncHourPolicyControls();
-          this.loadDataDebounced();
-        });
-      }
-
-      const overtimeAmount = document.getElementById('overtimeAmount');
-      if (overtimeAmount) {
-        overtimeAmount.addEventListener('change', () => {
-          const policy = readHourPolicyFromControls();
-          this.hourPolicy.overtimeAllowanceHours = policy.overtimeAllowanceHours;
-          if (this.hourPolicy.overtimeEnabled) {
-            this.loadDataDebounced();
-          }
-        });
-      }
-
-      const capButton = document.getElementById('capHoursBtn');
-      if (capButton) {
-        capButton.addEventListener('click', () => {
-          this.hourPolicy = { overtimeEnabled: false, overtimeAllowanceHours: 0 };
-          this.syncHourPolicyControls();
-          this.showToast('Billable hours capped at 8.0 hours per day', 'info');
-          this.loadDataDebounced();
-        });
-      }
     }
 
     initializeControls() {
@@ -2070,73 +1572,13 @@
       }
 
       const today = new Date();
-      this.setCurrentPeriod(this.getISOWeek(today));
+      this.currentPeriod = this.getISOWeek(today);
 
       const weekEl = document.getElementById('weekInput');
       if (weekEl) weekEl.value = this.currentPeriod;
 
       this.loadUserList();
       this.updateViewMode();
-      this.syncHourPolicyControls();
-    }
-
-    setCurrentPeriod(value) {
-      const safeValue = value || '';
-      this.currentPeriod = safeValue;
-      if (!this.periodCache) {
-        this.periodCache = {};
-      }
-      if (this.currentGranularity) {
-        this.periodCache[this.currentGranularity] = safeValue;
-      }
-    }
-
-    syncHourPolicyControls() {
-      const toggle = document.getElementById('overtimeToggle');
-      const select = document.getElementById('overtimeAmount');
-      const capButton = document.getElementById('capHoursBtn');
-
-      const enabled = !!this.hourPolicy.overtimeEnabled;
-      const allowance = this.hourPolicy.overtimeAllowanceHours && this.hourPolicy.overtimeAllowanceHours > 0
-        ? this.hourPolicy.overtimeAllowanceHours
-        : 0.5;
-
-      if (toggle) {
-        toggle.checked = enabled;
-      }
-
-      if (select) {
-        const valueToSet = enabled ? allowance : allowance;
-        const valueString = valueToSet.toString();
-        const optionValues = Array.from(select.options).map(opt => opt.value);
-        select.value = optionValues.includes(valueString) ? valueString : '0.5';
-        select.disabled = !enabled;
-      }
-
-      if (capButton) {
-        capButton.disabled = false;
-      }
-    }
-
-    applyHourPolicyFromData(policy) {
-      if (!policy) return;
-      this.hourPolicy = {
-        overtimeEnabled: !!policy.overtimeEnabled,
-        overtimeAllowanceHours: policy.overtimeAllowanceHours || 0
-      };
-      this.syncHourPolicyControls();
-    }
-
-    getHourPolicyOptions() {
-      const enabled = !!this.hourPolicy.overtimeEnabled;
-      const allowance = this.hourPolicy.overtimeAllowanceHours && this.hourPolicy.overtimeAllowanceHours > 0
-        ? this.hourPolicy.overtimeAllowanceHours
-        : 0.5;
-      return {
-        overtimeEnabled: enabled,
-        overtimeAllowanceHours: enabled ? allowance : 0,
-        baseCapHours: 8
-      };
     }
 
     showToast(message, type) {
@@ -2158,15 +1600,12 @@
         if (users.length === 0) {
           try {
             console.log('Loading user list from server...');
-            const campaignArg = (typeof window !== 'undefined' && window.__LAYOUT_CAMPAIGN_ID)
-              ? window.__LAYOUT_CAMPAIGN_ID
-              : (window.MANAGER_USER_ID || '');
-            users = await this.callServerFunction('clientGetAssignedAgentNames', [campaignArg], { timeoutMs: 10000 });
+            users = await this.callServerFunction('clientGetAssignedAgentNames', [window.MANAGER_USER_ID], { timeoutMs: 10000 });
 
             if (!Array.isArray(users) || users.length === 0) {
               console.log('No users from clientGetAssignedAgentNames, trying fallback...');
               try {
-                const userData = await this.callServerFunction('getUsers', [{ campaignId: campaignArg, excludeGuests: true }], { timeoutMs: 8000 });
+                const userData = await this.callServerFunction('getUsers', [], { timeoutMs: 8000 });
                 if (Array.isArray(userData)) {
                   users = userData.map(u => u.FullName || u.UserName || u.name || u.Email).filter(Boolean);
                 }
@@ -2187,22 +1626,15 @@
         select.innerHTML = '<option value="">👥 All Agents</option>';
 
         if (Array.isArray(users) && users.length > 0) {
-          const normalizedUsers = Array.from(new Set(
-            users
-              .filter(name => typeof name === 'string')
-              .map(name => name.trim())
-              .filter(Boolean)
-          )).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
-
-          normalizedUsers.forEach(name => {
+          users.forEach(name => {
+            if (!name || typeof name !== 'string') return;
             const opt = document.createElement('option');
-            opt.value = name;
-            opt.textContent = name;
+            opt.value = name.trim();
+            opt.textContent = name.trim();
             select.appendChild(opt);
           });
-
-          window.INITIAL_USER_LIST = [...normalizedUsers];
-          console.log('Loaded', normalizedUsers.length, 'unique users successfully');
+          window.INITIAL_USER_LIST = [...users];
+          console.log('Loaded', users.length, 'users successfully');
         } else {
           console.warn('No users available');
           const opt = document.createElement('option');
@@ -2226,113 +1658,62 @@
       }
     }
 
-    updatePeriodSelector(shouldTriggerLoad = false) {
+    updatePeriodSelector() {
       const selector = document.getElementById('periodSelector');
-      if (!selector) return;
-
       const granularity = this.currentGranularity;
-      const cachedPeriod = (this.periodCache && this.periodCache[granularity]) || '';
-      const maybeTriggerLoad = () => {
-        if (shouldTriggerLoad) {
-          this.loadDataDebounced();
-        }
-      };
 
       let html = '<label class="form-label fw-bold">Period</label>';
 
       switch (granularity) {
-        case 'Week': {
+        case 'Week':
           html += '<input type="week" class="form-control" id="weekInput" />';
           selector.innerHTML = html;
           setTimeout(() => {
-            const weekInput = document.getElementById('weekInput');
-            const fallback = this.getISOWeek(new Date());
-            const defaultWeek = /^\d{4}-W\d{2}$/.test(cachedPeriod) ? cachedPeriod : fallback;
-            if (weekInput) {
-              this.setCurrentPeriod(defaultWeek);
-              weekInput.value = this.currentPeriod;
-              weekInput.addEventListener('change', (e) => {
-                this.setCurrentPeriod(e.target.value);
-                this.loadDataDebounced();
-              });
-            } else {
-              this.setCurrentPeriod(defaultWeek);
-            }
-            maybeTriggerLoad();
+            document.getElementById('weekInput').value = this.currentPeriod;
+            document.getElementById('weekInput').addEventListener('change', (e) => {
+              this.currentPeriod = e.target.value; this.loadDataDebounced();
+            });
           }, 0);
           break;
-        }
-        case 'BiWeekly': {
+        case 'BiWeekly':
           html += '<select class="form-select" id="biweeklySelect"></select>';
           selector.innerHTML = html;
-          setTimeout(() => this.populateBiWeeklySelect(shouldTriggerLoad), 0);
+          setTimeout(() => this.populateBiWeeklySelect(), 0);
           break;
-        }
-        case 'Month': {
+        case 'Month':
           html += '<input type="month" class="form-control" id="monthInput" />';
           selector.innerHTML = html;
           setTimeout(() => {
             const monthInput = document.getElementById('monthInput');
             const today = new Date();
-            const fallback = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
-            const defaultMonth = /^\d{4}-\d{2}$/.test(cachedPeriod) ? cachedPeriod : fallback;
-            if (monthInput) {
-              this.setCurrentPeriod(defaultMonth);
-              monthInput.value = this.currentPeriod;
-              monthInput.addEventListener('change', (e) => {
-                this.setCurrentPeriod(e.target.value);
-                this.loadDataDebounced();
-              });
-            } else {
-              this.setCurrentPeriod(defaultMonth);
-            }
-            maybeTriggerLoad();
+            this.currentPeriod = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0');
+            monthInput.value = this.currentPeriod;
+            monthInput.addEventListener('change', (e) => { this.currentPeriod = e.target.value; this.loadDataDebounced(); });
           }, 0);
           break;
-        }
-        case 'Quarter': {
-          html += '<select class="form-select" id="quarterSelect"></select>';
+        case 'Quarter':
+          html += '<select class="form-select" id="quarterSelect"><option value="Q1-2024">Q1 2024</option><option value="Q2-2024">Q2 2024</option><option value="Q3-2024">Q3 2024</option><option value="Q4-2024">Q4 2024</option></select>';
           selector.innerHTML = html;
-          setTimeout(() => this.populateQuarterSelect(shouldTriggerLoad), 0);
+          setTimeout(() => {
+            const quarterSelect = document.getElementById('quarterSelect');
+            this.currentPeriod = quarterSelect.value;
+            quarterSelect.addEventListener('change', (e) => { this.currentPeriod = e.target.value; this.loadDataDebounced(); });
+          }, 0);
           break;
-        }
-        case 'Year': {
+        case 'Year':
           html += '<input type="number" class="form-control" id="yearInput" min="2020" max="2030" value="2024" />';
           selector.innerHTML = html;
           setTimeout(() => {
             const yearInput = document.getElementById('yearInput');
-            const currentYear = new Date().getFullYear();
-            const defaultYear = /^\d{4}$/.test(cachedPeriod) ? cachedPeriod : String(currentYear);
-            if (yearInput) {
-              yearInput.value = defaultYear;
-              this.setCurrentPeriod(defaultYear);
-              yearInput.addEventListener('change', (e) => {
-                this.setCurrentPeriod(e.target.value);
-                this.loadDataDebounced();
-              });
-            } else {
-              this.setCurrentPeriod(defaultYear);
-            }
-            maybeTriggerLoad();
+            this.currentPeriod = yearInput.value;
+            yearInput.addEventListener('change', (e) => { this.currentPeriod = e.target.value; this.loadDataDebounced(); });
           }, 0);
           break;
-        }
       }
     }
 
-    populateBiWeeklySelect(triggerLoad = false) {
+    populateBiWeeklySelect() {
       const select = document.getElementById('biweeklySelect');
-      if (!select) return;
-
-      const now = new Date();
-      const [isoYearStr, isoWeekStr] = this.getISOWeek(now).split('-W');
-      const isoYear = Number(isoYearStr);
-      const isoWeek = Number(isoWeekStr);
-      const fallbackIndex = Math.max(1, Math.ceil(isoWeek / 2));
-      const fallbackValue = `${isoYear}-BW${fallbackIndex.toString().padStart(2, '0')}`;
-      const cachedValue = (this.periodCache && this.periodCache.BiWeekly) || '';
-      const defaultValue = /^\d{4}-BW\d{2}$/.test(cachedValue) ? cachedValue : fallbackValue;
-
       const currentYear = new Date().getFullYear();
       select.innerHTML = '';
       for (let i = 1; i <= 26; i++) {
@@ -2341,69 +1722,8 @@
         option.textContent = `Bi-Week ${i} - ${currentYear}`;
         select.appendChild(option);
       }
-
-      if (![...select.options].some(opt => opt.value === defaultValue)) {
-        const [yearPart, indexPart] = defaultValue.split('-BW');
-        const extraOption = document.createElement('option');
-        extraOption.value = defaultValue;
-        extraOption.textContent = `Bi-Week ${Number(indexPart)} - ${yearPart}`;
-        select.appendChild(extraOption);
-      }
-
-      select.value = defaultValue;
-      this.setCurrentPeriod(select.value);
-      select.addEventListener('change', (e) => {
-        this.setCurrentPeriod(e.target.value);
-        this.loadDataDebounced();
-      });
-
-      if (triggerLoad) {
-        this.loadDataDebounced();
-      }
-    }
-
-    populateQuarterSelect(triggerLoad = false) {
-      const select = document.getElementById('quarterSelect');
-      if (!select) return;
-
-      const currentDate = new Date();
-      const currentYear = currentDate.getFullYear();
-      const currentQuarter = Math.floor(currentDate.getMonth() / 3) + 1;
-      const fallbackValue = `Q${currentQuarter}-${currentYear}`;
-      const cachedValue = (this.periodCache && this.periodCache.Quarter) || '';
-      const defaultValue = /^Q[1-4]-\d{4}$/.test(cachedValue) ? cachedValue : fallbackValue;
-
-      select.innerHTML = '';
-
-      for (let year = currentYear - 1; year <= currentYear + 1; year++) {
-        for (let quarter = 1; quarter <= 4; quarter++) {
-          const option = document.createElement('option');
-          option.value = `Q${quarter}-${year}`;
-          option.textContent = `Q${quarter} ${year}`;
-          select.appendChild(option);
-        }
-      }
-
-      if ([...select.options].some((opt) => opt.value === defaultValue)) {
-        select.value = defaultValue;
-      } else {
-        const [quarterPart, yearPart] = defaultValue.split('-');
-        const extraOption = document.createElement('option');
-        extraOption.value = defaultValue;
-        extraOption.textContent = `${quarterPart} ${yearPart}`;
-        select.appendChild(extraOption);
-        select.value = defaultValue;
-      }
-
-      this.setCurrentPeriod(select.value);
-      select.addEventListener('change', (e) => {
-        this.setCurrentPeriod(e.target.value);
-        this.loadDataDebounced();
-      });
-
-      if (triggerLoad) {
-        this.loadDataDebounced();
-      }
+      this.currentPeriod = select.value;
+      select.addEventListener('change', (e) => { this.currentPeriod = e.target.value; this.loadDataDebounced(); });
     }
 
     async loadData() {
@@ -2420,7 +1740,7 @@
         try {
           console.log('Attempting to call getAttendanceAnalyticsByPeriod...');
           data = await this.callServerFunction('getAttendanceAnalyticsByPeriod',
-            [this.currentGranularity, this.currentPeriod, this.currentAgent, this.getHourPolicyOptions()],
+            [this.currentGranularity, this.currentPeriod, this.currentAgent],
             { timeoutMs: 25000 }
           );
 
@@ -2496,10 +1816,6 @@
     renderDashboard() {
       if (!this.currentData) return;
       try {
-        if (this.currentData.hourPolicy) {
-          this.applyHourPolicyFromData(this.currentData.hourPolicy);
-        }
-
         const info = this.currentData.periodInfo || {};
         if (info.timezone) {
           window.COMPANY_TIMEZONE = info.timezone;
@@ -2527,7 +1843,6 @@
         this.renderExecutiveMetrics();
         this.renderKPICards();
         this.renderProductivityGauges();
-        this.renderAdherenceRecognition();
         this.renderCharts();
         this.renderAttendanceTable();
         this.renderDailyBreakdownBars();
@@ -2612,75 +1927,6 @@
         document.getElementById('kpi-productive').textContent = billableValue.toFixed(2) + 'h';
         document.getElementById('kpi-nonproductive').textContent = nonProdValue.toFixed(2) + 'h';
       } catch (error) { console.error('Error rendering productivity gauges:', error); }
-    }
-
-    renderAdherenceRecognition() {
-      try {
-        const section = document.getElementById('recognitionSection');
-        const container = document.getElementById('adherenceRecognition');
-        if (!section || !container) {
-          return;
-        }
-
-        const topEntries = Array.isArray(this.currentData.top5Attendance)
-          ? this.currentData.top5Attendance.filter(entry => entry && entry.user)
-          : [];
-
-        if (!topEntries.length) {
-          container.innerHTML = '<div class="alert alert-modern alert-info" role="alert"><i class="fas fa-info-circle me-2"></i>No adherence recognition available yet. Import more schedule data to spotlight champions.</div>';
-          section.dataset.hasRecognition = '0';
-          return;
-        }
-
-        section.dataset.hasRecognition = '1';
-
-        const champion = topEntries[0];
-        const workingDays = Number(this.currentData?.periodInfo?.workingDays) || null;
-        const formatPercent = (value) => {
-          const num = Number(value);
-          if (!Number.isFinite(num)) return '—';
-          if (Math.abs(num - Math.round(num)) < 0.05) {
-            return `${Math.round(num)}%`;
-          }
-          return `${num.toFixed(1)}%`;
-        };
-
-        const championPercent = formatPercent(champion.percentage);
-        const periodSummary = workingDays
-          ? `across ${workingDays} working day${workingDays === 1 ? '' : 's'}`
-          : 'this period';
-
-        const mentionBadges = topEntries.slice(1, 3)
-          .map(entry => `<span class="badge rounded-pill"><i class="fas fa-thumbs-up text-success me-1"></i>${escapeHtml(entry.user)} · ${formatPercent(entry.percentage)}</span>`)
-          .join('');
-
-        container.innerHTML = `
-          <div class="recognition-banner">
-            <div class="d-flex align-items-center gap-3 recognition-main">
-              <div class="recognition-icon">
-                <i class="fas fa-user-check"></i>
-              </div>
-              <div>
-                <p class="text-uppercase text-muted small mb-1">Adherence Champion</p>
-                <h3 class="mb-1">${escapeHtml(champion.user)}</h3>
-                <p class="mb-0 text-muted">Maintained ${championPercent} adherence ${periodSummary}.</p>
-              </div>
-            </div>
-            <div class="text-center text-lg-end recognition-score">
-              <div class="display-6 fw-bold text-success">${championPercent}</div>
-              <div class="text-muted small">Schedule adherence</div>
-            </div>
-          </div>
-          ${mentionBadges ? `
-            <div class="recognition-mentions mt-4">
-              <div class="text-uppercase text-muted small fw-semibold mb-2">Additional shout-outs</div>
-              <div class="d-flex flex-wrap gap-2">${mentionBadges}</div>
-            </div>
-          ` : ''}
-        `;
-      } catch (error) {
-        console.error('Error rendering adherence recognition:', error);
-      }
     }
 
     renderCharts() {
@@ -2786,69 +2032,21 @@
         const periodInfo = this.currentData.periodInfo || {};
         const tz = periodInfo.timezone || COMPANY_TIMEZONE;
         const tzLabel = periodInfo.timezoneLabel || COMPANY_TIMEZONE_LABEL || COMPANY_TIMEZONE;
-        const granularity = (periodInfo.granularity || this.currentGranularity || '').toLowerCase();
-
-        const showMonthlyOverview = granularity === 'quarter' || granularity === 'year';
-
-        const titleEl = document.getElementById('dailyOverviewTitle');
-        if (titleEl) {
-          titleEl.textContent = showMonthlyOverview ? 'Monthly Attendance Overview' : 'Daily Attendance Overview';
-        }
-
-        let labels = [];
-        let dataPoints = [];
-        let datasetLabel = '';
-        let xAxisTitle = '';
-
-        if (showMonthlyOverview) {
-          const monthlyAggregation = {};
-          daily.forEach((d) => {
-            if (!d || !d.date) return;
-            const date = new Date(d.date + 'T12:00:00');
-            if (Number.isNaN(date.getTime())) return;
-            const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-            if (!monthlyAggregation[monthKey]) {
-              const label = date.toLocaleDateString('en-US', {
-                timeZone: tz,
-                month: 'short',
-                year: 'numeric'
-              });
-              monthlyAggregation[monthKey] = { label, total: 0 };
-            }
-            const hours = typeof d.OnWorkHrs === 'number' ? d.OnWorkHrs : parseFloat(d.OnWorkHrs) || 0;
-            monthlyAggregation[monthKey].total += hours;
-          });
-
-          const sortedKeys = Object.keys(monthlyAggregation).sort();
-          labels = sortedKeys.map((key) => monthlyAggregation[key].label);
-          dataPoints = sortedKeys.map((key) => monthlyAggregation[key].total);
-          datasetLabel = 'Work Hours by Month';
-          xAxisTitle = 'Month';
-        } else {
-          labels = daily.map(d => {
-            if (!d || !d.date) return '';
-            const date = new Date(d.date + 'T12:00:00');
-            return date.toLocaleDateString('en-US', {
-              timeZone: tz,
-              month: 'short',
-              day: 'numeric'
-            });
-          });
-          dataPoints = daily.map(d => {
-            if (!d) return 0;
-            return typeof d.OnWorkHrs === 'number' ? d.OnWorkHrs : parseFloat(d.OnWorkHrs) || 0;
-          });
-          datasetLabel = 'Work Hours (Corrected from Seconds)';
-          xAxisTitle = 'Date';
-        }
 
         this.charts.dailyAttendance = new Chart(ctx, {
           type: 'line',
           data: {
-            labels,
+            labels: daily.map(d => {
+              const date = new Date(d.date + 'T12:00:00');
+              return date.toLocaleDateString('en-US', {
+                timeZone: tz,
+                month: 'short',
+                day: 'numeric'
+              });
+            }),
             datasets: [{
-              label: datasetLabel,
-              data: dataPoints,
+              label: 'Work Hours (Corrected from Seconds)',
+              data: daily.map(d => d.OnWorkHrs || 0),
               borderColor: '#00BFFF',
               backgroundColor: 'rgba(0,191,255,0.1)',
               fill: true,
@@ -2861,7 +2059,7 @@
             plugins: {
               title: {
                 display: true,
-                text: `${showMonthlyOverview ? 'Monthly' : 'Daily'} Attendance (${tzLabel})`
+                text: `Daily Attendance (${tzLabel})`
               }
             },
             scales: {
@@ -2875,7 +2073,7 @@
               x: {
                 title: {
                   display: true,
-                  text: xAxisTitle
+                  text: 'Date'
                 }
               }
             }
@@ -2888,26 +2086,19 @@
 
     renderAttendanceTable() {
       try {
-        const container = document.getElementById('attendanceTableContainer');
+        const container = document.getElementById('attendanceTableContainer'); 
         if (!container) return;
-
-        const weeklyTableContainer = document.getElementById('weeklyLoginLogoutContainer');
+        
         const userCompliance = this.currentData.userCompliance || [];
-
-        if (userCompliance.length === 0) {
-          this.weeklyPagination.totalItems = 0;
-          this.weeklyPagination.totalPages = 0;
-          this.weeklyPagination.currentPage = 1;
-          if (weeklyTableContainer) {
-            weeklyTableContainer.innerHTML = '<p class="text-muted text-center mb-0">No login/logout activity available for the selected period.</p>';
-          }
-          container.innerHTML = '<p class="text-muted text-center">No attendance data available for the selected period.</p>';
-          return;
+        
+        if (userCompliance.length === 0) { 
+          container.innerHTML = '<p class="text-muted text-center">No attendance data available for the selected period.</p>'; 
+          return; 
         }
 
         this.pagination.totalItems = userCompliance.length;
         this.pagination.totalPages = Math.ceil(this.pagination.totalItems / this.pagination.itemsPerPage);
-
+        
         if (this.pagination.currentPage > this.pagination.totalPages) {
           this.pagination.currentPage = Math.max(1, this.pagination.totalPages);
         }
@@ -2916,460 +2107,10 @@
         const endIndex = Math.min(startIndex + this.pagination.itemsPerPage, userCompliance.length);
         const currentPageData = userCompliance.slice(startIndex, endIndex);
 
-        const BREAK_ALLOWANCE_SECS = 30 * 60;
-        const LUNCH_ALLOWANCE_SECS = 30 * 60;
-        const hourPolicy = this.currentData.hourPolicy || {};
-        const overtimeEnabled = Boolean(hourPolicy.overtimeEnabled);
-        const dailyCapHours = typeof hourPolicy.effectiveCapHours === 'number' ? hourPolicy.effectiveCapHours : 8;
-        const weeklyCapHours = typeof hourPolicy.baseCapHours === 'number'
-          ? hourPolicy.baseCapHours * 5
-          : 40;
-        const timezoneLabel = window.COMPANY_TIMEZONE_LABEL || COMPANY_TIMEZONE_LABEL || 'company timezone';
-        const timezoneValue = window.COMPANY_TIMEZONE || COMPANY_TIMEZONE;
-
-        const filteredRows = Array.isArray(this.currentData.filteredRows)
-          ? this.currentData.filteredRows
-          : [];
-        const loginStates = new Set([
-          'available',
-          'start of shift',
-          'start shift',
-          'clocked in',
-          'clock in',
-          'logged in',
-          'log in',
-          'signed in'
-        ]);
-        const logoutStates = new Set([
-          'end of shift',
-          'end-of-shift',
-          'end shift',
-          'logged out',
-          'log out',
-          'clocked out',
-          'clock out',
-          'signed out'
-        ]);
-        const isoDateFormatter = (() => {
-          try {
-            return new Intl.DateTimeFormat('en-CA', {
-              timeZone: timezoneValue || 'UTC'
-            });
-          } catch (error) {
-            console.warn('Failed to create ISO date formatter for attendance table:', error);
-            return null;
-          }
-        })();
-
-        const weeklyLabelFormatter = (() => {
-          try {
-            return new Intl.DateTimeFormat('en-US', {
-              weekday: 'short',
-              month: 'short',
-              day: 'numeric',
-              timeZone: 'UTC'
-            });
-          } catch (error) {
-            console.warn('Failed to create week label formatter for attendance table:', error);
-            return null;
-          }
-        })();
-
-        const formatWeekLabel = (isoDateString) => {
-          if (typeof isoDateString !== 'string' || !isoDateString) {
-            return isoDateString;
-          }
-
-          try {
-            const referenceDate = new Date(`${isoDateString}T00:00:00Z`);
-            if (Number.isNaN(referenceDate.getTime())) {
-              return isoDateString;
-            }
-
-            if (weeklyLabelFormatter) {
-              return weeklyLabelFormatter.format(referenceDate);
-            }
-          } catch (error) {
-            console.warn('Failed to format weekly label for date:', isoDateString, error);
-          }
-
-          return isoDateString;
-        };
-
-        const ensureDateKey = (timestamp, dateString) => {
-          if (typeof dateString === 'string') {
-            const trimmed = dateString.trim();
-            if (trimmed) {
-              return trimmed;
-            }
-          }
-
-          if (!Number.isFinite(timestamp)) {
-            return null;
-          }
-
-          const date = new Date(timestamp);
-          if (Number.isNaN(date.getTime())) {
-            return null;
-          }
-
-          if (isoDateFormatter) {
-            try {
-              return isoDateFormatter.format(date);
-            } catch (err) {
-              console.warn('ISO date formatting failed, falling back to UTC string:', err);
-            }
-          }
-
-          try {
-            return date.toISOString().slice(0, 10);
-          } catch (error) {
-            console.warn('Failed to derive ISO date key for attendance table:', error);
-            return null;
-          }
-        };
-
-        const timingInfoByUser = new Map();
-
-        filteredRows.forEach(row => {
-          if (!row || !row.user) {
-            return;
-          }
-
-          const timestamp = typeof row.timestampMs === 'number'
-            ? row.timestampMs
-            : Number(row.timestamp);
-          if (!Number.isFinite(timestamp)) {
-            return;
-          }
-
-          const rawState = typeof row.state === 'string' ? row.state.trim() : '';
-          const normalizedState = rawState.toLowerCase();
-          const dateKey = ensureDateKey(timestamp, row.dateString);
-
-          if (!dateKey) {
-            return;
-          }
-
-          if (!timingInfoByUser.has(row.user)) {
-            timingInfoByUser.set(row.user, new Map());
-          }
-
-          const userDateMap = timingInfoByUser.get(row.user);
-          if (!userDateMap) {
-            return;
-          }
-
-          if (!userDateMap.has(dateKey)) {
-            userDateMap.set(dateKey, {
-              firstAvailable: null,
-              lastEndOfShift: null,
-              earliestEvent: null,
-              latestEvent: null
-            });
-          }
-
-          const info = userDateMap.get(dateKey);
-          if (!info) {
-            return;
-          }
-
-          if (info.earliestEvent === null || timestamp < info.earliestEvent) {
-            info.earliestEvent = timestamp;
-          }
-          if (info.latestEvent === null || timestamp > info.latestEvent) {
-            info.latestEvent = timestamp;
-          }
-
-          if (loginStates.has(normalizedState)) {
-            if (info.firstAvailable === null || timestamp < info.firstAvailable) {
-              info.firstAvailable = timestamp;
-            }
-          }
-
-          if (logoutStates.has(normalizedState)) {
-            if (info.lastEndOfShift === null || timestamp > info.lastEndOfShift) {
-              info.lastEndOfShift = timestamp;
-            }
-          }
-        });
-
-        const timeFormatter = (() => {
-          try {
-            return new Intl.DateTimeFormat('en-US', {
-              hour: '2-digit',
-              minute: '2-digit',
-              hour12: true,
-              timeZone: timezoneValue || 'UTC'
-            });
-          } catch (error) {
-            console.warn('Failed to create Intl.DateTimeFormat for attendance table:', error);
-            return null;
-          }
-        })();
-
-        const formatTimestampForDisplay = (timestamp) => {
-          if (!Number.isFinite(timestamp)) {
-            return '—';
-          }
-          const date = new Date(timestamp);
-          if (Number.isNaN(date.getTime())) {
-            return '—';
-          }
-          if (timeFormatter) {
-            try {
-              return timeFormatter.format(date);
-            } catch (err) {
-              console.warn('Time formatting failed, falling back to locale string:', err);
-            }
-          }
-          return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        };
-
-        const buildWeeklyLoginLogoutTable = () => {
-          if (!weeklyTableContainer) {
-            return;
-          }
-
-          const availableDateKeys = new Set();
-          timingInfoByUser.forEach((dateMap) => {
-            if (dateMap && typeof dateMap.forEach === 'function') {
-              dateMap.forEach((_, dateKey) => {
-                if (typeof dateKey === 'string' && dateKey) {
-                  availableDateKeys.add(dateKey);
-                }
-              });
-            }
-          });
-
-          const periodInfo = this.currentData.periodInfo || {};
-
-          const parseIsoKeyToDate = (key) => {
-            if (typeof key !== 'string') return null;
-            const parts = key.split('-').map(part => Number(part));
-            if (parts.length !== 3 || parts.some(num => !Number.isFinite(num))) return null;
-            return new Date(Date.UTC(parts[0], parts[1] - 1, parts[2]));
-          };
-
-          const appendWeekDates = (collection, baseDate) => {
-            if (!(baseDate instanceof Date) || Number.isNaN(baseDate.getTime())) {
-              return false;
-            }
-
-            const utcBase = new Date(Date.UTC(baseDate.getUTCFullYear(), baseDate.getUTCMonth(), baseDate.getUTCDate()));
-            const weekday = utcBase.getUTCDay();
-            const diffToMonday = weekday === 0 ? -6 : 1 - weekday;
-            utcBase.setUTCDate(utcBase.getUTCDate() + diffToMonday);
-
-            for (let i = 0; i < 7; i++) {
-              const current = new Date(utcBase.getTime());
-              current.setUTCDate(utcBase.getUTCDate() + i);
-              collection.push(current);
-            }
-            return true;
-          };
-
-          const generateWeekDates = () => {
-            const dates = [];
-
-            if (availableDateKeys.size > 0) {
-              const sortedKeys = Array.from(availableDateKeys).sort();
-              const latestKey = sortedKeys[sortedKeys.length - 1];
-              const latestDate = parseIsoKeyToDate(latestKey);
-              if (latestDate && appendWeekDates(dates, latestDate)) {
-                return dates;
-              }
-            }
-
-            const periodStart = periodInfo.startDateIso || periodInfo.startDate || periodInfo.periodStart || periodInfo.periodStartDate;
-            if (typeof periodStart === 'string') {
-              const startDate = new Date(periodStart);
-              if (appendWeekDates(dates, startDate)) {
-                return dates;
-              }
-            }
-
-            appendWeekDates(dates, new Date());
-            return dates;
-          };
-
-          const alignWeekToMonday = (dates) => {
-            if (!Array.isArray(dates) || dates.length === 0) {
-              return [];
-            }
-
-            const reference = dates.find(dateObj => dateObj instanceof Date && !Number.isNaN(dateObj.getTime()));
-            if (!reference) {
-              return [];
-            }
-
-            const monday = new Date(Date.UTC(reference.getUTCFullYear(), reference.getUTCMonth(), reference.getUTCDate()));
-            const weekday = monday.getUTCDay();
-            const diffToMonday = weekday === 0 ? -6 : 1 - weekday;
-            monday.setUTCDate(monday.getUTCDate() + diffToMonday);
-
-            return Array.from({ length: 7 }, (_, index) => {
-              const current = new Date(monday.getTime());
-              current.setUTCDate(monday.getUTCDate() + index);
-              return current;
-            });
-          };
-
-          const rawWeekDates = alignWeekToMonday(generateWeekDates());
-          if (!Array.isArray(rawWeekDates) || rawWeekDates.length === 0) {
-            this.weeklyPagination.totalItems = 0;
-            this.weeklyPagination.totalPages = 0;
-            this.weeklyPagination.currentPage = 1;
-            weeklyTableContainer.innerHTML = '<p class="text-muted text-center mb-0">No login/logout activity detected for Monday through Sunday.</p>';
-            return;
-          }
-
-          const formattedWeekDates = rawWeekDates.map(dateObj => {
-            const key = dateObj.toISOString().slice(0, 10);
-            const label = formatWeekLabel(key);
-            return { key, label };
-          });
-
-          if (!Array.isArray(formattedWeekDates) || formattedWeekDates.length === 0) {
-            this.weeklyPagination.totalItems = 0;
-            this.weeklyPagination.totalPages = 0;
-            this.weeklyPagination.currentPage = 1;
-            weeklyTableContainer.innerHTML = '<p class="text-muted text-center mb-0">No login/logout activity detected for Monday through Sunday.</p>';
-            return;
-          }
-
-          const weekRangeLabel = (() => {
-            const startLabel = formattedWeekDates[0].label;
-            const endLabel = formattedWeekDates[formattedWeekDates.length - 1].label;
-            if (!startLabel || !endLabel) {
-              return '';
-            }
-            return `${escapeHtml(startLabel)} – ${escapeHtml(endLabel)}`;
-          })();
-
-          const timezoneNote = timezoneLabel
-            ? `Times shown in ${escapeHtml(timezoneLabel)}`
-            : 'Times shown in selected timezone';
-
-          this.weeklyPagination.totalItems = userCompliance.length;
-          this.weeklyPagination.totalPages = Math.ceil(this.weeklyPagination.totalItems / this.weeklyPagination.itemsPerPage) || 0;
-
-          if (this.weeklyPagination.totalPages === 0) {
-            this.weeklyPagination.currentPage = 1;
-          } else if (this.weeklyPagination.currentPage > this.weeklyPagination.totalPages) {
-            this.weeklyPagination.currentPage = this.weeklyPagination.totalPages;
-          }
-
-          const weeklyStartIndex = (this.weeklyPagination.currentPage - 1) * this.weeklyPagination.itemsPerPage;
-          const weeklyEndIndex = Math.min(weeklyStartIndex + this.weeklyPagination.itemsPerPage, userCompliance.length);
-          const weeklyPageData = userCompliance.slice(weeklyStartIndex, weeklyEndIndex);
-
-          const weeklyLabelStart = this.weeklyPagination.totalItems === 0 ? 0 : weeklyStartIndex + 1;
-          const weeklyLabelEnd = this.weeklyPagination.totalItems === 0 ? 0 : weeklyEndIndex;
-
-          let html = '';
-          html += '<div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2">';
-          html += '<div class="d-flex align-items-center gap-2 flex-wrap">';
-          if (weekRangeLabel) {
-            html += `<span class="metric-pill metric-pill-primary"><i class="fas fa-calendar-week"></i>${weekRangeLabel}</span>`;
-          } else {
-            html += '<span class="text-muted small">Week range unavailable</span>';
-          }
-          html += '</div>';
-          html += `<div class="small text-muted">${timezoneNote}</div>`;
-          html += '</div>';
-          html += '<div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mt-3">';
-          html += `<div class="text-muted small">Showing ${weeklyLabelStart}-${weeklyLabelEnd} of ${this.weeklyPagination.totalItems} employees</div>`;
-          html += '<div class="d-flex align-items-center gap-2">';
-          html += '<label class="form-label mb-0 small" for="weeklyItemsPerPageSelect">Items per page:</label>';
-          html += '<select class="form-select form-select-sm" style="width: auto;" id="weeklyItemsPerPageSelect">';
-          html += `<option value="5" ${this.weeklyPagination.itemsPerPage === 5 ? 'selected' : ''}>5</option>`;
-          html += `<option value="10" ${this.weeklyPagination.itemsPerPage === 10 ? 'selected' : ''}>10</option>`;
-          html += `<option value="25" ${this.weeklyPagination.itemsPerPage === 25 ? 'selected' : ''}>25</option>`;
-          html += `<option value="50" ${this.weeklyPagination.itemsPerPage === 50 ? 'selected' : ''}>50</option>`;
-          html += '</select>';
-          html += '</div>';
-          html += '</div>';
-          html += '<div class="table-responsive mt-3">';
-          html += '<table class="table table-sm align-middle modern-data-table weekly-login-table">';
-          html += '<thead><tr>';
-          html += '<th><i class="fas fa-user me-2"></i>Employee</th>';
-          formattedWeekDates.forEach(day => {
-            html += `<th>${escapeHtml(day.label)}<div class="small text-muted">Login • Logout</div></th>`;
-          });
-          html += '</tr></thead><tbody>';
-
-          weeklyPageData.forEach((user) => {
-            const rawUserId = user && Object.prototype.hasOwnProperty.call(user, 'user') ? user.user : null;
-            const userName = typeof rawUserId === 'string'
-              ? rawUserId
-              : (rawUserId != null ? String(rawUserId) : 'Unknown');
-            const userKey = userName;
-            const userDateMap = timingInfoByUser.get(userKey) || null;
-
-            html += '<tr>';
-            html += '<td>';
-            html += '<div class="d-flex align-items-center">';
-            html += `<div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-2" style="width:28px;height:28px;font-size:.75rem;">${escapeHtml((userName || 'U').charAt(0).toUpperCase())}</div>`;
-            html += `<strong>${escapeHtml(userName)}</strong>`;
-            html += '</div>';
-            html += '</td>';
-
-            formattedWeekDates.forEach(day => {
-              const info = userDateMap ? userDateMap.get(day.key) : null;
-              const firstCandidate = info && Number.isFinite(info.firstAvailable) ? info.firstAvailable
-                : (info && Number.isFinite(info.earliestEvent) ? info.earliestEvent : null);
-              const lastCandidate = info && Number.isFinite(info.lastEndOfShift) ? info.lastEndOfShift
-                : (info && Number.isFinite(info.latestEvent) ? info.latestEvent : null);
-
-              const loginDisplay = Number.isFinite(firstCandidate) ? formatTimestampForDisplay(firstCandidate) : '—';
-              const logoutDisplay = Number.isFinite(lastCandidate) ? formatTimestampForDisplay(lastCandidate) : '—';
-
-              let cellContent;
-              if (loginDisplay === '—' && logoutDisplay === '—') {
-                cellContent = '<span class="text-muted">—</span>';
-              } else {
-                const segments = [];
-                if (loginDisplay !== '—') {
-                  segments.push(`<span class="weekly-login-badge login"><i class="fas fa-sign-in-alt"></i>${escapeHtml(loginDisplay)}</span>`);
-                }
-                if (logoutDisplay !== '—') {
-                  segments.push(`<span class="weekly-login-badge logout"><i class="fas fa-sign-out-alt"></i>${escapeHtml(logoutDisplay)}</span>`);
-                }
-                cellContent = `<div class="weekly-login-cell">${segments.join(' ')}</div>`;
-              }
-
-              html += `<td>${cellContent}</td>`;
-            });
-
-            html += '</tr>';
-          });
-
-          if (weeklyPageData.length === 0) {
-            html += `<tr><td colspan="${formattedWeekDates.length + 1}" class="text-center text-muted">No users found for the selected period.</td></tr>`;
-          }
-
-          html += '</tbody></table></div>';
-
-          if (this.weeklyPagination.totalPages > 1) {
-            html += this.renderWeeklyPaginationControls();
-          }
-
-          weeklyTableContainer.innerHTML = html;
-          this.setupWeeklyPaginationEventListeners();
-        };
-
-        buildWeeklyLoginLogoutTable();
-
-        const summaryTimezoneNote = timezoneLabel
-          ? `Times shown in ${escapeHtml(timezoneLabel)}${timezoneValue ? ` (${escapeHtml(timezoneValue)})` : ''}`
-          : 'Times shown in selected timezone';
-
         let tableHtml = `
-          <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center mb-3 gap-3">
-            <div>
-              <div class="text-muted">Showing ${startIndex + 1}-${endIndex} of ${this.pagination.totalItems} employees (company time adjusted)</div>
-              <div class="small text-muted">${summaryTimezoneNote}</div>
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <div class="text-muted">
+              Showing ${startIndex + 1}-${endIndex} of ${this.pagination.totalItems} employees (Company time adjusted)
             </div>
             <div class="d-flex align-items-center gap-2">
               <label class="form-label mb-0 small">Items per page:</label>
@@ -3381,15 +2122,15 @@
               </select>
             </div>
           </div>
-          <div class="table-responsive mb-4">
-            <table class="table table-hover align-middle attendance-summary-table modern-data-table">
+          <div class="table-responsive">
+            <table class="table table-hover">
               <thead>
                 <tr>
                   <th><i class="fas fa-user me-2"></i>Employee</th>
-                  <th><i class="fas fa-briefcase me-2"></i>Capped Billable Hours</th>
-                  <th><i class="fas fa-coffee me-2"></i>Break Credit Hours</th>
-                  <th><i class="fas fa-utensils me-2"></i>Lunch Adjustment Hours</th>
-                  <th><i class="fas fa-clock me-2"></i>Adjusted Billable Hours</th>
+                  <th><i class="fas fa-clock me-2"></i>Work Hours</th>
+                  <th><i class="fas fa-coffee me-2"></i>Break Hours</th>
+                  <th><i class="fas fa-utensils me-2"></i>Lunch Hours</th>
+                  <th><i class="fas fa-calendar-weekend me-2"></i>Weekend Hours</th>
                   <th><i class="fas fa-star me-2"></i>Compliance</th>
                   <th><i class="fas fa-flag me-2"></i>Status</th>
                 </tr>
@@ -3399,17 +2140,12 @@
         currentPageData.forEach((user) => {
           const complianceScore = this.calculateComplianceScore(user);
           const statusBadge = this.getComplianceStatusBadge(complianceScore);
-
-          const baseHoursDisplay = formatDecimalHours(user.baseBillableSecs || 0);
-          const breakCreditDisplay = formatSignedDecimalHours(user.breakCreditSecs || 0);
-          const lunchAdjustmentDisplay = formatSignedDecimalHours(user.lunchAdjustmentSecs || 0);
-          const adjustedHoursDisplay = formatDecimalHours(user.adjustedBillableSecs || 0);
-          const weekdayAvailabilityDisplay = formatDecimalHours(user.availableSecsWeekday || 0);
-          const weekendAvailabilityDisplay = formatDecimalHours(user.weekendSecs || 0);
-          const breakRecordedDisplay = formatDecimalHours(user.breakSecs || 0);
-          const lunchRecordedDisplay = formatDecimalHours(user.lunchSecs || 0);
-          const totalAvailabilityDisplay = formatDecimalHours((user.availableSecsWeekday || 0) + (user.weekendSecs || 0));
-
+          
+          const workHours = convertSecondsToDecimalHours(user.availableSecsWeekday || 0);
+          const breakHours = convertSecondsToDecimalHours(user.breakSecs || 0);
+          const lunchHours = convertSecondsToDecimalHours(user.lunchSecs || 0);
+          const weekendHours = convertSecondsToDecimalHours(user.weekendSecs || 0);
+          
           tableHtml += `
             <tr>
               <td>
@@ -3420,67 +2156,33 @@
                   <strong>${user.user || 'Unknown'}</strong>
                 </div>
               </td>
-              <td class="modern-metric-cell">
-                <span class="metric-pill metric-pill-primary"><i class="fas fa-briefcase"></i>${baseHoursDisplay}</span>
-                <div class="metric-subtext">Weekday ${weekdayAvailabilityDisplay} • Weekend ${weekendAvailabilityDisplay}</div>
+              <td>
+                <span class="badge bg-success">${workHours.toFixed(2)}h</span>
+                <small class="text-muted d-block">from ${(user.availableSecsWeekday || 0)}s</small>
               </td>
-              <td class="modern-metric-cell">
-                <span class="metric-pill metric-pill-warning"><i class="fas fa-coffee"></i>${breakCreditDisplay}</span>
-                <div class="metric-subtext">${breakRecordedDisplay} recorded</div>
+              <td>
+                <span class="badge bg-warning">${breakHours.toFixed(2)}h</span>
+                ${(user.exceededBreakDays || 0) > 0 ? `<i class="fas fa-exclamation-triangle text-danger ms-1"></i>` : ''}
+                <small class="text-muted d-block">from ${(user.breakSecs || 0)}s</small>
               </td>
-              <td class="modern-metric-cell">
-                <span class="metric-pill metric-pill-info"><i class="fas fa-utensils"></i>${lunchAdjustmentDisplay}</span>
-                <div class="metric-subtext">${lunchRecordedDisplay} recorded</div>
+              <td>
+                <span class="badge bg-info">${lunchHours.toFixed(2)}h</span>
+                ${(user.exceededLunchDays || 0) > 0 ? `<i class="fas fa-exclamation-triangle text-danger ms-1"></i>` : ''}
+                <small class="text-muted d-block">from ${(user.lunchSecs || 0)}s</small>
               </td>
-              <td class="modern-metric-cell">
-                <span class="metric-pill metric-pill-success"><i class="fas fa-clock"></i>${adjustedHoursDisplay}</span>
-                <div class="metric-subtext">Total availability ${totalAvailabilityDisplay}</div>
+              <td>
+                <span class="badge bg-secondary">${weekendHours.toFixed(2)}h</span>
+                <small class="text-muted d-block">from ${(user.weekendSecs || 0)}s</small>
               </td>
-              <td class="modern-metric-cell">
-                <div class="d-flex align-items-center gap-3 flex-wrap">
-                  <div class="progress flex-grow-1" style="height:8px; max-width:140px;">
+              <td>
+                <div class="d-flex align-items-center">
+                  <div class="progress" style="width:60px;height:8px;">
                     <div class="progress-bar bg-${complianceScore >= 80 ? 'success' : complianceScore >= 60 ? 'warning' : 'danger'}" style="width:${complianceScore}%"></div>
                   </div>
-                  <span class="metric-pill metric-pill-neutral"><i class="fas fa-star"></i>${complianceScore}%</span>
+                  <small class="ms-2">${complianceScore}%</small>
                 </div>
               </td>
-              <td class="modern-metric-cell">${statusBadge}</td>
-            </tr>`;
-        });
-
-        tableHtml += `
-              </tbody>
-            </table>
-          </div>
-          <h6 class="fw-bold mt-4 d-flex align-items-center">
-            <i class="fas fa-mug-hot me-2"></i>Break & Lunch Details
-          </h6>
-          <div class="table-responsive">
-            <table class="table table-striped align-middle">
-              <thead>
-                <tr>
-                  <th>Employee</th>
-                  <th>Break Hours Recorded</th>
-                  <th>Break Over Minutes</th>
-                  <th>Lunch Hours Recorded</th>
-                  <th>Lunch Over Minutes</th>
-                </tr>
-              </thead>
-              <tbody>`;
-
-        currentPageData.forEach((user) => {
-          const breakOverMinutes = Math.max(0, ((user.breakSecs || 0) - BREAK_ALLOWANCE_SECS) / 60);
-          const lunchOverMinutes = Math.max(0, ((user.lunchSecs || 0) - LUNCH_ALLOWANCE_SECS) / 60);
-          const breakOverClass = breakOverMinutes > 0 ? 'badge bg-danger' : 'badge bg-success';
-          const lunchOverClass = lunchOverMinutes > 0 ? 'badge bg-danger' : 'badge bg-success';
-
-          tableHtml += `
-            <tr>
-              <td>${user.user || 'Unknown'}</td>
-              <td>${formatDecimalHours(user.breakSecs || 0)}</td>
-              <td><span class="${breakOverClass}">${breakOverMinutes.toFixed(2)}m</span></td>
-              <td>${formatDecimalHours(user.lunchSecs || 0)}</td>
-              <td><span class="${lunchOverClass}">${lunchOverMinutes.toFixed(2)}m</span></td>
+              <td>${statusBadge}</td>
             </tr>`;
         });
 
@@ -3493,127 +2195,20 @@
           tableHtml += this.renderPaginationControls();
         }
 
-        const policyNote = overtimeEnabled
-          ? `Overtime enabled: daily availability capped at ${dailyCapHours.toFixed(2)}h with approved allowance.`
-          : `Overtime disabled: hours capped at ${weeklyCapHours.toFixed(2)}h per week (${dailyCapHours.toFixed(2)}h per day).`;
-
         tableHtml += `
           <div class="mt-3">
             <small class="text-muted">
               <i class="fas fa-info-circle me-1"></i>
-              Break credits add up to 0.50h daily when within policy and all break or lunch overages deduct minute-for-minute from billable availability. ${policyNote} All durations shown in decimal hours using ${timezoneLabel} (${timezoneValue}).
+              <strong>Data Format:</strong> All duration values converted from seconds to decimal hours. All times follow ${window.COMPANY_TIMEZONE_LABEL || COMPANY_TIMEZONE_LABEL || 'company timezone'} (${window.COMPANY_TIMEZONE || COMPANY_TIMEZONE}).
             </small>
           </div>`;
 
         container.innerHTML = tableHtml;
         this.setupPaginationEventListeners();
 
-      } catch (error) {
-        console.error('Error rendering attendance table:', error);
+      } catch (error) { 
+        console.error('Error rendering attendance table:', error); 
       }
-    }
-
-    renderWeeklyPaginationControls() {
-      const totalPages = this.weeklyPagination.totalPages;
-      const currentPage = this.weeklyPagination.currentPage;
-
-      let paginationHtml = `
-        <nav aria-label="Weekly login/logout table navigation" class="mt-3">
-          <div class="d-flex justify-content-between align-items-center">
-            <div class="text-muted small">
-              Page ${currentPage} of ${totalPages}
-            </div>
-            <ul class="pagination pagination-sm mb-0">`;
-
-      paginationHtml += `
-        <li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
-          <a class="page-link" href="#" data-weekly-page="${currentPage - 1}" ${currentPage === 1 ? 'tabindex="-1"' : ''}>
-            <i class="fas fa-chevron-left"></i>
-          </a>
-        </li>`;
-
-      const maxVisiblePages = 5;
-      let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
-      let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
-
-      if (endPage - startPage + 1 < maxVisiblePages) {
-        startPage = Math.max(1, endPage - maxVisiblePages + 1);
-      }
-
-      if (startPage > 1) {
-        paginationHtml += `
-          <li class="page-item">
-            <a class="page-link" href="#" data-weekly-page="1">1</a>
-          </li>`;
-        if (startPage > 2) {
-          paginationHtml += `
-            <li class="page-item disabled">
-              <span class="page-link">...</span>
-            </li>`;
-        }
-      }
-
-      for (let i = startPage; i <= endPage; i++) {
-        paginationHtml += `
-          <li class="page-item ${i === currentPage ? 'active' : ''}">
-            <a class="page-link" href="#" data-weekly-page="${i}">${i}</a>
-          </li>`;
-      }
-
-      if (endPage < totalPages) {
-        if (endPage < totalPages - 1) {
-          paginationHtml += `
-            <li class="page-item disabled">
-              <span class="page-link">...</span>
-            </li>`;
-        }
-        paginationHtml += `
-          <li class="page-item">
-            <a class="page-link" href="#" data-weekly-page="${totalPages}">${totalPages}</a>
-          </li>`;
-      }
-
-      paginationHtml += `
-        <li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
-          <a class="page-link" href="#" data-weekly-page="${currentPage + 1}" ${currentPage === totalPages ? 'tabindex="-1"' : ''}>
-            <i class="fas fa-chevron-right"></i>
-          </a>
-        </li>
-      </ul>
-    </div>
-  </nav>`;
-
-      return paginationHtml;
-    }
-
-    setupWeeklyPaginationEventListeners() {
-      const itemsPerPageSelect = document.getElementById('weeklyItemsPerPageSelect');
-      if (itemsPerPageSelect) {
-        itemsPerPageSelect.addEventListener('change', (e) => {
-          const parsedValue = parseInt(e.target.value);
-          if (Number.isFinite(parsedValue) && parsedValue > 0) {
-            this.weeklyPagination.itemsPerPage = parsedValue;
-          }
-          this.weeklyPagination.currentPage = 1;
-          this.renderAttendanceTable();
-        });
-      }
-
-      const paginationLinks = document.querySelectorAll('#weeklyLoginLogoutContainer .page-link[data-weekly-page]');
-      paginationLinks.forEach(link => {
-        link.addEventListener('click', (e) => {
-          e.preventDefault();
-          const target = e.target.closest('[data-weekly-page]');
-          if (!target) {
-            return;
-          }
-          const page = parseInt(target.dataset.weeklyPage);
-          if (page && page !== this.weeklyPagination.currentPage && page >= 1 && page <= this.weeklyPagination.totalPages) {
-            this.weeklyPagination.currentPage = page;
-            this.renderAttendanceTable();
-          }
-        });
-      });
     }
 
     renderPaginationControls() {
@@ -4080,18 +2675,11 @@
     }
 
     calculateComplianceScore(user) {
-      const breakDays = Number.isFinite(user?.exceededBreakDays) ? user.exceededBreakDays : 0;
-      const lunchDays = Number.isFinite(user?.exceededLunchDays) ? user.exceededLunchDays : 0;
-      const weeklyOverages = Number.isFinite(user?.exceededWeeklyCount) ? user.exceededWeeklyCount : 0;
-
       let score = 100;
-      score -= breakDays * 5;
-      score -= lunchDays * 5;
-      score -= weeklyOverages * 10;
-      if (!Number.isFinite(score)) {
-        score = 0;
-      }
-      return Math.max(0, Math.round(score));
+      score -= (user.exceededBreakDays || 0) * 5;
+      score -= (user.exceededLunchDays || 0) * 5;
+      score -= (user.exceededWeeklyCount || 0) * 10;
+      return Math.max(0, score);
     }
 
     getComplianceStatusBadge(score) {
@@ -4164,7 +2752,6 @@
       const sections = {
         executivePanel: document.getElementById('executivePanel'),
         stateSummary: document.getElementById('stateSummarySection'),
-        recognition: document.getElementById('recognitionSection'),
         billableSummary: document.getElementById('billableSummarySection'),
         dailyBreakdown: document.getElementById('dailyBreakdownSection'),
         charts: document.getElementById('chartsSection'),
@@ -4174,9 +2761,9 @@
 
       const viewConfig = {
         executive: ['executivePanel'],
-        summary: ['executivePanel', 'billableSummary', 'stateSummary', 'recognition', 'dailyBreakdown'],
+        summary: ['executivePanel', 'billableSummary', 'stateSummary', 'dailyBreakdown'],
         detailed: Object.keys(sections),
-        standard: ['executivePanel', 'stateSummary', 'recognition', 'billableSummary', 'dailyBreakdown', 'charts', 'dailyOverview', 'attendanceTable']
+        standard: ['executivePanel', 'stateSummary', 'billableSummary', 'dailyBreakdown', 'charts', 'dailyOverview', 'attendanceTable']
       };
 
       const activeKeys = new Set(viewConfig[this.viewMode] || viewConfig.standard);
@@ -4202,11 +2789,6 @@
       document.getElementById('kpi-nonproductive').textContent = 'No Data';
 
       document.getElementById('stateSummaryRow').innerHTML = '<div class="col-12"><div class="alert alert-modern alert-info text-center" role="alert"><i class="fas fa-info-circle me-2"></i>No attendance data available for the selected period.</div></div>';
-
-      const recognitionContainer = document.getElementById('adherenceRecognition');
-      if (recognitionContainer) {
-        recognitionContainer.innerHTML = '<div class="alert alert-modern alert-info" role="alert"><i class="fas fa-info-circle me-2"></i>No adherence recognition available.</div>';
-      }
 
       const tableContainer = document.getElementById('attendanceTableContainer');
       if (tableContainer) {
@@ -4312,14 +2894,11 @@
         } else {
           console.log('Export manager calling server for user list...');
           try {
-            const campaignArg = (typeof window !== 'undefined' && window.__LAYOUT_CAMPAIGN_ID)
-              ? window.__LAYOUT_CAMPAIGN_ID
-              : (window.MANAGER_USER_ID || '');
-            this.userList = await this.callServerFunction('clientGetAssignedAgentNames', [campaignArg], { timeoutMs: 8000 });
+            this.userList = await this.callServerFunction('clientGetAssignedAgentNames', [window.MANAGER_USER_ID], { timeoutMs: 8000 });
 
             if (!Array.isArray(this.userList) || this.userList.length === 0) {
               console.log('No users from clientGetAssignedAgentNames, trying getUsers fallback...');
-              const userData = await this.callServerFunction('getUsers', [{ campaignId: campaignArg, excludeGuests: true }], { timeoutMs: 6000 });
+              const userData = await this.callServerFunction('getUsers', [], { timeoutMs: 6000 });
               if (Array.isArray(userData)) {
                 this.userList = userData.map(u => u.FullName || u.UserName || u.name || u.Email).filter(Boolean);
               } else {
@@ -4332,14 +2911,6 @@
           }
         }
 
-        const normalizedUsers = Array.from(new Set(
-          (Array.isArray(this.userList) ? this.userList : [])
-            .filter(name => typeof name === 'string')
-            .map(name => name.trim())
-            .filter(Boolean)
-        )).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
-
-        this.userList = normalizedUsers;
         this.populateUserSelections();
         console.log('Export manager final user list:', this.userList.length, 'users');
       } catch (error) {
@@ -4413,13 +2984,6 @@
         const checkbox = document.getElementById(id);
         if (checkbox) {
           checkbox.addEventListener('change', () => this.updatePreview());
-        }
-      });
-
-      ['overtimeToggle', 'overtimeAmount'].forEach(id => {
-        const control = document.getElementById(id);
-        if (control) {
-          control.addEventListener('change', () => this.updatePreview());
         }
       });
 
@@ -4652,16 +3216,13 @@
       const activeTimezone = (window.dashboard && window.dashboard.currentData && window.dashboard.currentData.periodInfo && window.dashboard.currentData.periodInfo.timezone)
         || COMPANY_TIMEZONE;
 
-      const hourPolicy = readHourPolicyFromControls();
-
       const dailyPivotOptions = {
         highlightLowHours: document.getElementById('highlightLowHours')?.checked || false,
         includeWeekends: document.getElementById('includeWeekends')?.checked || false,
         includeTotalHours: document.getElementById('includeTotalHours')?.checked || false,
         includeDiscrepancy: document.getElementById('includeDiscrepancy')?.checked || false,
         includeOvertime: document.getElementById('includeOvertime')?.checked || false,
-        includeTotalsRow: document.getElementById('includeTotalsRow')?.checked || false,
-        hourPolicy: hourPolicy
+        includeTotalsRow: document.getElementById('includeTotalsRow')?.checked || false
       };
 
       return {
@@ -4670,12 +3231,10 @@
         userSelection,
         format: format,
         dailyPivotOptions: dailyPivotOptions,
-        hourPolicy: hourPolicy,
         options: {
           ...dailyPivotOptions,
           timeZone: activeTimezone,
-          correctedFormat: true,
-          hourPolicy: hourPolicy
+          correctedFormat: true
         }
       };
     }
@@ -4705,10 +3264,9 @@
           } else {
             this.updateExportProgress(50, 'Generating standard export...');
             result = await safeServerCall('exportAttendanceCsv', [
-              params.period.type || 'Week',
-              params.period.value || this.getCurrentWeek(),
-              params.users.length === 1 ? params.users[0] : '',
-              params.hourPolicy
+              params.period.type || 'Week', 
+              params.period.value || this.getCurrentWeek(), 
+              params.users.length === 1 ? params.users[0] : ''
             ], { timeoutMs: 30000 });
             
             if (result && typeof result === 'string') {
@@ -4724,10 +3282,9 @@
           console.error('Server call failed:', serverError);
           this.updateExportProgress(50, 'Falling back to basic export...');
           result = await safeServerCall('exportAttendanceCsv', [
-            params.period.type || 'Week',
-            params.period.value || this.getCurrentWeek(),
-            params.users.length === 1 ? params.users[0] : '',
-            params.hourPolicy
+            params.period.type || 'Week', 
+            params.period.value || this.getCurrentWeek(), 
+            params.users.length === 1 ? params.users[0] : ''
           ], { timeoutMs: 30000 });
           
           if (result && typeof result === 'string') {
@@ -4743,65 +3300,17 @@
         this.updateExportProgress(75, 'Finalizing export...');
 
         if (result && result.success !== false) {
-          const isGoogleSheetExport = (result.fileType === 'google_sheet')
-            || (typeof result.filename === 'string' && result.filename.toLowerCase().endsWith('.gsheet'));
-
-          let handled = false;
-
-          if (isGoogleSheetExport) {
-            this.updateExportProgress(90, 'Opening Google Sheets export...');
-            const targetUrl = result.spreadsheetUrl || result.url;
-            if (targetUrl) {
-              this.openSpreadsheet(targetUrl);
-              handled = true;
-            } else {
-              this.showErrorMessage('Google Sheets link unavailable for this export.');
-            }
-          } else if (result.spreadsheetUrl) {
-            this.openSpreadsheet(result.spreadsheetUrl);
-            handled = true;
-          }
-
-          if (!handled && result.fileData) {
-            this.downloadFile(
-              result.fileData,
-              result.filename || `attendance_export_${new Date().toISOString().split('T')[0]}.xlsx`,
-              result.mimeType || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-              (result.encoding || '').toLowerCase() === 'base64'
-            );
-            handled = true;
-          } else if (!handled && result.csvData) {
-            this.downloadFile(
-              result.csvData,
-              result.filename || `attendance_export_${new Date().toISOString().split('T')[0]}.csv`,
-              result.mimeType || 'text/csv;charset=utf-8;',
-              false
-            );
-            handled = true;
-          } else if (!handled && typeof result === 'string') {
-            this.downloadFile(
-              result,
-              `attendance_export_${new Date().toISOString().split('T')[0]}.csv`,
-              'text/csv;charset=utf-8;',
-              false
-            );
-            handled = true;
-          }
-
           this.updateExportProgress(100, 'Export completed successfully!');
 
-          const successMessage = isGoogleSheetExport
-            ? (result.folderName
-              ? `Daily pivot matrix saved to "${result.folderName}" and opened in Google Sheets.`
-              : 'Daily pivot matrix opened in Google Sheets.')
-            : 'Export completed successfully!';
+          if (result.csvData) {
+            this.downloadCSV(result.csvData, result.filename || `attendance_export_${new Date().toISOString().split('T')[0]}.csv`);
+          } else if (typeof result === 'string') {
+            this.downloadCSV(result, `attendance_export_${new Date().toISOString().split('T')[0]}.csv`);
+          }
 
           setTimeout(() => {
             if (progressModal) progressModal.hide();
-            this.showSuccessMessage(successMessage);
-            if (window.exportHistoryManager && typeof window.exportHistoryManager.handleExportSuccess === 'function') {
-              window.exportHistoryManager.handleExportSuccess(result);
-            }
+            this.showSuccessMessage('Export completed successfully!');
           }, 1000);
 
         } else {
@@ -4865,8 +3374,8 @@
           alert('Please select both start and end dates for custom range.');
           return false;
         }
-        if (new Date(params.period.start) > new Date(params.period.end)) {
-          alert('Start date must be on or before the end date.');
+        if (new Date(params.period.start) >= new Date(params.period.end)) {
+          alert('Start date must be before end date.');
           return false;
         }
       } else {
@@ -4897,102 +3406,16 @@
       if (statusText) statusText.textContent = status;
     }
 
-    downloadFile(data, filename, mimeType, isBase64 = false) {
-      let downloadName = filename || `attendance_export_${new Date().toISOString().split('T')[0]}.${isBase64 ? 'xlsx' : 'csv'}`;
-      const resolvedMimeType = mimeType || (isBase64 ? 'application/octet-stream' : 'text/csv;charset=utf-8;');
-
-      let blob;
-      if (isBase64) {
-        const byteCharacters = atob(data);
-        const byteNumbers = new Array(byteCharacters.length);
-        for (let i = 0; i < byteCharacters.length; i++) {
-          byteNumbers[i] = byteCharacters.charCodeAt(i);
-        }
-        const byteArray = new Uint8Array(byteNumbers);
-        blob = new Blob([byteArray], { type: resolvedMimeType });
-      } else {
-        blob = new Blob([data], { type: resolvedMimeType });
-      }
-
+    downloadCSV(csvData, filename) {
+      const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = downloadName;
+      a.download = filename;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
-    }
-
-    downloadGoogleSheet(result) {
-      const url = result?.spreadsheetUrl || result?.url;
-      if (!url) {
-        this.showErrorMessage('Google Sheets link unavailable for this export.');
-        return;
-      }
-
-      const providedName = (typeof result?.filename === 'string' && result.filename.trim())
-        ? result.filename.trim()
-        : '';
-      let finalName = providedName || `attendance_matrix_${new Date().toISOString().split('T')[0]}.gsheet`;
-
-      if (!/\.gsheet$/i.test(finalName)) {
-        const baseName = finalName.replace(/\.(csv|xlsx)$/ig, '').trim() || `attendance_matrix_${new Date().toISOString().split('T')[0]}`;
-        finalName = `${baseName}.gsheet`;
-      }
-
-      const descriptor = {
-        url,
-        mimeType: 'application/vnd.google-apps.spreadsheet'
-      };
-
-      if (typeof result?.spreadsheetName === 'string' && result.spreadsheetName.trim()) {
-        descriptor.name = result.spreadsheetName.trim();
-      } else if (typeof result?.sheetTitle === 'string' && result.sheetTitle.trim()) {
-        descriptor.name = result.sheetTitle.trim();
-      } else {
-        descriptor.name = finalName.replace(/\.gsheet$/i, '');
-      }
-
-      if (typeof result?.fileId === 'string' && result.fileId.trim()) {
-        descriptor.documentId = result.fileId.trim();
-      }
-
-      if (typeof result?.periodLabel === 'string' && result.periodLabel.trim()) {
-        descriptor.periodLabel = result.periodLabel.trim();
-      }
-
-      if (result?.customRange && typeof result.customRange === 'object') {
-        const rangeStart = typeof result.customRange.startIso === 'string' ? result.customRange.startIso : '';
-        const rangeEnd = typeof result.customRange.endIso === 'string' ? result.customRange.endIso : '';
-        if (rangeStart || rangeEnd) {
-          descriptor.rangeStart = rangeStart;
-          descriptor.rangeEnd = rangeEnd;
-          const label = typeof result.customRange.displayLabel === 'string' ? result.customRange.displayLabel : '';
-          if (label) {
-            descriptor.rangeLabel = label;
-          }
-        }
-      }
-
-      const jsonDescriptor = JSON.stringify(descriptor, null, 2);
-      this.downloadFile(jsonDescriptor, finalName, 'application/json', false);
-    }
-
-    openSpreadsheet(url) {
-      if (!url) {
-        this.showErrorMessage('Google Sheets link unavailable for this export.');
-        return;
-      }
-
-      const anchor = document.createElement('a');
-      anchor.href = url;
-      anchor.target = '_blank';
-      anchor.rel = 'noopener';
-      anchor.style.display = 'none';
-      document.body.appendChild(anchor);
-      anchor.click();
-      document.body.removeChild(anchor);
     }
 
     showSuccessMessage(message) {
@@ -5016,206 +3439,6 @@
   let dashboard;
   let analyticsModalInstance;
   let employeeTrendsModalInstance;
-  class AttendanceExportHistoryManager {
-    constructor() {
-      this.modalElement = document.getElementById('exportHistoryModal');
-      this.contentElement = document.getElementById('exportHistoryContent');
-      this.folderLinkElement = document.getElementById('exportHistoryFolderLink');
-      this.modalInstance = this.modalElement ? new bootstrap.Modal(this.modalElement) : null;
-      this.cache = null;
-      this.lastLoaded = 0;
-      this.isRefreshing = false;
-    }
-
-    async show(forceRefresh = false) {
-      if (!this.modalInstance) {
-        return;
-      }
-      this.renderLoading('Loading saved exports...');
-      this.modalInstance.show();
-      await this.refresh(forceRefresh);
-    }
-
-    async refresh(forceRefresh = false) {
-      if (!this.contentElement || this.isRefreshing) {
-        return;
-      }
-
-      const shouldUseCache = this.cache && !forceRefresh && (Date.now() - this.lastLoaded < 60000);
-      if (shouldUseCache) {
-        this.render(this.cache);
-        return;
-      }
-
-      this.isRefreshing = true;
-      this.renderLoading('Loading saved exports...');
-
-      try {
-        const result = await safeServerCall('listAttendanceExportFiles', [], { timeoutMs: 20000 });
-        if (result?.success) {
-          this.cache = result;
-          this.lastLoaded = Date.now();
-          this.render(result);
-        } else {
-          const errorMessage = typeof result?.error === 'string' && result.error.trim()
-            ? result.error.trim()
-            : 'Unable to load attendance export history.';
-          this.renderError(errorMessage);
-        }
-      } catch (error) {
-        console.error('Failed to load attendance export history:', error);
-        this.renderError('Failed to load attendance export history.');
-      } finally {
-        this.isRefreshing = false;
-      }
-    }
-
-    invalidate() {
-      this.cache = null;
-      this.lastLoaded = 0;
-    }
-
-    handleExportSuccess(result) {
-      this.invalidate();
-      if (this.isModalVisible()) {
-        this.refresh(true);
-      } else if (result && typeof result === 'object') {
-        const file = {
-          id: result.fileId || '',
-          name: result.spreadsheetName || result.periodLabel || 'Daily Pivot Matrix',
-          url: result.spreadsheetUrl || result.url || '',
-          description: result.periodLabel || '',
-          createdAtDisplay: result.createdAtIso ? this.formatDisplayDate(result.createdAtIso) : '',
-          updatedAtDisplay: result.updatedAtIso ? this.formatDisplayDate(result.updatedAtIso) : '',
-          createdAtIso: result.createdAtIso || '',
-          updatedAtIso: result.updatedAtIso || ''
-        };
-
-        if (file.url) {
-          this.cache = this.cache || { success: true, files: [], folderId: result.folderId, folderName: result.folderName, folderUrl: result.folderUrl };
-          this.cache.files = [file, ...(Array.isArray(this.cache.files) ? this.cache.files : [])];
-          this.lastLoaded = Date.now();
-        }
-      }
-    }
-
-    isModalVisible() {
-      return !!(this.modalElement && this.modalElement.classList.contains('show'));
-    }
-
-    renderLoading(message) {
-      if (!this.contentElement) {
-        return;
-      }
-      this.contentElement.innerHTML = `
-        <div class="export-history-loading">
-          <div class="spinner-border text-primary" role="status"></div>
-          <p class="text-muted mt-3 mb-0">${escapeHtml(message || 'Loading...')}</p>
-        </div>
-      `;
-      if (this.folderLinkElement) {
-        this.folderLinkElement.style.display = 'none';
-        this.folderLinkElement.href = '#';
-      }
-    }
-
-    renderError(message) {
-      if (!this.contentElement) {
-        return;
-      }
-      this.contentElement.innerHTML = `
-        <div class="export-history-error">
-          <i class="fas fa-exclamation-triangle me-2"></i>${escapeHtml(message || 'An unexpected error occurred.')}
-        </div>
-      `;
-      if (this.folderLinkElement) {
-        this.folderLinkElement.style.display = 'none';
-        this.folderLinkElement.href = '#';
-      }
-    }
-
-    render(data) {
-      if (!this.contentElement) {
-        return;
-      }
-
-      if (!data || !Array.isArray(data.files) || data.files.length === 0) {
-        this.contentElement.innerHTML = `
-          <div class="export-history-empty">
-            <i class="fas fa-info-circle mb-2"></i>
-            <p class="mb-0">No attendance exports have been saved yet.</p>
-          </div>
-        `;
-      } else {
-        const itemsHtml = data.files.map(file => this.renderItemHtml(file)).join('');
-        this.contentElement.innerHTML = `<div class="export-history-list">${itemsHtml}</div>`;
-      }
-
-      if (this.folderLinkElement) {
-        if (data && typeof data.folderUrl === 'string' && data.folderUrl) {
-          this.folderLinkElement.href = data.folderUrl;
-          this.folderLinkElement.style.display = 'inline-flex';
-        } else {
-          this.folderLinkElement.style.display = 'none';
-          this.folderLinkElement.href = '#';
-        }
-      }
-    }
-
-    renderItemHtml(file) {
-      const name = escapeHtml(file?.name || 'Attendance Matrix');
-      const urlValue = typeof file?.url === 'string' ? file.url : '';
-      const url = /^https?:/i.test(urlValue) ? urlValue : '#';
-      const updated = escapeHtml(file?.updatedAtDisplay || file?.createdAtDisplay || '');
-      const description = escapeHtml(file?.description || '');
-
-      const metaSegments = [];
-      if (updated) {
-        metaSegments.push(`<span><i class="fas fa-clock me-1"></i>${updated}</span>`);
-      }
-      if (description) {
-        metaSegments.push(`<span><i class="fas fa-calendar-alt me-1"></i>${description}</span>`);
-      }
-
-      return `
-        <div class="export-history-item">
-          <div class="export-history-icon">
-            <i class="fas fa-file-spreadsheet"></i>
-          </div>
-          <div class="export-history-details">
-            <h6>${name}</h6>
-            ${metaSegments.length > 0 ? `<div class="export-history-meta">${metaSegments.join('')}</div>` : ''}
-          </div>
-          <a class="btn btn-sm btn-primary" href="${url}" target="_blank" rel="noopener">
-            <i class="fas fa-external-link-alt me-1"></i>Open
-          </a>
-        </div>
-      `;
-    }
-
-    formatDisplayDate(isoString) {
-      if (typeof isoString !== 'string' || !isoString) {
-        return '';
-      }
-      try {
-        const date = new Date(isoString);
-        if (Number.isNaN(date.getTime())) {
-          return '';
-        }
-        return date.toLocaleString(undefined, {
-          month: 'short',
-          day: 'numeric',
-          year: 'numeric',
-          hour: 'numeric',
-          minute: '2-digit'
-        });
-      } catch (error) {
-        console.warn('Unable to format export history date:', error);
-        return '';
-      }
-    }
-  }
-
 
   function showEnhancedExportModal() {
     const modal = new bootstrap.Modal(document.getElementById('exportModal'));
@@ -5292,7 +3515,6 @@
     initializeTimezoneLabels();
     dashboard = new AttendanceDashboard();
     window.dashboard = dashboard;
-    window.exportHistoryManager = new AttendanceExportHistoryManager();
 
     // Initialize export manager when modal is shown
     document.getElementById('exportModal')?.addEventListener('shown.bs.modal', function () {
