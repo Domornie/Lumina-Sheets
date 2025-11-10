@@ -141,6 +141,7 @@ class QAPdfService {
     const charts = config.includeCharts ? this.generateChartsSection(scoreResult) : '';
     const recommendations = config.includeRecommendations ? this.generateRecommendations(scoreResult) : '';
     const snapshot = config.includeFullSnapshot ? this.generateDataSnapshot(qaRecord) : '';
+    const recordingSection = this.generateRecordingSection(qaRecord);
 
     return `
       <!DOCTYPE html>
@@ -217,14 +218,10 @@ class QAPdfService {
                       <div class="info-item">
                           <strong>Audit Date:</strong> ${qaRecord.AuditDate}
                       </div>
-                      ${qaRecord.CallLink ? `
-                      <div class="info-item full-width">
-                          <strong>Recording:</strong> 
-                          <a href="${qaRecord.CallLink}" target="_blank">Listen to Call</a>
-                      </div>
-                      ` : ''}
                   </div>
               </div>
+
+              ${recordingSection}
 
               <!-- Question Sections -->
               ${questionSections}
@@ -822,6 +819,123 @@ getThemeStyles(theme = 'professional') {
     `;
   }
 
+  generateRecordingSection(qaRecord) {
+    const primaryLink = this.resolvePrimaryRecordingLink(qaRecord);
+    const primaryName = this.resolvePrimaryRecordingName(qaRecord) || 'Listen to Call';
+    const callbackLink = this.resolveCallbackRecordingLink(qaRecord);
+    const callbackName = this.resolveCallbackRecordingName(qaRecord) || 'Listen to Callback';
+
+    if (!primaryLink && !callbackLink) {
+      return '';
+    }
+
+    const sections = [];
+
+    if (primaryLink) {
+      sections.push(`
+        <div class="info-item full-width">
+          <strong>Recording:</strong>
+          <a href="${this.escapeHtml(primaryLink)}" target="_blank" rel="noopener">${this.escapeHtml(primaryName)}</a>
+        </div>
+      `);
+    }
+
+    if (callbackLink) {
+      sections.push(`
+        <div class="info-item full-width">
+          <strong>Callback Recording:</strong>
+          <a href="${this.escapeHtml(callbackLink)}" target="_blank" rel="noopener">${this.escapeHtml(callbackName)}</a>
+        </div>
+      `);
+    }
+
+    return `
+      <div class="info-section recording-section">
+        <h3>Recording Links</h3>
+        <div class="info-grid">
+          ${sections.join('')}
+        </div>
+      </div>
+    `;
+  }
+
+  resolvePrimaryRecordingLink(qaRecord) {
+    return this.getRecordValueByCandidates(qaRecord, [
+      'CallLink',
+      'Call Recording',
+      'Call Recording Link',
+      'CallRecordingUrl',
+      'CallRecordingLink',
+      'RecordingLink'
+    ]);
+  }
+
+  resolvePrimaryRecordingName(qaRecord) {
+    return this.getRecordValueByCandidates(qaRecord, [
+      'CallRecordingName',
+      'AudioRecordingName',
+      'AudioFileName',
+      'Call Recording Name'
+    ]);
+  }
+
+  resolveCallbackRecordingLink(qaRecord) {
+    return this.getRecordValueByCandidates(qaRecord, [
+      'CallbackCallLink',
+      'Callback Recording',
+      'Callback Recording Link',
+      'CallbackRecordingUrl',
+      'CallbackCallUrl',
+      'CallbackAudioUrl',
+      'CallbackLink'
+    ]);
+  }
+
+  resolveCallbackRecordingName(qaRecord) {
+    return this.getRecordValueByCandidates(qaRecord, [
+      'CallbackCallRecordingName',
+      'CallbackRecordingName',
+      'CallbackAudioRecordingName',
+      'CallbackAudioFileName',
+      'Callback Recording Name'
+    ]);
+  }
+
+  getRecordValueByCandidates(qaRecord, candidates) {
+    if (!qaRecord || !candidates || !candidates.length) {
+      return '';
+    }
+
+    const normalizedRecord = this.normalizeRecordFields(qaRecord);
+    for (let i = 0; i < candidates.length; i++) {
+      const candidate = candidates[i];
+      if (!candidate) {
+        continue;
+      }
+      const normalizedKey = String(candidate).replace(/\s+/g, '').toLowerCase();
+      if (normalizedRecord.hasOwnProperty(normalizedKey)) {
+        const value = normalizedRecord[normalizedKey];
+        if (value !== undefined && value !== null && String(value).trim() !== '') {
+          return String(value).trim();
+        }
+      }
+    }
+    return '';
+  }
+
+  normalizeRecordFields(qaRecord) {
+    const map = {};
+    Object.keys(qaRecord || {}).forEach(key => {
+      const normalizedKey = String(key).replace(/\s+/g, '').toLowerCase();
+      if (!map.hasOwnProperty(normalizedKey)) {
+        map[normalizedKey] = qaRecord[key];
+      } else if (map[normalizedKey] === '' || map[normalizedKey] === null || map[normalizedKey] === undefined) {
+        map[normalizedKey] = qaRecord[key];
+      }
+    });
+    return map;
+  }
+
   generateDataSnapshot(qaRecord) {
     const headers = getQaHeaders_();
 
@@ -972,7 +1086,8 @@ getThemeStyles(theme = 'professional') {
  */
 generateSimpleTemplate(qaRecord, scoreResult, config) {
   const theme = this.getThemeStyles('professional');
-  
+  const recordingSection = this.generateRecordingSection(qaRecord);
+
   return `
 <!DOCTYPE html>
 <html lang="en">
@@ -1014,6 +1129,8 @@ generateSimpleTemplate(qaRecord, scoreResult, config) {
                 <span class="value">${scoreResult.earned} / ${scoreResult.applicable}</span>
             </div>
         </div>
+
+        ${recordingSection}
 
         <!-- Key Feedback -->
         ${qaRecord.OverallFeedback ? `
@@ -1242,6 +1359,7 @@ generateDetailedTemplate(qaRecord, scoreResult, config) {
   const performanceBadge = this.generatePerformanceBadge(scoreResult);
   const questionSections = this.generateQuestionSections(qaRecord, scoreResult);
   const detailedAnalysis = this.generateDetailedAnalysis(scoreResult);
+  const recordingSection = this.generateRecordingSection(qaRecord);
 
   return `
 <!DOCTYPE html>
@@ -1283,6 +1401,8 @@ generateDetailedTemplate(qaRecord, scoreResult, config) {
                 </div>
             </div>
         </div>
+
+        ${recordingSection}
 
         <!-- Detailed Analysis -->
         ${detailedAnalysis}
