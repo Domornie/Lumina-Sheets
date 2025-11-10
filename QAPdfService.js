@@ -900,8 +900,11 @@ getThemeStyles(theme = 'professional') {
   getOrCreateQaFolder(agentName, callDate) {
     try {
       const rootFolder = ensureRootFolder_();
+      ensurePublicSharing_(rootFolder);
       const agentFolder = getOrCreateFolder_(rootFolder, sanitizeName_(agentName || 'Unknown'));
+      ensurePublicSharing_(agentFolder);
       const dateFolder = getOrCreateFolder_(agentFolder, callDate || new Date().toISOString().split('T')[0]);
+      ensurePublicSharing_(dateFolder);
       return dateFolder;
     } catch (error) {
       console.error('Error creating QA folder:', error);
