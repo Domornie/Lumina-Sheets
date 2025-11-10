@@ -1157,6 +1157,27 @@ function getOrCreateFolder_(parent, name) {
   return existing.hasNext() ? existing.next() : parent.createFolder(safeName);
 }
 
+function ensurePublicSharing_(driveItem) {
+  try {
+    if (!driveItem || typeof driveItem.setSharing !== 'function') {
+      return;
+    }
+
+    const currentAccess = typeof driveItem.getSharingAccess === 'function'
+      ? driveItem.getSharingAccess()
+      : null;
+    const currentPermission = typeof driveItem.getSharingPermission === 'function'
+      ? driveItem.getSharingPermission()
+      : null;
+
+    if (currentAccess !== DriveApp.Access.ANYONE_WITH_LINK || currentPermission !== DriveApp.Permission.VIEW) {
+      driveItem.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    }
+  } catch (error) {
+    console.warn('Unable to update sharing for item:', error);
+  }
+}
+
 function ensureRootFolder_() {
   try {
     const props = PropertiesService.getScriptProperties();
@@ -1166,6 +1187,7 @@ function ensureRootFolder_() {
       try {
         const f = DriveApp.getFolderById(savedId);
         f.getFiles(); // Test access
+        ensurePublicSharing_(f);
         return f;
       } catch (_) { }
     }
@@ -1174,6 +1196,7 @@ function ensureRootFolder_() {
     for (const name of FALLBACK_PATH) {
       parent = getOrCreateFolder_(parent, name);
     }
+    ensurePublicSharing_(parent);
     props.setProperty(ROOT_PROP_KEY, parent.getId());
     return parent;
   } catch (error) {
@@ -3473,6 +3496,32 @@ function getQARecordById(qaId) {
   } catch (error) {
     console.error('Error retrieving QA record by ID:', error);
     return null;
+  }
+}
+
+function deleteQARecord(qaId) {
+  try {
+    if (qaId === undefined || qaId === null) {
+      throw new Error('QA record ID is required.');
+    }
+
+    const targetId = String(qaId).trim();
+    if (!targetId) {
+      throw new Error('QA record ID is required.');
+    }
+
+    const info = findQaRecordRow_(targetId);
+    if (!info || !info.rowIndex || info.rowIndex <= 1) {
+      throw new Error('QA record not found.');
+    }
+
+    const sheet = getQaSheet_();
+    sheet.deleteRow(info.rowIndex);
+
+    return { success: true, deletedId: targetId };
+  } catch (error) {
+    console.error('Error deleting QA record:', error);
+    throw error;
   }
 }
 
