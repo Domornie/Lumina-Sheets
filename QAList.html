@@ -645,24 +645,11 @@
 
 <script>
     const baseUrl = '<?= baseUrl ?>';
-    let allQA = [], currentPage = 1, rowsPerPage = 15;
-    let callDateCache = new WeakMap();
-    let callDateFormatter;
+    var allQA = [];
+    var currentPage = 1;
+    var rowsPerPage = 15;
 
-    try {
-        callDateFormatter = new Intl.DateTimeFormat(undefined, {
-            year: 'numeric',
-            month: 'short',
-            day: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit'
-        });
-    } catch (err) {
-        console.warn('Unable to initialize call date formatter:', err);
-        callDateFormatter = null;
-    }
-
-    const PERCENTAGE_FIELDS = [
+    var PERCENTAGE_FIELDS = [
         'PercentageScore',
         'Percentage',
         'OverallPercentage',
@@ -670,7 +657,7 @@
         'ScorePercentage',
         'Score Percent',
         'ScorePercent',
-        'QA Score',
+        'QA Percentage',
         'QA%',
         'QA %',
         'FinalScore',
@@ -682,7 +669,7 @@
         'QAScore'
     ];
 
-    const SCORE_FIELDS = [
+    var SCORE_FIELDS = [
         'TotalScore',
         'Score',
         'Total Points',
@@ -699,322 +686,22 @@
             return;
         }
 
-        const tone = isError ? 'ERROR' : 'SUCCESS';
-        window.alert(`[${tone}] ${msg}`);
+        var tone = isError ? 'ERROR' : 'SUCCESS';
+        window.alert('[' + tone + '] ' + msg);
     }
 
     function loadQA() {
         google.script.run
-            .withSuccessHandler(data => {
-                allQA = data || [];
-                callDateCache = new WeakMap();
+            .withSuccessHandler(function (data) {
+                allQA = Array.isArray(data) ? data : [];
+                currentPage = 1;
                 renderTable();
             })
-            .withFailureHandler(err => showToast(err.message, true))
+            .withFailureHandler(function (err) {
+                var message = err && err.message ? err.message : 'Unable to load QA records.';
+                showToast(message, true);
+            })
             .getAllQA();
-    }
-
-    function parseDateValue(value) {
-        if ((!value && value !== 0) || value === 'Invalid Date') {
-            return null;
-        }
-        if (value instanceof Date) {
-            return new Date(value.getTime());
-        }
-        if (typeof value === 'number' && Number.isFinite(value)) {
-            if (value > 1e12) {
-                return new Date(value);
-            }
-            if (value > 1e9) {
-                return new Date(value * 1000);
-            }
-            if (value > 0) {
-                const epoch = (value - 25569) * 86400000;
-                const asDate = new Date(epoch);
-                if (!Number.isNaN(asDate.getTime())) {
-                    return asDate;
-                }
-            }
-            return null;
-        }
-
-        const str = String(value).trim();
-        if (!str) {
-            return null;
-        }
-
-        const isoCandidate = str.replace(/(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2}(:\d{2})?)/, '$1T$2');
-        let parsed = new Date(isoCandidate);
-        if (!Number.isNaN(parsed.getTime())) {
-            return parsed;
-        }
-
-        parsed = new Date(str);
-        if (!Number.isNaN(parsed.getTime())) {
-            return parsed;
-        }
-
-        const dateMatch = str.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})$/);
-        if (dateMatch) {
-            const month = Number(dateMatch[1]);
-            const day = Number(dateMatch[2]);
-            const yearRaw = dateMatch[3];
-            const year = yearRaw.length === 2 ? Number(`20${yearRaw}`) : Number(yearRaw);
-            if (!Number.isNaN(month) && !Number.isNaN(day) && !Number.isNaN(year)) {
-                const alt = new Date(year, month - 1, day);
-                if (!Number.isNaN(alt.getTime())) {
-                    return alt;
-                }
-            }
-        }
-
-        return null;
-    }
-
-    function getCallDateInfo(record) {
-        if (!record || typeof record !== 'object') {
-            return { display: '', sortValue: 0 };
-        }
-
-        if (callDateCache.has(record)) {
-            return callDateCache.get(record);
-        }
-
-        const candidates = [];
-        const callDateValue = record.CallDate || record['Call Date'] || '';
-        const callTimeValue = record.CallTime || record['Call Time'] || '';
-
-        if (callDateValue && callTimeValue) {
-            candidates.push(`${callDateValue} ${callTimeValue}`);
-        }
-
-        const candidateFields = [
-            'CallDateTime',
-            'Call Date Time',
-            'Call datetime',
-            'Call Datetime',
-            'CallDate',
-            'Call Date',
-            'CallTimestamp',
-            'Call Timestamp'
-        ];
-
-        candidateFields.forEach(field => {
-            const value = record[field];
-            if (value !== undefined && value !== null && value !== '') {
-                candidates.push(value);
-            }
-        });
-
-        let display = '';
-        for (const candidate of candidates) {
-            const parsed = parseDateValue(candidate);
-            if (parsed) {
-                const formatted = callDateFormatter ? callDateFormatter.format(parsed) : parsed.toLocaleString();
-                const info = { display: formatted, sortValue: parsed.getTime() };
-                callDateCache.set(record, info);
-                return info;
-            }
-
-            if (!display && candidate) {
-                display = String(candidate);
-            }
-        }
-
-        const fallbackTimestamp = parseDateValue(record.Timestamp || record['Timestamp']);
-        const info = {
-            display: display || '',
-            sortValue: fallbackTimestamp ? fallbackTimestamp.getTime() : 0
-        };
-
-        callDateCache.set(record, info);
-        return info;
-    }
-
-    function formatNumericPercentage(num) {
-        if (!Number.isFinite(num)) {
-            return '';
-        }
-
-        const normalized = Math.abs(num) <= 1 ? num * 100 : num;
-        const sign = normalized < 0 ? '-' : '';
-        const absolute = Math.abs(normalized);
-        const rounded = Math.round(absolute * 10) / 10;
-        const text = Number.isInteger(rounded) ? rounded.toString() : rounded.toFixed(1);
-        return `${sign}${text}%`;
-    }
-
-    function formatPercentageValue(value) {
-        if (value === undefined || value === null) {
-            return '';
-        }
-
-        if (typeof value === 'number') {
-            return formatNumericPercentage(value);
-        }
-
-        const str = String(value).trim();
-        if (!str) {
-            return '';
-        }
-
-        if (str.includes('%')) {
-            return str;
-        }
-
-        const numeric = Number(str.replace(/[^0-9.+-]/g, ''));
-        if (Number.isFinite(numeric)) {
-            return formatNumericPercentage(numeric);
-        }
-
-        return str;
-    }
-
-    function resolvePercentageText(record) {
-        if (!record || typeof record !== 'object') {
-            return '';
-        }
-
-        for (const field of PERCENTAGE_FIELDS) {
-            const value = record[field];
-            if (value === undefined || value === null || value === '') {
-                continue;
-            }
-
-            const formatted = formatPercentageValue(value);
-            if (formatted) {
-                return formatted;
-            }
-        }
-
-        return '';
-    }
-
-    function formatScoreValue(value) {
-        if (value === undefined || value === null) {
-            return '';
-        }
-
-        if (typeof value === 'number') {
-            if (!Number.isFinite(value)) {
-                return '';
-            }
-            return Number.isInteger(value) ? value.toString() : value.toFixed(2);
-        }
-
-        const str = String(value).trim();
-        if (!str) {
-            return '';
-        }
-
-        const numeric = Number(str);
-        if (!Number.isNaN(numeric)) {
-            return Number.isInteger(numeric) ? numeric.toString() : numeric.toFixed(2);
-        }
-
-        return str;
-    }
-
-    function resolveScoreText(record) {
-        if (!record || typeof record !== 'object') {
-            return '';
-        }
-
-        for (const field of SCORE_FIELDS) {
-            const value = record[field];
-            const formatted = formatScoreValue(value);
-            if (formatted) {
-                return formatted;
-            }
-        }
-
-        return '';
-    }
-
-    function normalizePdfUrl(raw) {
-        if (raw === undefined || raw === null) {
-            return '';
-        }
-
-        const str = String(raw).trim();
-        if (!str) {
-            return '';
-        }
-
-        if (/^https?:\/\//i.test(str)) {
-            return str;
-        }
-
-        if (/^[a-zA-Z0-9_-]{10,}$/.test(str)) {
-            return `https://drive.google.com/file/d/${encodeURIComponent(str)}/view?usp=sharing`;
-        }
-
-        if (/\.pdf($|[?#])/i.test(str)) {
-            return str;
-        }
-
-        return '';
-    }
-
-    function resolvePdfLink(record) {
-        if (!record || typeof record !== 'object') {
-            return { url: '', label: '' };
-        }
-
-        const keys = Object.keys(record);
-        let urlCandidate = '';
-        let idCandidate = '';
-        let labelCandidate = '';
-
-        for (const key of keys) {
-            const value = record[key];
-            if (value === undefined || value === null) {
-                continue;
-            }
-
-            const normalizedKey = String(key || '').toLowerCase();
-            const stringValue = typeof value === 'string' ? value.trim() : String(value).trim();
-            if (!stringValue) {
-                continue;
-            }
-
-            if (!labelCandidate && normalizedKey.includes('pdf') && normalizedKey.includes('name')) {
-                labelCandidate = stringValue;
-            }
-
-            if (/^https?:\/\//i.test(stringValue) || /\.pdf($|[?#])/i.test(stringValue)) {
-                if (!urlCandidate) {
-                    urlCandidate = stringValue;
-                }
-                continue;
-            }
-
-            if (!urlCandidate && normalizedKey.includes('pdf') && (normalizedKey.includes('url') || normalizedKey.includes('link'))) {
-                urlCandidate = stringValue;
-                continue;
-            }
-
-            if (!idCandidate && normalizedKey.includes('pdf') && normalizedKey.includes('id')) {
-                idCandidate = stringValue;
-                continue;
-            }
-
-            if (!urlCandidate && normalizedKey.includes('report') && (normalizedKey.includes('url') || normalizedKey.includes('link'))) {
-                urlCandidate = stringValue;
-            }
-        }
-
-        if (!urlCandidate && idCandidate) {
-            urlCandidate = idCandidate;
-        }
-
-        const url = normalizePdfUrl(urlCandidate);
-        if (!url) {
-            return { url: '', label: '' };
-        }
-
-        const label = labelCandidate || 'View PDF';
-        return { url, label };
     }
 
     function getFirstValue(record, fields) {
@@ -1022,15 +709,16 @@
             return '';
         }
 
-        for (const field of fields) {
-            const value = record[field];
-            if (value === undefined || value === null) {
-                continue;
-            }
-
-            const text = typeof value === 'string' ? value.trim() : String(value);
-            if (text !== '') {
-                return value;
+        for (var i = 0; i < fields.length; i++) {
+            var field = fields[i];
+            if (record.hasOwnProperty(field)) {
+                var value = record[field];
+                if (value !== null && value !== undefined) {
+                    var text = typeof value === 'string' ? value.trim() : String(value);
+                    if (text !== '') {
+                        return value;
+                    }
+                }
             }
         }
 
@@ -1043,14 +731,18 @@
         }
 
         if (value instanceof Date) {
-            return callDateFormatter ? callDateFormatter.format(value) : value.toLocaleString();
+            try {
+                return value.toLocaleString();
+            } catch (e) {
+                return String(value);
+            }
         }
 
         return typeof value === 'string' ? value : String(value);
     }
 
     function escapeHtml(value) {
-        const str = value === undefined || value === null ? '' : String(value);
+        var str = value === undefined || value === null ? '' : String(value);
         return str
             .replace(/&/g, '&amp;')
             .replace(/</g, '&lt;')
@@ -1059,89 +751,409 @@
             .replace(/'/g, '&#39;');
     }
 
-    function buildPageUrl(page, params = {}) {
-        const rawBase = String(baseUrl || (typeof window !== 'undefined' ? window.location.href : '') || '');
+    function parseDateValue(value) {
+        if ((!value && value !== 0) || value === 'Invalid Date') {
+            return null;
+        }
+
+        if (value instanceof Date) {
+            return new Date(value.getTime());
+        }
+
+        if (typeof value === 'number' && isFinite(value)) {
+            if (value > 1e12) {
+                return new Date(value);
+            }
+            if (value > 1e9) {
+                return new Date(value * 1000);
+            }
+            if (value > 0) {
+                var epoch = (value - 25569) * 86400000;
+                var asDate = new Date(epoch);
+                if (!isNaN(asDate.getTime())) {
+                    return asDate;
+                }
+            }
+            return null;
+        }
+
+        var str = String(value).trim();
+        if (!str) {
+            return null;
+        }
+
+        var isoCandidate = str.replace(/(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2}(:\d{2})?)/, '$1T$2');
+        var parsed = new Date(isoCandidate);
+        if (!isNaN(parsed.getTime())) {
+            return parsed;
+        }
+
+        parsed = new Date(str);
+        if (!isNaN(parsed.getTime())) {
+            return parsed;
+        }
+
+        var dateMatch = str.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})$/);
+        if (dateMatch) {
+            var month = Number(dateMatch[1]);
+            var day = Number(dateMatch[2]);
+            var yearRaw = dateMatch[3];
+            var year = yearRaw.length === 2 ? Number('20' + yearRaw) : Number(yearRaw);
+            if (!isNaN(month) && !isNaN(day) && !isNaN(year)) {
+                var alt = new Date(year, month - 1, day);
+                if (!isNaN(alt.getTime())) {
+                    return alt;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    function formatCallDate(date) {
+        try {
+            return date.toLocaleString();
+        } catch (e) {
+            return date.toString();
+        }
+    }
+
+    function getCallDateInfo(record) {
+        if (!record || typeof record !== 'object') {
+            return { display: '', sortValue: 0 };
+        }
+
+        var candidates = [];
+        var callDateValue = getFirstValue(record, ['CallDate', 'Call Date']);
+        var callTimeValue = getFirstValue(record, ['CallTime', 'Call Time']);
+
+        if (callDateValue && callTimeValue) {
+            candidates.push(String(callDateValue) + ' ' + String(callTimeValue));
+        }
+
+        var callFields = [
+            'CallDateTime',
+            'Call Date Time',
+            'Call datetime',
+            'Call Datetime',
+            'CallTimestamp',
+            'Call Timestamp',
+            'CallDate',
+            'Call Date'
+        ];
+
+        for (var i = 0; i < callFields.length; i++) {
+            var field = callFields[i];
+            if (record[field] !== undefined && record[field] !== null && record[field] !== '') {
+                candidates.push(record[field]);
+            }
+        }
+
+        var fallbackText = '';
+        for (var j = 0; j < candidates.length; j++) {
+            var candidate = candidates[j];
+            var parsed = parseDateValue(candidate);
+            if (parsed) {
+                return { display: formatCallDate(parsed), sortValue: parsed.getTime() };
+            }
+
+            if (!fallbackText && candidate) {
+                fallbackText = String(candidate);
+            }
+        }
+
+        var timestamp = getFirstValue(record, ['Timestamp', 'CreatedAt', 'Created At', 'SavedAt']);
+        if (timestamp) {
+            var tsParsed = parseDateValue(timestamp);
+            if (tsParsed) {
+                return { display: formatCallDate(tsParsed), sortValue: tsParsed.getTime() };
+            }
+            if (!fallbackText) {
+                fallbackText = String(timestamp);
+            }
+        }
+
+        return { display: fallbackText, sortValue: 0 };
+    }
+
+    function formatScoreValue(value) {
+        if (value === undefined || value === null) {
+            return '';
+        }
+
+        if (typeof value === 'number') {
+            if (isNaN(value)) {
+                return '';
+            }
+            return value % 1 === 0 ? String(value) : value.toFixed(2);
+        }
+
+        var str = String(value).trim();
+        if (!str) {
+            return '';
+        }
+
+        var numeric = Number(str);
+        if (!isNaN(numeric)) {
+            return numeric % 1 === 0 ? String(numeric) : numeric.toFixed(2);
+        }
+
+        return str;
+    }
+
+    function resolveScoreText(record) {
+        if (!record || typeof record !== 'object') {
+            return '';
+        }
+
+        for (var i = 0; i < SCORE_FIELDS.length; i++) {
+            var field = SCORE_FIELDS[i];
+            if (record[field] !== undefined && record[field] !== null && record[field] !== '') {
+                var formatted = formatScoreValue(record[field]);
+                if (formatted) {
+                    return formatted;
+                }
+            }
+        }
+
+        return '';
+    }
+
+    function formatPercentageValue(value) {
+        if (value === undefined || value === null) {
+            return '';
+        }
+
+        if (typeof value === 'number') {
+            if (isNaN(value)) {
+                return '';
+            }
+            var numeric = value > 1 ? value : value * 100;
+            return numeric % 1 === 0 ? String(numeric) + '%' : numeric.toFixed(2) + '%';
+        }
+
+        var str = String(value).trim();
+        if (!str) {
+            return '';
+        }
+
+        if (str.indexOf('%') !== -1) {
+            return str;
+        }
+
+        var match = str.match(/-?\d+(\.\d+)?/);
+        if (!match) {
+            return '';
+        }
+
+        var numericValue = Number(match[0]);
+        if (isNaN(numericValue)) {
+            return '';
+        }
+
+        var adjusted = numericValue > 1 ? numericValue : numericValue * 100;
+        return adjusted % 1 === 0 ? String(adjusted) + '%' : adjusted.toFixed(2) + '%';
+    }
+
+    function resolvePercentageText(record) {
+        if (!record || typeof record !== 'object') {
+            return '';
+        }
+
+        for (var i = 0; i < PERCENTAGE_FIELDS.length; i++) {
+            var field = PERCENTAGE_FIELDS[i];
+            if (record[field] !== undefined && record[field] !== null && record[field] !== '') {
+                var formatted = formatPercentageValue(record[field]);
+                if (formatted) {
+                    return formatted;
+                }
+            }
+        }
+
+        return '';
+    }
+
+    function normalizeDriveLink(id) {
+        if (!id) {
+            return '';
+        }
+
+        var clean = String(id).trim();
+        if (!clean) {
+            return '';
+        }
+
+        if (/^https?:\/\//i.test(clean)) {
+            return clean;
+        }
+
+        if (/^[a-zA-Z0-9_-]{10,}$/.test(clean)) {
+            return 'https://drive.google.com/file/d/' + encodeURIComponent(clean) + '/view?usp=sharing';
+        }
+
+        return '';
+    }
+
+    function extractPdfFromValue(value) {
+        if (!value) {
+            return { url: '', label: '' };
+        }
+
+        if (typeof value === 'object') {
+            var objectUrl = value.url || value.link || value.href || '';
+            var objectId = value.id || value.fileId || '';
+            var objectLabel = value.name || value.title || value.fileName || '';
+            var finalUrl = normalizeDriveLink(objectUrl || objectId);
+            return {
+                url: finalUrl,
+                label: objectLabel || ''
+            };
+        }
+
+        var str = String(value).trim();
+        if (!str) {
+            return { url: '', label: '' };
+        }
+
+        if (str.charAt(0) === '{' || str.charAt(0) === '[') {
+            try {
+                var parsed = JSON.parse(str);
+                return extractPdfFromValue(parsed);
+            } catch (e) {
+                // ignore parse errors
+            }
+        }
+
+        if (/^https?:\/\//i.test(str) || /\.pdf($|[?#])/i.test(str)) {
+            return { url: str, label: '' };
+        }
+
+        var idMatch = str.match(/[-\w]{10,}/);
+        if (idMatch && idMatch[0]) {
+            return { url: normalizeDriveLink(idMatch[0]), label: '' };
+        }
+
+        return { url: '', label: '' };
+    }
+
+    function resolvePdfLink(record) {
+        if (!record || typeof record !== 'object') {
+            return { url: '', label: '' };
+        }
+
+        var keys = Object.keys(record);
+        var labelCandidate = '';
+        var urlCandidate = '';
+
+        for (var i = 0; i < keys.length; i++) {
+            var key = keys[i];
+            var value = record[key];
+            if (value === undefined || value === null || value === '') {
+                continue;
+            }
+
+            var normalizedKey = String(key || '').toLowerCase();
+            if (!labelCandidate && normalizedKey.indexOf('pdf') !== -1 && normalizedKey.indexOf('name') !== -1) {
+                labelCandidate = toDisplayText(value);
+            }
+
+            if (normalizedKey.indexOf('pdf') === -1 && normalizedKey.indexOf('report') === -1) {
+                continue;
+            }
+
+            var extracted = extractPdfFromValue(value);
+            if (!urlCandidate && extracted.url) {
+                urlCandidate = extracted.url;
+                if (!labelCandidate) {
+                    labelCandidate = extracted.label;
+                }
+            }
+        }
+
+        if (!urlCandidate) {
+            return { url: '', label: '' };
+        }
+
+        return {
+            url: urlCandidate,
+            label: labelCandidate || 'View PDF'
+        };
+    }
+
+    function buildPageUrl(page, params) {
+        var rawBase = String(baseUrl || '');
         if (!rawBase) {
             return '#';
         }
 
-        try {
-            const url = new URL(rawBase, typeof window !== 'undefined' ? window.location.origin : undefined);
-            if (page) {
-                url.searchParams.set('page', page);
-            }
-
-            Object.keys(params || {}).forEach(key => {
-                const value = params[key];
-                if (value === undefined || value === null || value === '') {
-                    url.searchParams.delete(key);
-                } else {
-                    url.searchParams.set(key, value);
-                }
-            });
-
-            return url.toString();
-        } catch (error) {
-            console.warn('Unable to build page URL:', error);
-            const query = new URLSearchParams();
-            if (page) {
-                query.set('page', page);
-            }
-
-            Object.keys(params || {}).forEach(key => {
-                const value = params[key];
-                if (value !== undefined && value !== null && value !== '') {
-                    query.set(key, value);
-                }
-            });
-
-            if (rawBase.indexOf('?') === -1) {
-                const basePart = rawBase.replace(/[#?].*$/, '');
-                const hashPart = rawBase.includes('#') ? rawBase.substring(rawBase.indexOf('#')) : '';
-                return `${basePart}?${query.toString()}${hashPart}`;
-            }
-
-            const [basePart, rest] = rawBase.split('?');
-            const hashIndex = rest.indexOf('#');
-            const existingQuery = hashIndex >= 0 ? rest.substring(0, hashIndex) : rest;
-            const hashPart = hashIndex >= 0 ? rest.substring(hashIndex) : '';
-            const paramsObj = new URLSearchParams(existingQuery);
-
-            paramsObj.set('page', page);
-            Object.keys(params || {}).forEach(key => {
-                const value = params[key];
-                if (value === undefined || value === null || value === '') {
-                    paramsObj.delete(key);
-                } else {
-                    paramsObj.set(key, value);
-                }
-            });
-
-            return `${basePart}?${paramsObj.toString()}${hashPart}`;
+        var hashIndex = rawBase.indexOf('#');
+        var hash = '';
+        if (hashIndex !== -1) {
+            hash = rawBase.substring(hashIndex);
+            rawBase = rawBase.substring(0, hashIndex);
         }
+
+        var queryIndex = rawBase.indexOf('?');
+        var basePart = queryIndex === -1 ? rawBase : rawBase.substring(0, queryIndex);
+        var queryPart = queryIndex === -1 ? '' : rawBase.substring(queryIndex + 1);
+        var pairs = queryPart ? queryPart.split('&') : [];
+        var map = {};
+
+        for (var i = 0; i < pairs.length; i++) {
+            if (!pairs[i]) {
+                continue;
+            }
+            var pieces = pairs[i].split('=');
+            var key = decodeURIComponent(pieces[0]);
+            var value = pieces.length > 1 ? decodeURIComponent(pieces.slice(1).join('=')) : '';
+            map[key] = value;
+        }
+
+        if (page) {
+            map.page = page;
+        }
+
+        if (params) {
+            for (var paramKey in params) {
+                if (params.hasOwnProperty(paramKey) && params[paramKey] !== undefined && params[paramKey] !== null && params[paramKey] !== '') {
+                    map[paramKey] = params[paramKey];
+                }
+            }
+        }
+
+        var newPairs = [];
+        for (var key in map) {
+            if (map.hasOwnProperty(key) && map[key] !== undefined && map[key] !== null) {
+                newPairs.push(encodeURIComponent(key) + '=' + encodeURIComponent(map[key]));
+            }
+        }
+
+        var queryString = newPairs.join('&');
+        return basePart + (queryString ? '?' + queryString : '') + hash;
     }
 
     function renderTable() {
-        const term = (document.getElementById('searchInput').value || '').toLowerCase();
-        const filtered = allQA.filter(r => {
-            const idText = (getFirstValue(r, ['ID', 'Id', 'id']) || '').toString().toLowerCase();
-            const agentText = (getFirstValue(r, ['AgentName', 'Agent']) || '').toString().toLowerCase();
-            const caseText = toDisplayText(getFirstValue(r, ['CaseNumber', 'Case Number', 'Case'])).toLowerCase();
-            const callText = (getCallDateInfo(r).display || '').toLowerCase();
-            return idText.includes(term) || agentText.includes(term) || caseText.includes(term) || callText.includes(term);
+        var searchInput = document.getElementById('searchInput');
+        var term = searchInput ? String(searchInput.value || '').toLowerCase() : '';
+
+        var filtered = allQA.filter(function (record) {
+            var idText = String(getFirstValue(record, ['ID', 'Id', 'id']) || '').toLowerCase();
+            var agentText = String(getFirstValue(record, ['AgentName', 'Agent']) || '').toLowerCase();
+            var caseText = toDisplayText(getFirstValue(record, ['CaseNumber', 'Case Number', 'Case'])).toLowerCase();
+            var callText = String(getCallDateInfo(record).display || '').toLowerCase();
+            return idText.indexOf(term) !== -1 || agentText.indexOf(term) !== -1 || caseText.indexOf(term) !== -1 || callText.indexOf(term) !== -1;
         });
 
-        // ensure newest entries appear first by sorting descending by call date (fallback to ID)
-        const sorted = filtered.slice().sort((a, b) => {
-            const aInfo = getCallDateInfo(a);
-            const bInfo = getCallDateInfo(b);
-            const diff = (bInfo.sortValue || 0) - (aInfo.sortValue || 0);
+        var sorted = filtered.slice().sort(function (a, b) {
+            var aInfo = getCallDateInfo(a);
+            var bInfo = getCallDateInfo(b);
+            var diff = (bInfo.sortValue || 0) - (aInfo.sortValue || 0);
             if (diff !== 0) {
                 return diff;
             }
 
-            const aId = (getFirstValue(a, ['ID', 'Id', 'id']) || '').toString();
-            const bId = (getFirstValue(b, ['ID', 'Id', 'id']) || '').toString();
+            var aId = String(getFirstValue(a, ['ID', 'Id', 'id']) || '');
+            var bId = String(getFirstValue(b, ['ID', 'Id', 'id']) || '');
             if (aId && bId) {
                 return bId.localeCompare(aId);
             }
@@ -1149,147 +1161,177 @@
             return 0;
         });
 
-        // 1) pagination math
-        const totalPages = Math.max(1, Math.ceil(sorted.length / rowsPerPage));
-        currentPage = Math.min(currentPage, totalPages);
-        const start = (currentPage - 1) * rowsPerPage;
-        const pageItems = sorted.slice(start, start + rowsPerPage);
+        var totalPages = Math.max(1, Math.ceil(sorted.length / rowsPerPage));
+        if (currentPage > totalPages) {
+            currentPage = totalPages;
+        }
+        var start = (currentPage - 1) * rowsPerPage;
+        var pageItems = sorted.slice(start, start + rowsPerPage);
 
-        // 2) render rows
-        const tbody = document.querySelector('#qaTable tbody');
-        if (!pageItems.length) {
-            tbody.innerHTML = `<tr><td colspan="10" class="text-center">No records found.</td></tr>`;
-        } else {
-            tbody.innerHTML = pageItems.map((r, idx) => {
-                const rowNo = start + idx + 1;
-                const callInfo = getCallDateInfo(r);
-                const callDateText = escapeHtml(callInfo.display || '—');
-                const caseValue = getFirstValue(r, ['CaseNumber', 'Case Number', 'Case']);
-                let caseCell = '—';
-                if (caseValue) {
-                    const caseString = toDisplayText(caseValue);
-                    caseCell = /^https?:\/\//i.test(caseString)
-                        ? `<a href="${caseString}" target="_blank" rel="noopener">View</a>`
-                        : escapeHtml(caseString);
-                }
-
-                const scoreText = escapeHtml(resolveScoreText(r) || '—');
-                const percentageText = escapeHtml(resolvePercentageText(r) || '—');
-                const feedbackShared = escapeHtml(toDisplayText(getFirstValue(r, ['FeedbackShared', 'Feedback Shared', 'Feedback'])) || '—');
-                const agentFeedback = escapeHtml(toDisplayText(getFirstValue(r, ['AgentFeedback', 'Agent Feedback', 'Agent Response'])) || '—');
-                const agentName = escapeHtml(toDisplayText(getFirstValue(r, ['AgentName', 'Agent'])) || '—');
-                const pdfInfo = resolvePdfLink(r);
-                const pdfCell = pdfInfo.url
-                    ? `<a href="${escapeHtml(pdfInfo.url)}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-secondary"><i class="fas fa-file-pdf me-1"></i>${escapeHtml(pdfInfo.label || 'View PDF')}</a>`
-                    : '—';
-
-                const recordIdValue = getFirstValue(r, ['ID', 'Id', 'id']);
-                const recordId = recordIdValue === undefined || recordIdValue === null ? '' : String(recordIdValue);
-                const viewUrl = recordId ? buildPageUrl('qaview', { id: recordId }) : '#';
-                const editUrl = recordId ? buildPageUrl('qualityform', { id: recordId }) : '#';
-                const deleteArg = JSON.stringify(recordId);
-
-                const viewButton = recordId
-                    ? `<a href="${viewUrl}" class="btn btn-sm btn-info me-1"><i class="fas fa-eye"></i> View</a>`
-                    : `<button type="button" class="btn btn-sm btn-info me-1" disabled aria-disabled="true"><i class="fas fa-eye"></i> View</button>`;
-
-                const editButton = recordId
-                    ? `<a href="${editUrl}" class="btn btn-sm btn-primary me-1"><i class="fas fa-edit"></i> Edit</a>`
-                    : `<button type="button" class="btn btn-sm btn-primary me-1" disabled aria-disabled="true"><i class="fas fa-edit"></i> Edit</button>`;
-
-                const deleteButton = recordId
-                    ? `<button class="btn btn-sm btn-danger" onclick="deleteRecord(${deleteArg})"><i class="fas fa-trash"></i></button>`
-                    : `<button type="button" class="btn btn-sm btn-danger" disabled aria-disabled="true"><i class="fas fa-trash"></i></button>`;
-
-                return `
-                    <tr>
-                        <td class="text-center">${rowNo}</td>
-                        <td>${callDateText}</td>
-                        <td>${agentName}</td>
-                        <td>${caseCell}</td>
-                        <td>${scoreText}</td>
-                        <td>${percentageText}</td>
-                        <td>${feedbackShared}</td>
-                        <td>${agentFeedback}</td>
-                        <td>${pdfCell}</td>
-                        <td>${viewButton}${editButton}${deleteButton}</td>
-                    </tr>`;
-            }).join('');
+        var tbody = document.querySelector('#qaTable tbody');
+        if (!tbody) {
+            return;
         }
 
-        // 3) render pagination
+        if (!pageItems.length) {
+            tbody.innerHTML = '<tr><td colspan="10" class="text-center">No records found.</td></tr>';
+        } else {
+            var rows = pageItems.map(function (record, index) {
+                var rowNo = start + index + 1;
+                var callInfo = getCallDateInfo(record);
+                var callDateText = escapeHtml(callInfo.display || '—');
+                var caseValue = getFirstValue(record, ['CaseNumber', 'Case Number', 'Case']);
+                var caseCell = '—';
+                if (caseValue) {
+                    var caseString = toDisplayText(caseValue);
+                    if (/^https?:\/\//i.test(caseString)) {
+                        var safeUrl = escapeHtml(caseString);
+                        caseCell = '<a href="' + safeUrl + '" target="_blank" rel="noopener">View</a>';
+                    } else {
+                        caseCell = escapeHtml(caseString);
+                    }
+                }
+
+                var scoreText = escapeHtml(resolveScoreText(record) || '—');
+                var percentageText = escapeHtml(resolvePercentageText(record) || '—');
+                var feedbackShared = escapeHtml(toDisplayText(getFirstValue(record, ['FeedbackShared', 'Feedback Shared', 'Feedback'])) || '—');
+                var agentFeedback = escapeHtml(toDisplayText(getFirstValue(record, ['AgentFeedback', 'Agent Feedback', 'Agent Response'])) || '—');
+                var agentName = escapeHtml(toDisplayText(getFirstValue(record, ['AgentName', 'Agent'])) || '—');
+                var pdfInfo = resolvePdfLink(record);
+                var pdfCell = '—';
+                if (pdfInfo.url) {
+                    pdfCell = '<a href="' + escapeHtml(pdfInfo.url) + '" target="_blank" rel="noopener" class="btn btn-sm btn-outline-secondary"><i class="fas fa-file-pdf me-1"></i>' + escapeHtml(pdfInfo.label || 'View PDF') + '</a>';
+                }
+
+                var recordIdValue = getFirstValue(record, ['ID', 'Id', 'id']);
+                var recordId = recordIdValue === undefined || recordIdValue === null ? '' : String(recordIdValue);
+                var viewUrl = recordId ? buildPageUrl('qaview', { id: recordId }) : '#';
+                var editUrl = recordId ? buildPageUrl('qualityform', { id: recordId }) : '#';
+                var deleteArg = recordId ? JSON.stringify(String(recordId)) : 'null';
+
+                var viewButton = recordId
+                    ? '<a href="' + escapeHtml(viewUrl) + '" class="btn btn-sm btn-info me-1"><i class="fas fa-eye"></i> View</a>'
+                    : '<button type="button" class="btn btn-sm btn-info me-1" disabled aria-disabled="true"><i class="fas fa-eye"></i> View</button>';
+
+                var editButton = recordId
+                    ? '<a href="' + escapeHtml(editUrl) + '" class="btn btn-sm btn-primary me-1"><i class="fas fa-edit"></i> Edit</a>'
+                    : '<button type="button" class="btn btn-sm btn-primary me-1" disabled aria-disabled="true"><i class="fas fa-edit"></i> Edit</button>';
+
+                var deleteButton = recordId
+                    ? "<button class=\"btn btn-sm btn-danger\" onclick='deleteRecord(' + deleteArg + ')'><i class=\"fas fa-trash\"></i></button>"
+                    : '<button type="button" class="btn btn-sm btn-danger" disabled aria-disabled="true"><i class="fas fa-trash"></i></button>';
+
+                return [
+                    '<tr>',
+                    '    <td class="text-center">' + rowNo + '</td>',
+                    '    <td>' + callDateText + '</td>',
+                    '    <td>' + agentName + '</td>',
+                    '    <td>' + caseCell + '</td>',
+                    '    <td>' + scoreText + '</td>',
+                    '    <td>' + percentageText + '</td>',
+                    '    <td>' + feedbackShared + '</td>',
+                    '    <td>' + agentFeedback + '</td>',
+                    '    <td>' + pdfCell + '</td>',
+                    '    <td>' + viewButton + editButton + deleteButton + '</td>',
+                    '</tr>'
+                ].join('');
+            });
+
+            tbody.innerHTML = rows.join('');
+        }
+
         renderPagination(totalPages);
 
-        // 4) hide loader if present
-        const loader = document.getElementById('pageLoader');
-        if (loader) loader.style.display = 'none';
+        var loader = document.getElementById('pageLoader');
+        if (loader) {
+            loader.style.display = 'none';
+        }
     }
 
     function renderPagination(totalPages) {
-        const pagUl = document.getElementById('pagination');
+        var pagUl = document.getElementById('pagination');
+        if (!pagUl) {
+            return;
+        }
+
         if (totalPages < 2) {
             pagUl.innerHTML = '';
             return;
         }
-        let html = `
-            <li class="page-item ${currentPage===1?'disabled':''}">
-                <button type="button" class="page-link" onclick="changePage(${currentPage-1})">
-                    Prev
-                </button>
-            </li>`;
-        for (let p = 1; p <= totalPages; p++) {
-            html += `
-            <li class="page-item ${p===currentPage?'active':''}">
-                <button type="button" class="page-link" onclick="changePage(${p})">
-                    ${p}
-                </button>
-            </li>`;
+
+        var html = '';
+        html += '<li class="page-item ' + (currentPage === 1 ? 'disabled' : '') + '">';
+        html += '  <button type="button" class="page-link" onclick="changePage(' + (currentPage - 1) + ')">Prev</button>';
+        html += '</li>';
+
+        for (var p = 1; p <= totalPages; p++) {
+            html += '<li class="page-item ' + (p === currentPage ? 'active' : '') + '">';
+            html += '  <button type="button" class="page-link" onclick="changePage(' + p + ')">' + p + '</button>';
+            html += '</li>';
         }
-        html += `
-            <li class="page-item ${currentPage===totalPages?'disabled':''}">
-                <button type="button" class="page-link" onclick="changePage(${currentPage+1})">
-                    Next
-                </button>
-            </li>`;
+
+        html += '<li class="page-item ' + (currentPage === totalPages ? 'disabled' : '') + '">';
+        html += '  <button type="button" class="page-link" onclick="changePage(' + (currentPage + 1) + ')">Next</button>';
+        html += '</li>';
+
         pagUl.innerHTML = html;
     }
 
     function changePage(p) {
-        // ensure within bounds
-        const term = (document.getElementById('searchInput').value || '').toLowerCase();
-        const filteredLen = allQA.filter(r => {
-            const idText = (getFirstValue(r, ['ID', 'Id', 'id']) || '').toString().toLowerCase();
-            const agentText = (getFirstValue(r, ['AgentName', 'Agent']) || '').toString().toLowerCase();
-            const caseText = toDisplayText(getFirstValue(r, ['CaseNumber', 'Case Number', 'Case'])).toLowerCase();
-            const callText = (getCallDateInfo(r).display || '').toLowerCase();
-            return idText.includes(term) || agentText.includes(term) || caseText.includes(term) || callText.includes(term);
+        if (p < 1) {
+            return;
+        }
+
+        var searchInput = document.getElementById('searchInput');
+        var term = searchInput ? String(searchInput.value || '').toLowerCase() : '';
+        var filteredLen = allQA.filter(function (record) {
+            var idText = String(getFirstValue(record, ['ID', 'Id', 'id']) || '').toLowerCase();
+            var agentText = String(getFirstValue(record, ['AgentName', 'Agent']) || '').toLowerCase();
+            var caseText = toDisplayText(getFirstValue(record, ['CaseNumber', 'Case Number', 'Case'])).toLowerCase();
+            var callText = String(getCallDateInfo(record).display || '').toLowerCase();
+            return idText.indexOf(term) !== -1 || agentText.indexOf(term) !== -1 || caseText.indexOf(term) !== -1 || callText.indexOf(term) !== -1;
         }).length;
-        const totalPages = Math.max(1, Math.ceil(filteredLen / rowsPerPage));
-        if (p < 1 || p > totalPages) return;
+        var totalPages = Math.max(1, Math.ceil(filteredLen / rowsPerPage));
+        if (p > totalPages) {
+            return;
+        }
+
         currentPage = p;
         renderTable();
     }
 
     function deleteRecord(id) {
-        const recordId = typeof id === 'string' ? id : (id === undefined || id === null ? '' : String(id));
+        var recordId = typeof id === 'string' ? id : (id === undefined || id === null ? '' : String(id));
         if (!recordId) {
             showToast('Record ID missing. Unable to delete.', true);
             return;
         }
 
-        if (!confirm('Delete this QA record?')) return;
+        if (!confirm('Delete this QA record?')) {
+            return;
+        }
+
         google.script.run
-            .withSuccessHandler(() => { showToast('Deleted', false); loadQA(); })
-            .withFailureHandler(err => showToast(err.message, true))
+            .withSuccessHandler(function () {
+                showToast('Deleted', false);
+                loadQA();
+            })
+            .withFailureHandler(function (err) {
+                var message = err && err.message ? err.message : 'Unable to delete QA record.';
+                showToast(message, true);
+            })
             .deleteQARecord(recordId);
     }
 
-    document.addEventListener('DOMContentLoaded', () => {
+    document.addEventListener('DOMContentLoaded', function () {
         loadQA();
-        document.getElementById('searchInput').addEventListener('input', () => {
-            currentPage = 1;
-            renderTable();
-        });
+        var searchInput = document.getElementById('searchInput');
+        if (searchInput) {
+            searchInput.addEventListener('input', function () {
+                currentPage = 1;
+                renderTable();
+            });
+        }
     });
 </script>
 
