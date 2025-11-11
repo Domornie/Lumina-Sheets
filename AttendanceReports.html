@@ -216,14 +216,32 @@
 
     .weekly-login-cell {
       display: flex;
-      flex-direction: column;
-      gap: .4rem;
+      align-items: center;
+      justify-content: space-between;
+      gap: .5rem;
+      flex-wrap: wrap;
     }
 
-    @media (min-width: 768px) {
-      .weekly-login-cell {
-        flex-direction: row;
-      }
+    .weekly-login-cell .badge-stack {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .4rem;
+      align-items: center;
+    }
+
+    .login-logout-edit-btn {
+      color: var(--gray-500);
+      border: none;
+      background: transparent;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .login-logout-edit-btn:hover,
+    .login-logout-edit-btn:focus {
+      color: var(--navy-primary);
+      text-decoration: none;
     }
 
     .weekly-login-badge {
@@ -1259,7 +1277,7 @@
           <input class="form-check-input" type="checkbox" id="overtimeToggle">
           <label class="form-check-label" for="overtimeToggle">Enable overtime allowance</label>
         </div>
-        <small class="text-muted">When disabled, billable hours are capped at 8.0 hours per day.</small>
+        <small class="text-muted">When disabled, billable hours are capped at 8.5 hours per day.</small>
       </div>
       <div class="col-lg-4 col-md-6">
         <label class="form-label fw-bold">Overtime Allowance</label>
@@ -1554,7 +1572,7 @@
                       <label class="form-check-label" for="includeOvertime">
                         <i class="fas fa-plus-circle text-info me-1"></i>Overtime Hours
                       </label>
-                      <small class="text-muted d-block">Hours over 8.00 per day</small>
+            <small class="text-muted d-block">Hours over 8.50 per day</small>
                     </div>
 
                     <div class="form-check futuristic-option">
@@ -1798,6 +1816,38 @@
   </div>
 </div>
 
+<!-- Login/Logout Edit Modal -->
+<div class="modal fade" id="editLoginLogoutModal" tabindex="-1" aria-labelledby="editLoginLogoutLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <form class="modal-content" id="loginLogoutEditForm">
+      <div class="modal-header">
+        <h5 class="modal-title" id="editLoginLogoutLabel"><i class="fas fa-clock me-2"></i>Edit Login & Logout</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p class="small text-muted" id="loginLogoutTimezoneLabel"></p>
+        <div class="mb-3">
+          <label class="form-label" for="loginTimeInput">Login time</label>
+          <input type="time" class="form-control" id="loginTimeInput" required>
+        </div>
+        <div class="mb-3">
+          <label class="form-label" for="logoutTimeInput">Logout time</label>
+          <input type="time" class="form-control" id="logoutTimeInput" required>
+        </div>
+        <div class="alert alert-danger d-none" role="alert" id="loginLogoutEditError"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-light" id="loginLogoutEditCancel" data-bs-dismiss="modal">
+          <i class="fas fa-times me-1"></i>Cancel
+        </button>
+        <button type="submit" class="btn btn-primary">
+          <i class="fas fa-save me-1"></i>Save changes
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <div class="bottom-action-bar">
   <button class="btn btn-ai" id="employeeTrendsBtn" onclick="showEmployeeTrends()">
     <i class="fas fa-chart-area me-2"></i>View Employee Trends
@@ -1938,6 +1988,127 @@
     return div.innerHTML;
   }
 
+  function cloneTimingInfoMap(source) {
+    const clone = new Map();
+    if (!(source instanceof Map)) {
+      return clone;
+    }
+    source.forEach((dateMap, user) => {
+      const inner = new Map();
+      if (dateMap instanceof Map) {
+        dateMap.forEach((info, dateKey) => {
+          inner.set(dateKey, { ...info });
+        });
+      }
+      clone.set(user, inner);
+    });
+    return clone;
+  }
+
+  function formatTimestampForTimeInput(timestamp, timeZone) {
+    if (!Number.isFinite(timestamp)) {
+      return '';
+    }
+    try {
+      const date = new Date(timestamp);
+      if (Number.isNaN(date.getTime())) {
+        return '';
+      }
+      const formatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: timeZone || 'UTC',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      });
+      const parts = formatter.formatToParts(date);
+      const hour = parts.find(part => part.type === 'hour')?.value || '00';
+      const minute = parts.find(part => part.type === 'minute')?.value || '00';
+      return `${hour.padStart(2, '0')}:${minute.padStart(2, '0')}`;
+    } catch (error) {
+      console.warn('Unable to format timestamp for time input:', error);
+      return '';
+    }
+  }
+
+  function getTimeZoneOffsetMinutes(date, timeZone) {
+    try {
+      const formatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: timeZone || 'UTC',
+        hour12: false,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      });
+      const parts = formatter.formatToParts(date);
+      const lookup = {};
+      parts.forEach(part => {
+        if (part.type !== 'literal') {
+          lookup[part.type] = part.value;
+        }
+      });
+      const asUtc = Date.UTC(
+        Number.parseInt(lookup.year, 10),
+        Number.parseInt(lookup.month, 10) - 1,
+        Number.parseInt(lookup.day, 10),
+        Number.parseInt(lookup.hour, 10),
+        Number.parseInt(lookup.minute, 10),
+        Number.parseInt(lookup.second, 10)
+      );
+      return (asUtc - date.getTime()) / 60000;
+    } catch (error) {
+      console.warn('Unable to compute timezone offset:', error);
+      return 0;
+    }
+  }
+
+  function parseTimeInputToTimestamp(dateKey, timeValue, timeZone) {
+    if (typeof dateKey !== 'string' || typeof timeValue !== 'string' || !timeValue) {
+      return Number.NaN;
+    }
+    const [hourStr, minuteStr] = timeValue.split(':');
+    const hour = Number.parseInt(hourStr, 10);
+    const minute = Number.parseInt(minuteStr, 10);
+    if (!Number.isFinite(hour) || !Number.isFinite(minute)) {
+      return Number.NaN;
+    }
+    const [yearStr, monthStr, dayStr] = dateKey.split('-');
+    const year = Number.parseInt(yearStr, 10);
+    const month = Number.parseInt(monthStr, 10);
+    const day = Number.parseInt(dayStr, 10);
+    if (![year, month, day].every(Number.isFinite)) {
+      return Number.NaN;
+    }
+    const approx = new Date(Date.UTC(year, month - 1, day, hour, minute, 0));
+    if (Number.isNaN(approx.getTime())) {
+      return Number.NaN;
+    }
+    const offset = getTimeZoneOffsetMinutes(approx, timeZone);
+    return approx.getTime() - offset * 60000;
+  }
+
+  function formatIsoDateForModal(dateKey) {
+    if (typeof dateKey !== 'string' || !dateKey) {
+      return '';
+    }
+    try {
+      const date = new Date(`${dateKey}T00:00:00Z`);
+      if (Number.isNaN(date.getTime())) {
+        return dateKey;
+      }
+      return date.toLocaleDateString(undefined, {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric'
+      });
+    } catch (error) {
+      console.warn('Unable to format ISO date for modal:', error);
+      return dateKey;
+    }
+  }
+
   function readHourPolicyFromControls() {
     const toggle = document.getElementById('overtimeToggle');
     const select = document.getElementById('overtimeAmount');
@@ -1989,6 +2160,18 @@
       this.hourPolicy = { overtimeEnabled: false, overtimeAllowanceHours: 0 };
       this.periodCache = {};
 
+      this.manualTimingOverrides = new Map();
+      this.manualSecondsAdjustments = new Map();
+      this.manualAdjustmentContextKey = '';
+      this.weeklyTimingInfo = new Map();
+      this.baseTimingInfo = new Map();
+      this.pendingLoginLogoutEdit = null;
+      this.loginLogoutModal = null;
+      this.originalTotalsSnapshot = null;
+      this.originalTotalsSnapshotKey = null;
+      this.originalUserComplianceMap = new Map();
+      this.suppressRenderToast = false;
+
       this.loadDataDebounced = debounce(() => this.loadData(), 250);
       this._reqSeq = 0;
 
@@ -1999,10 +2182,16 @@
       console.log('🚀 Initializing Attendance Dashboard with company time alignment...');
       this.setupEventListeners();
       this.initializeControls();
+      this.initializeLoginLogoutEditor();
 
       if (window.INITIAL_ATTENDANCE_DATA && Object.keys(window.INITIAL_ATTENDANCE_DATA).length) {
         try {
           this.currentData = JSON.parse(JSON.stringify(window.INITIAL_ATTENDANCE_DATA));
+          this.originalTotalsSnapshot = null;
+          this.originalTotalsSnapshotKey = null;
+          this.originalUserComplianceMap.clear();
+          this.resetManualAdjustmentsIfContextChanged();
+          this.applyManualSecondsAdjustmentsToCurrentData();
           this.renderDashboard();
         } catch (bootstrapError) {
           console.warn('Unable to bootstrap dashboard from initial data:', bootstrapError);
@@ -2063,7 +2252,7 @@
         capButton.addEventListener('click', () => {
           this.hourPolicy = { overtimeEnabled: false, overtimeAllowanceHours: 0 };
           this.syncHourPolicyControls();
-          this.showToast('Billable hours capped at 8.0 hours per day', 'info');
+          this.showToast('Billable hours capped at 8.5 hours per day', 'info');
           this.loadDataDebounced();
         });
       }
@@ -2146,6 +2335,391 @@
         overtimeAllowanceHours: enabled ? allowance : 0,
         baseCapHours: 8
       };
+    }
+
+    initializeLoginLogoutEditor() {
+      const modalEl = document.getElementById('editLoginLogoutModal');
+      if (modalEl && typeof bootstrap !== 'undefined') {
+        this.loginLogoutModal = new bootstrap.Modal(modalEl);
+      }
+
+      const form = document.getElementById('loginLogoutEditForm');
+      if (form) {
+        form.addEventListener('submit', (event) => {
+          event.preventDefault();
+          this.handleLoginLogoutEditSubmit();
+        });
+      }
+
+      const cancelButton = document.getElementById('loginLogoutEditCancel');
+      if (cancelButton) {
+        cancelButton.addEventListener('click', () => {
+          const errorEl = document.getElementById('loginLogoutEditError');
+          if (errorEl) {
+            errorEl.classList.add('d-none');
+            errorEl.textContent = '';
+          }
+          this.pendingLoginLogoutEdit = null;
+        });
+      }
+    }
+
+    getCurrentContextKey() {
+      const granularity = this.currentGranularity || '';
+      const period = this.currentPeriod || '';
+      const agent = this.currentAgent || '';
+      return `${granularity}|${period}|${agent}`;
+    }
+
+    resetManualAdjustmentsIfContextChanged() {
+      const contextKey = this.getCurrentContextKey();
+      if (this.manualAdjustmentContextKey === contextKey) {
+        return;
+      }
+
+      this.manualTimingOverrides.clear();
+      this.manualSecondsAdjustments.clear();
+      this.originalUserComplianceMap.clear();
+      this.baseTimingInfo = new Map();
+      this.weeklyTimingInfo = new Map();
+      this.originalTotalsSnapshot = null;
+      this.originalTotalsSnapshotKey = null;
+      this.manualAdjustmentContextKey = contextKey;
+    }
+
+    applyManualSecondsAdjustmentsToCurrentData() {
+      if (!this.currentData) {
+        return;
+      }
+
+      if (!this.originalTotalsSnapshot || this.originalTotalsSnapshotKey !== this.manualAdjustmentContextKey) {
+        this.originalTotalsSnapshot = {
+          totalBillableHours: Number(this.currentData.totalBillableHours) || 0,
+          totalProductiveHours: Number(this.currentData.totalProductiveHours) || (Number(this.currentData.totalBillableHours) || 0),
+          totalNonProductiveHours: Number(this.currentData.totalNonProductiveHours) || 0,
+          billableHoursBreakdown: { ...(this.currentData.billableHoursBreakdown || {}) }
+        };
+        this.originalTotalsSnapshotKey = this.manualAdjustmentContextKey;
+
+        this.originalUserComplianceMap.clear();
+        if (Array.isArray(this.currentData.userCompliance)) {
+          this.currentData.userCompliance.forEach(entry => {
+            if (entry && typeof entry === 'object' && entry.user) {
+              this.originalUserComplianceMap.set(entry.user, {
+                adjustedBillableSecs: Number(entry.adjustedBillableSecs) || 0,
+                adjustedBillableHours: Number(entry.adjustedBillableHours) || Math.round((((Number(entry.adjustedBillableSecs) || 0) / 3600)) * 100) / 100
+              });
+            }
+          });
+        }
+      }
+
+      const totalDeltaSeconds = Array.from(this.manualSecondsAdjustments.values()).reduce((sum, value) => {
+        const seconds = Number(value);
+        return Number.isFinite(seconds) ? sum + seconds : sum;
+      }, 0);
+
+      const deltaHours = totalDeltaSeconds / 3600;
+
+      if (!this.originalTotalsSnapshot) {
+        return;
+      }
+
+      if (Math.abs(totalDeltaSeconds) < 0.5) {
+        this.currentData.totalBillableHours = this.originalTotalsSnapshot.totalBillableHours;
+        this.currentData.totalProductiveHours = this.originalTotalsSnapshot.totalProductiveHours;
+        this.currentData.billableHoursBreakdown = { ...this.originalTotalsSnapshot.billableHoursBreakdown };
+      } else {
+        const updatedBillable = this.originalTotalsSnapshot.totalBillableHours + deltaHours;
+        const updatedProductive = this.originalTotalsSnapshot.totalProductiveHours + deltaHours;
+        const updatedBreakdown = { ...this.originalTotalsSnapshot.billableHoursBreakdown };
+        const baseAvailable = Number(updatedBreakdown.Available) || 0;
+        updatedBreakdown.Available = Math.round((baseAvailable + deltaHours) * 100) / 100;
+
+        this.currentData.totalBillableHours = Math.round(updatedBillable * 100) / 100;
+        this.currentData.totalProductiveHours = Math.round(updatedProductive * 100) / 100;
+        this.currentData.billableHoursBreakdown = updatedBreakdown;
+      }
+
+      this.currentData.totalNonProductiveHours = this.originalTotalsSnapshot.totalNonProductiveHours;
+
+      const perUserDelta = {};
+      this.manualSecondsAdjustments.forEach((value, key) => {
+        const seconds = Number(value);
+        if (!Number.isFinite(seconds) || Math.abs(seconds) < 0.5) {
+          return;
+        }
+        const [user] = key.split('|');
+        if (!user) {
+          return;
+        }
+        perUserDelta[user] = (perUserDelta[user] || 0) + seconds;
+      });
+
+      if (Array.isArray(this.currentData.userCompliance) && this.originalUserComplianceMap.size > 0) {
+        this.currentData.userCompliance = this.currentData.userCompliance.map(entry => {
+          if (!entry || typeof entry !== 'object' || !entry.user) {
+            return entry;
+          }
+          const base = this.originalUserComplianceMap.get(entry.user);
+          if (!base) {
+            return entry;
+          }
+          const deltaSec = perUserDelta[entry.user] || 0;
+          if (Math.abs(deltaSec) < 0.5) {
+            return { ...entry, adjustedBillableSecs: base.adjustedBillableSecs, adjustedBillableHours: base.adjustedBillableHours };
+          }
+          const updatedSecs = Math.max(0, base.adjustedBillableSecs + deltaSec);
+          const updatedHours = Math.round((updatedSecs / 3600) * 100) / 100;
+          return { ...entry, adjustedBillableSecs: updatedSecs, adjustedBillableHours: updatedHours };
+        });
+      }
+
+      this.currentData.manualSecondsDelta = Math.round(totalDeltaSeconds);
+      this.currentData.manualSecondsDeltaHours = Math.round(deltaHours * 100) / 100;
+    }
+
+    setupLoginLogoutEditHandlers() {
+      const container = document.getElementById('weeklyLoginLogoutContainer');
+      if (!container) {
+        return;
+      }
+
+      const buttons = container.querySelectorAll('.login-logout-edit-btn');
+      buttons.forEach(button => {
+        button.addEventListener('click', (event) => {
+          event.preventDefault();
+          const user = button.getAttribute('data-user');
+          const dateKey = button.getAttribute('data-date');
+          if (!user || !dateKey) {
+            return;
+          }
+          this.openLoginLogoutEditor(user, dateKey);
+        });
+      });
+    }
+
+    openLoginLogoutEditor(user, dateKey) {
+      if (!user || !dateKey) {
+        return;
+      }
+
+      const loginInput = document.getElementById('loginTimeInput');
+      const logoutInput = document.getElementById('logoutTimeInput');
+      const errorEl = document.getElementById('loginLogoutEditError');
+      if (errorEl) {
+        errorEl.classList.add('d-none');
+        errorEl.textContent = '';
+      }
+      if (!loginInput || !logoutInput) {
+        return;
+      }
+
+      const activeTimezone = (this.currentData && this.currentData.periodInfo && this.currentData.periodInfo.timezone)
+        || window.COMPANY_TIMEZONE
+        || COMPANY_TIMEZONE;
+      const timezoneLabel = (this.currentData && this.currentData.periodInfo && this.currentData.periodInfo.timezoneLabel)
+        || window.COMPANY_TIMEZONE_LABEL
+        || COMPANY_TIMEZONE_LABEL
+        || 'Company Time';
+
+      const timezoneNoteEl = document.getElementById('loginLogoutTimezoneLabel');
+      if (timezoneNoteEl) {
+        timezoneNoteEl.textContent = `Times saved in ${timezoneLabel} (${activeTimezone})`;
+      }
+
+      const labelEl = document.getElementById('editLoginLogoutLabel');
+      if (labelEl) {
+        const friendlyDate = formatIsoDateForModal(dateKey) || dateKey;
+        labelEl.innerHTML = `<i class="fas fa-clock me-2"></i>Edit Login & Logout — ${escapeHtml(user)} · ${escapeHtml(friendlyDate)}`;
+      }
+
+      const userMap = this.weeklyTimingInfo instanceof Map ? this.weeklyTimingInfo.get(user) : null;
+      const info = userMap instanceof Map ? userMap.get(dateKey) : null;
+
+      const loginTimestamp = info && Number.isFinite(info.firstAvailable)
+        ? info.firstAvailable
+        : (info && Number.isFinite(info.earliestEvent) ? info.earliestEvent : Number.NaN);
+      const logoutTimestamp = info && Number.isFinite(info.lastEndOfShift)
+        ? info.lastEndOfShift
+        : (info && Number.isFinite(info.latestEvent) ? info.latestEvent : Number.NaN);
+
+      loginInput.value = formatTimestampForTimeInput(loginTimestamp, activeTimezone);
+      logoutInput.value = formatTimestampForTimeInput(logoutTimestamp, activeTimezone);
+
+      this.pendingLoginLogoutEdit = {
+        user,
+        dateKey,
+        originalInfo: info ? { ...info } : null
+      };
+
+      if (!this.loginLogoutModal) {
+        const modalEl = document.getElementById('editLoginLogoutModal');
+        if (modalEl && typeof bootstrap !== 'undefined') {
+          this.loginLogoutModal = new bootstrap.Modal(modalEl);
+        }
+      }
+
+      this.loginLogoutModal?.show();
+    }
+
+    handleLoginLogoutEditSubmit() {
+      const context = this.pendingLoginLogoutEdit;
+      const errorEl = document.getElementById('loginLogoutEditError');
+      if (!context) {
+        if (errorEl) {
+          errorEl.textContent = 'Select an employee record before saving.';
+          errorEl.classList.remove('d-none');
+        }
+        return;
+      }
+
+      const loginInput = document.getElementById('loginTimeInput');
+      const logoutInput = document.getElementById('logoutTimeInput');
+      if (!loginInput || !logoutInput) {
+        return;
+      }
+
+      const activeTimezone = (this.currentData && this.currentData.periodInfo && this.currentData.periodInfo.timezone)
+        || window.COMPANY_TIMEZONE
+        || COMPANY_TIMEZONE;
+
+      const loginValue = loginInput.value;
+      const logoutValue = logoutInput.value;
+      const loginTimestamp = parseTimeInputToTimestamp(context.dateKey, loginValue, activeTimezone);
+      const logoutTimestamp = parseTimeInputToTimestamp(context.dateKey, logoutValue, activeTimezone);
+
+      if (!Number.isFinite(loginTimestamp) || !Number.isFinite(logoutTimestamp)) {
+        if (errorEl) {
+          errorEl.textContent = 'Enter valid login and logout times (HH:MM).';
+          errorEl.classList.remove('d-none');
+        }
+        return;
+      }
+
+      if (logoutTimestamp <= loginTimestamp) {
+        if (errorEl) {
+          errorEl.textContent = 'Logout time must be after login time.';
+          errorEl.classList.remove('d-none');
+        }
+        return;
+      }
+
+      const key = `${context.user}|${context.dateKey}`;
+      const existingOverride = this.manualTimingOverrides.get(key);
+
+      let originalFirst = existingOverride && Number.isFinite(existingOverride.originalFirst)
+        ? existingOverride.originalFirst
+        : null;
+      let originalLast = existingOverride && Number.isFinite(existingOverride.originalLast)
+        ? existingOverride.originalLast
+        : null;
+
+      if (!Number.isFinite(originalFirst) || !Number.isFinite(originalLast)) {
+        const baseMap = this.baseTimingInfo instanceof Map ? this.baseTimingInfo.get(context.user) : null;
+        const baseInfo = baseMap instanceof Map ? baseMap.get(context.dateKey) : null;
+        if (baseInfo) {
+          if (!Number.isFinite(originalFirst) && Number.isFinite(baseInfo.firstAvailable)) {
+            originalFirst = baseInfo.firstAvailable;
+          }
+          if (!Number.isFinite(originalLast) && Number.isFinite(baseInfo.lastEndOfShift)) {
+            originalLast = baseInfo.lastEndOfShift;
+          }
+        }
+      }
+
+      if (!Number.isFinite(originalFirst) && context.originalInfo && Number.isFinite(context.originalInfo.firstAvailable)) {
+        originalFirst = context.originalInfo.firstAvailable;
+      }
+      if (!Number.isFinite(originalLast) && context.originalInfo && Number.isFinite(context.originalInfo.lastEndOfShift)) {
+        originalLast = context.originalInfo.lastEndOfShift;
+      }
+
+      if (!Number.isFinite(originalFirst)) {
+        originalFirst = loginTimestamp;
+      }
+      if (!Number.isFinite(originalLast)) {
+        originalLast = logoutTimestamp;
+      }
+
+      const originalSpan = Math.max(0, originalLast - originalFirst);
+      const newSpan = Math.max(0, logoutTimestamp - loginTimestamp);
+      const deltaSeconds = Math.round((newSpan - originalSpan) / 1000);
+
+      const override = {
+        firstAvailable: loginTimestamp,
+        lastEndOfShift: logoutTimestamp,
+        originalFirst,
+        originalLast,
+        updatedAt: Date.now()
+      };
+
+      const isReverting = Math.abs(loginTimestamp - originalFirst) < 1000 && Math.abs(logoutTimestamp - originalLast) < 1000;
+      if (isReverting) {
+        this.manualTimingOverrides.delete(key);
+      } else {
+        this.manualTimingOverrides.set(key, override);
+      }
+
+      if (deltaSeconds === 0) {
+        this.manualSecondsAdjustments.delete(key);
+      } else {
+        this.manualSecondsAdjustments.set(key, deltaSeconds);
+      }
+
+      if (errorEl) {
+        errorEl.classList.add('d-none');
+        errorEl.textContent = '';
+      }
+
+      const userLabel = context.user;
+      this.pendingLoginLogoutEdit = null;
+      this.loginLogoutModal?.hide();
+
+      this.applyManualSecondsAdjustmentsToCurrentData();
+      this.suppressRenderToast = true;
+      this.renderDashboard();
+      this.showToast(`Login/logout updated for ${userLabel}`, 'success');
+    }
+
+    applyManualTimingOverridesToInfo(timingInfoMap) {
+      if (!(timingInfoMap instanceof Map) || this.manualTimingOverrides.size === 0) {
+        return;
+      }
+
+      this.manualTimingOverrides.forEach((override, key) => {
+        const [user, dateKey] = key.split('|');
+        if (!user || !dateKey) {
+          return;
+        }
+        if (!Number.isFinite(override.firstAvailable) && !Number.isFinite(override.lastEndOfShift)) {
+          return;
+        }
+
+        if (!timingInfoMap.has(user)) {
+          timingInfoMap.set(user, new Map());
+        }
+        const userMap = timingInfoMap.get(user);
+        if (!(userMap instanceof Map)) {
+          return;
+        }
+        const existing = userMap.get(dateKey) || { firstAvailable: null, lastEndOfShift: null, earliestEvent: null, latestEvent: null };
+
+        if (Number.isFinite(override.firstAvailable)) {
+          existing.firstAvailable = override.firstAvailable;
+          existing.earliestEvent = Number.isFinite(existing.earliestEvent)
+            ? Math.min(existing.earliestEvent, override.firstAvailable)
+            : override.firstAvailable;
+        }
+        if (Number.isFinite(override.lastEndOfShift)) {
+          existing.lastEndOfShift = override.lastEndOfShift;
+          existing.latestEvent = Number.isFinite(existing.latestEvent)
+            ? Math.max(existing.latestEvent, override.lastEndOfShift)
+            : override.lastEndOfShift;
+        }
+
+        userMap.set(dateKey, existing);
+      });
     }
 
     showToast(message, type) {
@@ -2455,6 +3029,11 @@
         }
         
         this.currentData = data;
+        this.originalTotalsSnapshot = null;
+        this.originalTotalsSnapshotKey = null;
+        this.originalUserComplianceMap.clear();
+        this.resetManualAdjustmentsIfContextChanged();
+        this.applyManualSecondsAdjustmentsToCurrentData();
         this.renderDashboard();
 
       } catch (error) {
@@ -2543,7 +3122,11 @@
 
         this.renderIntelligentInsights();
         this.updateViewMode();
-        this.showToast('Attendance dashboard updated', 'success');
+        if (this.suppressRenderToast) {
+          this.suppressRenderToast = false;
+        } else {
+          this.showToast('Attendance dashboard updated', 'success');
+        }
       } catch (error) {
         console.error('Error rendering dashboard:', error);
         this.showToast('Error rendering dashboard components', 'danger');
@@ -3096,12 +3679,16 @@
             }
           }
 
-          if (logoutStates.has(normalizedState)) {
-            if (info.lastEndOfShift === null || timestamp > info.lastEndOfShift) {
-              info.lastEndOfShift = timestamp;
-            }
+        if (logoutStates.has(normalizedState)) {
+          if (info.lastEndOfShift === null || timestamp > info.lastEndOfShift) {
+            info.lastEndOfShift = timestamp;
           }
-        });
+        }
+      });
+
+        this.baseTimingInfo = cloneTimingInfoMap(timingInfoByUser);
+        this.weeklyTimingInfo = cloneTimingInfoMap(timingInfoByUser);
+        this.applyManualTimingOverridesToInfo(this.weeklyTimingInfo);
 
         const timeFormatter = (() => {
           try {
@@ -3140,8 +3727,10 @@
             return;
           }
 
+          const activeTimingInfo = this.weeklyTimingInfo instanceof Map ? this.weeklyTimingInfo : new Map();
+
           const availableDateKeys = new Set();
-          timingInfoByUser.forEach((dateMap) => {
+          activeTimingInfo.forEach((dateMap) => {
             if (dateMap && typeof dateMap.forEach === 'function') {
               dateMap.forEach((_, dateKey) => {
                 if (typeof dateKey === 'string' && dateKey) {
@@ -3314,7 +3903,7 @@
               ? rawUserId
               : (rawUserId != null ? String(rawUserId) : 'Unknown');
             const userKey = userName;
-            const userDateMap = timingInfoByUser.get(userKey) || null;
+            const userDateMap = activeTimingInfo.get(userKey) || null;
 
             html += '<tr>';
             html += '<td>';
@@ -3334,9 +3923,10 @@
               const loginDisplay = Number.isFinite(firstCandidate) ? formatTimestampForDisplay(firstCandidate) : '—';
               const logoutDisplay = Number.isFinite(lastCandidate) ? formatTimestampForDisplay(lastCandidate) : '—';
 
+              const editButton = `<button type="button" class="login-logout-edit-btn" data-user="${escapeHtml(userName)}" data-date="${escapeHtml(day.key)}" aria-label="Edit login and logout"><i class="fas fa-pen-to-square"></i></button>`;
               let cellContent;
               if (loginDisplay === '—' && logoutDisplay === '—') {
-                cellContent = '<span class="text-muted">—</span>';
+                cellContent = `<div class="weekly-login-cell"><span class="text-muted">—</span>${editButton}</div>`;
               } else {
                 const segments = [];
                 if (loginDisplay !== '—') {
@@ -3345,7 +3935,7 @@
                 if (logoutDisplay !== '—') {
                   segments.push(`<span class="weekly-login-badge logout"><i class="fas fa-sign-out-alt"></i>${escapeHtml(logoutDisplay)}</span>`);
                 }
-                cellContent = `<div class="weekly-login-cell">${segments.join(' ')}</div>`;
+                cellContent = `<div class="weekly-login-cell"><div class="badge-stack">${segments.join(' ')}</div>${editButton}</div>`;
               }
 
               html += `<td>${cellContent}</td>`;
@@ -3366,6 +3956,7 @@
 
           weeklyTableContainer.innerHTML = html;
           this.setupWeeklyPaginationEventListeners();
+          this.setupLoginLogoutEditHandlers();
         };
 
         buildWeeklyLoginLogoutTable();
