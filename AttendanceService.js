@@ -26,6 +26,28 @@ const NON_PRODUCTIVE_STATES = ['Break', 'Lunch'];
 const BILLABLE_DISPLAY_STATES = [...BILLABLE_STATES, 'Break'];
 const NON_PRODUCTIVE_DISPLAY_STATES = [...new Set([...NON_PRODUCTIVE_STATES, 'Break'])];
 
+const LOGIN_STATE_KEYWORDS = [
+  'available',
+  'start of shift',
+  'start shift',
+  'clocked in',
+  'clock in',
+  'logged in',
+  'log in',
+  'signed in'
+];
+
+const LOGOUT_STATE_KEYWORDS = [
+  'end of shift',
+  'end-of-shift',
+  'end shift',
+  'logged out',
+  'log out',
+  'clocked out',
+  'clock out',
+  'signed out'
+];
+
 // Resolve a safe global scope reference for Apps Script V8
 var GLOBAL_SCOPE = (typeof GLOBAL_SCOPE !== 'undefined') ? GLOBAL_SCOPE
   : (typeof globalThis === 'object' && globalThis)
@@ -50,6 +72,11 @@ const ATTENDANCE_TIMEZONE_LABEL = (typeof GLOBAL_SCOPE.ATTENDANCE_TIMEZONE_LABEL
 const ATTENDANCE_SHEET_NAME = (typeof GLOBAL_SCOPE.ATTENDANCE === 'string' && GLOBAL_SCOPE.ATTENDANCE)
   ? GLOBAL_SCOPE.ATTENDANCE
   : 'AttendanceLog';
+
+const ATTENDANCE_OVERRIDES_SHEET_NAME = (typeof GLOBAL_SCOPE.ATTENDANCE_OVERRIDES === 'string' && GLOBAL_SCOPE.ATTENDANCE_OVERRIDES)
+  ? GLOBAL_SCOPE.ATTENDANCE_OVERRIDES
+  : 'AttendanceOverrides';
+const ATTENDANCE_OVERRIDES_VERSION_PROP_KEY = 'ATTENDANCE_OVERRIDES_VERSION';
 
 // Performance optimization constants
 const MAX_PROCESSING_TIME = 25000; // 25 seconds max execution time
@@ -368,6 +395,239 @@ function getActiveUserEmailSafe() {
   }
 
   return '';
+}
+
+function getAttendanceOverrideVersion_() {
+  try {
+    const props = PropertiesService.getScriptProperties();
+    const raw = props.getProperty(ATTENDANCE_OVERRIDES_VERSION_PROP_KEY);
+    const parsed = raw ? Number(raw) : 1;
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+  } catch (err) {
+    try {
+      console.warn('Failed to read attendance override version, defaulting to 1:', err);
+    } catch (_) {}
+    return 1;
+  }
+}
+
+function incrementAttendanceOverrideVersion_() {
+  try {
+    const props = PropertiesService.getScriptProperties();
+    const current = getAttendanceOverrideVersion_();
+    const next = Number.isFinite(current) ? current + 1 : 2;
+    props.setProperty(ATTENDANCE_OVERRIDES_VERSION_PROP_KEY, String(next));
+    return next;
+  } catch (err) {
+    try {
+      console.warn('Failed to increment attendance override version:', err);
+    } catch (_) {}
+    return getAttendanceOverrideVersion_();
+  }
+}
+
+function normalizeDateKeyString_(value) {
+  if (value instanceof Date && !isNaN(value.getTime())) {
+    return Utilities.formatDate(value, ATTENDANCE_TIMEZONE, 'yyyy-MM-dd');
+  }
+  if (typeof value !== 'string') {
+    return '';
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return '';
+  }
+  const parsed = normalizeDateValue(trimmed);
+  if (parsed instanceof Date && !isNaN(parsed.getTime())) {
+    return Utilities.formatDate(parsed, ATTENDANCE_TIMEZONE, 'yyyy-MM-dd');
+  }
+  const isoMatch = trimmed.match(/^\d{4}-\d{2}-\d{2}$/);
+  return isoMatch ? trimmed : '';
+}
+
+function resolveAttendanceOverridesSheet_(ss) {
+  if (!ss || typeof ss.getSheetByName !== 'function') {
+    throw new Error('Invalid spreadsheet for attendance overrides');
+  }
+
+  let sheet = ss.getSheetByName(ATTENDANCE_OVERRIDES_SHEET_NAME);
+  if (!sheet && typeof ss.insertSheet === 'function') {
+    sheet = ss.insertSheet(ATTENDANCE_OVERRIDES_SHEET_NAME);
+  }
+
+  if (!sheet) {
+    throw new Error(`Attendance overrides sheet "${ATTENDANCE_OVERRIDES_SHEET_NAME}" not found`);
+  }
+
+  const headers = ['User', 'Date', 'LoginTimestampMs', 'LogoutTimestampMs', 'OriginalFirstMs', 'OriginalLastMs', 'DeltaSeconds', 'UpdatedAtIso', 'UpdatedBy'];
+  const firstRow = sheet.getRange(1, 1, 1, headers.length).getValues()[0];
+  const hasHeaders = firstRow.some(value => value && value.toString().trim());
+  if (!hasHeaders) {
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+  }
+
+  return sheet;
+}
+
+function calculateBaseTimingForUserDate_(rows, user, dateKey) {
+  if (!Array.isArray(rows) || !user || !dateKey) {
+    return {
+      firstAvailableMs: null,
+      lastEndOfShiftMs: null,
+      earliestEventMs: null,
+      latestEventMs: null
+    };
+  }
+
+  const normalizedUser = String(user).trim();
+  const normalizedDateKey = String(dateKey).trim();
+  const loginStates = new Set(LOGIN_STATE_KEYWORDS);
+  const logoutStates = new Set(LOGOUT_STATE_KEYWORDS);
+
+  let firstAvailableMs = null;
+  let lastEndOfShiftMs = null;
+  let earliestEventMs = null;
+  let latestEventMs = null;
+
+  rows.forEach(row => {
+    if (!row || row.user !== normalizedUser) {
+      return;
+    }
+    const rowDateKey = normalizeDateKeyString_(row.dateString || row.dateKey || row.date);
+    if (rowDateKey !== normalizedDateKey) {
+      return;
+    }
+
+    const timestampMs = ensureComparableMs(row);
+    if (!Number.isFinite(timestampMs)) {
+      return;
+    }
+
+    if (earliestEventMs === null || timestampMs < earliestEventMs) {
+      earliestEventMs = timestampMs;
+    }
+    if (latestEventMs === null || timestampMs > latestEventMs) {
+      latestEventMs = timestampMs;
+    }
+
+    const state = (row.state || '').toString().trim().toLowerCase();
+    if (loginStates.has(state)) {
+      if (firstAvailableMs === null || timestampMs < firstAvailableMs) {
+        firstAvailableMs = timestampMs;
+      }
+    }
+
+    if (logoutStates.has(state)) {
+      if (lastEndOfShiftMs === null || timestampMs > lastEndOfShiftMs) {
+        lastEndOfShiftMs = timestampMs;
+      }
+    }
+  });
+
+  return { firstAvailableMs, lastEndOfShiftMs, earliestEventMs, latestEventMs };
+}
+
+function loadAttendanceOverrides_(periodStartDateMs, periodEndDateMs, agentFilter) {
+  const ss = resolveAttendanceSpreadsheet();
+  let sheet;
+  try {
+    sheet = resolveAttendanceOverridesSheet_(ss);
+  } catch (err) {
+    try {
+      console.warn('Attendance overrides sheet unavailable:', err);
+    } catch (_) {}
+    return { overrides: [], map: new Map(), totalDeltaSeconds: 0 };
+  }
+
+  const dataRange = sheet.getDataRange();
+  const values = dataRange ? dataRange.getValues() : [];
+  if (!values || values.length < 2) {
+    return { overrides: [], map: new Map(), totalDeltaSeconds: 0 };
+  }
+
+  const headers = values[0].map(header => header && header.toString ? header.toString().trim() : String(header));
+  const colIndex = name => headers.indexOf(name);
+  const idxUser = colIndex('User');
+  const idxDate = colIndex('Date');
+  const idxLogin = colIndex('LoginTimestampMs');
+  const idxLogout = colIndex('LogoutTimestampMs');
+  const idxOriginalFirst = colIndex('OriginalFirstMs');
+  const idxOriginalLast = colIndex('OriginalLastMs');
+  const idxDelta = colIndex('DeltaSeconds');
+  const idxUpdatedAt = colIndex('UpdatedAtIso');
+  const idxUpdatedBy = colIndex('UpdatedBy');
+
+  if (idxUser < 0 || idxDate < 0 || idxLogin < 0 || idxLogout < 0 || idxDelta < 0) {
+    return { overrides: [], map: new Map(), totalDeltaSeconds: 0 };
+  }
+
+  const normalizedFilter = agentFilter ? String(agentFilter).trim() : '';
+  const overrides = [];
+  const map = new Map();
+  let totalDeltaSeconds = 0;
+
+  for (let i = 1; i < values.length; i++) {
+    const row = values[i];
+    if (!row) continue;
+
+    const user = row[idxUser] ? String(row[idxUser]).trim() : '';
+    const dateKey = normalizeDateKeyString_(row[idxDate]);
+    if (!user || !dateKey) {
+      continue;
+    }
+    if (normalizedFilter && user !== normalizedFilter) {
+      continue;
+    }
+
+    const loginTimestampMs = Number(row[idxLogin]);
+    const logoutTimestampMs = Number(row[idxLogout]);
+    if (!Number.isFinite(loginTimestampMs) || !Number.isFinite(logoutTimestampMs)) {
+      continue;
+    }
+
+    const deltaSeconds = Number(row[idxDelta]);
+    if (!Number.isFinite(deltaSeconds)) {
+      continue;
+    }
+
+    const originalFirstMs = Number(row[idxOriginalFirst]);
+    const originalLastMs = Number(row[idxOriginalLast]);
+
+    const dateObj = normalizeDateValue(dateKey);
+    const dateMs = (dateObj instanceof Date && !isNaN(dateObj.getTime())) ? dateObj.getTime() : null;
+    if (Number.isFinite(periodStartDateMs) && Number.isFinite(dateMs) && dateMs < periodStartDateMs) {
+      continue;
+    }
+    if (Number.isFinite(periodEndDateMs) && Number.isFinite(dateMs) && dateMs > periodEndDateMs) {
+      continue;
+    }
+
+    const updatedAtIso = idxUpdatedAt >= 0 ? row[idxUpdatedAt] : '';
+    const updatedBy = idxUpdatedBy >= 0 ? row[idxUpdatedBy] : '';
+    const isWeekend = (dateObj instanceof Date && !isNaN(dateObj.getTime()))
+      ? [0, 6].includes(dateObj.getDay())
+      : false;
+
+    const override = {
+      user,
+      dateKey,
+      firstAvailable: loginTimestampMs,
+      lastEndOfShift: logoutTimestampMs,
+      originalFirst: Number.isFinite(originalFirstMs) ? originalFirstMs : null,
+      originalLast: Number.isFinite(originalLastMs) ? originalLastMs : null,
+      deltaSeconds,
+      updatedAtIso: updatedAtIso || '',
+      updatedBy: updatedBy || '',
+      isWeekend
+    };
+
+    const mapKey = `${user}|${dateKey}`;
+    overrides.push(override);
+    map.set(mapKey, override);
+    totalDeltaSeconds += deltaSeconds;
+  }
+
+  return { overrides, map, totalDeltaSeconds };
 }
 
 function ensureDriveEntityAccessForUser(entity, userEmail) {
@@ -755,7 +1015,8 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter, poli
     }
 
     const hourPolicy = normalizeHourPolicy(policyOptions);
-    const CACHE_KEY = `ANALYTICS_FINAL_${granularity}_${periodId}_${agentFilter || 'all'}_${hourPolicy.cacheKey}`;
+    const overrideVersion = getAttendanceOverrideVersion_();
+    const CACHE_KEY = `ANALYTICS_FINAL_${granularity}_${periodId}_${agentFilter || 'all'}_${hourPolicy.cacheKey}_OV${overrideVersion}`;
 
     // Try cache first
     try {
@@ -1017,6 +1278,74 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter, poli
     if (Date.now() - startTime > MAX_PROCESSING_TIME * 0.6) {
       console.warn('Approaching timeout, returning basic analytics snapshot');
       return createBasicAnalytics(filteredRows, granularity, periodId, agentFilter, periodStart, periodEnd, managerDirectory, hourPolicy);
+    }
+
+    const overridesData = loadAttendanceOverrides_(periodStartDateMs, periodEndDateMs, normalizedAgentFilter);
+    const overrideEntries = Array.isArray(overridesData.overrides) ? overridesData.overrides : [];
+
+    if (overrideEntries.length > 0) {
+      overrideEntries.forEach(override => {
+        if (!override || !override.user || !override.dateKey) {
+          return;
+        }
+
+        const key = `${override.user}|${override.dateKey}`;
+        if (!userDayMetrics.has(key)) {
+          userDayMetrics.set(key, {
+            user: override.user,
+            dateKey: override.dateKey,
+            prod: 0,
+            break: 0,
+            lunch: 0,
+            isWeekend: !!override.isWeekend
+          });
+        }
+
+        const metrics = userDayMetrics.get(key);
+        metrics.prod = Math.max(0, (metrics.prod || 0) + (override.deltaSeconds || 0));
+        if (typeof override.isWeekend === 'boolean') {
+          metrics.isWeekend = override.isWeekend;
+        }
+
+        if (!userComplianceMap.has(override.user)) {
+          userComplianceMap.set(override.user, {
+            weekdayBaseCappedSecs: 0,
+            weekendBaseCappedSecs: 0,
+            breakSecs: 0,
+            breakWeekdaySecs: 0,
+            breakWeekendSecs: 0,
+            lunchSecs: 0,
+            breakCreditSecs: 0,
+            breakCreditWeekdaySecs: 0,
+            breakCreditWeekendSecs: 0,
+            lunchAdjustmentSecs: 0,
+            lunchAdjustmentWeekdaySecs: 0,
+            lunchAdjustmentWeekendSecs: 0,
+            adjustedWeekdaySecs: 0,
+            adjustedWeekendSecs: 0,
+            breakOverageDays: 0,
+            lunchOverageDays: 0,
+            weeklyOverages: 0
+          });
+        }
+
+        uniqueUsers.add(override.user);
+
+        if (!dailyMap.has(override.dateKey)) {
+          dailyMap.set(override.dateKey, { onWorkSecs: 0, lateCount: 0 });
+        }
+        const dailyMetricsEntry = dailyMap.get(override.dateKey);
+        dailyMetricsEntry.onWorkSecs = Math.max(0, (dailyMetricsEntry.onWorkSecs || 0) + (override.deltaSeconds || 0));
+
+        if (!override.isWeekend) {
+          const currentTop = topSeconds.get(override.user) || 0;
+          topSeconds.set(override.user, Math.max(0, currentTop + (override.deltaSeconds || 0)));
+        }
+
+        const currentAvailable = stateDuration['Available'] || 0;
+        stateDuration['Available'] = Math.max(0, currentAvailable + (override.deltaSeconds || 0));
+        totalBillableSecs = Math.max(0, totalBillableSecs + (override.deltaSeconds || 0));
+      });
     }
 
     let violationDays = 0;
@@ -1302,7 +1631,21 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter, poli
         workingDays: weekdaysInPeriod,
         timezone: ATTENDANCE_TIMEZONE,
         timezoneLabel: ATTENDANCE_TIMEZONE_LABEL
-      }
+      },
+      manualSecondsDelta: Number(overridesData.totalDeltaSeconds) || 0,
+      manualSecondsDeltaHours: Math.round((((Number(overridesData.totalDeltaSeconds) || 0) / 3600)) * 100) / 100,
+      manualTimingOverrides: overrideEntries.map(entry => ({
+        user: entry.user,
+        dateKey: entry.dateKey,
+        firstAvailable: entry.firstAvailable,
+        lastEndOfShift: entry.lastEndOfShift,
+        originalFirst: entry.originalFirst,
+        originalLast: entry.originalLast,
+        deltaSeconds: entry.deltaSeconds,
+        updatedAtIso: entry.updatedAtIso,
+        updatedBy: entry.updatedBy
+      })),
+      manualAdjustmentsApplied: overrideEntries.length > 0
     };
 
     // Cache results
@@ -1621,6 +1964,9 @@ function calculateBreakCreditSecs(breakSeconds) {
 
 function calculateLunchAdjustmentSecs(lunchSeconds) {
   const total = Number.isFinite(lunchSeconds) ? lunchSeconds : 0;
+  if (total <= DAILY_LUNCH_SECS) {
+    return 0;
+  }
   return DAILY_LUNCH_SECS - total;
 }
 
@@ -2294,7 +2640,7 @@ function generateDailyPivotMatrix(filteredRows, granularity, periodValue, option
       if (breakMin > 30) {
         breakViolationDays++;
       }
-      if (lunchMin > 60) {
+      if (lunchMin > 30) {
         lunchViolationDays++;
       }
 
@@ -2326,11 +2672,11 @@ function generateDailyPivotMatrix(filteredRows, granularity, periodValue, option
         const hoursOverTarget = Math.max(0, effectiveHoursForOvertime - baseTargetHours);
         overtimeHours += hoursOverTarget;
 
-        if (performanceStatus === 'target' && breakMin <= 30 && lunchMin <= 60) {
+        if (performanceStatus === 'target' && breakMin <= 30 && lunchMin <= 30) {
           perfectAttendanceDays++;
         }
 
-        if (breakMin > 30 || lunchMin > 60) {
+        if (breakMin > 30 || lunchMin > 30) {
           violationDays++;
         }
       }
@@ -2349,7 +2695,7 @@ function generateDailyPivotMatrix(filteredRows, granularity, periodValue, option
         performanceStatus: performanceStatus,
         breakMin: Math.round(breakMin),
         lunchMin: Math.round(lunchMin),
-        hasViolations: (breakMin > 30 || lunchMin > 60),
+        hasViolations: (breakMin > 30 || lunchMin > 30),
         hadCapApplied: capApplied
       };
     });
@@ -2865,7 +3211,7 @@ function generateEnhancedDailyPivotExport(pivotMatrix, params, context) {
     const notes = [
       'Data Quality Notes',
       `All productive durations are converted from seconds into decimal hours using ${ATTENDANCE_TIMEZONE_LABEL || ATTENDANCE_TIMEZONE}.`,
-      'Break allowances assume 30 minutes per day; lunch allowances assume 60 minutes.',
+      'Break allowances assume 30 minutes per day; lunch allowances assume 30 minutes.',
       `Only productive attendance states contribute to billable hours: ${BILLABLE_STATES.join(', ')}.`
     ];
 
@@ -3111,7 +3457,7 @@ function generateEnhancedDailyPivotCsvFallback(pivotMatrix, params, context) {
   rows.push('');
   rows.push(csvEscape('Notes'));
   rows.push(csvEscape(`All productive durations are converted from seconds into decimal hours using ${ATTENDANCE_TIMEZONE_LABEL || ATTENDANCE_TIMEZONE}.`));
-  rows.push(csvEscape('Break allowances assume 30 minutes per day; lunch allowances assume 60 minutes.'));
+  rows.push(csvEscape('Break allowances assume 30 minutes per day; lunch allowances assume 30 minutes.'));
   rows.push(csvEscape(`Only productive attendance states contribute to billable hours: ${BILLABLE_STATES.join(', ')}.`));
 
   return {
@@ -3826,6 +4172,12 @@ function createBasicAnalytics(filtered, granularity, periodId, agentFilter, peri
   const seedStates = [...new Set([...BILLABLE_STATES, ...NON_PRODUCTIVE_STATES])];
   const fallbackDayMetrics = new Map();
   const safeHourPolicy = (hourPolicy && typeof hourPolicy === 'object') ? hourPolicy : normalizeHourPolicy({});
+  const overridesData = loadAttendanceOverrides_(
+    periodStart instanceof Date && !isNaN(periodStart.getTime()) ? periodStart.getTime() : null,
+    periodEnd instanceof Date && !isNaN(periodEnd.getTime()) ? periodEnd.getTime() : null,
+    agentFilter
+  );
+  const overrideEntries = Array.isArray(overridesData.overrides) ? overridesData.overrides : [];
   seedStates.forEach(state => {
     summary[state] = 0;
     stateDuration[state] = 0;
@@ -3872,9 +4224,27 @@ function createBasicAnalytics(filtered, granularity, periodId, agentFilter, peri
     }
   });
 
+  overrideEntries.forEach(override => {
+    if (!override || !override.user || !override.dateKey) {
+      return;
+    }
+    const key = `${override.user}|${override.dateKey}`;
+    if (!fallbackDayMetrics.has(key)) {
+      fallbackDayMetrics.set(key, { break: 0, lunch: 0, prod: 0, isWeekend: !!override.isWeekend });
+    }
+    const metrics = fallbackDayMetrics.get(key);
+    metrics.prod = Math.max(0, (metrics.prod || 0) + (override.deltaSeconds || 0));
+    if (typeof override.isWeekend === 'boolean') {
+      metrics.isWeekend = override.isWeekend;
+    }
+    const currentAvailable = stateDuration['Available'] || 0;
+    stateDuration['Available'] = Math.max(0, currentAvailable + (override.deltaSeconds || 0));
+  });
+
   const breakSecs = stateDuration['Break'] || 0;
   const lunchSecs = stateDuration['Lunch'] || 0;
-  const billableSecs = BILLABLE_STATES.reduce((sum, state) => sum + (stateDuration[state] || 0), 0);
+  let billableSecs = BILLABLE_STATES.reduce((sum, state) => sum + (stateDuration[state] || 0), 0);
+  billableSecs = Math.max(0, billableSecs + (Number(overridesData.totalDeltaSeconds) || 0));
   let fallbackBreakCreditSecs = 0;
   let fallbackLunchAdjustmentSecs = 0;
   let fallbackBaseBillableSecs = 0;
@@ -3990,7 +4360,21 @@ function createBasicAnalytics(filtered, granularity, periodId, agentFilter, peri
     intelligence,
     periodInfo,
     breakCreditSecs: fallbackBreakCreditSecs,
-    lunchAdjustmentSecs: fallbackLunchAdjustmentSecs
+    lunchAdjustmentSecs: fallbackLunchAdjustmentSecs,
+    manualSecondsDelta: Number(overridesData.totalDeltaSeconds) || 0,
+    manualSecondsDeltaHours: Math.round((((Number(overridesData.totalDeltaSeconds) || 0) / 3600)) * 100) / 100,
+    manualTimingOverrides: overrideEntries.map(entry => ({
+      user: entry.user,
+      dateKey: entry.dateKey,
+      firstAvailable: entry.firstAvailable,
+      lastEndOfShift: entry.lastEndOfShift,
+      originalFirst: entry.originalFirst,
+      originalLast: entry.originalLast,
+      deltaSeconds: entry.deltaSeconds,
+      updatedAtIso: entry.updatedAtIso,
+      updatedBy: entry.updatedBy
+    })),
+    manualAdjustmentsApplied: overrideEntries.length > 0
   };
 }
 
@@ -4053,8 +4437,146 @@ function createEmptyAnalytics() {
       timezoneLabel: ATTENDANCE_TIMEZONE_LABEL,
       startDateIso: new Date().toISOString(),
       endDateIso: new Date().toISOString()
-    }
+    },
+    manualSecondsDelta: 0,
+    manualSecondsDeltaHours: 0,
+    manualTimingOverrides: [],
+    manualAdjustmentsApplied: false
   };
+}
+
+function saveLoginLogoutOverride(user, dateKey, loginTimestampMs, logoutTimestampMs) {
+  return rpc('saveLoginLogoutOverride', () => {
+    const normalizedUser = typeof user === 'string' ? user.trim() : '';
+    const normalizedDateKey = normalizeDateKeyString_(dateKey);
+
+    if (!normalizedUser) {
+      throw new Error('User is required');
+    }
+    if (!normalizedDateKey) {
+      throw new Error('Valid date is required');
+    }
+
+    const loginMs = Number(loginTimestampMs);
+    const logoutMs = Number(logoutTimestampMs);
+    if (!Number.isFinite(loginMs) || !Number.isFinite(logoutMs)) {
+      throw new Error('Valid login and logout timestamps are required');
+    }
+    if (logoutMs <= loginMs) {
+      throw new Error('Logout time must be after login time');
+    }
+
+    const ss = resolveAttendanceSpreadsheet();
+    const sheet = resolveAttendanceOverridesSheet_(ss);
+    const rows = fetchAllAttendanceRows();
+    const baseTiming = calculateBaseTimingForUserDate_(rows, normalizedUser, normalizedDateKey);
+
+    let originalFirst = Number.isFinite(baseTiming.firstAvailableMs) ? baseTiming.firstAvailableMs : null;
+    let originalLast = Number.isFinite(baseTiming.lastEndOfShiftMs) ? baseTiming.lastEndOfShiftMs : null;
+
+    if (!Number.isFinite(originalFirst) && Number.isFinite(baseTiming.earliestEventMs)) {
+      originalFirst = baseTiming.earliestEventMs;
+    }
+    if (!Number.isFinite(originalLast) && Number.isFinite(baseTiming.latestEventMs)) {
+      originalLast = baseTiming.latestEventMs;
+    }
+
+    const baseSpan = (Number.isFinite(originalFirst) && Number.isFinite(originalLast) && originalLast > originalFirst)
+      ? originalLast - originalFirst
+      : 0;
+    const newSpan = logoutMs - loginMs;
+    const deltaSeconds = Math.round((newSpan - baseSpan) / 1000);
+
+    const headersRange = sheet.getRange(1, 1, 1, sheet.getLastColumn());
+    const headers = headersRange.getValues()[0].map(value => value && value.toString ? value.toString().trim() : String(value));
+    const idxUser = headers.indexOf('User');
+    const idxDate = headers.indexOf('Date');
+    const idxLogin = headers.indexOf('LoginTimestampMs');
+    const idxLogout = headers.indexOf('LogoutTimestampMs');
+    const idxOriginalFirst = headers.indexOf('OriginalFirstMs');
+    const idxOriginalLast = headers.indexOf('OriginalLastMs');
+    const idxDelta = headers.indexOf('DeltaSeconds');
+    const idxUpdatedAt = headers.indexOf('UpdatedAtIso');
+    const idxUpdatedBy = headers.indexOf('UpdatedBy');
+
+    if ([idxUser, idxDate, idxLogin, idxLogout, idxDelta].some(index => index < 0)) {
+      throw new Error('Attendance overrides sheet is missing required headers');
+    }
+
+    const dataRange = sheet.getDataRange();
+    const values = dataRange ? dataRange.getValues() : [];
+    let existingRowIndex = -1;
+    for (let i = 1; i < values.length; i++) {
+      const row = values[i];
+      if (!row) continue;
+      const rowUser = row[idxUser] ? String(row[idxUser]).trim() : '';
+      const rowDate = normalizeDateKeyString_(row[idxDate]);
+      if (rowUser === normalizedUser && rowDate === normalizedDateKey) {
+        existingRowIndex = i;
+        break;
+      }
+    }
+
+    const isReverting = Math.abs(deltaSeconds) < 1;
+    const updatedAtIso = new Date().toISOString();
+    const updatedBy = getActiveUserEmailSafe();
+
+    if (isReverting) {
+      if (existingRowIndex >= 1) {
+        sheet.deleteRow(existingRowIndex + 1);
+      }
+      incrementAttendanceOverrideVersion_();
+      return {
+        success: true,
+        override: null,
+        deltaSeconds: 0,
+        removed: true
+      };
+    }
+
+    const rowValues = new Array(headers.length).fill('');
+    rowValues[idxUser] = normalizedUser;
+    rowValues[idxDate] = normalizedDateKey;
+    rowValues[idxLogin] = Math.round(loginMs);
+    rowValues[idxLogout] = Math.round(logoutMs);
+    if (idxOriginalFirst >= 0) {
+      rowValues[idxOriginalFirst] = Number.isFinite(originalFirst) ? Math.round(originalFirst) : '';
+    }
+    if (idxOriginalLast >= 0) {
+      rowValues[idxOriginalLast] = Number.isFinite(originalLast) ? Math.round(originalLast) : '';
+    }
+    rowValues[idxDelta] = deltaSeconds;
+    if (idxUpdatedAt >= 0) {
+      rowValues[idxUpdatedAt] = updatedAtIso;
+    }
+    if (idxUpdatedBy >= 0) {
+      rowValues[idxUpdatedBy] = updatedBy || '';
+    }
+
+    if (existingRowIndex >= 1) {
+      sheet.getRange(existingRowIndex + 1, 1, 1, headers.length).setValues([rowValues]);
+    } else {
+      const targetRow = sheet.getLastRow() + 1;
+      sheet.getRange(targetRow, 1, 1, headers.length).setValues([rowValues]);
+    }
+
+    incrementAttendanceOverrideVersion_();
+
+    return {
+      success: true,
+      override: {
+        user: normalizedUser,
+        dateKey: normalizedDateKey,
+        firstAvailable: Math.round(loginMs),
+        lastEndOfShift: Math.round(logoutMs),
+        originalFirst: Number.isFinite(originalFirst) ? Math.round(originalFirst) : null,
+        originalLast: Number.isFinite(originalLast) ? Math.round(originalLast) : null,
+        deltaSeconds,
+        updatedAtIso,
+        updatedBy: updatedBy || ''
+      }
+    };
+  });
 }
 
 // ────────────────────────────────────────────────────────────────────────────
