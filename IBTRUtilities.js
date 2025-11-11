@@ -80,7 +80,18 @@
     ];
   }
   if (typeof G.QA_COLLAB_HEADERS === 'undefined') G.QA_COLLAB_HEADERS = G.QA_HEADERS.slice();
-  if (typeof G.ESCALATIONS_HEADERS === 'undefined') G.ESCALATIONS_HEADERS = ['ID','Timestamp','User','Type','Notes','CreatedAt','UpdatedAt'];
+  if (typeof G.ESCALATIONS_HEADERS === 'undefined') G.ESCALATIONS_HEADERS = [
+    'ID',
+    'Timestamp',
+    'User',
+    'Category',
+    'IssueType',
+    'ImpactLevel',
+    'Status',
+    'Notes',
+    'CreatedAt',
+    'UpdatedAt'
+  ];
 if (typeof G.BOOKMARKS_HEADERS === 'undefined') {
   G.BOOKMARKS_HEADERS = [
     'ID', 'UserID', 'UserEmail', 'Title', 'URL', 'Description', 'Tags',

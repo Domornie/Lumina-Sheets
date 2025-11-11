@@ -10,7 +10,10 @@
  *       id:        string,
  *       timestamp: Date,
  *       user:      string,
- *       type:      string,       // "Client" or "Supervisor"
+ *       category:  string,
+ *       issueType: string,
+ *       impact:    string,
+ *       status:    string,
  *       notes:     string,
  *       createdAt: Date,
  *       updatedAt: Date
@@ -27,7 +30,7 @@
 
 /**
  * Returns all escalations in a form your client-side expects:
- *   { id, user, type, timestamp, notes }
+ *   { id, user, category, issueType, impact, status, timestamp, notes }
  */
 function fetchAllEscalations() {
   const tz = Session.getScriptTimeZone();
@@ -35,7 +38,10 @@ function fetchAllEscalations() {
   return rows.map(r => ({
     id: r.ID,
     user: r.User,
-    type: r.Type,
+    category: r.Category || '',
+    issueType: r.IssueType || '',
+    impact: r.ImpactLevel || '',
+    status: r.Status || '',
     timestamp: r.Timestamp instanceof Date
       ? Utilities.formatDate(r.Timestamp, tz, 'yyyy-MM-dd HH:mm:ss')
       : r.Timestamp,
@@ -45,7 +51,15 @@ function fetchAllEscalations() {
 
 /**
  * Inserts a new escalation record.
- * @param {{user:string, type:string, timestamp:string, notes:string}} rec
+ * @param {{
+ *   user:string,
+ *   category:string,
+ *   issueType:string,
+ *   impact:string,
+ *   status:string,
+ *   timestamp:string,
+ *   notes:string
+ * }} rec
  * @return {string} the generated ID
  */
 function addEscalation(rec) {
@@ -56,12 +70,18 @@ function addEscalation(rec) {
   const tsDate = rec.timestamp
     ? new Date(rec.timestamp.replace('T', ' '))
     : now;
-  // ESCALATIONS_HEADERS = ["ID","Timestamp","User","Type","Notes","CreatedAt","UpdatedAt"]
+  // ESCALATIONS_HEADERS = [
+  //   "ID","Timestamp","User","Category","IssueType","ImpactLevel",
+  //   "Status","Notes","CreatedAt","UpdatedAt"
+  // ]
   sheet.appendRow([
     id,
     tsDate,
     rec.user,
-    rec.type,
+    rec.category,
+    rec.issueType,
+    rec.impact,
+    rec.status || 'Open',
     rec.notes,
     now,
     now
@@ -72,7 +92,15 @@ function addEscalation(rec) {
 /**
  * Updates an existing escalation by ID.
  * @param {string} id
- * @param {{user:string, type:string, timestamp:string, notes:string}} rec
+ * @param {{
+ *   user:string,
+ *   category:string,
+ *   issueType:string,
+ *   impact:string,
+ *   status:string,
+ *   timestamp:string,
+ *   notes:string
+ * }} rec
  */
 function updateEscalation(id, rec) {
   const sheet = getIBTRSpreadsheet()
@@ -86,15 +114,18 @@ function updateEscalation(id, rec) {
   for (let i = 1; i < data.length; i++) {
     if (data[i][0] === id) {
       const row = i + 1;
-      const createdAt = data[i][5];  // preserve original CreatedAt
+      const createdAt = data[i][8];  // preserve original CreatedAt
       const tsDate = rec.timestamp
         ? new Date(rec.timestamp.replace('T', ' '))
         : new Date();
-      // overwrite Timestamp, User, Type, Notes, keep CreatedAt, set UpdatedAt
-      sheet.getRange(row, 2, 1, 6).setValues([[
+      // overwrite Timestamp + metadata, keep CreatedAt, set UpdatedAt
+      sheet.getRange(row, 2, 1, 9).setValues([[
         tsDate,
         rec.user,
-        rec.type,
+        rec.category,
+        rec.issueType,
+        rec.impact,
+        rec.status,
         rec.notes,
         createdAt,
         now
