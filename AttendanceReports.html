@@ -2345,9 +2345,9 @@
 
       const form = document.getElementById('loginLogoutEditForm');
       if (form) {
-        form.addEventListener('submit', (event) => {
+        form.addEventListener('submit', async (event) => {
           event.preventDefault();
-          this.handleLoginLogoutEditSubmit();
+          await this.handleLoginLogoutEditSubmit();
         });
       }
 
@@ -2389,6 +2389,13 @@
 
     applyManualSecondsAdjustmentsToCurrentData() {
       if (!this.currentData) {
+        return;
+      }
+
+      if (this.currentData.manualAdjustmentsApplied) {
+        const deltaSeconds = Number(this.currentData.manualSecondsDelta) || 0;
+        this.currentData.manualSecondsDelta = deltaSeconds;
+        this.currentData.manualSecondsDeltaHours = Math.round((deltaSeconds / 3600) * 100) / 100;
         return;
       }
 
@@ -2563,7 +2570,7 @@
       this.loginLogoutModal?.show();
     }
 
-    handleLoginLogoutEditSubmit() {
+    async handleLoginLogoutEditSubmit() {
       const context = this.pendingLoginLogoutEdit;
       const errorEl = document.getElementById('loginLogoutEditError');
       if (!context) {
@@ -2605,81 +2612,50 @@
         return;
       }
 
-      const key = `${context.user}|${context.dateKey}`;
-      const existingOverride = this.manualTimingOverrides.get(key);
+      const submitButton = document.querySelector('#loginLogoutEditForm button[type="submit"]');
+      const originalButtonHtml = submitButton ? submitButton.innerHTML : '';
 
-      let originalFirst = existingOverride && Number.isFinite(existingOverride.originalFirst)
-        ? existingOverride.originalFirst
-        : null;
-      let originalLast = existingOverride && Number.isFinite(existingOverride.originalLast)
-        ? existingOverride.originalLast
-        : null;
+      try {
+        if (submitButton) {
+          submitButton.disabled = true;
+          submitButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Saving...';
+        }
 
-      if (!Number.isFinite(originalFirst) || !Number.isFinite(originalLast)) {
-        const baseMap = this.baseTimingInfo instanceof Map ? this.baseTimingInfo.get(context.user) : null;
-        const baseInfo = baseMap instanceof Map ? baseMap.get(context.dateKey) : null;
-        if (baseInfo) {
-          if (!Number.isFinite(originalFirst) && Number.isFinite(baseInfo.firstAvailable)) {
-            originalFirst = baseInfo.firstAvailable;
-          }
-          if (!Number.isFinite(originalLast) && Number.isFinite(baseInfo.lastEndOfShift)) {
-            originalLast = baseInfo.lastEndOfShift;
-          }
+        if (errorEl) {
+          errorEl.classList.add('d-none');
+          errorEl.textContent = '';
+        }
+
+        const response = await this.callServerFunction('saveLoginLogoutOverride', [
+          context.user,
+          context.dateKey,
+          Math.round(loginTimestamp),
+          Math.round(logoutTimestamp)
+        ], { timeoutMs: 20000 });
+
+        if (response && response.error) {
+          throw new Error(response.error);
+        }
+
+        this.pendingLoginLogoutEdit = null;
+        this.loginLogoutModal?.hide();
+
+        this.suppressRenderToast = true;
+        await this.loadData();
+        const userLabel = context.user;
+        this.showToast(`Login/logout updated for ${userLabel}`, 'success');
+      } catch (err) {
+        const message = (err && err.message) ? String(err.message) : 'Failed to save login/logout changes.';
+        if (errorEl) {
+          errorEl.textContent = message;
+          errorEl.classList.remove('d-none');
+        }
+      } finally {
+        if (submitButton) {
+          submitButton.disabled = false;
+          submitButton.innerHTML = originalButtonHtml;
         }
       }
-
-      if (!Number.isFinite(originalFirst) && context.originalInfo && Number.isFinite(context.originalInfo.firstAvailable)) {
-        originalFirst = context.originalInfo.firstAvailable;
-      }
-      if (!Number.isFinite(originalLast) && context.originalInfo && Number.isFinite(context.originalInfo.lastEndOfShift)) {
-        originalLast = context.originalInfo.lastEndOfShift;
-      }
-
-      if (!Number.isFinite(originalFirst)) {
-        originalFirst = loginTimestamp;
-      }
-      if (!Number.isFinite(originalLast)) {
-        originalLast = logoutTimestamp;
-      }
-
-      const originalSpan = Math.max(0, originalLast - originalFirst);
-      const newSpan = Math.max(0, logoutTimestamp - loginTimestamp);
-      const deltaSeconds = Math.round((newSpan - originalSpan) / 1000);
-
-      const override = {
-        firstAvailable: loginTimestamp,
-        lastEndOfShift: logoutTimestamp,
-        originalFirst,
-        originalLast,
-        updatedAt: Date.now()
-      };
-
-      const isReverting = Math.abs(loginTimestamp - originalFirst) < 1000 && Math.abs(logoutTimestamp - originalLast) < 1000;
-      if (isReverting) {
-        this.manualTimingOverrides.delete(key);
-      } else {
-        this.manualTimingOverrides.set(key, override);
-      }
-
-      if (deltaSeconds === 0) {
-        this.manualSecondsAdjustments.delete(key);
-      } else {
-        this.manualSecondsAdjustments.set(key, deltaSeconds);
-      }
-
-      if (errorEl) {
-        errorEl.classList.add('d-none');
-        errorEl.textContent = '';
-      }
-
-      const userLabel = context.user;
-      this.pendingLoginLogoutEdit = null;
-      this.loginLogoutModal?.hide();
-
-      this.applyManualSecondsAdjustmentsToCurrentData();
-      this.suppressRenderToast = true;
-      this.renderDashboard();
-      this.showToast(`Login/logout updated for ${userLabel}`, 'success');
     }
 
     applyManualTimingOverridesToInfo(timingInfoMap) {
@@ -3032,7 +3008,47 @@
         this.originalTotalsSnapshot = null;
         this.originalTotalsSnapshotKey = null;
         this.originalUserComplianceMap.clear();
+
+        if (!(this.manualTimingOverrides instanceof Map)) {
+          this.manualTimingOverrides = new Map();
+        }
+        if (!(this.manualSecondsAdjustments instanceof Map)) {
+          this.manualSecondsAdjustments = new Map();
+        }
+
         this.resetManualAdjustmentsIfContextChanged();
+
+        this.manualTimingOverrides.clear();
+        this.manualSecondsAdjustments.clear();
+
+        const serverOverrides = Array.isArray(data.manualTimingOverrides) ? data.manualTimingOverrides : [];
+        serverOverrides.forEach(entry => {
+          if (!entry || typeof entry !== 'object' || !entry.user || !entry.dateKey) {
+            return;
+          }
+          const key = `${entry.user}|${entry.dateKey}`;
+          const normalized = {
+            firstAvailable: Number(entry.firstAvailable),
+            lastEndOfShift: Number(entry.lastEndOfShift),
+            originalFirst: Number(entry.originalFirst),
+            originalLast: Number(entry.originalLast),
+            updatedAt: entry.updatedAtIso ? Date.parse(entry.updatedAtIso) || Date.now() : Date.now()
+          };
+          this.manualTimingOverrides.set(key, normalized);
+
+          const deltaSeconds = Number(entry.deltaSeconds);
+          if (Number.isFinite(deltaSeconds) && deltaSeconds !== 0) {
+            this.manualSecondsAdjustments.set(key, deltaSeconds);
+          }
+        });
+
+        if (!Number.isFinite(this.currentData.manualSecondsDelta)) {
+          this.currentData.manualSecondsDelta = 0;
+        }
+        if (!Number.isFinite(this.currentData.manualSecondsDeltaHours)) {
+          this.currentData.manualSecondsDeltaHours = Math.round((this.currentData.manualSecondsDelta / 3600) * 100) / 100;
+        }
+
         this.applyManualSecondsAdjustmentsToCurrentData();
         this.renderDashboard();
 
@@ -3077,7 +3093,11 @@
           workingDays: 5,
           timezone: window.COMPANY_TIMEZONE || COMPANY_TIMEZONE,
           timezoneLabel: window.COMPANY_TIMEZONE_LABEL || COMPANY_TIMEZONE_LABEL || COMPANY_TIMEZONE
-        }
+        },
+        manualTimingOverrides: [],
+        manualSecondsDelta: 0,
+        manualSecondsDeltaHours: 0,
+        manualAdjustmentsApplied: false
       };
     }
 
