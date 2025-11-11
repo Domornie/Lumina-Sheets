@@ -1621,6 +1621,9 @@ function calculateBreakCreditSecs(breakSeconds) {
 
 function calculateLunchAdjustmentSecs(lunchSeconds) {
   const total = Number.isFinite(lunchSeconds) ? lunchSeconds : 0;
+  if (total <= DAILY_LUNCH_SECS) {
+    return 0;
+  }
   return DAILY_LUNCH_SECS - total;
 }
 
@@ -2294,7 +2297,7 @@ function generateDailyPivotMatrix(filteredRows, granularity, periodValue, option
       if (breakMin > 30) {
         breakViolationDays++;
       }
-      if (lunchMin > 60) {
+      if (lunchMin > 30) {
         lunchViolationDays++;
       }
 
@@ -2326,11 +2329,11 @@ function generateDailyPivotMatrix(filteredRows, granularity, periodValue, option
         const hoursOverTarget = Math.max(0, effectiveHoursForOvertime - baseTargetHours);
         overtimeHours += hoursOverTarget;
 
-        if (performanceStatus === 'target' && breakMin <= 30 && lunchMin <= 60) {
+        if (performanceStatus === 'target' && breakMin <= 30 && lunchMin <= 30) {
           perfectAttendanceDays++;
         }
 
-        if (breakMin > 30 || lunchMin > 60) {
+        if (breakMin > 30 || lunchMin > 30) {
           violationDays++;
         }
       }
@@ -2349,7 +2352,7 @@ function generateDailyPivotMatrix(filteredRows, granularity, periodValue, option
         performanceStatus: performanceStatus,
         breakMin: Math.round(breakMin),
         lunchMin: Math.round(lunchMin),
-        hasViolations: (breakMin > 30 || lunchMin > 60),
+        hasViolations: (breakMin > 30 || lunchMin > 30),
         hadCapApplied: capApplied
       };
     });
@@ -2865,7 +2868,7 @@ function generateEnhancedDailyPivotExport(pivotMatrix, params, context) {
     const notes = [
       'Data Quality Notes',
       `All productive durations are converted from seconds into decimal hours using ${ATTENDANCE_TIMEZONE_LABEL || ATTENDANCE_TIMEZONE}.`,
-      'Break allowances assume 30 minutes per day; lunch allowances assume 60 minutes.',
+      'Break allowances assume 30 minutes per day; lunch allowances assume 30 minutes.',
       `Only productive attendance states contribute to billable hours: ${BILLABLE_STATES.join(', ')}.`
     ];
 
@@ -3111,7 +3114,7 @@ function generateEnhancedDailyPivotCsvFallback(pivotMatrix, params, context) {
   rows.push('');
   rows.push(csvEscape('Notes'));
   rows.push(csvEscape(`All productive durations are converted from seconds into decimal hours using ${ATTENDANCE_TIMEZONE_LABEL || ATTENDANCE_TIMEZONE}.`));
-  rows.push(csvEscape('Break allowances assume 30 minutes per day; lunch allowances assume 60 minutes.'));
+  rows.push(csvEscape('Break allowances assume 30 minutes per day; lunch allowances assume 30 minutes.'));
   rows.push(csvEscape(`Only productive attendance states contribute to billable hours: ${BILLABLE_STATES.join(', ')}.`));
 
   return {
