@@ -6,6 +6,295 @@
   currentPage: currentPage || 'payrollmanagement'
 }) ?>
 
+<?
+  function __payrollSafeString(value) {
+    if (value === null || typeof value === 'undefined') {
+      return '';
+    }
+
+    var text = String(value).trim();
+    if (!text || text.toLowerCase() === 'undefined' || text.toLowerCase() === 'null') {
+      return '';
+    }
+
+    return text;
+  }
+
+  function __payrollCollectTokens(input, allowSplit) {
+    var tokens = [];
+
+    function append(value) {
+      if (value === null || typeof value === 'undefined') {
+        return;
+      }
+
+      if (Array.isArray(value)) {
+        value.forEach(append);
+        return;
+      }
+
+      if (typeof value === 'object') {
+        Object.keys(value).forEach(function (key) {
+          append(value[key]);
+        });
+        return;
+      }
+
+      var text = __payrollSafeString(value);
+      if (!text) {
+        return;
+      }
+
+      if (!allowSplit) {
+        tokens.push(text.toLowerCase());
+        return;
+      }
+
+      text.split(/[,;\/:|]+/).forEach(function (part) {
+        var normalized = __payrollSafeString(part).toLowerCase();
+        if (normalized) {
+          tokens.push(normalized);
+        }
+      });
+    }
+
+    append(input);
+    return tokens;
+  }
+
+  function __payrollInterpretFlag(value) {
+    if (value === null || typeof value === 'undefined') {
+      return false;
+    }
+
+    if (typeof value === 'boolean') {
+      return value;
+    }
+
+    if (typeof value === 'number') {
+      return value !== 0;
+    }
+
+    if (typeof value === 'string') {
+      var normalized = value.trim().toLowerCase();
+      if (!normalized) {
+        return false;
+      }
+      if (['false', '0', 'off', 'no', 'n'].indexOf(normalized) !== -1) {
+        return false;
+      }
+      return true;
+    }
+
+    return !!value;
+  }
+
+  function __payrollMatchesAny(tokens, patterns) {
+    if (!tokens.length || !patterns.length) {
+      return false;
+    }
+
+    for (var idx = 0; idx < tokens.length; idx++) {
+      for (var jdx = 0; jdx < patterns.length; jdx++) {
+        if (patterns[jdx].test(tokens[idx])) {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  }
+
+  var __payrollRoleTokens = __payrollCollectTokens([
+    user && user.roleNames,
+    user && user.RoleNames,
+    user && user.roles,
+    user && user.Roles,
+    user && user.csvRoles,
+    user && user.CsvRoles,
+    user && user.Role,
+    user && user.role,
+    user && user.RoleName,
+    user && user.roleName,
+    user && user.PrimaryRole,
+    user && user.primaryRole,
+    user && user.PrimaryRoles,
+    user && user.primaryRoles,
+    user && user.JobTitle,
+    user && user.jobTitle,
+    user && user.Title,
+    user && user.title,
+    user && user.Position,
+    user && user.position,
+    user && user.Department,
+    user && user.department,
+    user && user.Team,
+    user && user.team
+  ], true);
+
+  var __payrollManagementRolePatterns = [
+    /manager/,
+    /management/,
+    /director/,
+    /executive/,
+    /chief/,
+    /officer/,
+    /vice\s*president/,
+    /\bvp\b/,
+    /head/,
+    /leader/,
+    /leadership/,
+    /principal/,
+    /supervisor/,
+    /operations/,
+    /finance/,
+    /payroll/,
+    /human\s*resources/,
+    /hr/,
+    /admin/
+  ];
+
+  var __payrollRestrictedRolePatterns = [
+    /agent/,
+    /associate/,
+    /specialist/,
+    /representative/,
+    /customer/,
+    /client/,
+    /guest/,
+    /support/,
+    /trainee/,
+    /intern/,
+    /contractor/,
+    /outsourc/
+  ];
+
+  var __payrollHasManagementRole = __payrollMatchesAny(__payrollRoleTokens, __payrollManagementRolePatterns);
+  var __payrollHasRestrictedRole = __payrollMatchesAny(__payrollRoleTokens, __payrollRestrictedRolePatterns);
+
+  var __payrollManagementFlags = [
+    user && user.IsManager,
+    user && user.isManager,
+    user && user.Manager,
+    user && user.manager,
+    user && user.IsExecutive,
+    user && user.isExecutive,
+    user && user.Executive,
+    user && user.executive,
+    user && user.IsLeadership,
+    user && user.isLeadership,
+    user && user.Authorization && user.Authorization.flags && user.Authorization.flags.isManager,
+    user && user.Authorization && user.Authorization.flags && user.Authorization.flags.isExecutive,
+    user && user.Authorization && user.Authorization.flags && user.Authorization.flags.isSystemAdmin,
+    user && user.RoleCapabilities && user.RoleCapabilities.isManager,
+    user && user.RoleCapabilities && user.RoleCapabilities.isExecutive,
+    user && user.RoleCapabilities && user.RoleCapabilities.isSystemAdmin
+  ];
+
+  var __payrollRestrictedFlags = [
+    user && user.IsAgent,
+    user && user.isAgent,
+    user && user.Agent,
+    user && user.agent,
+    user && user.IsClient,
+    user && user.isClient,
+    user && user.Client,
+    user && user.client,
+    user && user.IsGuest,
+    user && user.isGuest,
+    user && user.Guest,
+    user && user.guest,
+    user && user.IsExternal,
+    user && user.isExternal,
+    user && user.IsCustomer,
+    user && user.isCustomer
+  ];
+
+  var __payrollHasManagementFlag = __payrollManagementFlags.some(__payrollInterpretFlag);
+  var __payrollHasRestrictedFlag = __payrollRestrictedFlags.some(__payrollInterpretFlag);
+
+  var __payrollTypeTokens = __payrollCollectTokens([
+    user && user.UserType,
+    user && user.userType,
+    user && user.AccountType,
+    user && user.accountType,
+    user && user.Persona,
+    user && user.persona,
+    user && user.ProfileType,
+    user && user.profileType,
+    user && user.AccessTier,
+    user && user.accessTier
+  ], true);
+
+  var __payrollRestrictedTypePatterns = [
+    /client/,
+    /guest/,
+    /agent/,
+    /customer/,
+    /contractor/,
+    /vendor/,
+    /outsourc/,
+    /partner/
+  ];
+
+  var __payrollHasRestrictedType = __payrollMatchesAny(__payrollTypeTokens, __payrollRestrictedTypePatterns);
+
+  var __payrollClaimTokens = __payrollCollectTokens([
+    user && user.Claims,
+    user && user.AuthorizationClaims,
+    user && user.Authorization && user.Authorization.claims,
+    user && user.Authorization && user.Authorization.Claims,
+    user && user.RoleClaims,
+    user && user.roleClaims
+  ], false);
+
+  var __payrollManagementClaimPatterns = [
+    /lumina:(role|capability):(manager|executive|team-supervision|team-admin|team-lead)/,
+    /lumina:system:admin/,
+    /lumina:permission-level:management/
+  ];
+
+  var __payrollRestrictedClaimPatterns = [
+    /lumina:(role|persona):(agent|client|guest)/,
+    /lumina:persona:external/
+  ];
+
+  var __payrollHasManagementClaim = __payrollMatchesAny(__payrollClaimTokens, __payrollManagementClaimPatterns);
+  var __payrollHasRestrictedClaim = __payrollMatchesAny(__payrollClaimTokens, __payrollRestrictedClaimPatterns);
+
+  var __payrollIsAdmin = __payrollInterpretFlag(
+    (user && (user.IsAdmin || user.isAdmin || user.IsSystemAdmin || user.isSystemAdmin)) ||
+    (user && user.Authorization && user.Authorization.flags && user.Authorization.flags.isSystemAdmin) ||
+    (user && user.RoleCapabilities && user.RoleCapabilities.isSystemAdmin)
+  );
+
+  var __payrollHasManagementSignal = __payrollHasManagementRole || __payrollHasManagementFlag || __payrollHasManagementClaim || __payrollIsAdmin;
+  var __payrollHasRestrictedSignal = __payrollHasRestrictedRole || __payrollHasRestrictedFlag || __payrollHasRestrictedClaim || __payrollHasRestrictedType;
+
+  var __payrollAccessGranted = __payrollHasManagementSignal && !__payrollHasRestrictedSignal;
+?>
+
+<? if (!__payrollAccessGranted) { ?>
+<div class="container py-5">
+  <div class="row justify-content-center">
+    <div class="col-lg-8">
+      <div class="alert alert-warning shadow-sm border-0">
+        <div class="d-flex align-items-start">
+          <i class="fas fa-lock me-3 fa-2x text-warning"></i>
+          <div>
+            <h2 class="h4 fw-bold mb-2">Restricted Area</h2>
+            <p class="mb-2">Payroll Management is limited to Lumina management personnel. If you believe you should
+              have access, please contact an administrator or your operations leader.</p>
+            <p class="mb-0 text-muted">Agents, clients, and guest accounts are intentionally blocked from viewing
+              payroll information.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<? } else { ?>
+
 <style>
   :root {
     --navy-primary: #003177;
@@ -1476,3 +1765,4 @@
     init();
   })();
 </script>
+<? } ?>
