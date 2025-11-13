@@ -518,6 +518,11 @@
             data-bs-placement="right" title="Team Chat">
             <i class="fas fa-comments"></i><span>Chat</span>
           </a>
+          <a href="<?= generateLink('payrollmanagement') ?>" class="<?= currentPage==='payrollmanagement'?'active':'' ?>"
+            data-page-key="payrollmanagement" data-page-title="Payroll Management"
+            data-bs-toggle="tooltip" data-bs-placement="right" title="Payroll, attendance, and leave management">
+            <i class="fas fa-money-check-dollar"></i><span>Payroll</span>
+          </a>
           <a href="<?= generateLink('collaboration-reporting') ?>" class="<?= currentPage==='Collaboration Reporting'?'active':'' ?>"
             data-page-key="collaboration-reporting" data-page-title="Collaboration Reporting"
             data-bs-toggle="tooltip" data-bs-placement="right" title="Collaboration &amp; Reporting Hub">
