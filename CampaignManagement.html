@@ -1378,6 +1378,7 @@
           <div class="utility-actions">
             <button class="btn btn-primary" onclick="testConnection()"><i class="fas fa-plug"></i> Test Connection</button>
             <button class="btn btn-warning" onclick="debugCurrentCampaign()"><i class="fas fa-bug"></i> Debug Campaign</button>
+            <button class="btn btn-info" onclick="ensureCampaignUtilities()"><i class="fas fa-toolbox"></i> Ensure Utilities</button>
             <button class="btn btn-danger" onclick="clearAllCaches()"><i class="fas fa-trash"></i> Clear Caches</button>
           </div>
           <div class="system-meta">
@@ -2386,6 +2387,37 @@
       if (result && !result.error){ showAlert('success','Debug analysis completed - check browser console for details'); console.log('🔍 Debug Results:', result); updateDebugInfo(result); }
       else showAlert('danger','Debug analysis failed: ' + (result ? result.error : 'Unknown error'));
     } catch (error){ showAlert('danger','Debug analysis failed: ' + (error.message || error)); }
+  }
+
+  async function ensureCampaignUtilities(){
+    try{
+      const result = await callServerFunction('csEnsureAllCampaignUtilities');
+      if (!result || result.success === false){
+        const errorMessage = result && result.error ? result.error : 'Unknown error ensuring campaign utilities';
+        throw new Error(errorMessage);
+      }
+
+      const total = typeof result.totalCampaigns === 'number'
+        ? result.totalCampaigns
+        : (Array.isArray(result.details) ? result.details.length : 0);
+      const failed = typeof result.failed === 'number' ? result.failed : 0;
+      const succeeded = typeof result.succeeded === 'number' ? result.succeeded : (total - failed);
+
+      const baseMessage = `Utilities ensured for ${succeeded}/${total} campaign${total === 1 ? '' : 's'}`;
+      const message = failed ? `${baseMessage} (${failed} failed)` : baseMessage;
+      showAlert(failed ? 'warning' : 'success', message);
+
+      if (result && Array.isArray(result.details)) {
+        console.log('🧰 Campaign Utilities Result:', result.details);
+      }
+
+      await loadInitialData();
+      if (selectedCampaign) await loadCampaignData(selectedCampaign.id);
+      updateLastRefresh();
+    } catch (error){
+      console.error('ensureCampaignUtilities failed:', error);
+      showAlert('danger','Failed to ensure campaign utilities: ' + (error.message || error));
+    }
   }
 
   async function clearAllCaches(){

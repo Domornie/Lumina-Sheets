@@ -5836,6 +5836,22 @@ function initializeCampaignSystems() {
       }
     }
 
+    if (typeof ensureUtilitiesForAllCampaigns === 'function') {
+      try {
+        const utilitiesResult = ensureUtilitiesForAllCampaigns();
+        console.log('Campaign utilities ensured', {
+          totalCampaigns: utilitiesResult && typeof utilitiesResult.totalCampaigns === 'number'
+            ? utilitiesResult.totalCampaigns
+            : undefined,
+          failed: utilitiesResult && typeof utilitiesResult.failed === 'number'
+            ? utilitiesResult.failed
+            : undefined
+        });
+      } catch (error) {
+        console.warn('Campaign utilities ensure failed:', error);
+      }
+    }
+
     console.log('Campaign systems initialization completed');
 
   } catch (error) {

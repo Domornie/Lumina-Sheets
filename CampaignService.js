@@ -571,6 +571,20 @@ function csCreateCampaign(name, description = '') {
       // Clear caches
       clearCampaignCaches(campaignId);
 
+      let utilitiesSummary = null;
+      if (typeof ensureUtilitiesForCampaign === 'function') {
+        try {
+          utilitiesSummary = ensureUtilitiesForCampaign({ id: campaignId, name: name, description: description });
+        } catch (utilitiesError) {
+          console.warn('csCreateCampaign: ensureUtilitiesForCampaign failed', utilitiesError);
+          try {
+            safeWriteError('csCreateCampaign.ensureUtilities', utilitiesError);
+          } catch (loggingError) {
+            console.warn('csCreateCampaign: unable to log utilities error', loggingError);
+          }
+        }
+      }
+
       console.log(`Created campaign: ${name} with ID: ${campaignId}`);
       return {
         success: true,
@@ -580,7 +594,8 @@ function csCreateCampaign(name, description = '') {
           name: name,
           description: description,
           createdAt: now.toISOString(),
-          updatedAt: now.toISOString()
+          updatedAt: now.toISOString(),
+          utilities: utilitiesSummary
         }
       };
     });
@@ -1471,6 +1486,9 @@ function clientDeleteCampaignCategory(id) { return csDeleteCategory(id); }
 function clientAddPageToCampaign(cId, key, title, icon, catId, sort) { return csAddPageToCampaign(cId, key, title, icon, catId, sort); }
 function clientUpdateCampaignPage(id, updates) { return csUpdateCampaignPage(id, updates); }
 function forceRefreshCampaignNavigation(id) { return csRefreshNavigation(id); }
+function clientEnsureCampaignUtilities(identifier) { return csEnsureCampaignUtilities(identifier); }
+function clientEnsureAllCampaignUtilities() { return csEnsureAllCampaignUtilities(); }
+function clientGetCampaignUtilitiesStatus(identifier) { return csGetCampaignUtilitiesStatus(identifier); }
 
 // ────────────────────────────────────────────────────────────────────────────
 // TESTING AND DEBUG FUNCTIONS
@@ -1583,5 +1601,65 @@ function forceClearAllCaches(campaignId) {
   } catch (error) {
     console.error('Error clearing caches:', error);
     return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Ensure utilities for a single campaign
+ */
+function csEnsureCampaignUtilities(campaignIdentifier) {
+  try {
+    if (typeof ensureUtilitiesForCampaign !== 'function') {
+      return { success: false, error: 'CampaignUtilities module not available' };
+    }
+
+    const result = ensureUtilitiesForCampaign(campaignIdentifier);
+    return result || { success: false, error: 'Unknown result from ensureUtilitiesForCampaign' };
+
+  } catch (error) {
+    console.error('csEnsureCampaignUtilities error:', error);
+    safeWriteError('csEnsureCampaignUtilities', error);
+    return { success: false, error: error.message || String(error) };
+  }
+}
+
+/**
+ * Ensure utilities for every campaign
+ */
+function csEnsureAllCampaignUtilities() {
+  try {
+    if (typeof ensureUtilitiesForAllCampaigns !== 'function') {
+      return { success: false, error: 'CampaignUtilities module not available' };
+    }
+
+    const result = ensureUtilitiesForAllCampaigns();
+    return result || { success: false, error: 'Unknown result from ensureUtilitiesForAllCampaigns' };
+
+  } catch (error) {
+    console.error('csEnsureAllCampaignUtilities error:', error);
+    safeWriteError('csEnsureAllCampaignUtilities', error);
+    return { success: false, error: error.message || String(error) };
+  }
+}
+
+/**
+ * Get campaign utilities status
+ */
+function csGetCampaignUtilitiesStatus(campaignIdentifier) {
+  try {
+    if (typeof getCampaignUtilitiesStatus !== 'function') {
+      return { success: false, error: 'CampaignUtilities module not available' };
+    }
+
+    if (campaignIdentifier || campaignIdentifier === 0) {
+      return getCampaignUtilitiesStatus(campaignIdentifier);
+    }
+
+    return getCampaignUtilitiesStatus();
+
+  } catch (error) {
+    console.error('csGetCampaignUtilitiesStatus error:', error);
+    safeWriteError('csGetCampaignUtilitiesStatus', error);
+    return { success: false, error: error.message || String(error) };
   }
 }
