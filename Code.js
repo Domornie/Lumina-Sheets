@@ -5880,6 +5880,14 @@ function initializeSystemPages() {
         Active: true
       },
       {
+        PageKey: 'payrollmanagement',
+        Name: 'Payroll Management',
+        Description: 'Manage payroll, attendance, and leave for the organization',
+        RequiredRole: 'admin',
+        CampaignSpecific: false,
+        Active: true
+      },
+      {
         PageKey: 'tasks',
         Name: 'Task Management',
         Description: 'Task board and management',
