@@ -301,6 +301,258 @@
     });
   }
 
+  function collectDelimitedTokens(input) {
+    var tokens = [];
+
+    function append(value) {
+      if (value === null || typeof value === 'undefined') {
+        return;
+      }
+
+      if (Array.isArray(value)) {
+        value.forEach(append);
+        return;
+      }
+
+      if (typeof value === 'object') {
+        Object.keys(value).forEach(function (key) {
+          append(value[key]);
+        });
+        return;
+      }
+
+      var text = safeUserString(value);
+      if (!text) {
+        return;
+      }
+
+      text.split(/[,;\/:|]+/).forEach(function (part) {
+        var normalized = safeUserString(part).toLowerCase();
+        if (normalized) {
+          tokens.push(normalized);
+        }
+      });
+    }
+
+    append(input);
+    return tokens;
+  }
+
+  function collectClaimTokens(source) {
+    if (source === null || typeof source === 'undefined') {
+      return [];
+    }
+
+    var tokens = [];
+
+    function append(value) {
+      if (value === null || typeof value === 'undefined') {
+        return;
+      }
+
+      if (Array.isArray(value)) {
+        value.forEach(append);
+        return;
+      }
+
+      if (typeof value === 'object') {
+        Object.keys(value).forEach(function (key) {
+          append(value[key]);
+        });
+        return;
+      }
+
+      var text = safeUserString(value).toLowerCase();
+      if (text) {
+        tokens.push(text);
+      }
+    }
+
+    append(source);
+    return tokens;
+  }
+
+  function interpretBooleanFlag(value) {
+    if (value === null || typeof value === 'undefined') {
+      return false;
+    }
+
+    if (typeof value === 'boolean') {
+      return value;
+    }
+
+    if (typeof value === 'number') {
+      return value !== 0;
+    }
+
+    if (typeof value === 'string') {
+      var normalized = value.trim().toLowerCase();
+      if (!normalized) {
+        return false;
+      }
+      if (['false', '0', 'off', 'no', 'n'].indexOf(normalized) !== -1) {
+        return false;
+      }
+      return true;
+    }
+
+    return !!value;
+  }
+
+  function computePayrollAccess(user, roles, isAdminUser) {
+    if (isAdminUser) {
+      return true;
+    }
+
+    var roleTokens = collectDelimitedTokens(roles);
+    var managementRolePatterns = [
+      /manager/,
+      /management/,
+      /director/,
+      /executive/,
+      /chief/,
+      /officer/,
+      /vice\s*president/,
+      /\bvp\b/,
+      /head/,
+      /leader/,
+      /leadership/,
+      /principal/,
+      /supervisor/,
+      /operations/,
+      /finance/,
+      /payroll/,
+      /human\s*resources/,
+      /hr/,
+      /admin/
+    ];
+
+    var restrictedRolePatterns = [
+      /agent/,
+      /associate/,
+      /specialist/,
+      /representative/,
+      /customer/,
+      /client/,
+      /guest/,
+      /support/,
+      /trainee/,
+      /intern/,
+      /contractor/,
+      /outsourc/
+    ];
+
+    function matchesAny(tokens, patterns) {
+      if (!tokens.length || !patterns.length) {
+        return false;
+      }
+
+      for (var i = 0; i < tokens.length; i++) {
+        for (var j = 0; j < patterns.length; j++) {
+          if (patterns[j].test(tokens[i])) {
+            return true;
+          }
+        }
+      }
+
+      return false;
+    }
+
+    var hasManagementRole = matchesAny(roleTokens, managementRolePatterns);
+    var hasRestrictedRole = matchesAny(roleTokens, restrictedRolePatterns);
+
+    var managementFlagCandidates = [
+      user && user.IsManager,
+      user && user.isManager,
+      user && user.Manager,
+      user && user.manager,
+      user && user.IsExecutive,
+      user && user.isExecutive,
+      user && user.Executive,
+      user && user.executive,
+      user && user.IsLeadership,
+      user && user.isLeadership,
+      user && user.Authorization && user.Authorization.flags && user.Authorization.flags.isManager,
+      user && user.Authorization && user.Authorization.flags && user.Authorization.flags.isExecutive,
+      user && user.Authorization && user.Authorization.flags && user.Authorization.flags.isSystemAdmin,
+      user && user.RoleCapabilities && user.RoleCapabilities.isManager,
+      user && user.RoleCapabilities && user.RoleCapabilities.isExecutive,
+      user && user.RoleCapabilities && user.RoleCapabilities.isSystemAdmin
+    ];
+
+    var restrictedFlagCandidates = [
+      user && user.IsAgent,
+      user && user.isAgent,
+      user && user.Agent,
+      user && user.agent,
+      user && user.IsClient,
+      user && user.isClient,
+      user && user.Client,
+      user && user.client,
+      user && user.IsGuest,
+      user && user.isGuest,
+      user && user.Guest,
+      user && user.guest,
+      user && user.IsExternal,
+      user && user.isExternal
+    ];
+
+    var hasManagementFlag = managementFlagCandidates.some(interpretBooleanFlag);
+    var hasRestrictedFlag = restrictedFlagCandidates.some(interpretBooleanFlag);
+
+    var typeTokens = collectDelimitedTokens([
+      user && user.UserType,
+      user && user.userType,
+      user && user.AccountType,
+      user && user.accountType,
+      user && user.Persona,
+      user && user.persona,
+      user && user.ProfileType,
+      user && user.profileType
+    ]);
+
+    var restrictedTypePatterns = [
+      /client/,
+      /guest/,
+      /agent/,
+      /contractor/,
+      /vendor/,
+      /outsourc/,
+      /partner/,
+      /customer/
+    ];
+
+    var hasRestrictedType = matchesAny(typeTokens, restrictedTypePatterns);
+
+    var claimTokens = collectClaimTokens([
+      user && user.Claims,
+      user && user.AuthorizationClaims,
+      user && user.Authorization && user.Authorization.claims,
+      user && user.Authorization && user.Authorization.Claims,
+      user && user.RoleClaims,
+      user && user.roleClaims
+    ]);
+
+    var managementClaimPatterns = [
+      /lumina:(role|capability):(manager|executive|team-supervision|team-admin|team-lead)/,
+      /lumina:system:admin/,
+      /lumina:permission-level:management/
+    ];
+
+    var restrictedClaimPatterns = [
+      /lumina:(role|persona):(agent|client|guest)/,
+      /lumina:persona:external/
+    ];
+
+    var hasManagementClaim = matchesAny(claimTokens, managementClaimPatterns);
+    var hasRestrictedClaim = matchesAny(claimTokens, restrictedClaimPatterns);
+
+    var managementSignal = hasManagementRole || hasManagementFlag || hasManagementClaim;
+    var restrictedSignal = hasRestrictedRole || hasRestrictedFlag || hasRestrictedClaim || hasRestrictedType;
+
+    return managementSignal && !restrictedSignal;
+  }
+
   function buildRoleBadgeMarkup(roles) {
     if (!roles || !roles.length) {
       return '';
@@ -338,6 +590,8 @@
   }
 
   var userRoleBadgesHtml = buildRoleBadgeMarkup(userRoleNames);
+
+  var payrollAccessAllowed = computePayrollAccess(sidebarUser, userRoleNames, isAdminUser);
 
   var currentPageKeyValue = currentPage || '';
   var currentPageAttrValue = String(currentPageKeyValue)
@@ -518,6 +772,13 @@
             data-bs-placement="right" title="Team Chat">
             <i class="fas fa-comments"></i><span>Chat</span>
           </a>
+          <? if (payrollAccessAllowed) { ?>
+          <a href="<?= generateLink('payrollmanagement') ?>" class="<?= currentPage==='payrollmanagement'?'active':'' ?>"
+            data-page-key="payrollmanagement" data-page-title="Payroll Management"
+            data-bs-toggle="tooltip" data-bs-placement="right" title="Payroll, attendance, and leave management">
+            <i class="fas fa-money-check-dollar"></i><span>Payroll</span>
+          </a>
+          <? } ?>
           <a href="<?= generateLink('collaboration-reporting') ?>" class="<?= currentPage==='Collaboration Reporting'?'active':'' ?>"
             data-page-key="collaboration-reporting" data-page-title="Collaboration Reporting"
             data-bs-toggle="tooltip" data-bs-placement="right" title="Collaboration &amp; Reporting Hub">

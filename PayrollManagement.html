@@ -1,0 +1,1768 @@
+<?!= includeOnce('ResponsiveStyles') ?>
+<?!= include("layout", {
+  baseUrl: baseUrl,
+  scriptUrl: scriptUrl,
+  user: user,
+  currentPage: currentPage || 'payrollmanagement'
+}) ?>
+
+<?
+  function __payrollSafeString(value) {
+    if (value === null || typeof value === 'undefined') {
+      return '';
+    }
+
+    var text = String(value).trim();
+    if (!text || text.toLowerCase() === 'undefined' || text.toLowerCase() === 'null') {
+      return '';
+    }
+
+    return text;
+  }
+
+  function __payrollCollectTokens(input, allowSplit) {
+    var tokens = [];
+
+    function append(value) {
+      if (value === null || typeof value === 'undefined') {
+        return;
+      }
+
+      if (Array.isArray(value)) {
+        value.forEach(append);
+        return;
+      }
+
+      if (typeof value === 'object') {
+        Object.keys(value).forEach(function (key) {
+          append(value[key]);
+        });
+        return;
+      }
+
+      var text = __payrollSafeString(value);
+      if (!text) {
+        return;
+      }
+
+      if (!allowSplit) {
+        tokens.push(text.toLowerCase());
+        return;
+      }
+
+      text.split(/[,;\/:|]+/).forEach(function (part) {
+        var normalized = __payrollSafeString(part).toLowerCase();
+        if (normalized) {
+          tokens.push(normalized);
+        }
+      });
+    }
+
+    append(input);
+    return tokens;
+  }
+
+  function __payrollInterpretFlag(value) {
+    if (value === null || typeof value === 'undefined') {
+      return false;
+    }
+
+    if (typeof value === 'boolean') {
+      return value;
+    }
+
+    if (typeof value === 'number') {
+      return value !== 0;
+    }
+
+    if (typeof value === 'string') {
+      var normalized = value.trim().toLowerCase();
+      if (!normalized) {
+        return false;
+      }
+      if (['false', '0', 'off', 'no', 'n'].indexOf(normalized) !== -1) {
+        return false;
+      }
+      return true;
+    }
+
+    return !!value;
+  }
+
+  function __payrollMatchesAny(tokens, patterns) {
+    if (!tokens.length || !patterns.length) {
+      return false;
+    }
+
+    for (var idx = 0; idx < tokens.length; idx++) {
+      for (var jdx = 0; jdx < patterns.length; jdx++) {
+        if (patterns[jdx].test(tokens[idx])) {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  }
+
+  var __payrollRoleTokens = __payrollCollectTokens([
+    user && user.roleNames,
+    user && user.RoleNames,
+    user && user.roles,
+    user && user.Roles,
+    user && user.csvRoles,
+    user && user.CsvRoles,
+    user && user.Role,
+    user && user.role,
+    user && user.RoleName,
+    user && user.roleName,
+    user && user.PrimaryRole,
+    user && user.primaryRole,
+    user && user.PrimaryRoles,
+    user && user.primaryRoles,
+    user && user.JobTitle,
+    user && user.jobTitle,
+    user && user.Title,
+    user && user.title,
+    user && user.Position,
+    user && user.position,
+    user && user.Department,
+    user && user.department,
+    user && user.Team,
+    user && user.team
+  ], true);
+
+  var __payrollManagementRolePatterns = [
+    /manager/,
+    /management/,
+    /director/,
+    /executive/,
+    /chief/,
+    /officer/,
+    /vice\s*president/,
+    /\bvp\b/,
+    /head/,
+    /leader/,
+    /leadership/,
+    /principal/,
+    /supervisor/,
+    /operations/,
+    /finance/,
+    /payroll/,
+    /human\s*resources/,
+    /hr/,
+    /admin/
+  ];
+
+  var __payrollRestrictedRolePatterns = [
+    /agent/,
+    /associate/,
+    /specialist/,
+    /representative/,
+    /customer/,
+    /client/,
+    /guest/,
+    /support/,
+    /trainee/,
+    /intern/,
+    /contractor/,
+    /outsourc/
+  ];
+
+  var __payrollHasManagementRole = __payrollMatchesAny(__payrollRoleTokens, __payrollManagementRolePatterns);
+  var __payrollHasRestrictedRole = __payrollMatchesAny(__payrollRoleTokens, __payrollRestrictedRolePatterns);
+
+  var __payrollManagementFlags = [
+    user && user.IsManager,
+    user && user.isManager,
+    user && user.Manager,
+    user && user.manager,
+    user && user.IsExecutive,
+    user && user.isExecutive,
+    user && user.Executive,
+    user && user.executive,
+    user && user.IsLeadership,
+    user && user.isLeadership,
+    user && user.Authorization && user.Authorization.flags && user.Authorization.flags.isManager,
+    user && user.Authorization && user.Authorization.flags && user.Authorization.flags.isExecutive,
+    user && user.Authorization && user.Authorization.flags && user.Authorization.flags.isSystemAdmin,
+    user && user.RoleCapabilities && user.RoleCapabilities.isManager,
+    user && user.RoleCapabilities && user.RoleCapabilities.isExecutive,
+    user && user.RoleCapabilities && user.RoleCapabilities.isSystemAdmin
+  ];
+
+  var __payrollRestrictedFlags = [
+    user && user.IsAgent,
+    user && user.isAgent,
+    user && user.Agent,
+    user && user.agent,
+    user && user.IsClient,
+    user && user.isClient,
+    user && user.Client,
+    user && user.client,
+    user && user.IsGuest,
+    user && user.isGuest,
+    user && user.Guest,
+    user && user.guest,
+    user && user.IsExternal,
+    user && user.isExternal,
+    user && user.IsCustomer,
+    user && user.isCustomer
+  ];
+
+  var __payrollHasManagementFlag = __payrollManagementFlags.some(__payrollInterpretFlag);
+  var __payrollHasRestrictedFlag = __payrollRestrictedFlags.some(__payrollInterpretFlag);
+
+  var __payrollTypeTokens = __payrollCollectTokens([
+    user && user.UserType,
+    user && user.userType,
+    user && user.AccountType,
+    user && user.accountType,
+    user && user.Persona,
+    user && user.persona,
+    user && user.ProfileType,
+    user && user.profileType,
+    user && user.AccessTier,
+    user && user.accessTier
+  ], true);
+
+  var __payrollRestrictedTypePatterns = [
+    /client/,
+    /guest/,
+    /agent/,
+    /customer/,
+    /contractor/,
+    /vendor/,
+    /outsourc/,
+    /partner/
+  ];
+
+  var __payrollHasRestrictedType = __payrollMatchesAny(__payrollTypeTokens, __payrollRestrictedTypePatterns);
+
+  var __payrollClaimTokens = __payrollCollectTokens([
+    user && user.Claims,
+    user && user.AuthorizationClaims,
+    user && user.Authorization && user.Authorization.claims,
+    user && user.Authorization && user.Authorization.Claims,
+    user && user.RoleClaims,
+    user && user.roleClaims
+  ], false);
+
+  var __payrollManagementClaimPatterns = [
+    /lumina:(role|capability):(manager|executive|team-supervision|team-admin|team-lead)/,
+    /lumina:system:admin/,
+    /lumina:permission-level:management/
+  ];
+
+  var __payrollRestrictedClaimPatterns = [
+    /lumina:(role|persona):(agent|client|guest)/,
+    /lumina:persona:external/
+  ];
+
+  var __payrollHasManagementClaim = __payrollMatchesAny(__payrollClaimTokens, __payrollManagementClaimPatterns);
+  var __payrollHasRestrictedClaim = __payrollMatchesAny(__payrollClaimTokens, __payrollRestrictedClaimPatterns);
+
+  var __payrollIsAdmin = __payrollInterpretFlag(
+    (user && (user.IsAdmin || user.isAdmin || user.IsSystemAdmin || user.isSystemAdmin)) ||
+    (user && user.Authorization && user.Authorization.flags && user.Authorization.flags.isSystemAdmin) ||
+    (user && user.RoleCapabilities && user.RoleCapabilities.isSystemAdmin)
+  );
+
+  var __payrollHasManagementSignal = __payrollHasManagementRole || __payrollHasManagementFlag || __payrollHasManagementClaim || __payrollIsAdmin;
+  var __payrollHasRestrictedSignal = __payrollHasRestrictedRole || __payrollHasRestrictedFlag || __payrollHasRestrictedClaim || __payrollHasRestrictedType;
+
+  var __payrollAccessGranted = __payrollHasManagementSignal && !__payrollHasRestrictedSignal;
+?>
+
+<? if (!__payrollAccessGranted) { ?>
+<div class="container py-5">
+  <div class="row justify-content-center">
+    <div class="col-lg-8">
+      <div class="alert alert-warning shadow-sm border-0">
+        <div class="d-flex align-items-start">
+          <i class="fas fa-lock me-3 fa-2x text-warning"></i>
+          <div>
+            <h2 class="h4 fw-bold mb-2">Restricted Area</h2>
+            <p class="mb-2">Payroll Management is limited to Lumina management personnel. If you believe you should
+              have access, please contact an administrator or your operations leader.</p>
+            <p class="mb-0 text-muted">Agents, clients, and guest accounts are intentionally blocked from viewing
+              payroll information.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<? } else { ?>
+
+<style>
+  :root {
+    --navy-primary: #003177;
+    --cyan-accent: #00bfff;
+    --gold-highlight: #ffb800;
+    --fire-red: #ff4000;
+    --success: #0f9d58;
+    --warning: #f97316;
+    --danger: #dc2626;
+    --gray-50: #f8fafc;
+    --gray-100: #f1f5f9;
+    --gray-200: #e2e8f0;
+    --gray-300: #cbd5e1;
+    --gray-500: #64748b;
+    --gray-600: #475569;
+    --gray-700: #334155;
+    --gray-800: #1e293b;
+    --border-radius: 16px;
+    --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+    --shadow-md: 0 4px 6px -1px rgba(15, 23, 42, 0.1), 0 2px 4px -1px rgba(15, 23, 42, 0.06);
+    --shadow-lg: 0 20px 25px -5px rgba(15, 23, 42, 0.1), 0 10px 10px -5px rgba(15, 23, 42, 0.04);
+  }
+
+  .page-title {
+    font-weight: 700;
+    color: var(--gray-800);
+  }
+
+  .page-subtitle {
+    color: var(--gray-500);
+  }
+
+  .control-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    align-items: center;
+    justify-content: space-between;
+    background: linear-gradient(135deg, rgba(0, 49, 119, 0.08) 0%, rgba(0, 191, 255, 0.08) 100%);
+    border: 1px solid rgba(15, 23, 42, 0.05);
+    border-radius: var(--border-radius);
+    padding: 1.5rem;
+    box-shadow: var(--shadow-sm);
+    margin-bottom: 2rem;
+  }
+
+  .control-bar .form-select,
+  .control-bar .form-control {
+    min-width: 220px;
+    border-radius: 12px;
+    border: 1px solid var(--gray-200);
+    padding: 0.65rem 1rem;
+    color: var(--gray-700);
+    box-shadow: none;
+  }
+
+  .control-bar .btn-primary {
+    background: var(--navy-primary);
+    border-color: var(--navy-primary);
+    border-radius: 9999px;
+    padding: 0.65rem 1.5rem;
+    font-weight: 600;
+    box-shadow: var(--shadow-sm);
+  }
+
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+  }
+
+  .summary-card {
+    border-radius: var(--border-radius);
+    border: 1px solid var(--gray-200);
+    background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
+    box-shadow: var(--shadow-md);
+    padding: 1.5rem;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .summary-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(0, 49, 119, 0.06) 0%, rgba(118, 75, 162, 0.06) 100%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  .summary-card:hover::before {
+    opacity: 1;
+  }
+
+  .summary-card .label {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: var(--gray-500);
+  }
+
+  .summary-card .value {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--gray-800);
+    margin-top: 0.5rem;
+  }
+
+  .summary-card .subtext {
+    margin-top: 0.35rem;
+    font-size: 0.85rem;
+    color: var(--gray-500);
+  }
+
+  .payroll-table-wrapper {
+    border-radius: var(--border-radius);
+    border: 1px solid var(--gray-200);
+    overflow: hidden;
+    background: #fff;
+    box-shadow: var(--shadow-md);
+  }
+
+  .payroll-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+
+  .payroll-table thead th {
+    background: linear-gradient(135deg, rgba(0, 49, 119, 0.08) 0%, rgba(0, 191, 255, 0.08) 100%);
+    color: var(--gray-600);
+    font-size: 0.68rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--gray-200);
+    padding: 0.75rem 0.9rem;
+  }
+
+  .payroll-table tbody td {
+    border-top: 1px solid var(--gray-100);
+    padding: 0.9rem 0.9rem;
+    vertical-align: middle;
+    font-size: 0.92rem;
+    color: var(--gray-700);
+  }
+
+  .payroll-table tbody tr:hover {
+    background: rgba(15, 23, 42, 0.02);
+  }
+
+  .campaign-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    border-radius: 9999px;
+    padding: 0.35rem 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    background: rgba(0, 49, 119, 0.08);
+    color: var(--navy-primary);
+  }
+
+  .badge {
+    border-radius: 9999px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    padding: 0.35rem 0.75rem;
+  }
+
+  .badge-success { background: rgba(15, 157, 88, 0.15); color: #0b7a3a; }
+  .badge-warning { background: rgba(249, 115, 22, 0.15); color: #b45309; }
+  .badge-danger { background: rgba(220, 38, 38, 0.15); color: #991b1b; }
+  .badge-info { background: rgba(0, 191, 255, 0.15); color: #0369a1; }
+
+  .overtime-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-weight: 600;
+    color: #b45309;
+  }
+
+  .holiday-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-weight: 600;
+    color: var(--navy-primary);
+  }
+
+  .table-input {
+    width: 100%;
+    border: 1px solid var(--gray-200);
+    border-radius: 10px;
+    padding: 0.35rem 0.5rem;
+    font-size: 0.9rem;
+    color: var(--gray-700);
+    background: #fff;
+    box-shadow: none;
+  }
+
+  .table-input:focus {
+    border-color: var(--cyan-accent);
+    box-shadow: 0 0 0 3px rgba(0, 191, 255, 0.2);
+    outline: none;
+  }
+
+  .action-button {
+    border: none;
+    border-radius: 10px;
+    padding: 0.45rem 0.9rem;
+    font-weight: 600;
+    font-size: 0.85rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    background: linear-gradient(135deg, #003177 0%, #0054a6 100%);
+    color: #fff;
+    box-shadow: var(--shadow-sm);
+  }
+
+  .action-button.secondary {
+    background: linear-gradient(135deg, #475569 0%, #1e293b 100%);
+  }
+
+  .section-card {
+    border-radius: var(--border-radius);
+    border: 1px solid var(--gray-200);
+    padding: 1.75rem;
+    background: #fff;
+    box-shadow: var(--shadow-md);
+    margin-bottom: 2rem;
+  }
+
+  .section-card h5 {
+    font-weight: 700;
+    color: var(--gray-800);
+  }
+
+  .leave-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1.25rem;
+    margin-top: 1.25rem;
+  }
+
+  .leave-summary {
+    border-radius: 14px;
+    border: 1px solid var(--gray-200);
+    padding: 1.25rem;
+    background: linear-gradient(135deg, rgba(100, 116, 139, 0.04) 0%, rgba(226, 232, 240, 0.2) 100%);
+  }
+
+  .leave-summary .label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--gray-500);
+    margin-bottom: 0.35rem;
+  }
+
+  .leave-summary .value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--gray-800);
+  }
+
+  .discrepancy-table th,
+  .discrepancy-table td {
+    vertical-align: middle;
+  }
+
+  .approval-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.3rem 0.75rem;
+    border-radius: 9999px;
+    background: rgba(0, 49, 119, 0.08);
+    color: var(--navy-primary);
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .approval-toggle.approved {
+    background: rgba(15, 157, 88, 0.16);
+    color: #0b7a3a;
+  }
+
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.45);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 1050;
+  }
+
+  .modal-backdrop.active {
+    display: flex;
+  }
+
+  .modal-content {
+    width: min(820px, 94vw);
+    border-radius: var(--border-radius);
+    background: #fff;
+    box-shadow: var(--shadow-lg);
+    border: 1px solid rgba(15, 23, 42, 0.12);
+    padding: 2rem;
+    position: relative;
+  }
+
+  .modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.5rem;
+  }
+
+  .modal-header h5 {
+    margin: 0;
+    font-weight: 700;
+    color: var(--gray-800);
+  }
+
+  .modal-close {
+    background: none;
+    border: none;
+    font-size: 1.4rem;
+    color: var(--gray-500);
+  }
+
+  .week-editor-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1.25rem;
+  }
+
+  .week-card {
+    border: 1px solid var(--gray-200);
+    border-radius: 14px;
+    padding: 1.25rem;
+    background: #f9fbfd;
+  }
+
+  .week-card h6 {
+    font-weight: 600;
+    color: var(--gray-700);
+    margin-bottom: 0.75rem;
+  }
+
+  .week-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .week-field label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--gray-600);
+  }
+
+  .week-field input,
+  .week-field select {
+    border-radius: 10px;
+    border: 1px solid var(--gray-200);
+    padding: 0.45rem 0.6rem;
+    font-size: 0.9rem;
+  }
+
+  .modal-footer {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    margin-top: 1.75rem;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 2rem;
+    color: var(--gray-500);
+  }
+
+  .holiday-log {
+    margin-top: 1.25rem;
+  }
+
+  .holiday-log-item {
+    border-bottom: 1px solid var(--gray-200);
+    padding: 0.75rem 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    justify-content: space-between;
+  }
+
+  .holiday-log-item:last-child {
+    border-bottom: none;
+  }
+
+  .holiday-title {
+    font-weight: 600;
+    color: var(--gray-700);
+  }
+
+  .holiday-meta {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    font-size: 0.85rem;
+    color: var(--gray-500);
+  }
+
+  @media (max-width: 768px) {
+    .control-bar {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .control-bar .btn-primary {
+      width: 100%;
+    }
+
+    .payroll-table-wrapper {
+      overflow-x: auto;
+    }
+
+    .summary-grid {
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    }
+  }
+</style>
+
+<div class="container-fluid py-4">
+  <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-md-between gap-2 mb-3">
+    <div>
+      <h1 class="page-title">Payroll Management System</h1>
+      <p class="page-subtitle mb-0">Real-time payroll, attendance, and discrepancy tracking across campaigns.</p>
+    </div>
+    <div class="d-flex gap-2">
+      <span class="badge badge-info">Bi-Weekly Preferred</span>
+      <span class="badge badge-success">Live Overtime Monitoring</span>
+    </div>
+  </div>
+
+  <div class="control-bar">
+    <div class="d-flex flex-wrap align-items-center gap-3">
+      <div>
+        <label class="form-label fw-semibold text-uppercase text-muted small mb-1">Tracking cadence</label>
+        <select id="periodTypeSelect" class="form-select">
+          <option value="biweekly" selected>Bi-Weekly</option>
+          <option value="weekly">Weekly</option>
+          <option value="monthly">Monthly</option>
+        </select>
+      </div>
+      <div>
+        <label class="form-label fw-semibold text-uppercase text-muted small mb-1">Pay period</label>
+        <select id="periodSelect" class="form-select"></select>
+      </div>
+      <div>
+        <label class="form-label fw-semibold text-uppercase text-muted small mb-1">Campaign</label>
+        <select id="campaignFilter" class="form-select">
+          <option value="all">All Campaigns</option>
+        </select>
+      </div>
+      <div>
+        <label class="form-label fw-semibold text-uppercase text-muted small mb-1">Attendance flag</label>
+        <select id="attendanceFilter" class="form-select">
+          <option value="all">All Records</option>
+          <option value="sick">Sick Days Logged</option>
+          <option value="vacation">Vacation Days Logged</option>
+          <option value="late">Late Arrival Events</option>
+          <option value="loa">Leave of Absence</option>
+          <option value="holiday">Holiday Hours</option>
+        </select>
+      </div>
+    </div>
+    <button id="exportButton" class="btn btn-primary"><i class="bi bi-download"></i> Export payroll snapshot</button>
+  </div>
+
+  <div class="summary-grid" id="summaryGrid"></div>
+
+  <div class="payroll-table-wrapper mb-4">
+    <table class="payroll-table">
+      <thead>
+        <tr>
+          <th>Agent</th>
+          <th>Campaign</th>
+          <th>Regular Hrs</th>
+          <th>Overtime</th>
+          <th>Sick</th>
+          <th>Vacation</th>
+          <th>Holiday</th>
+          <th>Leave</th>
+          <th>Total Hours</th>
+          <th>Gross Pay</th>
+          <th>Status</th>
+          <th class="text-end">Actions</th>
+        </tr>
+      </thead>
+      <tbody id="payrollTableBody"></tbody>
+    </table>
+  </div>
+
+  <div class="section-card" id="attendanceSection">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+      <h5 class="mb-0">Attendance &amp; Leave Overview</h5>
+      <div class="d-flex gap-2 flex-wrap">
+        <span class="badge badge-info"><i class="bi bi-activity"></i> Live attendance feed</span>
+        <span class="badge badge-warning"><i class="bi bi-exclamation-triangle"></i> Late arrivals monitored</span>
+      </div>
+    </div>
+    <div class="leave-summary-grid" id="leaveSummaryGrid"></div>
+  </div>
+
+  <div class="section-card">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
+      <h5 class="mb-0">Holiday &amp; Premium Pay Tracking</h5>
+      <span class="badge badge-danger"><i class="bi bi-gift"></i> Double pay auto-calculated</span>
+    </div>
+    <div id="holidayLog" class="holiday-log"></div>
+  </div>
+
+  <div class="section-card">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
+      <h5 class="mb-0">Discrepancy Review &amp; Client Approvals</h5>
+      <button class="action-button secondary" id="newDiscrepancyButton"><i class="bi bi-plus"></i> Log new discrepancy</button>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-borderless discrepancy-table align-middle">
+        <thead>
+          <tr class="text-uppercase text-muted small">
+            <th>Submitted</th>
+            <th>Agent</th>
+            <th>Campaign</th>
+            <th>Issue</th>
+            <th>Type</th>
+            <th>Status</th>
+            <th class="text-end">Client Approval</th>
+          </tr>
+        </thead>
+        <tbody id="discrepancyTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="editModal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <div>
+        <h5 id="modalTitle" class="mb-1">Edit Hours</h5>
+        <p id="modalSubtitle" class="text-muted small mb-0"></p>
+      </div>
+      <button type="button" class="modal-close" id="modalCloseButton">&times;</button>
+    </div>
+    <div id="weekEditor" class="week-editor-grid"></div>
+    <div class="modal-footer">
+      <button class="action-button secondary" id="modalCancelButton">Cancel</button>
+      <button class="action-button" id="modalSaveButton"><i class="bi bi-check2-circle"></i> Save changes</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="discrepancyModal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <div>
+        <h5 class="mb-1">Log Payroll Discrepancy</h5>
+        <p class="text-muted small mb-0">Track missing holiday pay, attendance overrides, and billable adjustments.</p>
+      </div>
+      <button type="button" class="modal-close" id="discrepancyModalClose">&times;</button>
+    </div>
+    <form id="discrepancyForm">
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label">Agent</label>
+          <select class="form-select" name="agentId" required></select>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Campaign</label>
+          <input type="text" class="form-control" name="campaign" placeholder="Auto-filled" readonly>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Discrepancy type</label>
+          <select class="form-select" name="type" required>
+            <option value="Holiday Not Paid">Holiday not paid</option>
+            <option value="Attendance Adjustment">Attendance adjustment</option>
+            <option value="Manual Edit">Manual edit requested</option>
+            <option value="Overtime Dispute">Overtime dispute</option>
+          </select>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Hours impacted</label>
+          <input type="number" class="form-control" name="hours" min="0" step="0.25" placeholder="0.00">
+        </div>
+        <div class="col-12">
+          <label class="form-label">Description</label>
+          <textarea class="form-control" rows="3" name="description" placeholder="Provide additional context"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="action-button secondary" id="discrepancyModalCancel">Cancel</button>
+        <button type="submit" class="action-button"><i class="bi bi-save"></i> Submit</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  (function () {
+    const currencyFormatter = new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD'
+    });
+
+    const payrollPeriods = {
+      weekly: [
+        { id: '2024-W20', label: 'May 13 - May 19, 2024', start: '2024-05-13', end: '2024-05-19' },
+        { id: '2024-W21', label: 'May 20 - May 26, 2024', start: '2024-05-20', end: '2024-05-26' },
+        { id: '2024-W22', label: 'May 27 - Jun 2, 2024', start: '2024-05-27', end: '2024-06-02' },
+        { id: '2024-W23', label: 'Jun 3 - Jun 9, 2024', start: '2024-06-03', end: '2024-06-09' }
+      ],
+      biweekly: [
+        { id: '2024-B10', label: 'May 13 - May 26, 2024', weekIds: ['2024-W20', '2024-W21'], start: '2024-05-13', end: '2024-05-26' },
+        { id: '2024-B11', label: 'May 27 - Jun 9, 2024', weekIds: ['2024-W22', '2024-W23'], start: '2024-05-27', end: '2024-06-09' }
+      ],
+      monthly: [
+        { id: '2024-05', label: 'May 2024', weekIds: ['2024-W18', '2024-W19', '2024-W20', '2024-W21', '2024-W22'] },
+        { id: '2024-06', label: 'June 2024', weekIds: ['2024-W23', '2024-W24', '2024-W25', '2024-W26'] }
+      ]
+    };
+
+    const payrollData = [
+      {
+        agentId: 'AG-101',
+        agentName: 'Avery Johnson',
+        campaign: 'Customer Care North',
+        hourlyRate: 18.5,
+        weeklyRecords: [
+          {
+            weekId: '2024-W20',
+            regularHours: 38,
+            overtimeHours: 4,
+            sickHours: 4,
+            vacationHours: 0,
+            holidayHours: 0,
+            leaveHours: 0,
+            lateOccurrences: 1,
+            holidayName: null,
+            holidayMultiplier: 2
+          },
+          {
+            weekId: '2024-W21',
+            regularHours: 41,
+            overtimeHours: 3,
+            sickHours: 0,
+            vacationHours: 0,
+            holidayHours: 8,
+            leaveHours: 0,
+            lateOccurrences: 0,
+            holidayName: 'Memorial Day',
+            holidayMultiplier: 2
+          },
+          {
+            weekId: '2024-W22',
+            regularHours: 39,
+            overtimeHours: 1,
+            sickHours: 0,
+            vacationHours: 8,
+            holidayHours: 0,
+            leaveHours: 0,
+            lateOccurrences: 0,
+            holidayName: null,
+            holidayMultiplier: 2
+          },
+          {
+            weekId: '2024-W23',
+            regularHours: 40,
+            overtimeHours: 0,
+            sickHours: 0,
+            vacationHours: 4,
+            holidayHours: 0,
+            leaveHours: 0,
+            lateOccurrences: 0,
+            holidayName: null,
+            holidayMultiplier: 2
+          }
+        ]
+      },
+      {
+        agentId: 'AG-118',
+        agentName: 'Bianca Patel',
+        campaign: 'Healthcare Renewals',
+        hourlyRate: 21,
+        weeklyRecords: [
+          {
+            weekId: '2024-W20',
+            regularHours: 40,
+            overtimeHours: 2,
+            sickHours: 0,
+            vacationHours: 0,
+            holidayHours: 0,
+            leaveHours: 0,
+            lateOccurrences: 0,
+            holidayName: null,
+            holidayMultiplier: 2
+          },
+          {
+            weekId: '2024-W21',
+            regularHours: 42,
+            overtimeHours: 5,
+            sickHours: 0,
+            vacationHours: 0,
+            holidayHours: 4,
+            leaveHours: 0,
+            lateOccurrences: 1,
+            holidayName: 'Client Founders Day',
+            holidayMultiplier: 2
+          },
+          {
+            weekId: '2024-W22',
+            regularHours: 37,
+            overtimeHours: 0,
+            sickHours: 0,
+            vacationHours: 0,
+            holidayHours: 0,
+            leaveHours: 6,
+            lateOccurrences: 0,
+            holidayName: null,
+            holidayMultiplier: 2
+          },
+          {
+            weekId: '2024-W23',
+            regularHours: 45,
+            overtimeHours: 6,
+            sickHours: 0,
+            vacationHours: 0,
+            holidayHours: 0,
+            leaveHours: 0,
+            lateOccurrences: 1,
+            holidayName: null,
+            holidayMultiplier: 2
+          }
+        ]
+      },
+      {
+        agentId: 'AG-202',
+        agentName: 'Carlos Méndez',
+        campaign: 'eCommerce Upsell',
+        hourlyRate: 19.75,
+        weeklyRecords: [
+          {
+            weekId: '2024-W20',
+            regularHours: 36,
+            overtimeHours: 0,
+            sickHours: 8,
+            vacationHours: 0,
+            holidayHours: 0,
+            leaveHours: 0,
+            lateOccurrences: 0,
+            holidayName: null,
+            holidayMultiplier: 2
+          },
+          {
+            weekId: '2024-W21',
+            regularHours: 44,
+            overtimeHours: 6,
+            sickHours: 0,
+            vacationHours: 0,
+            holidayHours: 0,
+            leaveHours: 0,
+            lateOccurrences: 2,
+            holidayName: null,
+            holidayMultiplier: 2
+          },
+          {
+            weekId: '2024-W22',
+            regularHours: 40,
+            overtimeHours: 4,
+            sickHours: 0,
+            vacationHours: 0,
+            holidayHours: 8,
+            leaveHours: 0,
+            lateOccurrences: 0,
+            holidayName: 'Liberation Day (Client)',
+            holidayMultiplier: 2
+          },
+          {
+            weekId: '2024-W23',
+            regularHours: 38,
+            overtimeHours: 2,
+            sickHours: 0,
+            vacationHours: 0,
+            holidayHours: 0,
+            leaveHours: 4,
+            lateOccurrences: 1,
+            holidayName: null,
+            holidayMultiplier: 2
+          }
+        ]
+      }
+    ];
+
+    const discrepancyLog = [
+      {
+        id: 'DISC-001',
+        createdAt: '2024-05-27T14:30:00Z',
+        agentId: 'AG-101',
+        issue: 'Holiday hours missing',
+        type: 'Holiday Not Paid',
+        hours: 8,
+        status: 'Pending Payroll',
+        clientApproved: false,
+        notes: 'Memorial Day premium to be double paid.'
+      },
+      {
+        id: 'DISC-002',
+        createdAt: '2024-05-28T09:00:00Z',
+        agentId: 'AG-118',
+        issue: 'Late log explanation received',
+        type: 'Attendance Adjustment',
+        hours: 1.5,
+        status: 'Ready for Client Review',
+        clientApproved: true,
+        notes: 'Grace period approved for May 22.'
+      },
+      {
+        id: 'DISC-003',
+        createdAt: '2024-05-29T16:10:00Z',
+        agentId: 'AG-202',
+        issue: 'Overtime to be reclassified',
+        type: 'Overtime Dispute',
+        hours: 2,
+        status: 'Escalated',
+        clientApproved: false,
+        notes: 'Awaiting supervisor acknowledgement.'
+      }
+    ];
+
+    const state = {
+      periodType: 'biweekly',
+      periodId: payrollPeriods.biweekly[0].id,
+      campaignFilter: 'all',
+      attendanceFilter: 'all',
+      selectedAgentId: null,
+      discrepancies: [...discrepancyLog]
+    };
+
+    function init() {
+      populatePeriodSelect();
+      populateCampaignFilter();
+      populateDiscrepancyFormAgentOptions();
+      bindEvents();
+      renderAll();
+    }
+
+    function getSelectedPeriodDefinition() {
+      const { periodType, periodId } = state;
+      const collection = payrollPeriods[periodType] || [];
+      return collection.find(period => period.id === periodId) || collection[0];
+    }
+
+    function populatePeriodSelect() {
+      const periodSelect = document.getElementById('periodSelect');
+      const periods = payrollPeriods[state.periodType] || [];
+      periodSelect.innerHTML = '';
+      periods.forEach(period => {
+        const option = document.createElement('option');
+        option.value = period.id;
+        option.textContent = period.label;
+        if (period.id === state.periodId) {
+          option.selected = true;
+        }
+        periodSelect.appendChild(option);
+      });
+      if (!state.periodId && periods.length) {
+        state.periodId = periods[0].id;
+      }
+    }
+
+    function populateCampaignFilter() {
+      const select = document.getElementById('campaignFilter');
+      const campaigns = [...new Set(payrollData.map(record => record.campaign))];
+      campaigns.forEach(campaign => {
+        const option = document.createElement('option');
+        option.value = campaign;
+        option.textContent = campaign;
+        select.appendChild(option);
+      });
+    }
+
+    function populateDiscrepancyFormAgentOptions() {
+      const agentSelect = document.querySelector('#discrepancyForm select[name="agentId"]');
+      agentSelect.innerHTML = '<option value="" disabled selected>Select agent</option>';
+      payrollData.forEach(agent => {
+        const option = document.createElement('option');
+        option.value = agent.agentId;
+        option.textContent = agent.agentName;
+        agentSelect.appendChild(option);
+      });
+    }
+
+    function bindEvents() {
+      document.getElementById('periodTypeSelect').addEventListener('change', (event) => {
+        state.periodType = event.target.value;
+        const periods = payrollPeriods[state.periodType] || [];
+        state.periodId = periods.length ? periods[0].id : null;
+        populatePeriodSelect();
+        renderAll();
+      });
+
+      document.getElementById('periodSelect').addEventListener('change', (event) => {
+        state.periodId = event.target.value;
+        renderAll();
+      });
+
+      document.getElementById('campaignFilter').addEventListener('change', (event) => {
+        state.campaignFilter = event.target.value;
+        renderAll();
+      });
+
+      document.getElementById('attendanceFilter').addEventListener('change', (event) => {
+        state.attendanceFilter = event.target.value;
+        renderAll();
+      });
+
+      document.getElementById('exportButton').addEventListener('click', () => {
+        const period = getSelectedPeriodDefinition();
+        const summary = buildSummaryMetrics();
+        const exportPayload = {
+          periodType: state.periodType,
+          period,
+          generatedAt: new Date().toISOString(),
+          summary,
+          records: buildTableData()
+        };
+        const payloadBlob = new Blob([JSON.stringify(exportPayload, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(payloadBlob);
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = `payroll-${state.periodType}-${period ? period.id : 'period'}.json`;
+        anchor.click();
+        URL.revokeObjectURL(url);
+      });
+
+      document.getElementById('modalCloseButton').addEventListener('click', closeEditModal);
+      document.getElementById('modalCancelButton').addEventListener('click', closeEditModal);
+      document.getElementById('modalSaveButton').addEventListener('click', saveEditedHours);
+      document.getElementById('newDiscrepancyButton').addEventListener('click', openDiscrepancyModal);
+      document.getElementById('discrepancyModalClose').addEventListener('click', closeDiscrepancyModal);
+      document.getElementById('discrepancyModalCancel').addEventListener('click', closeDiscrepancyModal);
+
+      document.getElementById('discrepancyForm').addEventListener('submit', (event) => {
+        event.preventDefault();
+        const formData = new FormData(event.target);
+        const agentId = formData.get('agentId');
+        const agent = payrollData.find(item => item.agentId === agentId);
+        const hours = Number(formData.get('hours')) || 0;
+        const discrepancy = {
+          id: `DISC-${String(state.discrepancies.length + 1).padStart(3, '0')}`,
+          createdAt: new Date().toISOString(),
+          agentId,
+          campaign: agent ? agent.campaign : formData.get('campaign'),
+          issue: formData.get('description') || formData.get('type'),
+          type: formData.get('type'),
+          hours,
+          status: 'Submitted',
+          clientApproved: false,
+          notes: formData.get('description')
+        };
+        state.discrepancies.unshift(discrepancy);
+        event.target.reset();
+        populateDiscrepancyFormAgentOptions();
+        closeDiscrepancyModal();
+        renderDiscrepancies();
+      });
+
+      document.querySelector('#discrepancyForm select[name="agentId"]').addEventListener('change', (event) => {
+        const agent = payrollData.find(item => item.agentId === event.target.value);
+        document.querySelector('#discrepancyForm input[name="campaign"]').value = agent ? agent.campaign : '';
+      });
+    }
+
+    function buildTableData() {
+      const period = getSelectedPeriodDefinition();
+      if (!period) {
+        return [];
+      }
+
+      const relevantWeekIds = getWeekIdsForPeriod(period);
+
+      return payrollData
+        .filter(record => state.campaignFilter === 'all' || record.campaign === state.campaignFilter)
+        .map(record => {
+          const weeklyRecords = record.weeklyRecords.filter(week => relevantWeekIds.includes(week.weekId));
+          const aggregated = aggregateWeeklyRecords(weeklyRecords);
+          const attendanceMatches = checkAttendanceFilter(weeklyRecords);
+          return {
+            agentId: record.agentId,
+            agentName: record.agentName,
+            campaign: record.campaign,
+            hourlyRate: record.hourlyRate,
+            weeklyRecords,
+            aggregated,
+            attendanceMatches
+          };
+        })
+        .filter(item => state.attendanceFilter === 'all' ? true : item.attendanceMatches[state.attendanceFilter]);
+    }
+
+    function getWeekIdsForPeriod(period) {
+      if (state.periodType === 'weekly') {
+        return [period.id];
+      }
+      if (Array.isArray(period.weekIds)) {
+        return period.weekIds;
+      }
+      return [];
+    }
+
+    function aggregateWeeklyRecords(weeklyRecords) {
+      return weeklyRecords.reduce((acc, week) => {
+        acc.regularHours += week.regularHours;
+        acc.overtimeHours += week.overtimeHours;
+        acc.sickHours += week.sickHours;
+        acc.vacationHours += week.vacationHours;
+        acc.holidayHours += week.holidayHours;
+        acc.leaveHours += week.leaveHours;
+        acc.lateOccurrences += week.lateOccurrences;
+        if (week.holidayHours > 0 && week.holidayName) {
+          acc.holidays.push({
+            name: week.holidayName,
+            hours: week.holidayHours,
+            multiplier: week.holidayMultiplier
+          });
+        }
+        return acc;
+      }, {
+        regularHours: 0,
+        overtimeHours: 0,
+        sickHours: 0,
+        vacationHours: 0,
+        holidayHours: 0,
+        leaveHours: 0,
+        lateOccurrences: 0,
+        holidays: []
+      });
+    }
+
+    function checkAttendanceFilter(weeklyRecords) {
+      return weeklyRecords.reduce((flags, week) => {
+        flags.sick = flags.sick || week.sickHours > 0;
+        flags.vacation = flags.vacation || week.vacationHours > 0;
+        flags.late = flags.late || week.lateOccurrences > 0;
+        flags.loa = flags.loa || week.leaveHours > 0;
+        flags.holiday = flags.holiday || week.holidayHours > 0;
+        return flags;
+      }, { sick: false, vacation: false, late: false, loa: false, holiday: false });
+    }
+
+    function calculateGrossPay(record) {
+      const { regularHours, overtimeHours, sickHours, vacationHours, holidayHours, leaveHours, holidays } = record.aggregated;
+      const baseHours = regularHours + sickHours + vacationHours + leaveHours;
+      const hourlyRate = record.hourlyRate;
+      const overtimePay = overtimeHours * hourlyRate * 1.5;
+      const holidayPay = holidays.reduce((total, holiday) => total + holiday.hours * hourlyRate * holiday.multiplier, 0);
+      const basePay = baseHours * hourlyRate;
+      return basePay + overtimePay + holidayPay;
+    }
+
+    function calculateTotalHours(record) {
+      const { regularHours, overtimeHours, sickHours, vacationHours, holidayHours, leaveHours } = record.aggregated;
+      return regularHours + overtimeHours + sickHours + vacationHours + holidayHours + leaveHours;
+    }
+
+    function determineStatus(record) {
+      const { regularHours, overtimeHours } = record.aggregated;
+      const totalRegular = regularHours;
+      const totalOvertime = overtimeHours;
+      const totalHours = totalRegular + totalOvertime;
+      const weeklyOvertimeBreaches = record.weeklyRecords.filter(week => week.regularHours + week.overtimeHours > 40);
+      const overtimeFlag = weeklyOvertimeBreaches.length > 0 || totalHours > 80;
+      if (overtimeFlag && totalOvertime > 0) {
+        return { label: 'Overtime', className: 'badge-warning', icon: 'bi bi-clock-history' };
+      }
+      if (record.aggregated.holidayHours > 0) {
+        return { label: 'Holiday Premium', className: 'badge-info', icon: 'bi bi-gift' };
+      }
+      return { label: 'On Track', className: 'badge-success', icon: 'bi bi-check-circle' };
+    }
+
+    function renderPayrollTable() {
+      const tbody = document.getElementById('payrollTableBody');
+      const records = buildTableData();
+      tbody.innerHTML = '';
+      if (!records.length) {
+        const emptyRow = document.createElement('tr');
+        const cell = document.createElement('td');
+        cell.colSpan = 12;
+        cell.className = 'empty-state';
+        cell.textContent = 'No payroll records match the current filters.';
+        emptyRow.appendChild(cell);
+        tbody.appendChild(emptyRow);
+        return;
+      }
+
+      records.forEach(record => {
+        const row = document.createElement('tr');
+        const status = determineStatus(record);
+        const totalHours = calculateTotalHours(record);
+        const grossPay = calculateGrossPay(record);
+
+        row.innerHTML = `
+          <td>
+            <div class="fw-semibold text-dark">${record.agentName}</div>
+            <div class="text-muted small">${record.hourlyRate.toFixed(2)} USD/hr</div>
+          </td>
+          <td><span class="campaign-pill"><i class="bi bi-kanban"></i> ${record.campaign}</span></td>
+          <td>${record.aggregated.regularHours.toFixed(2)}</td>
+          <td class="text-${record.aggregated.overtimeHours > 0 ? 'warning' : 'muted'} fw-semibold">${record.aggregated.overtimeHours.toFixed(2)}</td>
+          <td>${record.aggregated.sickHours.toFixed(2)}</td>
+          <td>${record.aggregated.vacationHours.toFixed(2)}</td>
+          <td>${record.aggregated.holidayHours.toFixed(2)}</td>
+          <td>${record.aggregated.leaveHours.toFixed(2)}</td>
+          <td class="fw-semibold">${totalHours.toFixed(2)}</td>
+          <td class="fw-semibold">${currencyFormatter.format(grossPay)}</td>
+          <td><span class="badge ${status.className}"><i class="${status.icon}"></i> ${status.label}</span></td>
+          <td class="text-end">
+            <button class="action-button" data-action="edit" data-agent-id="${record.agentId}"><i class="bi bi-pencil-square"></i> Edit</button>
+          </td>
+        `;
+        tbody.appendChild(row);
+      });
+
+      tbody.querySelectorAll('[data-action="edit"]').forEach(button => {
+        button.addEventListener('click', () => openEditModal(button.dataset.agentId));
+      });
+    }
+
+    function buildSummaryMetrics() {
+      const records = buildTableData();
+      const summary = records.reduce((acc, record) => {
+        const { aggregated } = record;
+        const grossPay = calculateGrossPay(record);
+        acc.totalRegular += aggregated.regularHours;
+        acc.totalOvertime += aggregated.overtimeHours;
+        acc.totalSick += aggregated.sickHours;
+        acc.totalVacation += aggregated.vacationHours;
+        acc.totalHoliday += aggregated.holidayHours;
+        acc.totalLeave += aggregated.leaveHours;
+        acc.totalPay += grossPay;
+        acc.over40Weeks += record.weeklyRecords.filter(week => week.regularHours + week.overtimeHours > 40).length;
+        if (calculateTotalHours(record) > 80) {
+          acc.biweeklyOverages += 1;
+        }
+        if (aggregated.holidayHours > 0) {
+          acc.holidayEligibleAgents += 1;
+        }
+        return acc;
+      }, {
+        totalRegular: 0,
+        totalOvertime: 0,
+        totalSick: 0,
+        totalVacation: 0,
+        totalHoliday: 0,
+        totalLeave: 0,
+        totalPay: 0,
+        over40Weeks: 0,
+        biweeklyOverages: 0,
+        holidayEligibleAgents: 0
+      });
+      summary.agentCount = records.length;
+      return summary;
+    }
+
+    function renderSummary() {
+      const container = document.getElementById('summaryGrid');
+      const summary = buildSummaryMetrics();
+      container.innerHTML = `
+        <div class="summary-card">
+          <div class="label"><i class="bi bi-people"></i> Agents in period</div>
+          <div class="value">${summary.agentCount}</div>
+          <div class="subtext">${state.periodType === 'biweekly' ? 'Bi-weekly' : state.periodType.charAt(0).toUpperCase() + state.periodType.slice(1)} payroll in focus.</div>
+        </div>
+        <div class="summary-card">
+          <div class="label"><i class="bi bi-cash-stack"></i> Gross payroll</div>
+          <div class="value">${currencyFormatter.format(summary.totalPay)}</div>
+          <div class="subtext">Includes overtime at 1.5x and holidays at double pay.</div>
+        </div>
+        <div class="summary-card">
+          <div class="label"><i class="bi bi-clock-history"></i> Overtime hours</div>
+          <div class="value">${summary.totalOvertime.toFixed(2)}</div>
+          <div class="subtext">${summary.over40Weeks} weekly breaches · ${summary.biweeklyOverages} bi-weekly overages.</div>
+        </div>
+        <div class="summary-card">
+          <div class="label"><i class="bi bi-calendar-heart"></i> Paid leave</div>
+          <div class="value">${(summary.totalSick + summary.totalVacation + summary.totalLeave).toFixed(2)} hrs</div>
+          <div class="subtext">Sick: ${summary.totalSick.toFixed(1)} · Vacation: ${summary.totalVacation.toFixed(1)} · LOA: ${summary.totalLeave.toFixed(1)}.</div>
+        </div>
+        <div class="summary-card">
+          <div class="label"><i class="bi bi-gift"></i> Holiday coverage</div>
+          <div class="value">${summary.totalHoliday.toFixed(2)} hrs</div>
+          <div class="subtext">${summary.holidayEligibleAgents} agents flagged for double pay this period.</div>
+        </div>
+      `;
+    }
+
+    function renderLeaveSummary() {
+      const container = document.getElementById('leaveSummaryGrid');
+      const summary = buildSummaryMetrics();
+      container.innerHTML = `
+        <div class="leave-summary">
+          <div class="label">Sick leave</div>
+          <div class="value">${summary.totalSick.toFixed(2)} hrs</div>
+          <div class="text-muted small">${(summary.totalSick / 8).toFixed(2)} days</div>
+        </div>
+        <div class="leave-summary">
+          <div class="label">Vacation</div>
+          <div class="value">${summary.totalVacation.toFixed(2)} hrs</div>
+          <div class="text-muted small">${(summary.totalVacation / 8).toFixed(2)} days</div>
+        </div>
+        <div class="leave-summary">
+          <div class="label">Leave of absence</div>
+          <div class="value">${summary.totalLeave.toFixed(2)} hrs</div>
+          <div class="text-muted small">${(summary.totalLeave / 8).toFixed(2)} days</div>
+        </div>
+        <div class="leave-summary">
+          <div class="label">Holiday premium</div>
+          <div class="value">${summary.totalHoliday.toFixed(2)} hrs</div>
+          <div class="text-muted small">Eligible for double pay.</div>
+        </div>
+      `;
+    }
+
+    function renderHolidayLog() {
+      const container = document.getElementById('holidayLog');
+      const records = buildTableData();
+      const holidays = [];
+      records.forEach(record => {
+        record.aggregated.holidays.forEach(holiday => {
+          holidays.push({
+            agent: record.agentName,
+            campaign: record.campaign,
+            ...holiday
+          });
+        });
+      });
+
+      if (!holidays.length) {
+        container.innerHTML = '<div class="empty-state">No holiday pay entries for this period.</div>';
+        return;
+      }
+
+      container.innerHTML = '';
+      holidays.forEach(holiday => {
+        const item = document.createElement('div');
+        item.className = 'holiday-log-item';
+        item.innerHTML = `
+          <div>
+            <div class="holiday-title">${holiday.name}</div>
+            <div class="text-muted small">${holiday.agent} · ${holiday.campaign}</div>
+          </div>
+          <div class="holiday-meta">
+            <span><i class="bi bi-clock"></i> ${holiday.hours.toFixed(2)} hrs</span>
+            <span><i class="bi bi-currency-dollar"></i> ${holiday.multiplier}x pay</span>
+          </div>
+        `;
+        container.appendChild(item);
+      });
+    }
+
+    function renderDiscrepancies() {
+      const tbody = document.getElementById('discrepancyTableBody');
+      tbody.innerHTML = '';
+      if (!state.discrepancies.length) {
+        const row = document.createElement('tr');
+        const cell = document.createElement('td');
+        cell.colSpan = 7;
+        cell.className = 'empty-state';
+        cell.textContent = 'No discrepancies logged.';
+        row.appendChild(cell);
+        tbody.appendChild(row);
+        return;
+      }
+
+      state.discrepancies.forEach(entry => {
+        const agent = payrollData.find(record => record.agentId === entry.agentId);
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td class="text-muted small">${formatDate(entry.createdAt)}</td>
+          <td>${agent ? agent.agentName : 'Unknown agent'}</td>
+          <td>${agent ? agent.campaign : entry.campaign || '—'}</td>
+          <td>${entry.issue || '—'}</td>
+          <td><span class="badge badge-info">${entry.type}</span></td>
+          <td><span class="badge ${getDiscrepancyStatusClass(entry.status)}">${entry.status}</span></td>
+          <td class="text-end">
+            <span class="approval-toggle ${entry.clientApproved ? 'approved' : ''}" data-discrepancy-id="${entry.id}">
+              <i class="bi ${entry.clientApproved ? 'bi-check-circle-fill' : 'bi-circle'}"></i>
+              ${entry.clientApproved ? 'Approved by client' : 'Awaiting client approval'}
+            </span>
+          </td>
+        `;
+        tbody.appendChild(row);
+      });
+
+      tbody.querySelectorAll('.approval-toggle').forEach(toggle => {
+        toggle.addEventListener('click', () => {
+          const entry = state.discrepancies.find(item => item.id === toggle.dataset.discrepancyId);
+          if (!entry) return;
+          entry.clientApproved = !entry.clientApproved;
+          entry.status = entry.clientApproved ? 'Client Approved' : entry.status;
+          renderDiscrepancies();
+        });
+      });
+    }
+
+    function getDiscrepancyStatusClass(status) {
+      if (!status) return 'badge-warning';
+      if (status.toLowerCase().includes('approved')) return 'badge-success';
+      if (status.toLowerCase().includes('pending')) return 'badge-warning';
+      if (status.toLowerCase().includes('escalated')) return 'badge-danger';
+      return 'badge-info';
+    }
+
+    function formatDate(isoString) {
+      const date = new Date(isoString);
+      return date.toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
+    }
+
+    function openEditModal(agentId) {
+      const period = getSelectedPeriodDefinition();
+      const agent = payrollData.find(record => record.agentId === agentId);
+      if (!agent || !period) return;
+      const weekIds = getWeekIdsForPeriod(period);
+      const weeks = agent.weeklyRecords.filter(week => weekIds.includes(week.weekId));
+
+      state.selectedAgentId = agentId;
+      document.getElementById('modalTitle').textContent = `Edit payroll hours · ${agent.agentName}`;
+      document.getElementById('modalSubtitle').textContent = `${period.label || ''} · ${state.periodType.charAt(0).toUpperCase() + state.periodType.slice(1)} tracking`;
+
+      const editor = document.getElementById('weekEditor');
+      editor.innerHTML = '';
+      weeks.forEach(week => {
+        const card = document.createElement('div');
+        card.className = 'week-card';
+        card.dataset.weekId = week.weekId;
+        card.innerHTML = `
+          <h6>${resolveWeekLabel(week.weekId)}</h6>
+          ${buildWeekField('Regular hours', 'regularHours', week.regularHours)}
+          ${buildWeekField('Overtime hours', 'overtimeHours', week.overtimeHours)}
+          ${buildWeekField('Sick hours', 'sickHours', week.sickHours)}
+          ${buildWeekField('Vacation hours', 'vacationHours', week.vacationHours)}
+          ${buildWeekField('Holiday hours', 'holidayHours', week.holidayHours)}
+          ${buildWeekField('Leave of absence', 'leaveHours', week.leaveHours)}
+          ${buildWeekField('Late occurrences', 'lateOccurrences', week.lateOccurrences, 'number', 0, 10, 1)}
+          ${buildWeekHolidaySelector(week)}
+        `;
+        editor.appendChild(card);
+      });
+
+      document.getElementById('editModal').classList.add('active');
+    }
+
+    function resolveWeekLabel(weekId) {
+      const weekly = payrollPeriods.weekly.find(week => week.id === weekId);
+      return weekly ? weekly.label : weekId;
+    }
+
+    function buildWeekField(label, name, value, type = 'number', min = 0, max = 120, step = 0.25) {
+      return `
+        <div class="week-field">
+          <label>${label}</label>
+          <input type="${type}" class="form-control" name="${name}" value="${value}" min="${min}" max="${max}" step="${step}">
+        </div>
+      `;
+    }
+
+    function buildWeekHolidaySelector(week) {
+      const options = [
+        { value: '', label: 'No holiday', multiplier: 1 },
+        { value: 'Memorial Day', label: 'Memorial Day', multiplier: 2 },
+        { value: 'Client Founders Day', label: 'Client Founders Day', multiplier: 2 },
+        { value: 'Liberation Day (Client)', label: 'Liberation Day (Client)', multiplier: 2 },
+        { value: 'Custom Holiday', label: 'Custom Holiday', multiplier: 2 }
+      ];
+
+      const holidayOptions = options.map(option => {
+        const selected = week.holidayName === option.value ? 'selected' : '';
+        return `<option value="${option.value}" data-multiplier="${option.multiplier}" ${selected}>${option.label}</option>`;
+      }).join('');
+
+      return `
+        <div class="week-field">
+          <label>Holiday</label>
+          <select class="form-select" name="holidayName">
+            ${holidayOptions}
+          </select>
+        </div>
+      `;
+    }
+
+    function closeEditModal() {
+      state.selectedAgentId = null;
+      document.getElementById('editModal').classList.remove('active');
+    }
+
+    function saveEditedHours() {
+      if (!state.selectedAgentId) {
+        closeEditModal();
+        return;
+      }
+
+      const period = getSelectedPeriodDefinition();
+      const agent = payrollData.find(record => record.agentId === state.selectedAgentId);
+      if (!agent || !period) {
+        closeEditModal();
+        return;
+      }
+
+      const weekIds = getWeekIdsForPeriod(period);
+      const cards = Array.from(document.querySelectorAll('#weekEditor .week-card'));
+      cards.forEach(card => {
+        const weekId = card.dataset.weekId;
+        const weekRecord = agent.weeklyRecords.find(week => week.weekId === weekId);
+        if (!weekRecord) return;
+        weekRecord.regularHours = parseFloat(card.querySelector('input[name="regularHours"]').value) || 0;
+        weekRecord.overtimeHours = parseFloat(card.querySelector('input[name="overtimeHours"]').value) || 0;
+        weekRecord.sickHours = parseFloat(card.querySelector('input[name="sickHours"]').value) || 0;
+        weekRecord.vacationHours = parseFloat(card.querySelector('input[name="vacationHours"]').value) || 0;
+        weekRecord.holidayHours = parseFloat(card.querySelector('input[name="holidayHours"]').value) || 0;
+        weekRecord.leaveHours = parseFloat(card.querySelector('input[name="leaveHours"]').value) || 0;
+        weekRecord.lateOccurrences = parseInt(card.querySelector('input[name="lateOccurrences"]').value, 10) || 0;
+        const holidaySelect = card.querySelector('select[name="holidayName"]');
+        weekRecord.holidayName = holidaySelect.value || null;
+        weekRecord.holidayMultiplier = Number(holidaySelect.selectedOptions[0].dataset.multiplier) || 1;
+      });
+
+      closeEditModal();
+      renderAll();
+    }
+
+    function openDiscrepancyModal() {
+      document.getElementById('discrepancyModal').classList.add('active');
+    }
+
+    function closeDiscrepancyModal() {
+      document.getElementById('discrepancyModal').classList.remove('active');
+    }
+
+    function renderAll() {
+      renderSummary();
+      renderPayrollTable();
+      renderLeaveSummary();
+      renderHolidayLog();
+      renderDiscrepancies();
+    }
+
+    init();
+  })();
+</script>
+<? } ?>
