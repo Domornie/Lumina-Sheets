@@ -22,8 +22,9 @@
 // ────────────────────────────────────────────────────────────────────────────
 
 const BILLABLE_STATES = ['Available', 'Administrative Work', 'Training', 'Meeting'];
+const BILLABLE_STATE_LABELS = [...new Set([...BILLABLE_STATES, 'Break'])];
 const NON_PRODUCTIVE_STATES = ['Break', 'Lunch'];
-const BILLABLE_DISPLAY_STATES = [...BILLABLE_STATES, 'Break'];
+const BILLABLE_DISPLAY_STATES = [...BILLABLE_STATE_LABELS];
 const NON_PRODUCTIVE_DISPLAY_STATES = [...new Set([...NON_PRODUCTIVE_STATES, 'Break'])];
 
 const LOGIN_STATE_KEYWORDS = [
@@ -1379,7 +1380,7 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter, poli
         }
       }
 
-      const baseProd = Math.max(0, metrics.prod);
+      const baseProd = Math.max(0, metrics.prod - breakOver);
       const baseCapped = Math.min(baseProd, hourPolicy.effectiveCapSeconds);
       const { applied: appliedBreak, result: afterBreak } = applyCappedAdjustment(baseCapped, breakCredit, hourPolicy.effectiveCapSeconds);
       const { applied: appliedLunch, result: adjustedTotal } = applyCappedAdjustment(afterBreak, lunchAdjustment, hourPolicy.effectiveCapSeconds);
@@ -1958,8 +1959,7 @@ function calculateBreakOverageSecs(breakSeconds) {
 
 function calculateBreakCreditSecs(breakSeconds) {
   const total = Number.isFinite(breakSeconds) ? breakSeconds : 0;
-  const overage = Math.max(0, total - DAILY_BREAKS_SECS);
-  return DAILY_BREAKS_SECS - overage;
+  return Math.max(0, Math.min(total, DAILY_BREAKS_SECS));
 }
 
 function calculateLunchAdjustmentSecs(lunchSeconds) {
@@ -3212,7 +3212,8 @@ function generateEnhancedDailyPivotExport(pivotMatrix, params, context) {
       'Data Quality Notes',
       `All productive durations are converted from seconds into decimal hours using ${ATTENDANCE_TIMEZONE_LABEL || ATTENDANCE_TIMEZONE}.`,
       'Break allowances assume 30 minutes per day; lunch allowances assume 30 minutes.',
-      `Only productive attendance states contribute to billable hours: ${BILLABLE_STATES.join(', ')}.`
+      'Break and lunch overages are deducted minute-for-minute from productive totals.',
+      `Billable hours include: ${BILLABLE_STATE_LABELS.join(', ')}.`
     ];
 
     notes.forEach((note, idx) => {
@@ -3458,7 +3459,8 @@ function generateEnhancedDailyPivotCsvFallback(pivotMatrix, params, context) {
   rows.push(csvEscape('Notes'));
   rows.push(csvEscape(`All productive durations are converted from seconds into decimal hours using ${ATTENDANCE_TIMEZONE_LABEL || ATTENDANCE_TIMEZONE}.`));
   rows.push(csvEscape('Break allowances assume 30 minutes per day; lunch allowances assume 30 minutes.'));
-  rows.push(csvEscape(`Only productive attendance states contribute to billable hours: ${BILLABLE_STATES.join(', ')}.`));
+  rows.push(csvEscape('Break and lunch overages are deducted minute-for-minute from productive totals.'));
+  rows.push(csvEscape(`Billable hours include: ${BILLABLE_STATE_LABELS.join(', ')}.`));
 
   return {
     csvData: rows.join('\n'),
@@ -3622,7 +3624,8 @@ function exportAttendanceCsv(granularity, periodId, agentFilter, policyOptions) 
     const notes = [];
     notes.push('');
     notes.push('# Notes');
-    notes.push('# - Billable hours include a 0.50 hour break credit each day with overages deducted minute-for-minute.');
+    notes.push(`# - Billable hours include: ${BILLABLE_STATE_LABELS.join(', ')}.`);
+    notes.push('# - Billable hours include up to 30 minutes of paid break time; break or lunch overages deduct minute-for-minute.');
     notes.push('# - Lunch adjustments reflect time under or over the 30 minute allowance.');
     notes.push(`# - Hours are capped at ${hourPolicy.effectiveCapHours.toFixed(2)} hours per day (${(hourPolicy.baseCapHours * 5).toFixed(2)} hours per standard week) unless overtime is enabled.`);
     if (hourPolicy.overtimeEnabled) {
@@ -4250,9 +4253,10 @@ function createBasicAnalytics(filtered, granularity, periodId, agentFilter, peri
   let fallbackBaseBillableSecs = 0;
   let fallbackAdjustedBillableSecs = 0;
   fallbackDayMetrics.forEach(dayMetrics => {
+    const breakOver = calculateBreakOverageSecs(dayMetrics.break);
     const breakCredit = calculateBreakCreditSecs(dayMetrics.break);
     const lunchAdjustment = calculateLunchAdjustmentSecs(dayMetrics.lunch);
-    const baseProd = Math.max(0, dayMetrics.prod || 0);
+    const baseProd = Math.max(0, (dayMetrics.prod || 0) - breakOver);
     const baseCapped = Math.min(baseProd, safeHourPolicy.effectiveCapSeconds);
     const { applied: appliedBreak, result: afterBreak } = applyCappedAdjustment(baseCapped, breakCredit, safeHourPolicy.effectiveCapSeconds);
     const { applied: appliedLunch, result: adjustedTotal } = applyCappedAdjustment(afterBreak, lunchAdjustment, safeHourPolicy.effectiveCapSeconds);
