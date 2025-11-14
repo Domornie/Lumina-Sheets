@@ -3289,16 +3289,21 @@
   }
 
   // Keep all existing utility functions exactly as they were
-  function weekStringFromDate(d) {
-    const target = new Date(d.valueOf());
-    const dayNr = (d.getDay() + 6) % 7;
-    target.setDate(target.getDate() - dayNr + 3);
-    const firstThursday = new Date(target.getFullYear(), 0, 4);
-    const diff = target - firstThursday;
-    const weekNum = 1 + Math.round(diff / (7 * 86400000));
-    const year = target.getFullYear();
-    const w = weekNum < 10 ? `0${weekNum}` : `${weekNum}`;
-    return `${year}-W${w}`;
+  function weekStringFromDate(input) {
+    const base = input instanceof Date ? new Date(input.getTime()) : new Date(input);
+    if (!(base instanceof Date) || isNaN(base)) {
+      return "";
+    }
+
+    const utcDate = new Date(Date.UTC(base.getFullYear(), base.getMonth(), base.getDate()));
+    const dayNumber = utcDate.getUTCDay() || 7; // ISO week starts on Monday (1) and Sunday should map to 7
+    utcDate.setUTCDate(utcDate.getUTCDate() + 4 - dayNumber); // move to nearest Thursday to determine week/year
+
+    const yearStart = new Date(Date.UTC(utcDate.getUTCFullYear(), 0, 1));
+    const weekNum = Math.ceil((((utcDate - yearStart) / 86400000) + 1) / 7);
+    const year = utcDate.getUTCFullYear();
+
+    return `${year}-W${weekNum.toString().padStart(2, "0")}`;
   }
   
   // Keep the existing loadAnalytics function EXACTLY as it was - this is the server integration
