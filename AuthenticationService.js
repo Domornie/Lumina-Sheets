@@ -6391,11 +6391,14 @@ function fixAuthenticationIssues(email, options = {}) {
       const passwordHashCol = getColumnIndex('PasswordHash');
       if (passwordHashCol !== -1) {
         const passwordUtils = tryGetPasswordUtils('fixAuthenticationIssues.generateNewHash');
-        if (!passwordUtils || typeof passwordUtils.hashPassword !== 'function') {
+        const hasCreate = passwordUtils && typeof passwordUtils.createPasswordHash === 'function';
+        const hasLegacy = passwordUtils && typeof passwordUtils.hashPassword === 'function';
+        if (!hasCreate && !hasLegacy) {
           results.errors.push('Password utilities unavailable - cannot generate new password hash');
         } else {
           try {
-            const newHash = passwordUtils.hashPassword(newPassword);
+            const generator = hasCreate ? passwordUtils.createPasswordHash : passwordUtils.hashPassword;
+            const newHash = generator.call(passwordUtils, newPassword);
             sheet.getRange(rowNumber, passwordHashCol + 1).setValue(newHash);
             results.actions.push('Generated new password hash');
             results.newHashSample = newHash.substring(0, 10) + '...';
