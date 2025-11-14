@@ -225,7 +225,14 @@ function _userNormalizeHash_(hash) {
   if (utils && typeof utils.normalizeHash === 'function') {
     return utils.normalizeHash(hash);
   }
-  return String(hash == null ? '' : hash).trim().toLowerCase();
+  const raw = String(hash == null ? '' : hash).trim();
+  if (!raw) {
+    return '';
+  }
+  if (/^v\d+\$/.test(raw)) {
+    return raw;
+  }
+  return raw.toLowerCase();
 }
 
 function _userDigestToHex_(digest) {

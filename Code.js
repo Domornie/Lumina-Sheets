@@ -2540,6 +2540,8 @@ function doGet(e) {
       const tpl = HtmlService.createTemplateFromFile('ChangePassword');
       tpl.baseUrl = baseUrl;
       tpl.scriptUrl = SCRIPT_URL;
+      tpl.sessionToken = user.sessionToken || '';
+      tpl.forcePasswordChange = true;
       return tpl.evaluate()
         .setTitle('Change Password')
         .addMetaTag('viewport', 'width=device-width,initial-scale=1')

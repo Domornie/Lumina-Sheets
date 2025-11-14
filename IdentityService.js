@@ -32,6 +32,17 @@ var IdentityService = (function () {
     return String(email).trim().toLowerCase();
   }
 
+  function isVersionedHashFormat(hash) {
+    if (hash === null || typeof hash === 'undefined') {
+      return false;
+    }
+    try {
+      return /^v\d+\$/.test(String(hash).trim());
+    } catch (err) {
+      return false;
+    }
+  }
+
   function normalizeHashValue(hash, utils) {
     try {
       const resolvedUtils = utils || getPasswordUtils();
@@ -44,7 +55,14 @@ var IdentityService = (function () {
     if (hash === null || typeof hash === 'undefined') {
       return '';
     }
-    return String(hash).trim().toLowerCase();
+    const raw = String(hash).trim();
+    if (!raw) {
+      return '';
+    }
+    if (isVersionedHashFormat(raw)) {
+      return raw;
+    }
+    return raw.toLowerCase();
   }
 
   function normalizePasswordInputValue(raw, utils) {
@@ -226,6 +244,30 @@ var IdentityService = (function () {
     }
     return findUserRow(function (row) {
       return normalizeEmail(row.Email) === normalized;
+    });
+  }
+
+  function findUserRowById(userId) {
+    const normalized = (userId === null || typeof userId === 'undefined')
+      ? ''
+      : String(userId).trim();
+    if (!normalized) {
+      return null;
+    }
+    return findUserRow(function (row) {
+      if (row.ID && String(row.ID).trim() === normalized) {
+        return true;
+      }
+      if (row.Id && String(row.Id).trim() === normalized) {
+        return true;
+      }
+      if (row.id && String(row.id).trim() === normalized) {
+        return true;
+      }
+      if (row.UserId && String(row.UserId).trim() === normalized) {
+        return true;
+      }
+      return false;
     });
   }
 
@@ -520,7 +562,44 @@ var IdentityService = (function () {
         }
       }
 
-      const passwordHash = createNormalizedPasswordHash(newPassword);
+      let utils;
+      try {
+        utils = getPasswordUtils();
+      } catch (utilsError) {
+        console.error('resetPassword: password utilities unavailable', utilsError);
+        return {
+          success: false,
+          error: 'System configuration error. Please try again later.',
+          errorCode: 'UTILS_UNAVAILABLE'
+        };
+      }
+
+      const normalizedPassword = normalizePasswordInputValue(newPassword, utils);
+      if (!normalizedPassword || normalizedPassword.length < 8) {
+        return {
+          success: false,
+          error: 'Password must be at least 8 characters long.',
+          errorCode: 'PASSWORD_TOO_SHORT'
+        };
+      }
+
+      const existingHash = normalizeHashValue(match.user.PasswordHash, utils);
+      if (existingHash) {
+        try {
+          if (utils && typeof utils.verifyPassword === 'function'
+            && utils.verifyPassword(normalizedPassword, existingHash)) {
+            return {
+              success: false,
+              error: 'New password must be different from the current password.',
+              errorCode: 'PASSWORD_UNCHANGED'
+            };
+          }
+        } catch (diffErr) {
+          console.warn('resetPassword: unable to compare password difference', diffErr);
+        }
+      }
+
+      const passwordHash = createNormalizedPasswordHash(normalizedPassword);
       setColumnValue(match, 'PasswordHash', passwordHash);
 
       clearColumns(match, [
@@ -547,6 +626,107 @@ var IdentityService = (function () {
       return { success: false, error: error.message || String(error) };
     } finally {
       try { lock.releaseLock(); } catch (releaseErr) { console.warn('resetPassword: releaseLock failed', releaseErr); }
+    }
+  }
+
+  function changePasswordWithSession(sessionToken, currentPassword, newPassword) {
+    const token = (sessionToken === null || typeof sessionToken === 'undefined')
+      ? ''
+      : String(sessionToken).trim();
+    if (!token) {
+      return { success: false, error: 'Session token is required', errorCode: 'SESSION_TOKEN_REQUIRED' };
+    }
+    if (!currentPassword) {
+      return { success: false, error: 'Current password is required', errorCode: 'CURRENT_PASSWORD_REQUIRED' };
+    }
+    if (!newPassword) {
+      return { success: false, error: 'Password is required', errorCode: 'PASSWORD_REQUIRED' };
+    }
+
+    if (typeof AuthenticationService === 'undefined'
+      || !AuthenticationService
+      || typeof AuthenticationService.getSessionUser !== 'function'
+      || typeof AuthenticationService.verifyUserPassword !== 'function') {
+      return { success: false, error: 'Authentication service unavailable', errorCode: 'AUTH_SERVICE_UNAVAILABLE' };
+    }
+
+    const lock = LockService.getScriptLock();
+    try {
+      lock.waitLock(20000);
+    } catch (err) {
+      return { success: false, error: 'System busy. Try again shortly.' };
+    }
+
+    try {
+      const sessionUser = AuthenticationService.getSessionUser(token);
+      if (!sessionUser || !sessionUser.ID) {
+        return { success: false, error: 'Session expired. Please sign in again.', errorCode: 'SESSION_INVALID' };
+      }
+
+      const utils = getPasswordUtils();
+      const normalizedCurrent = normalizePasswordInputValue(currentPassword, utils);
+      const normalizedNew = normalizePasswordInputValue(newPassword, utils);
+
+      if (!normalizedCurrent) {
+        return { success: false, error: 'Current password is required', errorCode: 'CURRENT_PASSWORD_REQUIRED' };
+      }
+
+      if (!normalizedNew || normalizedNew.length < 8) {
+        return { success: false, error: 'Password must be at least 8 characters long.', errorCode: 'PASSWORD_TOO_SHORT' };
+      }
+
+      const rowContext = findUserRowById(sessionUser.ID);
+      if (!rowContext) {
+        return { success: false, error: 'User account not found', errorCode: 'USER_NOT_FOUND' };
+      }
+
+      const existingHash = normalizeHashValue(rowContext.user.PasswordHash, utils);
+      if (!existingHash) {
+        return { success: false, error: 'No existing password found. Use the password setup link sent to your email.', errorCode: 'NO_EXISTING_PASSWORD' };
+      }
+
+      const verification = AuthenticationService.verifyUserPassword(normalizedCurrent, existingHash, {
+        email: normalizeEmail(sessionUser.Email || rowContext.user.Email)
+      });
+      if (!verification || verification.success !== true) {
+        return { success: false, error: 'Current password is incorrect.', errorCode: 'CURRENT_PASSWORD_INVALID' };
+      }
+
+      try {
+        if (utils && typeof utils.verifyPassword === 'function' && utils.verifyPassword(normalizedNew, existingHash)) {
+          return { success: false, error: 'New password must be different from the current password.', errorCode: 'PASSWORD_UNCHANGED' };
+        }
+      } catch (diffErr) {
+        console.warn('changePasswordWithSession: unable to compare password difference', diffErr);
+      }
+
+      const passwordHash = createNormalizedPasswordHash(normalizedNew);
+      setColumnValue(rowContext, 'PasswordHash', passwordHash);
+
+      clearColumns(rowContext, [
+        'ResetPasswordToken',
+        'ResetPasswordTokenHash',
+        'ResetPasswordSentAt',
+        'ResetPasswordExpiresAt'
+      ]);
+
+      if (hasColumn(rowContext, 'ResetRequired')) {
+        setColumnValue(rowContext, 'ResetRequired', toSheetBoolean(false));
+      }
+
+      if (hasColumn(rowContext, 'SecurityStamp')) {
+        setColumnValue(rowContext, 'SecurityStamp', Utilities.getUuid());
+      }
+
+      applyTimestamp(rowContext);
+      invalidateUsersCache();
+
+      return { success: true, message: 'Password updated successfully.' };
+    } catch (error) {
+      console.error('IdentityService.changePasswordWithSession error', error);
+      return { success: false, error: error.message || String(error) };
+    } finally {
+      try { lock.releaseLock(); } catch (releaseErr) { console.warn('changePasswordWithSession: releaseLock failed', releaseErr); }
     }
   }
 
@@ -640,6 +820,7 @@ var IdentityService = (function () {
     resendEmailConfirmation: resendEmailConfirmation,
     beginPasswordReset: beginPasswordReset,
     resetPassword: resetPassword,
+    changePasswordWithSession: changePasswordWithSession,
     signIn: signIn,
     verifyTwoFactorCode: verifyTwoFactorCode,
     signOut: signOut,
@@ -765,6 +946,15 @@ function setPasswordWithToken(token, newPassword) {
     };
   } catch (error) {
     console.error('setPasswordWithToken error', error);
+    return { success: false, error: error.message || String(error) };
+  }
+}
+
+function changePasswordForSession(sessionToken, currentPassword, newPassword) {
+  try {
+    return IdentityService.changePasswordWithSession(sessionToken, currentPassword, newPassword);
+  } catch (error) {
+    console.error('changePasswordForSession error', error);
     return { success: false, error: error.message || String(error) };
   }
 }

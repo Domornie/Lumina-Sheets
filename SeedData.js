@@ -443,7 +443,9 @@ function setUserPasswordDirect(userId, password) {
   const resetIdx = headers.indexOf('ResetRequired');
   const updatedIdx = headers.indexOf('UpdatedAt');
 
-  const hash = PASSWORD_UTILS.hashPassword(password);
+  const hash = (typeof PASSWORD_UTILS.createPasswordHash === 'function')
+    ? PASSWORD_UTILS.createPasswordHash(password)
+    : PASSWORD_UTILS.hashPassword(password);
   const now = new Date();
 
   for (let r = 1; r < data.length; r++) {
