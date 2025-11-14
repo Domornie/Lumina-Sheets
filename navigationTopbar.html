@@ -49,6 +49,156 @@
   var campaignNameValue = (typeof campaignName !== 'undefined' && campaignName) ? campaignName : '';
   var isAdminValue = Boolean(isAdmin);
 
+  var sidebarVisibleValue = true;
+  if (typeof sidebarVisible !== 'undefined') {
+    if (typeof sidebarVisible === 'string') {
+      var sidebarText = sidebarVisible.trim().toLowerCase();
+      sidebarVisibleValue = !(sidebarText === 'false' || sidebarText === '0' || sidebarText === 'no' || sidebarText === 'off');
+    } else {
+      sidebarVisibleValue = !!sidebarVisible;
+    }
+  }
+
+  var navigationConfig = navigation && typeof navigation === 'object'
+    ? navigation
+    : { categories: [], uncategorizedPages: [] };
+
+  function normalizeNavPage(page) {
+    if (!page) {
+      return null;
+    }
+
+    var key = page.key || page.PageKey || page.pageKey || '';
+    var title = page.title || page.PageTitle || page.pageTitle || '';
+    if (!key || !title) {
+      return null;
+    }
+
+    return {
+      key: key,
+      title: title,
+      icon: page.icon || page.PageIcon || page.pageIcon || 'fas fa-file',
+      description: page.description || page.PageDescription || page.pageDescription || title
+    };
+  }
+
+  var navSections = [];
+  var navSeenKeys = Object.create(null);
+
+  function addNavSection(name, icon, pages) {
+    if (!Array.isArray(pages) || !pages.length) {
+      return;
+    }
+
+    var normalizedPages = [];
+    pages.forEach(function(page) {
+      var normalized = normalizeNavPage(page);
+      if (!normalized) {
+        return;
+      }
+
+      var keyLower = normalized.key.toLowerCase();
+      if (navSeenKeys[keyLower]) {
+        return;
+      }
+
+      navSeenKeys[keyLower] = true;
+      normalizedPages.push(normalized);
+    });
+
+    if (!normalizedPages.length) {
+      return;
+    }
+
+    navSections.push({
+      name: name || 'Navigation',
+      icon: icon || 'fas fa-folder',
+      pages: normalizedPages
+    });
+  }
+
+  if (!sidebarVisibleValue) {
+    addNavSection('Agent Tools', 'fas fa-user-gear', [
+      {
+        key: 'agent-experience',
+        title: 'Agent Experience',
+        icon: 'fas fa-user-headset',
+        description: 'Personalized workspace for agents'
+      },
+      {
+        key: 'userprofile',
+        title: 'My Profile',
+        icon: 'fas fa-id-badge',
+        description: 'Review and update your profile'
+      }
+    ]);
+
+    (navigationConfig.categories || []).forEach(function(category) {
+      var categoryPages = (category && (category.pages || category.Pages)) || [];
+      var sectionPages = categoryPages.map(normalizeNavPage).filter(Boolean);
+      addNavSection(
+        category && (category.CategoryName || category.categoryName) || 'Workspace',
+        category && (category.CategoryIcon || category.categoryIcon) || 'fas fa-folder',
+        sectionPages
+      );
+    });
+
+    addNavSection('Other', 'fas fa-list', (navigationConfig.uncategorizedPages || []).map(normalizeNavPage));
+
+    addNavSection('Global', 'fas fa-globe', [
+      {
+        key: 'chat',
+        title: 'Chat',
+        icon: 'fas fa-comments',
+        description: 'Team chat and announcements'
+      },
+      {
+        key: 'collaboration-reporting',
+        title: 'Collab & Reporting',
+        icon: 'fas fa-diagram-project',
+        description: 'Collaboration & reporting hub'
+      },
+      {
+        key: 'search',
+        title: 'Search',
+        icon: 'fas fa-search',
+        description: 'Search knowledge and dashboards'
+      },
+      {
+        key: 'bookmarks',
+        title: 'Bookmarks',
+        icon: 'fas fa-bookmark',
+        description: 'Quick access to saved links'
+      }
+    ]);
+
+    if (isAdminValue) {
+      addNavSection('Administration', 'fas fa-shield-alt', [
+        {
+          key: 'manageuser',
+          title: 'Users',
+          icon: 'fas fa-users',
+          description: 'Manage LuminaHQ users'
+        },
+        {
+          key: 'manageroles',
+          title: 'Roles',
+          icon: 'fas fa-user-shield',
+          description: 'Manage access roles'
+        },
+        {
+          key: 'managecampaign',
+          title: 'Campaigns',
+          icon: 'fas fa-bullhorn',
+          description: 'Manage campaign records'
+        }
+      ]);
+    }
+  }
+
+  var showNavigationDropdown = !sidebarVisibleValue && navSections.length > 0;
+  var currentPageToken = String(currentPageValue || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
   function generateLink(page) {
     var target = __topbarLinkBase;
     if (!target) {
@@ -73,6 +223,53 @@
     <i class="fas fa-chevron-right"></i>
     <span class="current-page"><?= currentPageValue ?></span>
   </div>
+
+  <? if (showNavigationDropdown) { ?>
+  <div class="topbar-agent-nav" data-agent-nav data-open="false">
+    <button class="agent-nav-toggle" type="button" data-agent-nav-toggle aria-haspopup="true"
+      aria-expanded="false" aria-controls="agentNavDropdown">
+      <i class="fas fa-compass"></i>
+      <span>Navigation</span>
+      <i class="fas fa-chevron-down"></i>
+    </button>
+
+    <div class="agent-nav-dropdown" id="agentNavDropdown" hidden data-agent-nav-dropdown>
+      <? navSections.forEach(function(section) { ?>
+      <div class="agent-nav-section">
+        <div class="agent-nav-section-header">
+          <i class="<?= section.icon ?>"></i>
+          <span><?= section.name ?></span>
+        </div>
+        <div class="agent-nav-links">
+          <? section.pages.forEach(function(page) {
+               var pageKeyToken = (page.key || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+               var pageTitleToken = (page.title || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+               var isActive = (currentPageValue === page.key)
+                 || (currentPageValue === page.title)
+                 || (pageKeyToken && pageKeyToken === currentPageToken)
+                 || (pageTitleToken && pageTitleToken === currentPageToken);
+          ?>
+          <a href="<?= generateLink(page.key) ?>"
+            class="agent-nav-link <?= isActive ? 'active' : '' ?>"
+            data-page-key="<?= page.key ?>"
+            data-menu-close="true">
+            <div class="agent-nav-link-icon">
+              <i class="<?= page.icon ?>"></i>
+            </div>
+            <div class="agent-nav-link-body">
+              <span class="agent-nav-link-title"><?= page.title ?></span>
+              <? if (page.description) { ?>
+              <span class="agent-nav-link-description"><?= page.description ?></span>
+              <? } ?>
+            </div>
+          </a>
+          <? }); ?>
+        </div>
+      </div>
+      <? }); ?>
+    </div>
+  </div>
+  <? } ?>
 
   <div class="top-actions">
     <button class="notification-btn top-actions__notification" data-topbar-action="notifications"

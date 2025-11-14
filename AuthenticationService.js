@@ -4743,7 +4743,7 @@ var AuthenticationService = (function () {
         || textHas(combinedPersonaText, agentPatterns);
 
       if (isAgent) {
-        return 'userprofile';
+        return 'agent-experience';
       }
 
       const isGuest = hasPage('collaborationreporting')
