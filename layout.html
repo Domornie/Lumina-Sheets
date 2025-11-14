@@ -2054,6 +2054,31 @@
       left: var(--sidebar-collapsed);
     }
 
+    body.layout-no-sidebar #topbar {
+      left: 0;
+      width: 100%;
+      gap: 1.25rem;
+      flex-wrap: wrap;
+    }
+
+    body.layout-no-sidebar #topbar .breadcrumb-nav {
+      order: 1;
+    }
+
+    body.layout-no-sidebar #topbar .topbar-agent-nav {
+      order: 2;
+      margin-left: 0;
+    }
+
+    body.layout-no-sidebar #topbar .top-actions {
+      order: 3;
+      margin-left: auto;
+    }
+
+    body.layout-no-sidebar #mobileToggle {
+      display: none !important;
+    }
+
     .topbar-toggle {
       background: none;
       border: none;
@@ -2094,6 +2119,138 @@
     .breadcrumb-nav i {
       opacity: 0.6;
       font-size: 0.875rem;
+    }
+
+    .topbar-agent-nav {
+      position: relative;
+      margin-left: 1.5rem;
+      display: flex;
+      align-items: center;
+    }
+
+    .agent-nav-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      background: var(--topbar-icon-bg);
+      border: 1px solid var(--topbar-icon-border);
+      color: var(--topbar-text-strong);
+      font-weight: 600;
+      padding: 0.55rem 1rem;
+      border-radius: 999px;
+      transition: var(--transition-smooth);
+      font-size: 0.95rem;
+    }
+
+    .agent-nav-toggle i {
+      font-size: 0.95rem;
+    }
+
+    .agent-nav-toggle:hover,
+    .topbar-agent-nav[data-open="true"] .agent-nav-toggle {
+      background: var(--topbar-icon-hover-bg);
+      border-color: var(--topbar-icon-hover-border);
+      color: var(--topbar-icon-hover-color);
+    }
+
+    .agent-nav-dropdown {
+      position: absolute;
+      top: calc(100% + 0.65rem);
+      left: 0;
+      min-width: min(340px, 80vw);
+      max-height: min(70vh, 540px);
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      padding: 1rem;
+      border-radius: 16px;
+      background: var(--topbar-bg);
+      border: 1px solid var(--topbar-border);
+      box-shadow: 0 24px 48px rgba(15, 23, 42, 0.18);
+      z-index: 1300;
+    }
+
+    .agent-nav-dropdown[hidden] {
+      display: none !important;
+    }
+
+    .agent-nav-section {
+      display: flex;
+      flex-direction: column;
+      gap: 0.45rem;
+    }
+
+    .agent-nav-section-header {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.85rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--topbar-text-muted);
+    }
+
+    .agent-nav-links {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+
+    .agent-nav-link {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      padding: 0.65rem 0.75rem;
+      border-radius: 12px;
+      color: var(--topbar-text-strong);
+      text-decoration: none;
+      transition: var(--transition-smooth);
+      border: 1px solid transparent;
+    }
+
+    .agent-nav-link:hover {
+      background: rgba(14, 165, 233, 0.08);
+      border-color: rgba(14, 165, 233, 0.25);
+      color: var(--topbar-text-strong);
+    }
+
+    .agent-nav-link.active {
+      background: rgba(14, 165, 233, 0.12);
+      border-color: rgba(14, 165, 233, 0.3);
+    }
+
+    .agent-nav-link-icon {
+      flex-shrink: 0;
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(14, 165, 233, 0.12);
+      color: var(--primary);
+      font-size: 1rem;
+    }
+
+    .agent-nav-link-body {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .agent-nav-link-title {
+      font-weight: 600;
+      display: block;
+      font-size: 0.95rem;
+    }
+
+    .agent-nav-link-description {
+      display: block;
+      font-size: 0.8rem;
+      color: var(--topbar-text-muted);
+      line-height: 1.35;
+      margin-top: 0.15rem;
     }
 
 
@@ -2461,6 +2618,15 @@
       margin-left: calc(var(--sidebar-collapsed) + 0.3rem);
     }
 
+    body.layout-no-sidebar #maincontent {
+      margin-left: clamp(0.75rem, 3vw, 1.5rem);
+      margin-right: clamp(0.75rem, 3vw, 1.5rem);
+    }
+
+    body.layout-no-sidebar .mobile-overlay {
+      display: none;
+    }
+
     /* Unified global page banner */
     .lumina-banner {
       position: relative;
@@ -2800,9 +2966,13 @@
 </head>
 
 <body
+  <? if (__layoutBodyClassAttr) { ?>
+  class="<?= __layoutBodyClassAttr ?>"
+  <? } ?>
   data-theme="light"
   data-page-slug="<?!= __layoutSlugCandidate ?>"
   data-return-url="<?!= __layoutRawReturnUrl ?>"
+  data-sidebar-visible="<?!= __layoutSidebarVisibleAttr ?>"
 >
   <?
     // Shared layout context so navigation components can stay in sync
@@ -2893,6 +3063,91 @@
       __layoutRoleNames = ['System Administrator'];
     }
 
+    function __layoutMatchToken(value) {
+      if (value === null || typeof value === 'undefined') {
+        return '';
+      }
+      return String(value)
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, '');
+    }
+
+    var __layoutHasAgentRole = Array.isArray(__layoutRoleNames) && __layoutRoleNames.some(function (roleName) {
+      if (!roleName && roleName !== 0) {
+        return false;
+      }
+      return String(roleName).toLowerCase().indexOf('agent') !== -1;
+    });
+
+    var __layoutSidebarPreference = '';
+    if (typeof sidebarMode !== 'undefined' && sidebarMode !== null && sidebarMode !== '') {
+      __layoutSidebarPreference = String(sidebarMode).toLowerCase();
+    } else if (typeof hideSidebar !== 'undefined' && hideSidebar) {
+      __layoutSidebarPreference = 'hidden';
+    }
+
+    var __layoutPageTokenCandidates = [
+      __layoutCurrentPageName,
+      (typeof pageSlug !== 'undefined' && pageSlug) ? pageSlug : '',
+      __layoutSlugCandidate,
+      __layoutPageTitleText
+    ];
+
+    var __layoutCurrentPageToken = '';
+    for (var __layoutTokenIndex = 0; __layoutTokenIndex < __layoutPageTokenCandidates.length; __layoutTokenIndex++) {
+      var __layoutCandidateToken = __layoutMatchToken(__layoutPageTokenCandidates[__layoutTokenIndex]);
+      if (__layoutCandidateToken) {
+        __layoutCurrentPageToken = __layoutCandidateToken;
+        break;
+      }
+    }
+
+    var __layoutAgentPageTokens = {
+      agentexperience: true,
+      workspaceagent: true
+    };
+
+    var __layoutShowSidebar = true;
+    if (__layoutSidebarPreference === 'hidden' || __layoutSidebarPreference === 'none') {
+      __layoutShowSidebar = false;
+    }
+
+    if (__layoutShowSidebar && !__layoutSidebarPreference) {
+      if (__layoutAgentPageTokens[__layoutCurrentPageToken] && __layoutHasAgentRole) {
+        __layoutShowSidebar = false;
+      }
+    }
+
+    var __layoutSidebarVisibleAttr = __layoutShowSidebar ? 'true' : 'false';
+
+    var __layoutBodyClassAttr = '';
+    (function () {
+      var classes = [];
+      if (typeof bodyClass !== 'undefined' && bodyClass) {
+        String(bodyClass)
+          .split(/\s+/)
+          .forEach(function (cls) {
+            var trimmed = String(cls || '').trim();
+            if (trimmed) {
+              classes.push(trimmed);
+            }
+          });
+      }
+
+      if (!__layoutShowSidebar) {
+        classes.push('layout-no-sidebar');
+      }
+
+      var seen = Object.create(null);
+      __layoutBodyClassAttr = classes.filter(function (cls) {
+        if (!cls || seen[cls]) {
+          return false;
+        }
+        seen[cls] = true;
+        return true;
+      }).join(' ');
+    })();
+
     function __layoutFormatEmployment(status) {
       if (!status) {
         return { status: '', cls: '', icon: 'fas fa-briefcase' };
@@ -2937,25 +3192,29 @@
 
   <div class="mobile-overlay" id="mobileOverlay"></div>
 
-  <?!= include('navigationSidebar', {
-        baseUrl: (typeof baseUrl !== 'undefined') ? baseUrl : '',
-        scriptUrl: (typeof scriptUrl !== 'undefined') ? scriptUrl : ((typeof baseUrl !== 'undefined') ? baseUrl : ''),
-        currentPage: typeof currentPage !== 'undefined' ? currentPage : '',
-        user: __layoutUser || {},
-        isAdmin: __layoutIsAdmin,
-        campaignId: __layoutCampaignId,
-        campaignName: __layoutCampaignName,
-        roleNames: __layoutRoleNames,
-        navigation: __layoutNavigation,
-        employmentMeta: __layoutEmploymentMeta
-      }) ?>
+  <? if (__layoutShowSidebar) { ?>
+    <?!= include('navigationSidebar', {
+          baseUrl: (typeof baseUrl !== 'undefined') ? baseUrl : '',
+          scriptUrl: (typeof scriptUrl !== 'undefined') ? scriptUrl : ((typeof baseUrl !== 'undefined') ? baseUrl : ''),
+          currentPage: typeof currentPage !== 'undefined' ? currentPage : '',
+          user: __layoutUser || {},
+          isAdmin: __layoutIsAdmin,
+          campaignId: __layoutCampaignId,
+          campaignName: __layoutCampaignName,
+          roleNames: __layoutRoleNames,
+          navigation: __layoutNavigation,
+          employmentMeta: __layoutEmploymentMeta
+        }) ?>
+  <? } ?>
 
   <?!= include('navigationTopbar', {
         baseUrl: (typeof baseUrl !== 'undefined') ? baseUrl : '',
         scriptUrl: (typeof scriptUrl !== 'undefined') ? scriptUrl : ((typeof baseUrl !== 'undefined') ? baseUrl : ''),
         currentPage: typeof currentPage !== 'undefined' ? currentPage : '',
         campaignName: __layoutCampaignName,
-        isAdmin: __layoutIsAdmin
+        isAdmin: __layoutIsAdmin,
+        sidebarVisible: __layoutShowSidebar,
+        navigation: __layoutNavigation
       }) ?>
 
   
@@ -4763,6 +5022,64 @@
                 } else if (typeof topbarMenuBreakpoint.addListener === 'function') {
                     topbarMenuBreakpoint.addListener(handleTopbarMenuBreakpointChange);
                 }
+            }
+
+            const agentNav = document.querySelector('[data-agent-nav]');
+            const agentNavToggle = agentNav ? agentNav.querySelector('[data-agent-nav-toggle]') : null;
+            const agentNavDropdown = agentNav ? agentNav.querySelector('[data-agent-nav-dropdown]') : null;
+
+            const setAgentNavState = function(isOpen) {
+                if (!agentNav || !agentNavToggle || !agentNavDropdown) {
+                    return;
+                }
+
+                agentNav.setAttribute('data-open', isOpen ? 'true' : 'false');
+                if (isOpen) {
+                    agentNavDropdown.removeAttribute('hidden');
+                } else {
+                    agentNavDropdown.setAttribute('hidden', '');
+                }
+                agentNavToggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+            };
+
+            const closeAgentNav = function() {
+                setAgentNavState(false);
+            };
+
+            const openAgentNav = function() {
+                setAgentNavState(true);
+            };
+
+            if (agentNav && agentNavToggle && agentNavDropdown) {
+                agentNavToggle.addEventListener('click', function(event) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    const isOpen = agentNav.getAttribute('data-open') === 'true';
+                    if (isOpen) {
+                        closeAgentNav();
+                    } else {
+                        openAgentNav();
+                    }
+                });
+
+                agentNavDropdown.addEventListener('click', function(event) {
+                    const interactive = event.target && event.target.closest ? event.target.closest('[data-menu-close="true"]') : null;
+                    if (interactive) {
+                        closeAgentNav();
+                    }
+                });
+
+                document.addEventListener('click', function(event) {
+                    if (!agentNav.contains(event.target)) {
+                        closeAgentNav();
+                    }
+                });
+
+                document.addEventListener('keydown', function(event) {
+                    if (event.key === 'Escape') {
+                        closeAgentNav();
+                    }
+                });
             }
 
             const sidebar = document.getElementById('sidebar');
