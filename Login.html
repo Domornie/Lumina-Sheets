@@ -8,7 +8,18 @@
   <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
-  <title>Sign in · LuminaHQ</title>
+  <title>Login – LuminaHQ</title>
+
+  <?!= includeOnce('CookieHandler') ?>
+  <?!= includeOnce('layoutLoader') ?>
+  <?!= includeOnce('layoutAlerts') ?>
+<?!= includeOnce('ResponsiveStyles') ?>
+
+  <!-- Bootstrap 5 & FontAwesome -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/css/bootstrap.min.css" rel="stylesheet"
+    integrity="sha384-LN+7fdVzj6u52u30Kp6M/trliBMCMKTyK833zpbD+pXdCLuTusPj697FH4R/5mcr" crossorigin="anonymous">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+
   <style>
     :root {
       color-scheme: light dark;
@@ -328,7 +339,632 @@
       } else {
         setStatus('Use your LuminaHQ credentials to continue.');
       }
-    });
+    }
+
+    .form-check-input:focus {
+      box-shadow: 0 0 0 0.25rem rgba(0, 174, 239, 0.15);
+      border-color: var(--primary-blue);
+    }
+
+    .form-check-label {
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+
+    /* Loading State Enhancement */
+    .btn-loading {
+      position: relative;
+      color: transparent !important;
+    }
+
+    .btn-loading::after {
+      content: '';
+      position: absolute;
+      width: 1.2rem;
+      height: 1.2rem;
+      top: 50%;
+      left: 50%;
+      margin-left: -0.6rem;
+      margin-top: -0.6rem;
+      border: 2px solid #ffffff;
+      border-radius: 50%;
+      border-top-color: transparent;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    /* Success Icon Animation */
+    .success-icon {
+      animation: bounceIn 0.8s ease-out;
+    }
+
+    @keyframes bounceIn {
+      0% {
+        opacity: 0;
+        transform: scale(0.3);
+      }
+
+      50% {
+        opacity: 1;
+        transform: scale(1.05);
+      }
+
+      70% {
+        transform: scale(0.9);
+      }
+
+      100% {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+
+    /* Footer Links */
+    .footer-links {
+      margin-top: 0.75rem;
+    }
+
+    .footer-links a {
+      color: var(--text-muted);
+      text-decoration: none;
+      transition: var(--transition);
+      font-weight: 500;
+      font-size: 0.875rem;
+    }
+
+    .footer-links a:hover {
+      color: var(--text-secondary);
+      transform: translateY(-1px);
+    }
+
+    .security-tagline {
+      margin-top: 1rem;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      width: 100%;
+    }
+
+    .security-tagline .fa-lock {
+      color: var(--primary-blue);
+    }
+
+    /* Responsive Design */
+    @media (max-width: 767.98px) {
+      .form-column {
+        padding: 0 1.5rem;
+      }
+
+      .form-column::before {
+        display: none;
+      }
+
+      .login-container {
+        margin: 1rem;
+        padding: 2rem;
+      }
+
+      .consent-text {
+        text-align: center;
+      }
+
+      .logo-container img {
+        max-width: 260px;
+      }
+
+      .welcome-text h1 {
+        font-size: 2rem;
+      }
+
+      .redirect-button {
+        padding: 1rem 2rem;
+        font-size: 1rem;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .form-column {
+        padding: 0;
+      }
+
+      .login-container {
+        margin: 0.5rem;
+        padding: 1.5rem;
+      }
+
+      .form-control {
+        padding: 0.875rem 1rem;
+      }
+
+      .btn-primary {
+        padding: 0.875rem 1.5rem;
+      }
+
+      .welcome-text h1 {
+        font-size: 1.65rem;
+      }
+    }
+  </style>
+</head>
+
+<body class="bg-light" data-public-page="true">
+
+  <div class="container-fluid h-100 page-wrapper px-0">
+    <div class="row h-100 g-0 align-items-stretch">
+
+      <!-- LEFT: Hero / Feature Panel -->
+      <div class="col-lg-5 col-xl-6 d-none d-lg-flex align-items-center justify-content-center feature-panel">
+        <div class="feature-content text-center text-lg-start">
+          <span class="feature-badge">
+            <i class="fas fa-sparkles"></i> Lumina HQ Platform
+          </span>
+          <h2 class="feature-heading">Centralized clarity & collaboration</h2>
+          <p class="feature-text">Monitor performance, coach your teams, and orchestrate quality programs in one collaborative workspace.</p>
+          <ul class="feature-list">
+            <li><i class="fas fa-chart-line"></i><span>Real-time insight into quality, productivity, and coaching impact.</span></li>
+            <li><i class="fas fa-people-group"></i><span>Streamlined workflows that keep support, QA, and operations aligned.</span></li>
+            <li><i class="fas fa-shield-check"></i><span>Enterprise-grade controls to protect sensitive customer data.</span></li>
+          </ul>
+          <div class="feature-illustration">
+            <img src="https://res.cloudinary.com/dr8qd3xfc/image/upload/v1743438226/vlbpo/huowvct9gus48rwy8sfy.svg"
+                 alt="Team collaboration illustration" loading="lazy">
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT: Login Form -->
+      <div class="col-lg-7 col-xl-6 d-flex align-items-center justify-content-center bg-light form-column">
+        <div class="login-container">
+          <div class="login-body">
+
+          <!-- Logo Section -->
+          <div class="logo-container">
+            <img src="https://res.cloudinary.com/dr8qd3xfc/image/upload/v1754763514/vlbpo/lumina/2_eb1h4a.png"
+                 alt="LuminaHQ" class="img-fluid" loading="lazy">
+          </div>
+
+          <div class="welcome-text">
+            <h1>Welcome back</h1>
+            <p>Log in to access your LuminaHQ operations hub.</p>
+          </div>
+
+          <!-- Enhanced Alerts -->
+          <div id="successAlert" class="alert alert-modern alert-success d-none" role="alert">
+            <i class="fas fa-check-circle me-2"></i><span id="successMessage"></span>
+          </div>
+          <div id="errorAlert" class="alert alert-modern alert-danger d-none" role="alert">
+            <i class="fas fa-exclamation-triangle me-2"></i><span id="errorMessage"></span>
+          </div>
+          <div id="warningAlert" class="alert alert-modern alert-warning d-none" role="alert">
+            <i class="fas fa-exclamation-circle me-2"></i><span id="warningMessage"></span>
+          </div>
+          <div id="infoAlert" class="alert alert-modern alert-info d-none" role="alert">
+            <i class="fas fa-info-circle me-2"></i><span id="infoMessage"></span>
+          </div>
+
+          <div id="nextStepsCard" class="next-steps-card d-none" data-tone="info">
+            <div class="next-steps-header">
+              <div id="nextStepsIcon" class="next-steps-icon" data-tone="info">
+                <i class="fas fa-lightbulb"></i>
+              </div>
+              <div>
+                <h5 id="nextStepsTitle" class="mb-1">Need help signing in?</h5>
+                <p id="nextStepsSubtitle" class="mb-0 text-muted small"></p>
+              </div>
+            </div>
+            <p id="nextStepsBody" class="next-steps-body mb-3"></p>
+            <div id="nextStepsActions" class="d-flex flex-column flex-md-row gap-2"></div>
+          </div>
+
+          <div id="deviceVerificationModal" class="device-modal" aria-hidden="true">
+            <div class="device-modal-backdrop"></div>
+            <div class="device-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="deviceVerificationTitle">
+              <span class="badge bg-warning-subtle text-warning-emphasis mb-3" id="deviceVerificationBadge">
+                <i class="fas fa-shield-halved me-1"></i> Security Check
+              </span>
+              <h4 id="deviceVerificationTitle" class="device-modal-title">Confirm this sign-in</h4>
+              <p id="deviceVerificationMessage" class="device-modal-body">
+                We sent a verification code to your email address to confirm this device.
+              </p>
+              <ul id="deviceVerificationMeta" class="device-meta-list"></ul>
+              <div class="mb-3">
+                <label for="deviceVerificationCode" class="form-label">Verification code</label>
+                <input type="text" id="deviceVerificationCode" class="form-control device-modal-code-input"
+                       autocomplete="one-time-code" inputmode="numeric" maxlength="8"
+                       placeholder="Enter the code">
+              </div>
+              <div id="deviceVerificationError" class="device-modal-error"></div>
+              <div class="device-modal-actions">
+                <button type="button" id="deviceVerificationConfirmBtn" class="btn btn-primary flex-grow-1">
+                  <i class="fas fa-paper-plane me-2"></i>Submit code
+                </button>
+              </div>
+              <button type="button" id="deviceVerificationCancelBtn" class="btn btn-link text-muted mt-3 p-0">
+                Use a different account
+              </button>
+            </div>
+          </div>
+
+          <!-- Login Form -->
+          <form id="loginForm">
+            <div class="mb-3">
+              <label for="email" class="form-label">Email Address</label>
+              <input type="email" id="email" class="form-control"
+                     placeholder="Enter your email" required autocomplete="email">
+            </div>
+            <div class="mb-3">
+              <label for="password" class="form-label">Password</label>
+              <div class="password-field">
+                <input type="password" id="password" class="form-control"
+                       placeholder="Enter your password" required autocomplete="current-password">
+                <button type="button" class="password-toggle" onclick="togglePassword()" title="Show/Hide Password">
+                  <i class="fas fa-eye" id="passwordIcon"></i>
+                </button>
+              </div>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="rememberMe">
+              <label class="form-check-label" for="rememberMe">
+                Remember me for 24 hours
+              </label>
+            </div>
+            <div id="mfaSection" class="mfa-section">
+              <div class="mb-3">
+                <label for="mfaCode" class="form-label">Authentication Code</label>
+                <input type="text" id="mfaCode" class="form-control" placeholder="Enter verification code"
+                       autocomplete="one-time-code" inputmode="numeric">
+              </div>
+              <div class="d-flex flex-column flex-md-row gap-2">
+                <button type="button" id="verifyMfaBtn" class="btn btn-primary flex-grow-1">
+                  <i class="fas fa-shield-check me-2"></i>Verify Code
+                </button>
+                <button type="button" id="resendMfaBtn" class="btn btn-outline-secondary">
+                  <i class="fas fa-paper-plane me-2"></i>Resend Code
+                </button>
+              </div>
+              <div id="mfaMessage" class="mfa-message mt-3 text-muted"></div>
+            </div>
+            <div class="d-grid">
+              <button type="submit" id="loginBtn" class="btn btn-primary btn-lg">
+                <i class="fas fa-sign-in-alt me-2"></i>Log in
+              </button>
+            </div>
+            <div id="feedback" class="text-danger small"></div>
+          </form>
+
+          <!-- Forgot Password Link -->
+          <div class="text-center">
+            <a href="<?= baseUrl ?>?page=forgotpassword" class="link-primary">
+              <i class="fas fa-question-circle me-2"></i>Forgot your password?
+            </a>
+          </div>
+
+          </div>
+
+          <div class="login-footer">
+            <p class="consent-text text-center">
+              By clicking <strong>Log in</strong>, you agree to our <a href="<?= baseUrl ?>?page=terms-of-service" target="_blank" rel="noopener">Terms &amp; Conditions</a> and acknowledge our <a href="<?= baseUrl ?>?page=privacy-policy" target="_blank" rel="noopener">Privacy Policy</a> on how we collect and handle data.
+            </p>
+
+            <p class="security-tagline">
+              <i class="fas fa-lock"></i>
+              Secure by Lumina Identity
+            </p>
+
+            <div class="footer-links text-center">
+              <a href="<?= baseUrl ?>?page=privacy-policy" class="small" target="_blank" rel="noopener">Privacy Policy</a>
+              <span class="small mx-2 text-muted">•</span>
+              <a href="<?= baseUrl ?>?page=terms-of-service" class="small" target="_blank" rel="noopener">Terms of Service</a>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+
+  <script>
+    (function () {
+      const CONFIG = {
+        baseUrl: <?= JSON.stringify(baseUrl || '') ?>,
+        cookieName: <?= JSON.stringify(cookieName) ?>,
+        tokenTtlMinutes: <?= tokenTtlMinutes ?>,
+        dashboardPage: 'dashboard',
+        rememberStorageKey: 'lumina.auth.remember.email'
+      };
+
+      const selectors = {
+        form: document.getElementById('loginForm'),
+        email: document.getElementById('email'),
+        password: document.getElementById('password'),
+        rememberMe: document.getElementById('rememberMe'),
+        loginBtn: document.getElementById('loginBtn'),
+        feedback: document.getElementById('feedback'),
+        errorAlert: document.getElementById('errorAlert'),
+        errorMessage: document.getElementById('errorMessage'),
+        warningAlert: document.getElementById('warningAlert'),
+        warningMessage: document.getElementById('warningMessage'),
+        infoAlert: document.getElementById('infoAlert'),
+        infoMessage: document.getElementById('infoMessage'),
+        nextStepsCard: document.getElementById('nextStepsCard')
+      };
+
+      const state = {
+        submitting: false
+      };
+
+      function hideElement(element) {
+        if (!element) return;
+        element.classList.add('d-none');
+      }
+
+      function showElement(element) {
+        if (!element) return;
+        element.classList.remove('d-none');
+      }
+
+      function setAlert(type, message) {
+        const entries = [
+          ['error', selectors.errorAlert, selectors.errorMessage],
+          ['warning', selectors.warningAlert, selectors.warningMessage],
+          ['info', selectors.infoAlert, selectors.infoMessage]
+        ];
+
+        entries.forEach(([key, alertEl, messageEl]) => {
+          if (!alertEl) {
+            return;
+          }
+          if (key === type && message) {
+            if (messageEl) {
+              messageEl.textContent = message;
+            }
+            showElement(alertEl);
+          } else {
+            hideElement(alertEl);
+            if (messageEl) {
+              messageEl.textContent = '';
+            }
+          }
+        });
+
+        if (!type && selectors.nextStepsCard) {
+          hideElement(selectors.nextStepsCard);
+        }
+      }
+
+      function clearAlerts() {
+        setAlert(null, '');
+        if (selectors.feedback) {
+          selectors.feedback.textContent = '';
+        }
+      }
+
+      function setLoading(isLoading, message) {
+        state.submitting = !!isLoading;
+        if (!selectors.loginBtn) {
+          return;
+        }
+        selectors.loginBtn.disabled = !!isLoading;
+        selectors.loginBtn.innerHTML = isLoading
+          ? '<i class="fas fa-spinner fa-spin me-2"></i>' + (message || 'Signing in…')
+          : '<i class="fas fa-sign-in-alt me-2"></i>Log in';
+        if (isLoading && message) {
+          setAlert('info', message);
+        }
+      }
+
+      function readCookie(name) {
+        if (typeof document === 'undefined') {
+          return '';
+        }
+        const cookies = document.cookie ? document.cookie.split(';') : [];
+        for (let i = 0; i < cookies.length; i += 1) {
+          const part = cookies[i] ? cookies[i].trim() : '';
+          if (!part) {
+            continue;
+          }
+          if (part.indexOf(name + '=') === 0) {
+            return decodeURIComponent(part.substring(name.length + 1));
+          }
+        }
+        return '';
+      }
+
+      function clearCookie(name) {
+        if (typeof document === 'undefined') {
+          return;
+        }
+        document.cookie = `${name}=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax`;
+      }
+
+      function persistCookie(name, value, expiresAt, rememberMe) {
+        if (typeof document === 'undefined' || !value) {
+          return;
+        }
+        const expiry = expiresAt ? new Date(expiresAt) : new Date(Date.now() + CONFIG.tokenTtlMinutes * 60 * 1000);
+        const ttlMs = Math.max(expiry.getTime() - Date.now(), 5 * 60 * 1000);
+        const maxAgeSeconds = Math.max(60, Math.floor(ttlMs / 1000));
+        const rememberSeconds = 24 * 60 * 60;
+        const cookieMaxAge = rememberMe ? Math.max(maxAgeSeconds, rememberSeconds) : maxAgeSeconds;
+        const expires = new Date(Date.now() + cookieMaxAge * 1000);
+        const parts = [
+          `${name}=${encodeURIComponent(value)}`,
+          'path=/',
+          `max-age=${cookieMaxAge}`,
+          `expires=${expires.toUTCString()}`,
+          'SameSite=Lax'
+        ];
+        document.cookie = parts.join('; ');
+      }
+
+      function rememberEmail(email, enabled) {
+        if (!window.localStorage) {
+          return;
+        }
+        try {
+          if (enabled && email) {
+            localStorage.setItem(CONFIG.rememberStorageKey, email);
+          } else {
+            localStorage.removeItem(CONFIG.rememberStorageKey);
+          }
+        } catch (error) {
+          console.warn('rememberEmail failed', error);
+        }
+      }
+
+      function restoreRememberedEmail() {
+        if (!selectors.email || !window.localStorage) {
+          return;
+        }
+        try {
+          const saved = localStorage.getItem(CONFIG.rememberStorageKey);
+          if (saved) {
+            selectors.email.value = saved;
+            if (selectors.rememberMe) {
+              selectors.rememberMe.checked = true;
+            }
+          }
+        } catch (error) {
+          console.warn('restoreRememberedEmail failed', error);
+        }
+      }
+
+      function redirectToDashboard() {
+        const base = CONFIG.baseUrl || (window.location.origin + window.location.pathname);
+        const separator = base.indexOf('?') === -1 ? '?' : '&';
+        const target = `${base}${separator}page=${CONFIG.dashboardPage}`;
+        window.top.location.href = target;
+      }
+
+      function handleValidationResponse(response) {
+        if (response && response.valid) {
+          setLoading(true, 'Session active. Redirecting…');
+          setTimeout(redirectToDashboard, 400);
+          return;
+        }
+        if (response && response.reason === 'EXPIRED') {
+          clearCookie(CONFIG.cookieName);
+          setAlert('warning', 'Your session expired. Please sign in again.');
+        } else {
+          clearCookie(CONFIG.cookieName);
+        }
+        setLoading(false);
+      }
+
+      function handleValidationError(error) {
+        console.error('validateToken failed', error);
+        clearCookie(CONFIG.cookieName);
+        setLoading(false);
+      }
+
+      function validateExistingSession() {
+        const token = readCookie(CONFIG.cookieName);
+        if (!token) {
+          return;
+        }
+        setLoading(true, 'Validating your session…');
+        google.script.run
+          .withSuccessHandler(handleValidationResponse)
+          .withFailureHandler(handleValidationError)
+          .validateToken(token);
+      }
+
+      function handleLoginResponse(response, rememberMe) {
+        if (!response || !response.success || !response.token) {
+          const message = response && response.message ? response.message : 'Invalid username or password.';
+          setAlert('error', message);
+          setLoading(false);
+          clearCookie(CONFIG.cookieName);
+          return;
+        }
+
+        const persistRemember = (response && typeof response.rememberMe === 'boolean') ? response.rememberMe : rememberMe;
+        persistCookie(CONFIG.cookieName, response.token, response.expiresAt, persistRemember);
+        rememberEmail(selectors.email.value.trim(), persistRemember);
+        setLoading(true, 'Login successful. Redirecting…');
+        setAlert('info', 'Login successful. Redirecting…');
+        setTimeout(redirectToDashboard, 400);
+      }
+
+      function handleLoginError(error) {
+        console.error('authenticateUser failed', error);
+        const message = error && error.message ? error.message : 'Unable to sign in. Please try again.';
+        setAlert('error', message);
+        setLoading(false);
+      }
+
+      function onFormSubmit(event) {
+        event.preventDefault();
+        if (state.submitting) {
+          return;
+        }
+
+        clearAlerts();
+
+        const email = selectors.email ? selectors.email.value.trim() : '';
+        const password = selectors.password ? selectors.password.value : '';
+        const rememberMe = selectors.rememberMe ? selectors.rememberMe.checked : false;
+
+        if (!email || !password) {
+          setAlert('error', 'Enter your email and password to continue.');
+          return;
+        }
+
+        setLoading(true, 'Signing you in…');
+
+        google.script.run
+          .withSuccessHandler(function (response) {
+            handleLoginResponse(response, rememberMe);
+          })
+          .withFailureHandler(function (error) {
+            handleLoginError(error);
+          })
+          .authenticateUser(email, password, rememberMe);
+      }
+
+      function init() {
+        clearAlerts();
+        restoreRememberedEmail();
+        if (selectors.form) {
+          selectors.form.addEventListener('submit', onFormSubmit);
+        }
+        validateExistingSession();
+      }
+
+      window.togglePassword = function () {
+        const input = selectors.password;
+        if (!input) {
+          return;
+        }
+        const icon = document.getElementById('passwordIcon');
+        if (input.type === 'password') {
+          input.type = 'text';
+          if (icon) {
+            icon.classList.remove('fa-eye');
+            icon.classList.add('fa-eye-slash');
+          }
+        } else {
+          input.type = 'password';
+          if (icon) {
+            icon.classList.remove('fa-eye-slash');
+            icon.classList.add('fa-eye');
+          }
+        }
+      };
+
+      document.addEventListener('DOMContentLoaded', init);
+    })();
   </script>
 </body>
 

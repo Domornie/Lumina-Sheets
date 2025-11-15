@@ -1,6 +1,7 @@
 const AUTH_CONFIG = Object.freeze({
   COOKIE_NAME: 'lumina_auth_token',
   TOKEN_TTL_MINUTES: 60,
+  REMEMBER_ME_TTL_MINUTES: 24 * 60,
   SECRET_PROPERTY_KEY: 'AUTH_SIGNING_SECRET',
   TOKEN_PROPERTY_PREFIX: 'AUTH_TOKEN_',
   SECRET_LENGTH_BYTES: 48
@@ -34,17 +35,45 @@ function renderTemplate(name, data) {
     });
   }
 
+  if (TEMPLATE_INCLUDE_STATE && typeof TEMPLATE_INCLUDE_STATE === 'object') {
+    TEMPLATE_INCLUDE_STATE.once = Object.create(null);
+  }
+
   return template.evaluate()
     .setTitle('LuminaHQ')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
-function include(filename) {
-  return HtmlService.createHtmlOutputFromFile(filename).getContent();
+var TEMPLATE_INCLUDE_STATE = (typeof TEMPLATE_INCLUDE_STATE !== 'undefined' && TEMPLATE_INCLUDE_STATE)
+  ? TEMPLATE_INCLUDE_STATE
+  : { once: Object.create(null) };
+
+function include(filename, data) {
+  if (!filename) {
+    return '';
+  }
+  var tpl = HtmlService.createTemplateFromFile(filename);
+  if (data && typeof data === 'object') {
+    Object.keys(data).forEach(function (key) {
+      tpl[key] = data[key];
+    });
+  }
+  return tpl.evaluate().getContent();
 }
 
-function loginUser(email, password) {
+function includeOnce(filename, data) {
+  if (!filename) {
+    return '';
+  }
+  if (TEMPLATE_INCLUDE_STATE.once[filename]) {
+    return '';
+  }
+  TEMPLATE_INCLUDE_STATE.once[filename] = true;
+  return include(filename, data);
+}
+
+function authenticateUser(email, password, rememberMe) {
   if (!email || !password) {
     return { success: false, message: 'Enter your email and password.' };
   }
@@ -80,11 +109,13 @@ function loginUser(email, password) {
     return { success: false, message: 'Invalid username or password.' };
   }
 
-  var tokenInfo = issueAuthToken(resolution.user);
+  var tokenInfo = issueAuthToken(resolution.user, { rememberMe: !!rememberMe });
   return {
     success: true,
     token: tokenInfo.token,
     expiresAt: tokenInfo.expiresAt,
+    ttlMinutes: tokenInfo.ttlMinutes,
+    rememberMe: tokenInfo.rememberMe,
     user: {
       id: resolution.user.id,
       email: resolution.user.email,
@@ -119,9 +150,13 @@ function logoutUser(token) {
   return { success: true };
 }
 
-function issueAuthToken(user) {
+function issueAuthToken(user, options) {
   var now = new Date();
-  var expires = new Date(now.getTime() + AUTH_CONFIG.TOKEN_TTL_MINUTES * 60 * 1000);
+  var ttlMinutes = AUTH_CONFIG.TOKEN_TTL_MINUTES;
+  if (options && options.rememberMe) {
+    ttlMinutes = AUTH_CONFIG.REMEMBER_ME_TTL_MINUTES;
+  }
+  var expires = new Date(now.getTime() + ttlMinutes * 60 * 1000);
   var payload = {
     uid: user.id,
     email: user.email,
@@ -138,12 +173,15 @@ function issueAuthToken(user) {
   storeTokenRecord({
     jti: payload.jti,
     uid: user.id,
-    expiresAt: payload.exp
+    expiresAt: payload.exp,
+    rememberMe: !!(options && options.rememberMe)
   });
 
   return {
     token: token,
-    expiresAt: new Date(payload.exp).toISOString()
+    expiresAt: new Date(payload.exp).toISOString(),
+    ttlMinutes: ttlMinutes,
+    rememberMe: !!(options && options.rememberMe)
   };
 }
 
@@ -187,6 +225,7 @@ function verifyToken(token) {
     valid: true,
     token: token,
     expiresAt: new Date(payload.exp).toISOString(),
+    rememberMe: !!(record && record.rememberMe),
     user: {
       id: user.id,
       email: user.email,
@@ -240,10 +279,22 @@ function getSigningKey() {
     return Utilities.base64Decode(existing);
   }
 
-  var randomBytes = Utilities.getRandomBytes(AUTH_CONFIG.SECRET_LENGTH_BYTES);
+  var randomBytes = generateRandomBytes(AUTH_CONFIG.SECRET_LENGTH_BYTES);
   var encoded = Utilities.base64Encode(randomBytes);
   props.setProperty(AUTH_CONFIG.SECRET_PROPERTY_KEY, encoded);
   return randomBytes;
+}
+
+function generateRandomBytes(length) {
+  var bytes = [];
+  while (bytes.length < length) {
+    var seed = Utilities.getUuid() + ':' + Date.now() + ':' + Math.random();
+    var digest = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, seed);
+    for (var i = 0; i < digest.length && bytes.length < length; i++) {
+      bytes.push(digest[i]);
+    }
+  }
+  return bytes.slice(0, length);
 }
 
 function storeTokenRecord(record) {
