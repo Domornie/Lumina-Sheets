@@ -360,52 +360,7 @@ function checkRealtimeUpdatesJob() {
   props.setProperty(REALTIME_JOB_STATUS_PROP, 'running');
 
   try {
-    var handlers = getRealtimeUpdateHandlers();
-    if (!handlers.length) {
-      console.log('[checkRealtimeUpdatesJob] No realtime handlers registered; exiting early.');
-      props.setProperty(REALTIME_JOB_STATUS_PROP, 'idle');
-      props.setProperty(REALTIME_JOB_LAST_SUCCESS_PROP, String(Date.now()));
-      return;
-    }
-
-    var start = now;
-    var iteration = 0;
-    var hasMoreWork = true;
-    var workPerformed = false;
-    while (hasMoreWork && Date.now() - start < config.maxRuntimeMs) {
-      hasMoreWork = false;
-      for (var i = 0; i < handlers.length; i++) {
-        var handler = handlers[i];
-        var handlerHasMore = false;
-        try {
-          handlerHasMore = runRealtimeUpdateHandler(handler, iteration, config);
-        } catch (handlerError) {
-          if (typeof logError === 'function') {
-            logError('checkRealtimeUpdatesJob.handler', handlerError);
-          } else {
-            console.error('[checkRealtimeUpdatesJob] Handler error', handlerError);
-          }
-        }
-        if (handlerHasMore) {
-          hasMoreWork = true;
-          workPerformed = true;
-        }
-      }
-      iteration++;
-      if (hasMoreWork && config.sleepMs > 0) {
-        Utilities.sleep(config.sleepMs);
-      }
-    }
-
-    if (!workPerformed) {
-      console.log('[checkRealtimeUpdatesJob] No realtime updates were processed during this window.');
-    } else if (hasMoreWork) {
-      console.log('[checkRealtimeUpdatesJob] Max runtime reached; remaining work will continue on the next trigger.');
-    }
-
-    props.setProperty(REALTIME_JOB_STATUS_PROP, 'idle');
-    props.setProperty(REALTIME_JOB_LAST_SUCCESS_PROP, String(Date.now()));
-    props.setProperty('REALTIME_JOB_LAST_ITERATIONS', String(iteration));
+    runRealtimeJob(props, now, config);
   } catch (error) {
     var message = (error && error.message) ? error.message : String(error);
     props.setProperty(REALTIME_JOB_STATUS_PROP, 'error:' + message);
@@ -418,6 +373,56 @@ function checkRealtimeUpdatesJob() {
   } finally {
     lock.releaseLock();
   }
+}
+
+function runRealtimeJob(props, now, config) {
+  var handlers = getRealtimeUpdateHandlers();
+  if (!handlers.length) {
+    console.log('[checkRealtimeUpdatesJob] No realtime handlers registered; exiting early.');
+    props.setProperty(REALTIME_JOB_STATUS_PROP, 'idle');
+    props.setProperty(REALTIME_JOB_LAST_SUCCESS_PROP, String(Date.now()));
+    return;
+  }
+
+  var start = now;
+  var iteration = 0;
+  var hasMoreWork = true;
+  var workPerformed = false;
+
+  while (hasMoreWork && Date.now() - start < config.maxRuntimeMs) {
+    hasMoreWork = false;
+    for (var i = 0; i < handlers.length; i++) {
+      var handler = handlers[i];
+      var handlerHasMore = false;
+      try {
+        handlerHasMore = runRealtimeUpdateHandler(handler, iteration, config);
+      } catch (handlerError) {
+        if (typeof logError === 'function') {
+          logError('checkRealtimeUpdatesJob.handler', handlerError);
+        } else {
+          console.error('[checkRealtimeUpdatesJob] Handler error', handlerError);
+        }
+      }
+      if (handlerHasMore) {
+        hasMoreWork = true;
+        workPerformed = true;
+      }
+    }
+    iteration++;
+    if (hasMoreWork && config.sleepMs > 0) {
+      Utilities.sleep(config.sleepMs);
+    }
+  }
+
+  if (!workPerformed) {
+    console.log('[checkRealtimeUpdatesJob] No realtime updates were processed during this window.');
+  } else if (hasMoreWork) {
+    console.log('[checkRealtimeUpdatesJob] Max runtime reached; remaining work will continue on the next trigger.');
+  }
+
+  props.setProperty(REALTIME_JOB_STATUS_PROP, 'idle');
+  props.setProperty(REALTIME_JOB_LAST_SUCCESS_PROP, String(Date.now()));
+  props.setProperty('REALTIME_JOB_LAST_ITERATIONS', String(iteration));
 }
 
 /**
