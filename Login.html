@@ -21,761 +21,323 @@
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
 
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-
     :root {
-      --primary-blue: #0478d3;
-      --primary-dark: #035799;
-      --success-green: #1f9254;
-      --danger-red: #dc3545;
-      --warning-yellow: #ffc107;
-      --info-cyan: #17a2b8;
-      --light-gray: #f5f7fb;
-      --surface: #ffffff;
-      --surface-muted: #f2f4f9;
-      --border-color: #e2e8f0;
-      --border-radius: 16px;
-      --border-radius-sm: 12px;
-      --border-radius-lg: 24px;
-      --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      --transition-slow: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-      --shadow-sm: 0 2px 8px rgba(15, 23, 42, 0.06);
-      --shadow-md: 0 10px 30px rgba(15, 23, 42, 0.08);
-      --shadow-lg: 0 18px 45px rgba(15, 23, 42, 0.12);
-      --shadow-xl: 0 26px 55px rgba(15, 23, 42, 0.16);
-      --shadow-2xl: 0 32px 65px rgba(15, 23, 42, 0.18);
-      --text-primary: #101828;
-      --text-secondary: #475467;
-      --text-muted: #667085;
-    }
-
-    * {
-      box-sizing: border-box;
-    }
-
-    body,
-    html {
-      height: 100%;
-      min-height: 100vh;
-      margin: 0;
+      color-scheme: light dark;
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      line-height: 1.6;
-      background-color: var(--light-gray);
-      background-image:
-        radial-gradient(circle at 16% 18%, rgba(255, 255, 255, 0.85), transparent 55%),
-        radial-gradient(circle at 78% 4%, rgba(255, 255, 255, 0.7), transparent 60%),
-        linear-gradient(180deg, rgba(247, 249, 253, 0.96), rgba(242, 244, 249, 0.98));
-      font-size: 15px;
-      color: var(--text-primary);
-      overflow-x: hidden;
-      overflow-y: auto;
+      --surface: #0f172a;
+      --surface-light: #ffffff;
+      --surface-muted: #f8fafc;
+      --primary: #2563eb;
+      --primary-dark: #1d4ed8;
+      --danger: #dc2626;
+      --text: #0f172a;
+      --text-muted: #475569;
+      --border: rgba(15, 23, 42, 0.08);
     }
 
-    .page-wrapper {
-      min-height: 100vh;
-      height: auto;
-      max-width: 100vw;
-      width: 100%;
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-    }
-
-    .page-wrapper > .row {
-      flex: 1;
-      min-height: 100vh;
+    html,
+    body {
+      height: 100%;
       margin: 0;
-    }
-
-    /* Modern Background with subtle pattern */
-    .gradient-bg {
-      background: linear-gradient(180deg, rgba(255, 255, 255, 0.82) 0%, rgba(244, 246, 252, 0.94) 100%);
-      position: relative;
-      overflow: hidden;
-    }
-
-    .gradient-bg::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background:
-        radial-gradient(circle at top right, rgba(4, 120, 211, 0.14), transparent 55%),
-        radial-gradient(circle at 20% 80%, rgba(3, 87, 153, 0.1), transparent 60%);
-      opacity: 0.25;
-    }
-
-    .feature-panel {
-      background: radial-gradient(circle at 10% 20%, rgba(4, 120, 211, 0.55), transparent 65%),
-        radial-gradient(circle at 75% 85%, rgba(3, 87, 153, 0.45), transparent 60%),
-        linear-gradient(135deg, #0f172a 0%, #1e293b 60%, #0b1120 100%);
-      color: #f8fafc;
-      padding: 0 3rem;
-      position: relative;
-      overflow: hidden;
-      min-height: 100vh;
-      height: 100%;
-    }
-
-    .feature-panel::before,
-    .feature-panel::after {
-      content: '';
-      position: absolute;
-      width: 320px;
-      height: 320px;
-      background: radial-gradient(circle, rgba(14, 165, 233, 0.35), transparent 70%);
-      filter: blur(20px);
-      opacity: 0.55;
-      z-index: 0;
-    }
-
-    .feature-panel::before {
-      top: -80px;
-      left: -120px;
-    }
-
-    .feature-panel::after {
-      bottom: -100px;
-      right: -120px;
-    }
-
-    .feature-content {
-      position: relative;
-      z-index: 1;
-      max-width: 420px;
-    }
-
-    .feature-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 0.5rem 1rem;
-      border-radius: 999px;
-      background: rgba(148, 163, 184, 0.12);
-      color: #e2e8f0;
-      font-size: 0.85rem;
-      font-weight: 600;
-      letter-spacing: 0.05em;
-      text-transform: uppercase;
-      margin-bottom: 1.5rem;
-    }
-
-    .feature-heading {
-      font-size: clamp(2rem, 3vw + 1rem, 2.85rem);
-      font-weight: 700;
-      line-height: 1.2;
-      margin-bottom: 1.25rem;
-    }
-
-    .feature-text {
-      color: rgba(226, 232, 240, 0.85);
-      font-size: 1rem;
-      margin-bottom: 2rem;
-    }
-
-    .feature-list {
-      list-style: none;
-      padding: 0;
-      margin: 0 0 2.5rem;
-      display: grid;
-      gap: 1rem;
-    }
-
-    .feature-list li {
-      display: flex;
-      align-items: flex-start;
-      gap: 0.75rem;
-      color: rgba(241, 245, 249, 0.9);
-      font-weight: 500;
-    }
-
-    .feature-list i {
-      color: #38bdf8;
-      font-size: 1.1rem;
-      margin-top: 0.2rem;
-    }
-
-    .feature-illustration {
-      position: relative;
-      border-radius: var(--border-radius-lg);
-      background: rgba(15, 23, 42, 0.45);
-      border: 1px solid rgba(148, 163, 184, 0.18);
-      padding: 2rem;
-      box-shadow: 0 25px 55px rgba(2, 6, 23, 0.45);
-    }
-
-    .feature-illustration img {
-      width: 100%;
-      height: auto;
-      display: block;
-    }
-
-    .form-column {
-      position: relative;
-      padding: clamp(1.75rem, 4vw, 3.5rem);
-      background: linear-gradient(180deg, #ffffff 0%, #f4f7fb 100%);
+      background: linear-gradient(145deg, #e2e8f0, #ffffff);
       display: flex;
       align-items: center;
       justify-content: center;
-      min-height: 100vh;
-      height: auto;
-      overflow: hidden;
     }
 
-    .form-column::before {
-      content: '';
-      position: absolute;
-      inset: 8% 6% 10% 8%;
-      background:
-        radial-gradient(circle at top left, rgba(4, 120, 211, 0.18), transparent 65%),
-        radial-gradient(circle at bottom right, rgba(3, 87, 153, 0.12), transparent 70%);
-      filter: blur(90px);
-      opacity: 0.35;
-      pointer-events: none;
+    .card {
+      width: min(420px, calc(100% - 2.5rem));
+      background: var(--surface-light);
+      border-radius: 24px;
+      padding: 2.75rem 2.5rem;
+      box-shadow: 0 40px 120px rgba(15, 23, 42, 0.18);
+      border: 1px solid rgba(148, 163, 184, 0.15);
+      backdrop-filter: blur(6px);
     }
 
-    /* Modern Form Container */
-    .login-container {
-      width: min(500px, 100%);
-      max-height: 100%;
-      padding: clamp(2rem, 4.5vw, 3rem) clamp(1.75rem, 4vw, 2.75rem);
-      position: relative;
-      z-index: 1;
-      display: flex;
-      flex-direction: column;
-      gap: clamp(1rem, 1.9vh, 1.6rem);
+    h1 {
+      margin: 0 0 0.5rem;
+      font-size: 1.85rem;
+      color: var(--text);
+      letter-spacing: -0.02em;
     }
 
-    .login-body {
-      display: flex;
-      flex-direction: column;
-      gap: clamp(0.9rem, 1.6vh, 1.35rem);
-      flex: 1 1 auto;
-      min-height: 0;
-    }
-
-    .login-footer {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 0.7rem;
-      padding-top: 0.25rem;
-    }
-
-    #loginForm {
-      display: flex;
-      flex-direction: column;
-      gap: 0.85rem;
-    }
-
-    #loginForm .mb-3,
-    #loginForm .d-grid {
-      margin-bottom: 0 !important;
-    }
-
-    #feedback {
-      margin-top: 0.35rem;
-    }
-
-    .consent-text {
+    p.subtitle {
+      margin: 0 0 2rem;
       color: var(--text-muted);
-      font-size: 0.85rem;
-      margin-top: 1.1rem;
+      font-size: 0.98rem;
     }
 
-    .consent-text a {
-      color: var(--primary-blue);
-      text-decoration: none;
-      font-weight: 600;
-    }
-
-    .consent-text a:hover {
-      text-decoration: underline;
-    }
-
-    /* Enhanced Form Controls */
-    .form-label {
-      font-weight: 600;
-      color: var(--text-secondary);
-      margin-bottom: 0.75rem;
-      font-size: 0.875rem;
-      letter-spacing: 0.025em;
-    }
-
-    .form-control {
-      border: 2px solid #e2e8f0;
-      border-radius: var(--border-radius);
-      padding: 1rem 1.25rem;
-      font-size: 1rem;
-      font-weight: 500;
-      transition: var(--transition);
-      background: #ffffff;
-      color: var(--text-primary);
-      box-shadow: var(--shadow-sm);
-    }
-
-    .form-control:focus {
-      border-color: var(--primary-blue);
-      box-shadow: 0 0 0 3px rgba(4, 120, 211, 0.12), var(--shadow-md);
-      background: #ffffff;
-      outline: none;
-      transform: translateY(-1px);
-    }
-
-    .form-control::placeholder {
-      color: var(--text-muted);
-      opacity: 1;
-      font-weight: 400;
-    }
-
-    /* Enhanced Buttons */
-    .btn {
-      border-radius: var(--border-radius);
-      font-weight: 600;
-      transition: var(--transition);
-      position: relative;
-      overflow: hidden;
-      letter-spacing: 0.025em;
-      font-size: 1rem;
-    }
-
-    .btn::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: -100%;
-      width: 100%;
-      height: 100%;
-      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-      transition: left 0.6s;
-    }
-
-    .btn:hover::before {
-      left: 100%;
-    }
-
-    .btn-primary {
-      background: var(--primary-blue);
-      border: none;
-      box-shadow: var(--shadow-md);
-      color: white;
-      padding: 1rem 2rem;
-      font-weight: 700;
-    }
-
-    .btn-primary:hover {
-      transform: translateY(-2px);
-      box-shadow: var(--shadow-lg);
-      background: #0262ad;
-    }
-
-    .btn-primary:active {
-      transform: translateY(0);
-      box-shadow: var(--shadow-sm);
-    }
-
-    .btn-primary:focus {
-      box-shadow: 0 0 0 3px rgba(4, 120, 211, 0.25), var(--shadow-md);
-    }
-
-    /* Enhanced Password Field */
-    .password-field {
-      position: relative;
-    }
-
-    .password-toggle {
-      position: absolute;
-      right: 12px;
-      top: 50%;
-      transform: translateY(-50%);
-      background: none;
-      border: none;
-      color: var(--text-muted);
-      cursor: pointer;
-      transition: var(--transition);
-      padding: 0.5rem;
-      border-radius: 50%;
-      z-index: 10;
-    }
-
-    .password-toggle:hover {
-      background: rgba(4, 120, 211, 0.12);
-      color: var(--primary-blue);
-      transform: translateY(-50%) scale(1.1);
-    }
-
-    .mfa-section {
-      background: rgba(4, 120, 211, 0.06);
-      border: 1px solid rgba(4, 120, 211, 0.18);
-      border-radius: var(--border-radius);
-      padding: 1.25rem;
-      margin-bottom: 1.1rem;
-      display: none;
-    }
-
-    .mfa-section.active {
+    label {
       display: block;
-      animation: fadeIn 0.3s ease;
-    }
-
-    .mfa-section .form-label {
       font-weight: 600;
-      color: var(--text-secondary);
-    }
-
-    .mfa-message {
-      font-size: 0.9rem;
-      min-height: 1.25rem;
-      transition: var(--transition);
-    }
-
-    /* Enhanced Links */
-    .link-primary {
-      color: var(--primary-blue);
-      text-decoration: none;
-      transition: var(--transition);
-      font-weight: 600;
-    }
-
-    .link-primary:hover {
-      color: var(--primary-dark);
-      text-decoration: underline;
-      transform: translateY(-1px);
-    }
-
-    .loader-content {
-      text-align: center;
-      color: var(--text-primary);
-    }
-
-    .loader-content h4 {
-      margin-top: 1rem;
-      font-weight: 600;
-      color: var(--text-secondary);
-    }
-
-    .next-steps-card {
-      border-radius: var(--border-radius-lg);
-      border: 1px solid rgba(4, 120, 211, 0.16);
-      background: rgba(246, 251, 255, 0.92);
-      box-shadow: var(--shadow-sm);
-      padding: 1.5rem;
-      margin-bottom: 1.25rem;
-      transition: var(--transition);
-    }
-
-    .next-steps-card[data-tone="warning"] {
-      border-color: rgba(255, 193, 7, 0.28);
-      background: rgba(255, 248, 225, 0.92);
-    }
-
-    .next-steps-card[data-tone="success"] {
-      border-color: rgba(31, 146, 84, 0.26);
-      background: rgba(236, 253, 243, 0.92);
-    }
-
-    .next-steps-card[data-tone="danger"] {
-      border-color: rgba(220, 53, 69, 0.33);
-      background: rgba(254, 242, 242, 0.92);
-    }
-
-    .next-steps-header {
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-      margin-bottom: 1.25rem;
-    }
-
-    .next-steps-icon {
-      width: 48px;
-      height: 48px;
-      border-radius: 16px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 1.4rem;
-      color: var(--primary-blue);
-      background: rgba(4, 120, 211, 0.12);
-      transition: var(--transition);
-    }
-
-    .next-steps-icon[data-tone="warning"] {
-      background: rgba(255, 193, 7, 0.16);
-      color: #b68400;
-    }
-
-    .next-steps-icon[data-tone="success"] {
-      background: rgba(31, 146, 84, 0.16);
-      color: #1b7d3e;
-    }
-
-    .next-steps-icon[data-tone="danger"] {
-      background: rgba(220, 53, 69, 0.16);
-      color: #b22534;
-    }
-
-    .next-steps-body {
-      color: var(--text-secondary);
+      color: var(--text);
+      margin-bottom: 0.35rem;
       font-size: 0.95rem;
     }
 
-    .next-steps-card .btn {
-      border-radius: var(--border-radius-sm);
-      font-weight: 600;
-      box-shadow: var(--shadow-sm);
-    }
-
-    .next-steps-card .btn:hover {
-      transform: translateY(-1px);
-      box-shadow: var(--shadow-md);
-    }
-
-    .device-modal {
-      position: fixed;
-      inset: 0;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      z-index: 1100;
-    }
-
-    .device-modal.show {
-      display: flex;
-    }
-
-    .device-modal-backdrop {
-      position: absolute;
-      inset: 0;
-      background: rgba(15, 23, 42, 0.55);
-      backdrop-filter: blur(4px);
-    }
-
-    .device-modal-dialog {
-      position: relative;
-      z-index: 1;
-      background: #ffffff;
-      border-radius: var(--border-radius-lg);
-      box-shadow: var(--shadow-2xl);
-      padding: 2.5rem;
-      width: min(520px, 92%);
-      max-width: 520px;
-      animation: fadeIn 0.3s ease;
-    }
-
-    .device-modal-title {
-      font-size: 1.4rem;
-      font-weight: 600;
-      margin-bottom: 0.75rem;
-      color: var(--text-primary);
-    }
-
-    .device-modal-body {
-      color: var(--text-secondary);
-      margin-bottom: 1.25rem;
-    }
-
-    .device-meta-list {
-      list-style: none;
-      padding: 0;
-      margin: 0 0 1.5rem;
-      border: 1px solid rgba(226, 232, 240, 0.7);
-      border-radius: var(--border-radius);
-      overflow: hidden;
-    }
-
-    .device-meta-list li {
-      display: flex;
-      justify-content: space-between;
-      padding: 0.75rem 1rem;
-      font-size: 0.92rem;
-      color: var(--text-secondary);
-      background: rgba(246, 249, 255, 0.55);
-    }
-
-    .device-meta-list li + li {
-      border-top: 1px solid rgba(226, 232, 240, 0.7);
-    }
-
-    .device-meta-label {
-      font-weight: 600;
-      color: var(--text-primary);
-      margin-right: 1rem;
-    }
-
-    .device-modal-code-input {
-      font-size: 1.35rem;
-      letter-spacing: 0.4rem;
-      text-align: center;
-      font-weight: 600;
-      padding: 0.85rem 1rem;
-    }
-
-    .device-modal-error {
-      color: var(--danger-red);
-      font-size: 0.9rem;
-      min-height: 1.25rem;
-      margin-bottom: 0.5rem;
-    }
-
-    .device-modal-actions {
-      display: flex;
-      flex-direction: column;
-      gap: 0.75rem;
-    }
-
-    @media (min-width: 576px) {
-      .device-modal-actions {
-        flex-direction: row;
-      }
-    }
-
-    @media (max-width: 575.98px) {
-      .next-steps-card .btn {
-        width: 100%;
-      }
-    }
-
-    /* Logo Enhancement */
-    .logo-container {
-      margin-bottom: 2rem;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-    }
-
-    .logo-container img {
+    input[type="email"],
+    input[type="password"] {
       width: 100%;
-      max-width: clamp(220px, 65vw, 320px);
-      height: auto;
-      padding-top: 0.5rem;
-      transition: var(--transition);
-      filter: drop-shadow(0 12px 20px rgba(15, 23, 42, 0.08));
+      border-radius: 14px;
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      padding: 0.75rem 0.9rem;
+      font-size: 1rem;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
     }
 
-    .logo-container img:hover {
-      transform: scale(1.02) translateY(-2px);
+    input[type="email"]:focus,
+    input[type="password"]:focus {
+      outline: none;
+      border-color: rgba(37, 99, 235, 0.6);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
     }
 
-    /* Welcome Text */
-    .welcome-text h1 {
-      font-size: 2.25rem;
-      font-weight: 700;
-      color: var(--text-primary);
-      margin-bottom: 0.5rem;
-    }
-
-    .welcome-text p {
-      font-size: 1.05rem;
-      color: var(--text-secondary);
-      margin-bottom: 1.5rem;
-    }
-
-    /* Alert Styling */
-    .alert-modern {
-      border-radius: var(--border-radius-sm);
+    button[type="submit"] {
+      width: 100%;
+      border-radius: 14px;
       border: none;
-      padding: 1rem 1.25rem;
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-      background: rgba(4, 120, 211, 0.08);
-      color: var(--text-secondary);
-      box-shadow: var(--shadow-sm);
+      padding: 0.85rem 1rem;
+      font-weight: 600;
+      font-size: 1rem;
+      background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+      color: #fff;
+      cursor: pointer;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
     }
 
-    .alert-modern i {
-      font-size: 1.1rem;
+    button[type="submit"]:disabled {
+      opacity: 0.65;
+      cursor: progress;
     }
 
-    .alert-modern.alert-success {
-      background: rgba(31, 146, 84, 0.12);
-      color: #1b7d3e;
+    button[type="submit"]:not(:disabled):hover {
+      transform: translateY(-1px);
+      box-shadow: 0 16px 32px rgba(37, 99, 235, 0.25);
     }
 
-    .alert-modern.alert-danger {
-      background: rgba(220, 53, 69, 0.12);
-      color: #b22534;
+    .status {
+      margin-top: 1.5rem;
+      min-height: 1.5rem;
+      font-size: 0.95rem;
     }
 
-    .alert-modern.alert-warning {
-      background: rgba(255, 193, 7, 0.16);
-      color: #9a6b02;
+    .status.error {
+      color: var(--danger);
     }
 
-    .alert-modern.alert-info {
-      background: rgba(4, 120, 211, 0.12);
-      color: var(--primary-dark);
+    .spinner {
+      width: 18px;
+      height: 18px;
+      border-radius: 999px;
+      border: 2px solid rgba(255, 255, 255, 0.45);
+      border-top-color: #fff;
+      display: inline-block;
+      margin-right: 0.6rem;
+      animation: spin 0.75s linear infinite;
     }
 
-    /* Form Animation */
-    .form-slide-out {
-      animation: slideOut 0.5s ease-in-out forwards;
-    }
-
-    @keyframes slideOut {
+    @keyframes spin {
       from {
-        opacity: 1;
-        transform: translateX(0);
+        transform: rotate(0deg);
       }
 
       to {
-        opacity: 0;
-        transform: translateX(-20px);
+        transform: rotate(360deg);
       }
     }
 
-    /* Enhanced Checkbox */
-    .form-check {
-      display: flex;
-      align-items: center;
-      gap: 0.65rem;
+    .hidden {
+      display: none !important;
+    }
+  </style>
+</head>
+
+<body>
+  <main class="card" id="login-card">
+    <header>
+      <h1>Welcome back</h1>
+      <p class="subtitle">Sign in to access your LuminaHQ workspace.</p>
+    </header>
+
+    <form id="login-form" autocomplete="off">
+      <div class="input-group">
+        <label for="email">Email</label>
+        <input id="email" name="email" type="email" autocomplete="username" required>
+      </div>
+      <div class="input-group" style="margin-top:1.25rem;">
+        <label for="password">Password</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required>
+      </div>
+      <button type="submit" id="login-submit" style="margin-top:2rem;">Sign in</button>
+    </form>
+
+    <div class="status" id="status" role="alert"></div>
+  </main>
+
+  <template id="loading-template">
+    <div class="status">
+      <span class="spinner"></span>
+      <span>Validating your session…</span>
+    </div>
+  </template>
+
+  <script>
+    const BASE_URL = <?!= JSON.stringify(baseUrl || '') ?>;
+    const COOKIE_NAME = <?!= JSON.stringify(cookieName) ?>;
+    const TOKEN_TTL_MINUTES = <?!= tokenTtlMinutes ?>;
+
+    const selectors = {
+      form: document.getElementById('login-form'),
+      submit: document.getElementById('login-submit'),
+      status: document.getElementById('status'),
+      email: document.getElementById('email'),
+      password: document.getElementById('password'),
+      card: document.getElementById('login-card')
+    };
+
+    const storage = window.localStorage || null;
+
+    function setStatus(message, variant) {
+      selectors.status.textContent = message || '';
+      selectors.status.classList.toggle('error', variant === 'error');
     }
 
-    .form-check-input {
-      border: 2px solid #cbd5e0;
-      border-radius: 6px;
-      background: #ffffff;
-      transition: var(--transition);
+    function setLoading(isLoading, message) {
+      selectors.submit.disabled = isLoading;
+      selectors.submit.textContent = isLoading ? 'Signing in…' : 'Sign in';
+      if (isLoading) {
+        setStatus(message || 'Signing you in…');
+      }
     }
 
-    .form-check-input:checked {
-      background: linear-gradient(135deg, var(--primary-blue), var(--primary-dark));
-      border-color: var(--primary-blue);
+    function buildCookie(value, expiresAtIso) {
+      const expiry = new Date(expiresAtIso);
+      const attributes = [
+        `${COOKIE_NAME}=${value}`,
+        'path=/',
+        `expires=${expiry.toUTCString()}`,
+        'SameSite=None',
+        'Secure'
+      ];
+      document.cookie = attributes.join('; ');
     }
 
-    @media (max-width: 991.98px) {
-      body {
-        overflow: auto;
-      }
+    function removeCookie() {
+      document.cookie = `${COOKIE_NAME}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; SameSite=None; Secure`;
+    }
 
-      .page-wrapper {
-        height: auto;
-        overflow: visible;
-        display: block;
+    function getCookie() {
+      const cookies = document.cookie.split(';').map(part => part.trim());
+      for (const cookie of cookies) {
+        if (!cookie) continue;
+        const [key, ...rest] = cookie.split('=');
+        if (key === COOKIE_NAME) {
+          return rest.join('=');
+        }
       }
+      return '';
+    }
 
-      .page-wrapper > .row {
-        height: auto;
+    function redirectToDashboard() {
+      const target = BASE_URL ? `${BASE_URL}?page=dashboard` : '?page=dashboard';
+      if (google.script && google.script.host && typeof google.script.host.setLocation === 'function') {
+        google.script.host.setLocation(target);
+      } else {
+        window.location.href = target;
       }
+    }
 
-      .form-column {
-        min-height: auto;
-        height: auto;
-        overflow: visible;
-        padding: 2.5rem 1.75rem;
+    function persistSession(user, expiresAt, token) {
+      if (!storage) return;
+      try {
+        storage.setItem('lumina.session', JSON.stringify({ user, expiresAt, token, updatedAt: new Date().toISOString() }));
+      } catch (error) {
+        console.warn('Unable to cache session payload', error);
       }
+    }
 
-      .login-container {
-        max-height: none;
-        height: auto;
-        gap: 1.25rem;
+    function clearPersistedSession() {
+      if (!storage) return;
+      try {
+        storage.removeItem('lumina.session');
+      } catch (error) {
+        console.warn('Unable to clear cached session payload', error);
       }
+    }
 
-      .login-body {
-        gap: 1.1rem;
+    function handleLogin(event) {
+      event.preventDefault();
+      setLoading(true);
+      setStatus('Authenticating…');
+
+      const email = selectors.email.value.trim();
+      const password = selectors.password.value;
+
+      google.script.run
+        .withSuccessHandler(response => {
+          if (!response || !response.success) {
+            setLoading(false);
+            setStatus((response && response.message) || 'Unable to sign in.', 'error');
+            removeCookie();
+            clearPersistedSession();
+            return;
+          }
+
+          buildCookie(response.token, response.expiresAt);
+          persistSession(response.user, response.expiresAt, response.token);
+          setStatus('Redirecting…');
+          redirectToDashboard();
+        })
+        .withFailureHandler(error => {
+          console.error('loginUser failed', error);
+          setLoading(false);
+          setStatus('Sign in failed. Please try again.', 'error');
+        })
+        .loginUser(email, password);
+    }
+
+    function validateExistingSession(token) {
+      const loadingNode = document.getElementById('loading-template').content.cloneNode(true);
+      selectors.status.innerHTML = '';
+      selectors.status.appendChild(loadingNode);
+
+      google.script.run
+        .withSuccessHandler(result => {
+          selectors.status.innerHTML = '';
+          if (result && result.valid) {
+            persistSession(result.user, result.expiresAt, token);
+            redirectToDashboard();
+            return;
+          }
+          removeCookie();
+          clearPersistedSession();
+          setStatus('Session expired. Please sign in again.');
+        })
+        .withFailureHandler(error => {
+          console.error('validateToken failed', error);
+          removeCookie();
+          clearPersistedSession();
+          setStatus('Session check failed. Please sign in.');
+        })
+        .validateToken(token);
+    }
+
+    selectors.form.addEventListener('submit', handleLogin);
+
+    window.addEventListener('pageshow', event => {
+      if (event.persisted) {
+        selectors.password.value = '';
       }
+    });
 
-      .login-footer {
-        gap: 0.65rem;
+    document.addEventListener('DOMContentLoaded', () => {
+      selectors.email.focus();
+      const existingToken = getCookie();
+      if (existingToken) {
+        validateExistingSession(existingToken);
+      } else {
+        setStatus('Use your LuminaHQ credentials to continue.');
       }
     }
 
