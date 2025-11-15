@@ -5537,6 +5537,56 @@ var AuthenticationService = (function () {
     }
   }
 
+  function getSessionStatus(sessionToken, options) {
+    try {
+      if (!sessionToken) {
+        return { valid: false, status: 'not_found', reason: 'NOT_FOUND' };
+      }
+
+      const resolution = resolveSessionRecord(sessionToken, Object.assign({ touch: false }, options || {}));
+      if (!resolution || resolution.status !== 'active' || !resolution.entry) {
+        return {
+          valid: false,
+          status: resolution ? (resolution.status || 'not_found') : 'not_found',
+          reason: resolution ? (resolution.reason || resolution.status || 'NOT_FOUND') : 'NOT_FOUND'
+        };
+      }
+
+      const context = buildSessionUserContext(resolution.entry, sessionToken, resolution);
+      if (!context || !context.user) {
+        removeSessionEntry(resolution.entry);
+        return { valid: false, status: 'orphaned', reason: 'ORPHANED' };
+      }
+
+      return {
+        valid: true,
+        status: 'active',
+        sessionToken: sessionToken,
+        expiresAt: resolution.expiresAt
+          || (context.user && (context.user.sessionExpiry || context.user.sessionExpiresAt))
+          || null,
+        rememberMe: Object.prototype.hasOwnProperty.call(resolution, 'rememberMe')
+          ? !!resolution.rememberMe
+          : !!(context.user && context.user.sessionRememberMe),
+        idleTimeoutMinutes: resolution.idleTimeoutMinutes
+          || (context.user && context.user.sessionIdleTimeoutMinutes)
+          || null,
+        lastActivityAt: resolution.lastActivityAt
+          || (context.user && context.user.sessionLastActivityAt)
+          || null,
+        lastSeenAt: resolution.lastSeenAt
+          || (context.user && context.user.sessionLastSeenAt)
+          || null,
+        user: context.user,
+        tenant: context.tenant,
+        scope: context.rawScope
+      };
+    } catch (error) {
+      console.error('getSessionStatus: Unable to resolve session', error);
+      return { valid: false, status: 'error', reason: 'ERROR', message: error.message };
+    }
+  }
+
   // ─── Helper functions ─────────────────────────────────────────────────────
 
   function updateLastLogin(userId) {
@@ -5770,6 +5820,7 @@ var AuthenticationService = (function () {
     logout: logout,
     createSessionFor: createSessionFor,
     getSessionUser: getSessionUser,
+    getSessionStatus: getSessionStatus,
     keepAlive: keepAlive,
     findUserByEmail: findUserByEmail,
     findUserById: findUserById,
@@ -5832,7 +5883,15 @@ function loginUser(email, password, rememberMe = false, clientMetadata) {
       console.warn('loginUser: Failed to merge server metadata', metadataMergeError);
     }
 
-    const result = AuthenticationService.login(email, password, rememberMe, mergedMetadata || clientMetadata);
+    let result = AuthenticationService.login(email, password, rememberMe, mergedMetadata || clientMetadata);
+
+    try {
+      if (result && result.success && typeof applyAppTokenToLoginResult === 'function') {
+        result = applyAppTokenToLoginResult(result, rememberMe);
+      }
+    } catch (tokenError) {
+      console.warn('loginUser: Failed to attach application token', tokenError);
+    }
 
     try {
       if (result && result.success && result.sessionToken && typeof LuminaIdentity !== 'undefined' && LuminaIdentity) {
@@ -5932,7 +5991,23 @@ function verifyMfaCode(challengeId, code, clientMetadata) {
 
 function logoutUser(sessionToken) {
   try {
-    const response = AuthenticationService.logout(sessionToken);
+    let sessionTokenValue = (typeof sessionToken === 'string' && sessionToken) ? sessionToken : null;
+    let resolution = null;
+
+    if (typeof resolveSessionTokenFromAppToken === 'function') {
+      try {
+        resolution = resolveSessionTokenFromAppToken(sessionToken);
+        if (resolution && resolution.record) {
+          sessionTokenValue = resolution.sessionToken || null;
+        }
+      } catch (resolutionError) {
+        console.warn('logoutUser: Unable to resolve session token from provided token', resolutionError);
+      }
+    }
+
+    const response = sessionTokenValue
+      ? AuthenticationService.logout(sessionTokenValue)
+      : { success: true };
 
     try {
       if (typeof LuminaIdentity !== 'undefined' && LuminaIdentity && typeof LuminaIdentity.clearActiveSessionToken === 'function') {
@@ -5940,6 +6015,16 @@ function logoutUser(sessionToken) {
       }
     } catch (clearError) {
       console.warn('logoutUser: Unable to clear identity cache after logout', clearError);
+    }
+
+    try {
+      if (sessionTokenValue && typeof invalidateTokensForSessionToken === 'function') {
+        invalidateTokensForSessionToken(sessionTokenValue);
+      } else if (resolution && resolution.record && typeof invalidateAppToken === 'function') {
+        invalidateAppToken(sessionToken);
+      }
+    } catch (tokenCleanupError) {
+      console.warn('logoutUser: Unable to remove application tokens during logout', tokenCleanupError);
     }
 
     return response;
