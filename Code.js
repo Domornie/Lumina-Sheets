@@ -216,88 +216,88 @@ function invalidateAppToken(token) {
   return resolution;
 }
 
-function invalidateTokensForSessionToken(sessionToken) {
-  if (!sessionToken) {
-    return 0;
-  }
-  var props = PropertiesService.getScriptProperties();
-  props.deleteProperty(buildTokenPropertyKey(jti));
-}
-
-function purgeExpiredTokens() {
-  var props = PropertiesService.getScriptProperties();
-  var keys = props.getKeys();
-  if (!keys || !keys.length) {
-    return 0;
-  }
-
-  props.setProperty(REALTIME_JOB_LAST_RUN_PROP, String(now));
-  props.setProperty(REALTIME_JOB_STATUS_PROP, 'running');
-
-  try {
-    runRealtimeJob(props, now, config);
-  } catch (error) {
-    var message = (error && error.message) ? error.message : String(error);
-    props.setProperty(REALTIME_JOB_STATUS_PROP, 'error:' + message);
-    if (typeof logError === 'function') {
-      logError('checkRealtimeUpdatesJob', error);
-    } else {
-      console.error('[checkRealtimeUpdatesJob] ' + message, error);
+/**
+ * Time-driven job that checks for realtime updates without exceeding the
+ * configured execution window. The job self-throttles by tracking its own
+ * runtime in Script Properties so repeated triggers cannot overlap or hog the
+ * Apps Script runtime.
+ */
+  function checkRealtimeUpdatesJob() {
+    var lock = LockService.getScriptLock();
+    if (!lock.tryLock(REALTIME_JOB_LOCK_WAIT_MS)) {
+      console.log('[checkRealtimeUpdatesJob] Another run is already in progress; skipping.');
+      return;
     }
-  }
 
-  return removed;
-}
+    var props = PropertiesService.getScriptProperties();
+    var config = getRealtimeJobConfig(props);
+    var now = Date.now();
+    var lastRun = Number(props.getProperty(REALTIME_JOB_LAST_RUN_PROP)) || 0;
 
-function runRealtimeJob(props, now, config) {
-  var handlers = getRealtimeUpdateHandlers();
-  if (!handlers.length) {
-    console.log('[checkRealtimeUpdatesJob] No realtime handlers registered; exiting early.');
-    props.setProperty(REALTIME_JOB_STATUS_PROP, 'idle');
-    props.setProperty(REALTIME_JOB_LAST_SUCCESS_PROP, String(Date.now()));
-    return;
-  }
+    if (lastRun && now - lastRun < config.minIntervalMs) {
+      console.log('[checkRealtimeUpdatesJob] Last run was ' + Math.round((now - lastRun) / 1000) + 's ago; waiting ' + Math.round(config.minIntervalMs / 1000) + 's between executions.');
+      lock.releaseLock();
+      return;
+    }
 
-  var start = now;
-  var iteration = 0;
-  var hasMoreWork = true;
-  var workPerformed = false;
+    props.setProperty(REALTIME_JOB_LAST_RUN_PROP, String(now));
+    props.setProperty(REALTIME_JOB_STATUS_PROP, 'running');
 
-  while (hasMoreWork && Date.now() - start < config.maxRuntimeMs) {
-    hasMoreWork = false;
-    for (var i = 0; i < handlers.length; i++) {
-      var handler = handlers[i];
-      var handlerHasMore = false;
-      try {
-        handlerHasMore = runRealtimeUpdateHandler(handler, iteration, config);
-      } catch (handlerError) {
-        if (typeof logError === 'function') {
-          logError('checkRealtimeUpdatesJob.handler', handlerError);
-        } else {
-          console.error('[checkRealtimeUpdatesJob] Handler error', handlerError);
+    var handlers = getRealtimeUpdateHandlers();
+    if (!handlers.length) {
+      console.log('[checkRealtimeUpdatesJob] No realtime handlers registered; exiting early.');
+      props.setProperty(REALTIME_JOB_STATUS_PROP, 'idle');
+      props.setProperty(REALTIME_JOB_LAST_SUCCESS_PROP, String(Date.now()));
+      lock.releaseLock();
+      return;
+    }
+
+    var start = now;
+    var iteration = 0;
+    var hasMoreWork = true;
+    var workPerformed = false;
+
+    while (hasMoreWork && Date.now() - start < config.maxRuntimeMs) {
+      hasMoreWork = false;
+
+      for (var i = 0; i < handlers.length; i++) {
+        var handler = handlers[i];
+        var handlerHasMore = false;
+
+        try {
+          handlerHasMore = runRealtimeUpdateHandler(handler, iteration, config);
+        } catch (handlerError) {
+          if (typeof logError === 'function') {
+            logError('checkRealtimeUpdatesJob.handler', handlerError);
+          } else {
+            console.error('[checkRealtimeUpdatesJob] Handler error', handlerError);
+          }
+        }
+
+        if (handlerHasMore) {
+          hasMoreWork = true;
+          workPerformed = true;
         }
       }
-      if (handlerHasMore) {
-        hasMoreWork = true;
-        workPerformed = true;
+
+      iteration++;
+
+      if (hasMoreWork && config.sleepMs > 0) {
+        Utilities.sleep(config.sleepMs);
       }
     }
-    iteration++;
-    if (hasMoreWork && config.sleepMs > 0) {
-      Utilities.sleep(config.sleepMs);
+
+    if (!workPerformed) {
+      console.log('[checkRealtimeUpdatesJob] No realtime updates were processed during this window.');
+    } else if (hasMoreWork) {
+      console.log('[checkRealtimeUpdatesJob] Max runtime reached; remaining work will continue on the next trigger.');
     }
-  }
 
-  if (!workPerformed) {
-    console.log('[checkRealtimeUpdatesJob] No realtime updates were processed during this window.');
-  } else if (hasMoreWork) {
-    console.log('[checkRealtimeUpdatesJob] Max runtime reached; remaining work will continue on the next trigger.');
+    props.setProperty(REALTIME_JOB_STATUS_PROP, 'idle');
+    props.setProperty(REALTIME_JOB_LAST_SUCCESS_PROP, String(Date.now()));
+    props.setProperty('REALTIME_JOB_LAST_ITERATIONS', String(iteration));
+    lock.releaseLock();
   }
-
-  props.setProperty(REALTIME_JOB_STATUS_PROP, 'idle');
-  props.setProperty(REALTIME_JOB_LAST_SUCCESS_PROP, String(Date.now()));
-  props.setProperty('REALTIME_JOB_LAST_ITERATIONS', String(iteration));
-}
 
 /**
  * Reads realtime job configuration from Script Properties, falling back to the

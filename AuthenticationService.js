@@ -6032,6 +6032,17 @@ function logoutUser(sessionToken, appToken) {
     }
 
     try {
+      if (sessionToken && typeof invalidateTokensForSessionToken === 'function') {
+        invalidateTokensForSessionToken(sessionToken);
+      }
+      if (appToken && typeof invalidateAppToken === 'function') {
+        invalidateAppToken(appToken);
+      }
+    } catch (tokenError) {
+      console.warn('logoutUser: Unable to invalidate application token', tokenError);
+    }
+
+    try {
       if (typeof LuminaIdentity !== 'undefined' && LuminaIdentity && typeof LuminaIdentity.clearActiveSessionToken === 'function') {
         LuminaIdentity.clearActiveSessionToken();
       }
