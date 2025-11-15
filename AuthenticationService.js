@@ -5832,7 +5832,15 @@ function loginUser(email, password, rememberMe = false, clientMetadata) {
       console.warn('loginUser: Failed to merge server metadata', metadataMergeError);
     }
 
-    const result = AuthenticationService.login(email, password, rememberMe, mergedMetadata || clientMetadata);
+    let result = AuthenticationService.login(email, password, rememberMe, mergedMetadata || clientMetadata);
+
+    try {
+      if (result && result.success && typeof applyAppTokenToLoginResult === 'function') {
+        result = applyAppTokenToLoginResult(result, rememberMe);
+      }
+    } catch (tokenError) {
+      console.warn('loginUser: Failed to attach application token', tokenError);
+    }
 
     try {
       if (result && result.success && result.sessionToken && typeof LuminaIdentity !== 'undefined' && LuminaIdentity) {
@@ -5930,9 +5938,20 @@ function verifyMfaCode(challengeId, code, clientMetadata) {
   }
 }
 
-function logoutUser(sessionToken) {
+function logoutUser(sessionToken, appToken) {
   try {
     const response = AuthenticationService.logout(sessionToken);
+
+    try {
+      if (sessionToken && typeof invalidateTokensForSessionToken === 'function') {
+        invalidateTokensForSessionToken(sessionToken);
+      }
+      if (appToken && typeof invalidateAppToken === 'function') {
+        invalidateAppToken(appToken);
+      }
+    } catch (tokenError) {
+      console.warn('logoutUser: Unable to invalidate application token', tokenError);
+    }
 
     try {
       if (typeof LuminaIdentity !== 'undefined' && LuminaIdentity && typeof LuminaIdentity.clearActiveSessionToken === 'function') {
@@ -5955,6 +5974,22 @@ function logoutUser(sessionToken) {
 function keepAliveSession(sessionToken) {
   try {
     const result = AuthenticationService.keepAlive(sessionToken);
+
+    try {
+      if (result && result.success && sessionToken && typeof ensureAppTokenForSession === 'function') {
+        const refreshed = ensureAppTokenForSession(sessionToken, result.rememberMe);
+        if (refreshed && refreshed.token) {
+          result.appToken = refreshed.token;
+          result.appTokenExpiresAt = refreshed.expiresAt;
+          result.appTokenCookieName = (refreshed && refreshed.cookieName)
+            || (AppAuthBridge && AppAuthBridge.config && AppAuthBridge.config.COOKIE_NAME)
+            || 'lumina_auth_token';
+          result.appTokenRememberMe = refreshed.rememberMe;
+        }
+      }
+    } catch (appTokenError) {
+      console.warn('keepAliveSession: Unable to refresh application token', appTokenError);
+    }
 
     if (result && result.success && sessionToken && typeof LuminaIdentity !== 'undefined' && LuminaIdentity) {
       try {

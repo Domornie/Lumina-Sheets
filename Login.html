@@ -8,6 +8,7 @@
   <title>Login – LuminaHQ</title>
 
   <?!= includeOnce('CookieHandler') ?>
+  <?!= includeOnce('AppAuthClient') ?>
   <?!= includeOnce('layoutLoader') ?>
   <?!= includeOnce('layoutAlerts') ?>
 <?!= includeOnce('ResponsiveStyles') ?>
@@ -2155,6 +2156,129 @@
       return '';
     }
 
+    function readStoredAppAuthToken() {
+      try {
+        if (window.AppAuthCookie && typeof window.AppAuthCookie.read === 'function') {
+          const token = window.AppAuthCookie.read();
+          if (token) {
+            return token;
+          }
+        }
+      } catch (err) {
+        console.warn('readStoredAppAuthToken: unable to read cookie', err);
+      }
+
+      try {
+        if (window.localStorage) {
+          const stored = localStorage.getItem('lumina.appAuth.token');
+          if (stored) {
+            return stored;
+          }
+        }
+      } catch (storageError) {
+        console.warn('readStoredAppAuthToken: unable to read localStorage token', storageError);
+      }
+
+      try {
+        if (window.sessionStorage) {
+          const stored = sessionStorage.getItem('lumina.appAuth.token');
+          if (stored) {
+            return stored;
+          }
+        }
+      } catch (sessionError) {
+        console.warn('readStoredAppAuthToken: unable to read sessionStorage token', sessionError);
+      }
+
+      return '';
+    }
+
+    function persistAppAuthToken(token, options = {}) {
+      if (!token) {
+        clearAppAuthToken();
+        return;
+      }
+
+      const metadata = Object.assign({}, options);
+
+      if (!metadata.maxAgeSeconds) {
+        if (typeof metadata.ttlSeconds === 'number') {
+          metadata.maxAgeSeconds = Math.max(300, Math.floor(metadata.ttlSeconds));
+        } else if (typeof metadata.ttlMinutes === 'number') {
+          metadata.maxAgeSeconds = Math.max(300, Math.floor(metadata.ttlMinutes * 60));
+        } else if (metadata.expiresAt) {
+          const expiryTime = Date.parse(metadata.expiresAt);
+          if (!Number.isNaN(expiryTime) && expiryTime > Date.now()) {
+            metadata.maxAgeSeconds = Math.max(300, Math.floor((expiryTime - Date.now()) / 1000));
+          }
+        }
+      }
+
+      try {
+        if (window.AppAuthCookie && typeof window.AppAuthCookie.persist === 'function') {
+          window.AppAuthCookie.persist(token, metadata);
+        }
+      } catch (err) {
+        console.warn('persistAppAuthToken: unable to persist cookie', err);
+      }
+    }
+
+    function persistAppTokenFromResponse(response) {
+      if (!response || !response.appToken) {
+        return;
+      }
+
+      persistAppAuthToken(response.appToken, {
+        ttlMinutes: response.appTokenTtlMinutes || response.ttlMinutes,
+        expiresAt: response.appTokenExpiresAt || response.expiresAt,
+        rememberMe: response.appTokenRememberMe || response.rememberMe
+      });
+    }
+
+    function clearAppAuthToken() {
+      try {
+        if (window.AppAuthCookie && typeof window.AppAuthCookie.clear === 'function') {
+          window.AppAuthCookie.clear();
+        }
+      } catch (err) {
+        console.warn('clearAppAuthToken: unable to clear cookie', err);
+      }
+    }
+
+    function validateExistingAppToken(options = {}) {
+      const token = readStoredAppAuthToken();
+      if (!token) {
+        return;
+      }
+      if (!window.google || !window.google.script || !window.google.script.run) {
+        return;
+      }
+
+      const silent = options && options.silent === true;
+
+      window.google.script.run
+        .withSuccessHandler(result => {
+          if (result && result.valid) {
+            if (result.token && result.token !== token) {
+              persistAppAuthToken(result.token, {
+                expiresAt: result.expiresAt,
+                ttlMinutes: result.ttlMinutes,
+                rememberMe: result.rememberMe
+              });
+            }
+            return;
+          }
+          clearAppAuthToken();
+          if (!silent) {
+            clearAuthCookie();
+          }
+        })
+        .withFailureHandler(error => {
+          console.warn('validateExistingAppToken: validation failed', error);
+        })
+        .validateAppToken(token);
+    }
+
     function clearAuthCookie() {
       stopKeepAliveHeartbeat();
       state.authToken = '';
@@ -2165,6 +2289,8 @@
       } catch (err) {
         console.warn('Unable to clear auth cookie', err);
       }
+
+      clearAppAuthToken();
 
       try {
         if (window.localStorage) {
@@ -2480,6 +2606,7 @@
           if (!result || !result.success) {
             if (result && result.expired) {
               clearAuthCookie();
+              clearAppAuthToken();
               if (!silent) {
                 showAlert('info', 'Your previous session has expired. Please sign in again.');
               }
@@ -2496,6 +2623,7 @@
           const rememberFlag = result.rememberMe !== undefined ? !!result.rememberMe : true;
 
           persistSessionToken(resolvedToken, rememberFlag, result.sessionExpiresAt, result.sessionTtlSeconds, result.idleTimeoutMinutes);
+          persistAppTokenFromResponse(result);
 
           const resumedUser = result.user || {};
           const resumedEmail = (resumedUser.Email || resumedUser.email || '').trim();
@@ -3804,6 +3932,8 @@
         response.sessionIdleTimeoutMinutes
       );
 
+      persistAppTokenFromResponse(response);
+
       const redirectInput = response.redirectUrl || (response.redirectSlug ? `?page=${response.redirectSlug}` : '');
       let destinationUrl = normalizeRedirectUrl(redirectInput);
 
@@ -3990,6 +4120,7 @@
       console.log('Login page initializing...');
 
       restoreEmailFromStorage();
+      validateExistingAppToken({ silent: true });
 
       // Handle URL parameters for messages/errors
       const urlParams = new URLSearchParams(window.location.search);
@@ -4067,6 +4198,12 @@
       }
 
       console.log('Login page initialized successfully');
+    });
+
+    window.addEventListener('pageshow', function(event) {
+      if (event && event.persisted) {
+        validateExistingAppToken({ silent: true });
+      }
     });
     // ───────────────────────────────────────────────────────────────────────────────
     // ERROR HANDLING
