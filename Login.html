@@ -898,10 +898,29 @@
       }
 
       function handleLoginError(error) {
-        console.error('authenticateUser failed', error);
+        console.error('loginUser failed', error);
         const message = error && error.message ? error.message : 'Unable to sign in. Please try again.';
         setAlert('error', message);
         setLoading(false);
+      }
+
+      function buildClientMetadata() {
+        try {
+          const now = new Date();
+          const params = new URLSearchParams(window.location.search || '');
+          return {
+            userAgent: navigator.userAgent,
+            platform: navigator.platform,
+            language: navigator.language,
+            timezoneOffsetMinutes: now.getTimezoneOffset(),
+            requestUrl: window.location.href,
+            requestedReturnUrl: params.get('returnUrl') || params.get('redirect'),
+            screen: window.screen ? { width: window.screen.width, height: window.screen.height } : undefined
+          };
+        } catch (error) {
+          console.warn('buildClientMetadata failed', error);
+          return null;
+        }
       }
 
       function onFormSubmit(event) {
@@ -930,7 +949,7 @@
           .withFailureHandler(function (error) {
             handleLoginError(error);
           })
-          .authenticateUser(email, password, rememberMe);
+          .loginUser(email, password, rememberMe, buildClientMetadata());
       }
 
       function init() {

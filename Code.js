@@ -73,57 +73,6 @@ function includeOnce(filename, data) {
   return include(filename, data);
 }
 
-function authenticateUser(email, password, rememberMe) {
-  if (!email || !password) {
-    return { success: false, message: 'Enter your email and password.' };
-  }
-
-  var normalizedEmail = normalizeEmail(email);
-  var resolution = resolveUserByEmail(normalizedEmail);
-  if (!resolution || !resolution.user) {
-    return { success: false, message: 'Invalid username or password.' };
-  }
-
-  if (resolution.status && resolution.status.canLogin === false) {
-    return {
-      success: false,
-      message: 'Your account has been disabled. Please contact your administrator.'
-    };
-  }
-
-  if (resolution.status && resolution.status.emailConfirmed === false) {
-    return {
-      success: false,
-      message: 'Please confirm your email address before logging in.'
-    };
-  }
-
-  if (resolution.status && resolution.status.requiresReset === true) {
-    return {
-      success: false,
-      message: 'You must change your password before continuing.'
-    };
-  }
-
-  if (!verifyPassword(password, resolution)) {
-    return { success: false, message: 'Invalid username or password.' };
-  }
-
-  var tokenInfo = issueAuthToken(resolution.user, { rememberMe: !!rememberMe });
-  return {
-    success: true,
-    token: tokenInfo.token,
-    expiresAt: tokenInfo.expiresAt,
-    ttlMinutes: tokenInfo.ttlMinutes,
-    rememberMe: tokenInfo.rememberMe,
-    user: {
-      id: resolution.user.id,
-      email: resolution.user.email,
-      name: resolution.user.name || ''
-    }
-  };
-}
-
 function validateToken(token) {
   try {
     var validation = verifyToken(token);
@@ -137,20 +86,176 @@ function validateToken(token) {
   }
 }
 
-function logoutUser(token) {
-  if (!token) {
-    return { success: true };
+function applyAppTokenToLoginResult(loginResult, rememberMeOverride) {
+  if (!loginResult || !loginResult.success) {
+    return loginResult;
+  }
+
+  var identity = deriveLoginIdentity(loginResult);
+  if (!identity) {
+    return loginResult;
+  }
+
+  var rememberMe = (typeof rememberMeOverride === 'boolean')
+    ? rememberMeOverride
+    : !!loginResult.rememberMe;
+  var sessionToken = extractSessionTokenFromLoginResult(loginResult);
+  var issuedToken = issueAuthToken(identity, { rememberMe: rememberMe }, sessionToken);
+
+  loginResult.token = issuedToken.token;
+  loginResult.expiresAt = issuedToken.expiresAt;
+  loginResult.ttlMinutes = issuedToken.ttlMinutes;
+  loginResult.rememberMe = issuedToken.rememberMe;
+  loginResult.cookieName = AUTH_CONFIG.COOKIE_NAME;
+
+  return loginResult;
+}
+
+function deriveLoginIdentity(loginResult) {
+  if (!loginResult) {
+    return null;
+  }
+
+  var user = loginResult.user
+    || loginResult.profile
+    || loginResult.account
+    || (loginResult.session && loginResult.session.user)
+    || null;
+
+  var email = normalizeEmail(
+    (user && (user.Email || user.email || user.UserName || user.username))
+    || loginResult.email
+    || loginResult.userEmail
+    || ''
+  );
+
+  var identifier = '';
+  if (user) {
+    identifier = extractUserId(user);
+  }
+
+  if (!identifier) {
+    identifier = normalizeString(
+      loginResult.userId
+      || loginResult.accountId
+      || loginResult.userIdentifier
+      || ''
+    );
+  }
+
+  if (!identifier && email) {
+    identifier = email;
+  }
+
+  if (!identifier) {
+    return null;
+  }
+
+  var name = '';
+  if (user) {
+    name = normalizeString(user.FullName || user.fullName || user.Name || user.name || user.UserName || user.username || '');
+  }
+
+  return {
+    id: identifier,
+    email: email,
+    name: name
+  };
+}
+
+function extractSessionTokenFromLoginResult(loginResult) {
+  if (!loginResult) {
+    return '';
+  }
+  if (loginResult.sessionToken) {
+    return loginResult.sessionToken;
+  }
+  if (loginResult.session && loginResult.session.token) {
+    return loginResult.session.token;
+  }
+  if (loginResult.session && loginResult.session.sessionToken) {
+    return loginResult.session.sessionToken;
+  }
+  return '';
+}
+
+function isAppTokenFormat(token) {
+  if (!token || typeof token !== 'string') {
+    return false;
+  }
+  if (token.indexOf('.') === -1) {
+    return false;
+  }
+  var parts = token.split('.');
+  return parts.length === 2 && parts[0].length > 8 && parts[1].length > 8;
+}
+
+function resolveSessionTokenFromAppToken(token) {
+  if (!token || typeof token !== 'string') {
+    return { sessionToken: null, jti: null, record: null };
   }
 
   var parsed = parseToken(token);
-  if (parsed && parsed.payload && parsed.payload.jti) {
-    deleteTokenRecord(parsed.payload.jti);
+  if (!parsed || !parsed.valid || !parsed.payload || !parsed.payload.jti) {
+    return { sessionToken: null, jti: null, record: null };
   }
 
-  return { success: true };
+  var record = loadTokenRecord(parsed.payload.jti);
+  return {
+    sessionToken: record ? (record.sessionToken || null) : null,
+    jti: parsed.payload.jti,
+    record: record || null
+  };
 }
 
-function issueAuthToken(user, options) {
+function invalidateAppToken(token) {
+  var resolution = resolveSessionTokenFromAppToken(token);
+  if (resolution && resolution.jti) {
+    deleteTokenRecord(resolution.jti);
+  }
+  return resolution;
+}
+
+function invalidateTokensForSessionToken(sessionToken) {
+  if (!sessionToken) {
+    return 0;
+  }
+  var props = PropertiesService.getScriptProperties();
+  props.deleteProperty(buildTokenPropertyKey(jti));
+}
+
+function purgeExpiredTokens() {
+  var props = PropertiesService.getScriptProperties();
+  var keys = props.getKeys();
+  if (!keys || !keys.length) {
+    return 0;
+  }
+
+  var removed = 0;
+  for (var i = 0; i < keys.length; i++) {
+    var key = keys[i];
+    if (key.indexOf(AUTH_CONFIG.TOKEN_PROPERTY_PREFIX) !== 0) {
+      continue;
+    }
+    var raw = props.getProperty(key);
+    if (!raw) {
+      continue;
+    }
+    try {
+      var parsed = JSON.parse(raw);
+      if (parsed && parsed.sessionToken === sessionToken) {
+        props.deleteProperty(key);
+        removed++;
+      }
+    } catch (error) {
+      props.deleteProperty(key);
+    }
+  }
+
+  return removed;
+}
+
+function issueAuthToken(user, options, sessionToken) {
   var now = new Date();
   var ttlMinutes = AUTH_CONFIG.TOKEN_TTL_MINUTES;
   if (options && options.rememberMe) {
@@ -174,7 +279,8 @@ function issueAuthToken(user, options) {
     jti: payload.jti,
     uid: user.id,
     expiresAt: payload.exp,
-    rememberMe: !!(options && options.rememberMe)
+    rememberMe: !!(options && options.rememberMe),
+    sessionToken: sessionToken || null
   });
 
   return {
@@ -212,7 +318,27 @@ function verifyToken(token) {
     return { valid: false, reason: 'INVALID' };
   }
 
-  var user = getUserById(payload.uid);
+  var sessionState = resolveSessionStateForRecord(record);
+  if (sessionState && sessionState.status === 'invalid') {
+    deleteTokenRecord(payload.jti);
+    return {
+      valid: false,
+      reason: sessionState.reason || 'SESSION_INVALID'
+    };
+  }
+  if (sessionState && sessionState.status === 'expired') {
+    deleteTokenRecord(payload.jti);
+    return {
+      valid: false,
+      reason: sessionState.reason || 'SESSION_EXPIRED'
+    };
+  }
+  var email = resolution.user ? resolution.user.email : '';
+
+  var user = (sessionState && sessionState.user) ? sessionState.user : null;
+  if (!user) {
+    user = getUserById(payload.uid);
+  }
   if (!user && payload.email) {
     user = getUserByEmail(payload.email);
   }
@@ -221,17 +347,148 @@ function verifyToken(token) {
     return { valid: false, reason: 'UNKNOWN_USER' };
   }
 
+  if (sessionState && sessionState.user) {
+    var sessionUserId = normalizeString(sessionState.user.id || '');
+    var payloadUserId = normalizeString(payload.uid || '');
+    if (sessionUserId && payloadUserId && sessionUserId !== payloadUserId) {
+      deleteTokenRecord(payload.jti);
+      return { valid: false, reason: 'SESSION_MISMATCH' };
+    }
+
+    var sessionEmail = normalizeEmail(sessionState.user.email || '');
+    var payloadEmail = normalizeEmail(payload.email || '');
+    if (sessionEmail && payloadEmail && sessionEmail !== payloadEmail) {
+      deleteTokenRecord(payload.jti);
+      return { valid: false, reason: 'SESSION_MISMATCH' };
+    }
+  } catch (error) {
+    console.warn('verifyPassword: SHA-256 fallback failed', error);
+  }
+
+  var expiresAtMs = payload.exp;
+  if (record && record.expiresAt) {
+    expiresAtMs = Math.min(expiresAtMs, record.expiresAt);
+  }
+  if (sessionState && sessionState.expiresAt) {
+    expiresAtMs = Math.min(expiresAtMs, sessionState.expiresAt);
+  }
+
   return {
     valid: true,
     token: token,
-    expiresAt: new Date(payload.exp).toISOString(),
+    expiresAt: new Date(expiresAtMs).toISOString(),
     rememberMe: !!(record && record.rememberMe),
     user: {
       id: user.id,
       email: user.email,
       name: user.name || ''
-    }
+    },
+    session: sessionState
   };
+}
+
+function resolveSessionStateForRecord(record) {
+  if (!record || !record.sessionToken) {
+    return { status: 'unlinked' };
+  }
+
+  if (typeof AuthenticationService === 'undefined' || !AuthenticationService) {
+    return { status: 'unavailable' };
+  }
+
+  if (typeof AuthenticationService.getSessionStatus === 'function') {
+    try {
+      var status = AuthenticationService.getSessionStatus(record.sessionToken, { touch: true });
+      if (!status || status.valid === false) {
+        return {
+          status: status && status.status ? status.status : 'invalid',
+          reason: (status && status.reason) || 'SESSION_INVALID'
+        };
+      }
+
+      return {
+        status: 'active',
+        sessionToken: record.sessionToken,
+        expiresAt: toMillis(status.expiresAt || status.sessionExpiresAt || null),
+        rememberMe: !!status.rememberMe,
+        user: normalizeSessionUserForToken(status.user || status.sessionUser || null),
+        raw: status
+      };
+    } catch (error) {
+      console.warn('resolveSessionStateForRecord: getSessionStatus failed', error);
+      return { status: 'error', reason: 'SESSION_ERROR' };
+    }
+  }
+
+  if (typeof AuthenticationService.getSessionUser === 'function') {
+    try {
+      var sessionUser = AuthenticationService.getSessionUser(record.sessionToken);
+      if (!sessionUser) {
+        return { status: 'invalid', reason: 'SESSION_INVALID' };
+      }
+      return {
+        status: 'active',
+        sessionToken: record.sessionToken,
+        expiresAt: null,
+        user: normalizeSessionUserForToken(sessionUser),
+        raw: sessionUser
+      };
+    } catch (fallbackError) {
+      console.warn('resolveSessionStateForRecord: getSessionUser failed', fallbackError);
+      return { status: 'error', reason: 'SESSION_ERROR' };
+    }
+  }
+
+  return { status: 'unsupported' };
+}
+
+function normalizeSessionUserForToken(sessionUser) {
+  if (!sessionUser) {
+    return null;
+  }
+  var email = normalizeEmail(
+    sessionUser.Email
+    || sessionUser.email
+    || sessionUser.UserName
+    || sessionUser.username
+    || ''
+  );
+  var identifier = extractUserId(sessionUser);
+  if (!identifier) {
+    identifier = normalizeString(
+      sessionUser.id
+      || sessionUser.userId
+      || sessionUser.UserId
+      || ''
+    );
+  }
+  if (!identifier && email) {
+    identifier = email;
+  }
+  return {
+    id: identifier || '',
+    email: email,
+    name: normalizeString(
+      sessionUser.FullName
+      || sessionUser.fullName
+      || sessionUser.Name
+      || sessionUser.name
+      || sessionUser.DisplayName
+      || sessionUser.displayName
+      || ''
+    )
+  };
+}
+
+function toMillis(value) {
+  if (!value) {
+    return null;
+  }
+  if (typeof value === 'number') {
+    return value;
+  }
+  var parsed = Date.parse(value);
+  return isNaN(parsed) ? null : parsed;
 }
 
 function parseToken(token) {
@@ -591,7 +848,11 @@ function verifyPassword(password, resolution) {
     try {
       var normalizedHash = utils.normalizeHash(hash);
       var computed = utils.hashPassword(password);
-      if (typeof utils.constantTimeEquals === 'function') {
+      if (typeof utils.safeCompare === 'function') {
+        if (utils.safeCompare(computed, normalizedHash)) {
+          return true;
+        }
+      } else if (typeof utils.constantTimeEquals === 'function') {
         if (utils.constantTimeEquals(computed, normalizedHash)) {
           return true;
         }
