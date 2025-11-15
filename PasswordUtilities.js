@@ -118,6 +118,10 @@ function __createPasswordUtilitiesModule() {
     return diff === 0;
   }
 
+  function safeCompare(a, b) {
+    return constantTimeEquals(a, b);
+  }
+
   function verifyPassword(raw, expectedHash) {
     var parsed = parseHashStructure(expectedHash);
     if (parsed.kind === 'empty') {
@@ -152,7 +156,8 @@ function __createPasswordUtilitiesModule() {
     createPasswordHash: createPasswordHash,
     verifyPassword: verifyPassword,
     comparePassword: verifyPassword,
-    constantTimeEquals: constantTimeEquals
+    constantTimeEquals: constantTimeEquals,
+    safeCompare: safeCompare
   };
 }
 
