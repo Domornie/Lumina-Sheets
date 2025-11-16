@@ -21,11 +21,11 @@
 // CONFIGURATION & CONSTANTS
 // ────────────────────────────────────────────────────────────────────────────
 
-const BILLABLE_STATES = ['Available', 'Administrative Work', 'Training', 'Meeting'];
-const BILLABLE_STATE_LABELS = [...new Set([...BILLABLE_STATES, 'Break'])];
+const BILLABLE_STATES = ['Available', 'Administrative Work', 'Training', 'Meeting', 'Break'];
+const BILLABLE_STATE_LABELS = [...new Set([...BILLABLE_STATES])];
 const NON_PRODUCTIVE_STATES = ['Break', 'Lunch'];
 const BILLABLE_DISPLAY_STATES = [...BILLABLE_STATE_LABELS];
-const NON_PRODUCTIVE_DISPLAY_STATES = [...new Set([...NON_PRODUCTIVE_STATES, 'Break'])];
+const NON_PRODUCTIVE_DISPLAY_STATES = [...new Set([...NON_PRODUCTIVE_STATES])];
 
 const LOGIN_STATE_KEYWORDS = [
   'available',
@@ -1249,7 +1249,8 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter, poli
       }
       if (BILLABLE_STATES.includes(state)) {
         metrics.prod += durationSec;
-      } else if (state === 'Break') {
+      }
+      if (state === 'Break') {
         metrics.break += durationSec;
       } else if (state === 'Lunch') {
         metrics.lunch += durationSec;
@@ -1361,12 +1362,9 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter, poli
     const userWeeklyTotals = new Map();
 
     userDayMetrics.forEach(metrics => {
-      const breakOver = calculateBreakOverageSecs(metrics.break);
-      const breakCredit = calculateBreakCreditSecs(metrics.break);
-      const lunchAdjustment = calculateLunchAdjustmentSecs(metrics.lunch);
-      const lunchOver = calculateLunchOverageSecs(metrics.lunch);
+      const { breakOver, lunchOver, combinedOver, deduction } = calculateBreakLunchDeductions(metrics.break, metrics.lunch);
 
-      if (breakOver > 0 || lunchOver > 0) {
+      if (breakOver > 0 || lunchOver > 0 || combinedOver > 0) {
         violationDays++;
       }
 
@@ -1380,30 +1378,29 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter, poli
         }
       }
 
-      const baseProd = Math.max(0, metrics.prod - breakOver);
+      const baseProd = Math.max(0, metrics.prod - deduction);
       const baseCapped = Math.min(baseProd, hourPolicy.effectiveCapSeconds);
-      const { applied: appliedBreak, result: afterBreak } = applyCappedAdjustment(baseCapped, breakCredit, hourPolicy.effectiveCapSeconds);
-      const { applied: appliedLunch, result: adjustedTotal } = applyCappedAdjustment(afterBreak, lunchAdjustment, hourPolicy.effectiveCapSeconds);
+      const adjustedTotal = baseCapped;
       const overtime = Math.max(0, Math.min(baseProd, hourPolicy.effectiveCapSeconds) - (hourPolicy.baseCapHours * 3600));
 
       totalBaseBillableSecs += baseCapped;
       totalAdjustedBillableSecs += adjustedTotal;
       totalOvertimeSecs += overtime;
-      totalBreakCreditSecs += appliedBreak;
-      totalLunchAdjustmentSecs += appliedLunch;
+      totalBreakCreditSecs += 0;
+      totalLunchAdjustmentSecs += 0;
 
       const compliance = userComplianceMap.get(metrics.user);
       if (compliance) {
-        compliance.breakCreditSecs += appliedBreak;
-        compliance.lunchAdjustmentSecs += appliedLunch;
+        compliance.breakCreditSecs += 0;
+        compliance.lunchAdjustmentSecs += 0;
         if (metrics.isWeekend) {
-          compliance.breakCreditWeekendSecs += appliedBreak;
-          compliance.lunchAdjustmentWeekendSecs += appliedLunch;
+          compliance.breakCreditWeekendSecs += 0;
+          compliance.lunchAdjustmentWeekendSecs += 0;
           compliance.adjustedWeekendSecs += adjustedTotal;
           compliance.weekendBaseCappedSecs += baseCapped;
         } else {
-          compliance.breakCreditWeekdaySecs += appliedBreak;
-          compliance.lunchAdjustmentWeekdaySecs += appliedLunch;
+          compliance.breakCreditWeekdaySecs += 0;
+          compliance.lunchAdjustmentWeekdaySecs += 0;
           compliance.adjustedWeekdaySecs += adjustedTotal;
           compliance.weekdayBaseCappedSecs += baseCapped;
         }
@@ -1453,7 +1450,11 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter, poli
     const adjustedBillableSecs = Math.max(0, Math.min(totalAdjustedBillableSecs, totalBaseBillableSecs + totalBreakCreditSecs + totalLunchAdjustmentSecs));
     const billableWithBreakSecs = adjustedBillableSecs;
     const totalBillableHours = Math.round((adjustedBillableSecs / 3600) * 100) / 100;
-    const totalNonProductiveHours = Math.round(((breakSecs + lunchSecs) / 3600) * 100) / 100;
+    const totalNonProductiveSecs = NON_PRODUCTIVE_STATES.reduce(
+      (sum, state) => sum + (stateDuration[state] || 0),
+      0
+    );
+    const totalNonProductiveHours = Math.round((totalNonProductiveSecs / 3600) * 100) / 100;
 
     const billableBreakdown = buildHourBreakdown(BILLABLE_DISPLAY_STATES, stateDuration);
     const nonProductiveBreakdown = buildHourBreakdown(NON_PRODUCTIVE_DISPLAY_STATES, stateDuration);
@@ -1821,16 +1822,19 @@ function calculateProductivityMetrics(filtered) {
     const breakSecs = stateDuration['Break'] || 0;
     const lunchSecs = stateDuration['Lunch'] || 0;
     const billableSecs = BILLABLE_STATES.reduce((sum, state) => sum + (stateDuration[state] || 0), 0);
-    let totalBreakCreditSecs = 0;
-    let totalLunchAdjustmentSecs = 0;
+    let totalDeductionSecs = 0;
     dayMetrics.forEach(metrics => {
-        totalBreakCreditSecs += calculateBreakCreditSecs(metrics.break);
-        totalLunchAdjustmentSecs += calculateLunchAdjustmentSecs(metrics.lunch);
+        const { deduction } = calculateBreakLunchDeductions(metrics.break, metrics.lunch);
+        totalDeductionSecs += deduction;
     });
-    const billableWithBreakSecs = Math.max(0, billableSecs + totalBreakCreditSecs + totalLunchAdjustmentSecs);
+    const billableWithBreakSecs = Math.max(0, billableSecs - totalDeductionSecs);
 
     const totalBillableHours = Math.round((billableWithBreakSecs / 3600) * 100) / 100;
-    const totalNonProductiveHours = Math.round(((breakSecs + lunchSecs) / 3600) * 100) / 100;
+    const totalNonProductiveSecs = NON_PRODUCTIVE_STATES.reduce(
+      (sum, state) => sum + (stateDuration[state] || 0),
+      0
+    );
+    const totalNonProductiveHours = Math.round((totalNonProductiveSecs / 3600) * 100) / 100;
 
     return {
         totalBillableHours,
@@ -1852,10 +1856,8 @@ function calculateUserCompliance(filtered) {
                 weekendProdSecs: 0,
                 breakSecs: 0,
                 lunchSecs: 0,
-                breakCreditWeekdaySecs: 0,
-                breakCreditWeekendSecs: 0,
-                lunchAdjustmentWeekdaySecs: 0,
-                lunchAdjustmentWeekendSecs: 0
+                weekdayDeductionSecs: 0,
+                weekendDeductionSecs: 0
             });
         }
 
@@ -1901,26 +1903,21 @@ function calculateUserCompliance(filtered) {
         const [user] = key.split('|');
         const stats = userStats.get(user);
         if (!stats) return;
-        const breakCredit = calculateBreakCreditSecs(bucket.break);
-        const lunchAdjustment = calculateLunchAdjustmentSecs(bucket.lunch);
+        const { deduction } = calculateBreakLunchDeductions(bucket.break, bucket.lunch);
         const isWeekend = bucket.dayOfWeek >= 6;
 
         if (isWeekend) {
-            stats.breakCreditWeekendSecs += breakCredit;
-            stats.lunchAdjustmentWeekendSecs += lunchAdjustment;
+            stats.weekendDeductionSecs += deduction;
         } else {
-            stats.breakCreditWeekdaySecs += breakCredit;
-            stats.lunchAdjustmentWeekdaySecs += lunchAdjustment;
+            stats.weekdayDeductionSecs += deduction;
         }
     });
 
     return Array.from(userStats.entries()).map(([user, stats]) => {
-        const availableWeekdaySecs = Math.max(0, stats.weekdayProdSecs + stats.breakCreditWeekdaySecs + stats.lunchAdjustmentWeekdaySecs);
-        const availableWeekendSecs = Math.max(0, stats.weekendProdSecs + stats.breakCreditWeekendSecs + stats.lunchAdjustmentWeekendSecs);
-        const baseBillableSecs = Math.max(0, stats.weekdayProdSecs + stats.weekendProdSecs);
-        const breakCreditTotalSecs = stats.breakCreditWeekdaySecs + stats.breakCreditWeekendSecs;
-        const lunchAdjustmentTotalSecs = stats.lunchAdjustmentWeekdaySecs + stats.lunchAdjustmentWeekendSecs;
-        const adjustedBillableSecs = Math.max(0, baseBillableSecs + breakCreditTotalSecs + lunchAdjustmentTotalSecs);
+        const availableWeekdaySecs = Math.max(0, stats.weekdayProdSecs - stats.weekdayDeductionSecs);
+        const availableWeekendSecs = Math.max(0, stats.weekendProdSecs - stats.weekendDeductionSecs);
+        const baseBillableSecs = Math.max(0, availableWeekdaySecs + availableWeekendSecs);
+        const adjustedBillableSecs = baseBillableSecs;
         return {
             user,
             availableSecsWeekday: availableWeekdaySecs,
@@ -1928,8 +1925,8 @@ function calculateUserCompliance(filtered) {
             weekendSecs: availableWeekendSecs,
             weekendLabel: formatSecsAsHhMm(availableWeekendSecs),
             baseBillableSecs,
-            breakCreditSecs: breakCreditTotalSecs,
-            lunchAdjustmentSecs: lunchAdjustmentTotalSecs,
+            breakCreditSecs: 0,
+            lunchAdjustmentSecs: 0,
             adjustedBillableSecs,
             breakSecs: stats.breakSecs,
             breakLabel: formatSecsAsHhMm(stats.breakSecs),
@@ -1957,22 +1954,30 @@ function calculateBreakOverageSecs(breakSeconds) {
   return Math.max(0, total - DAILY_BREAKS_SECS);
 }
 
-function calculateBreakCreditSecs(breakSeconds) {
-  const total = Number.isFinite(breakSeconds) ? breakSeconds : 0;
-  return Math.max(0, Math.min(total, DAILY_BREAKS_SECS));
+function calculateBreakCreditSecs() {
+  return 0;
 }
 
-function calculateLunchAdjustmentSecs(lunchSeconds) {
-  const total = Number.isFinite(lunchSeconds) ? lunchSeconds : 0;
-  if (total <= DAILY_LUNCH_SECS) {
-    return 0;
-  }
-  return DAILY_LUNCH_SECS - total;
+function calculateLunchAdjustmentSecs() {
+  return 0;
 }
 
 function calculateLunchOverageSecs(lunchSeconds) {
   const total = Number.isFinite(lunchSeconds) ? lunchSeconds : 0;
   return Math.max(0, total - DAILY_LUNCH_SECS);
+}
+
+function calculateBreakLunchDeductions(breakSeconds, lunchSeconds) {
+  const safeBreak = Number.isFinite(breakSeconds) ? breakSeconds : 0;
+  const safeLunch = Number.isFinite(lunchSeconds) ? lunchSeconds : 0;
+
+  const breakOver = Math.max(0, safeBreak - DAILY_BREAKS_SECS);
+  const lunchOver = Math.max(0, safeLunch - DAILY_LUNCH_SECS);
+  const combinedOver = Math.max(0, (safeBreak + safeLunch) - (DAILY_BREAKS_SECS + DAILY_LUNCH_SECS));
+
+  const deduction = Math.max(breakOver + lunchOver, combinedOver);
+
+  return { breakOver, lunchOver, combinedOver, deduction };
 }
 
 function applyCappedAdjustment(baseValue, adjustment, capSeconds) {
@@ -2630,9 +2635,11 @@ function generateDailyPivotMatrix(filteredRows, granularity, periodValue, option
       const rawHours = userHours.get(dateInfo.date) || 0;
       const breakMin = userBreakMin.get(dateInfo.date) || 0;
       const lunchMin = userLunchMin.get(dateInfo.date) || 0;
+      const breakCreditHours = calculateBreakCreditSecs(breakMin * 60) / 3600;
       const cappedHours = Math.min(rawHours, capHours);
-      const performanceStatus = determineDailyPerformanceStatus(cappedHours, dateInfo.isWeekend);
-      const effectiveHoursForOvertime = Math.min(rawHours, capHours);
+      const adjustedHours = cappedHours + breakCreditHours;
+      const performanceStatus = determineDailyPerformanceStatus(adjustedHours, dateInfo.isWeekend);
+      const effectiveHoursForOvertime = adjustedHours;
       const capApplied = rawHours - cappedHours > 0.001;
 
       totalBreakMinutes += breakMin;
@@ -2645,7 +2652,7 @@ function generateDailyPivotMatrix(filteredRows, granularity, periodValue, option
       }
 
       if (dateInfo.isWeekend) {
-        weekendHours += cappedHours;
+        weekendHours += adjustedHours;
         if (!options.includeWeekends) {
           return {
             date: dateInfo.date,
@@ -2662,8 +2669,8 @@ function generateDailyPivotMatrix(filteredRows, granularity, periodValue, option
         }
       } else {
         // Weekday processing
-        weekdayHours += cappedHours;
-        totalHours += cappedHours;
+        weekdayHours += adjustedHours;
+        totalHours += adjustedHours;
 
         if (performanceStatus === 'under') {
           discrepancyDays++;
@@ -2681,14 +2688,15 @@ function generateDailyPivotMatrix(filteredRows, granularity, periodValue, option
         }
       }
 
-      const formattedHours = cappedHours.toFixed(2);
+      const formattedHours = adjustedHours.toFixed(2);
       const isLow = performanceStatus === 'under';
 
       return {
         date: dateInfo.date,
         value: formattedHours,
-        numericValue: cappedHours,
+        numericValue: adjustedHours,
         rawValue: rawHours,
+        breakCreditHours,
         isStatus: false,
         isLow: isLow,
         isWeekend: dateInfo.isWeekend,
@@ -4210,12 +4218,13 @@ function createBasicAnalytics(filtered, granularity, periodId, agentFilter, peri
       fallbackDayMetrics.set(metricKey, { break: 0, lunch: 0, prod: 0, isWeekend: false });
     }
     const metrics = fallbackDayMetrics.get(metricKey);
+    if (BILLABLE_STATES.includes(state)) {
+      metrics.prod += durationSec;
+    }
     if (state === 'Break') {
       metrics.break += durationSec;
     } else if (state === 'Lunch') {
       metrics.lunch += durationSec;
-    } else if (BILLABLE_STATES.includes(state)) {
-      metrics.prod += durationSec;
     }
 
     if (!metrics.isWeekend && dateKey && dateKey !== 'unknown') {
@@ -4253,22 +4262,23 @@ function createBasicAnalytics(filtered, granularity, periodId, agentFilter, peri
   let fallbackBaseBillableSecs = 0;
   let fallbackAdjustedBillableSecs = 0;
   fallbackDayMetrics.forEach(dayMetrics => {
-    const breakOver = calculateBreakOverageSecs(dayMetrics.break);
-    const breakCredit = calculateBreakCreditSecs(dayMetrics.break);
-    const lunchAdjustment = calculateLunchAdjustmentSecs(dayMetrics.lunch);
-    const baseProd = Math.max(0, (dayMetrics.prod || 0) - breakOver);
+    const { deduction } = calculateBreakLunchDeductions(dayMetrics.break, dayMetrics.lunch);
+    const baseProd = Math.max(0, (dayMetrics.prod || 0) - deduction);
     const baseCapped = Math.min(baseProd, safeHourPolicy.effectiveCapSeconds);
-    const { applied: appliedBreak, result: afterBreak } = applyCappedAdjustment(baseCapped, breakCredit, safeHourPolicy.effectiveCapSeconds);
-    const { applied: appliedLunch, result: adjustedTotal } = applyCappedAdjustment(afterBreak, lunchAdjustment, safeHourPolicy.effectiveCapSeconds);
+    const adjustedTotal = baseCapped;
 
-    fallbackBreakCreditSecs += appliedBreak;
-    fallbackLunchAdjustmentSecs += appliedLunch;
+    fallbackBreakCreditSecs += 0;
+    fallbackLunchAdjustmentSecs += 0;
     fallbackBaseBillableSecs += baseCapped;
     fallbackAdjustedBillableSecs += adjustedTotal;
   });
   const billableWithBreakSecs = Math.max(0, Math.min(fallbackAdjustedBillableSecs, fallbackBaseBillableSecs + fallbackBreakCreditSecs + fallbackLunchAdjustmentSecs));
   const totalBillableHours = Math.round((billableWithBreakSecs / 3600) * 100) / 100;
-  const totalNonProductiveHours = Math.round(((breakSecs + lunchSecs) / 3600) * 100) / 100;
+  const totalNonProductiveSecs = NON_PRODUCTIVE_STATES.reduce(
+    (sum, state) => sum + (stateDuration[state] || 0),
+    0
+  );
+  const totalNonProductiveHours = Math.round((totalNonProductiveSecs / 3600) * 100) / 100;
 
   const billableBreakdown = buildHourBreakdown(BILLABLE_DISPLAY_STATES, stateDuration);
   const nonProductiveBreakdown = buildHourBreakdown(NON_PRODUCTIVE_DISPLAY_STATES, stateDuration);
