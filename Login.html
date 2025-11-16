@@ -2194,6 +2194,38 @@
       state.sessionExpiresAt = null;
     }
 
+    function clearStoredSession(reasonLabel) {
+      try {
+        clearAuthCookie();
+      } catch (clearErr) {
+        console.warn('clearStoredSession: unable to clear auth cookie', clearErr);
+      }
+
+      try {
+        if (window.localStorage) {
+          localStorage.removeItem('lumina.session.token');
+          localStorage.removeItem('lumina.auth.sessionToken');
+          localStorage.removeItem('lumina.auth.fallbackToken');
+        }
+      } catch (localErr) {
+        console.warn('clearStoredSession: unable to clear localStorage tokens', localErr);
+      }
+
+      try {
+        if (window.sessionStorage) {
+          sessionStorage.removeItem('lumina.session.token');
+          sessionStorage.removeItem('lumina.auth.sessionToken');
+          sessionStorage.removeItem('lumina.auth.fallbackToken');
+        }
+      } catch (sessionErr) {
+        console.warn('clearStoredSession: unable to clear sessionStorage tokens', sessionErr);
+      }
+
+      if (reasonLabel === 'manual') {
+        state.hasAttemptedResume = true;
+      }
+    }
+
     function broadcastSessionTokenChange(token) {
       try {
         if (typeof window === 'undefined') {
@@ -3999,6 +4031,10 @@
       const shouldShowAutoTimeout = !error && !message && logoutReason === 'auto';
       const shouldShowManualLogout = !error && !message && logoutReason === 'manual';
 
+      if (logoutReason) {
+        clearStoredSession(logoutReason);
+      }
+
       let shouldReplaceUrl = false;
 
       if (urlParams.has('token')) {
@@ -4028,7 +4064,8 @@
         window.history.replaceState({}, document.title, cleanUrl);
       }
 
-      const resumed = attemptSessionResume();
+      const allowResume = logoutReason !== 'manual';
+      const resumed = allowResume ? attemptSessionResume() : false;
 
       if (!resumed && (shouldShowAutoTimeout || shouldShowManualLogout)) {
         showAlert('info', 'Session tokens expire when you log out or after 30 minutes of inactivity. Please sign in again to continue.');
