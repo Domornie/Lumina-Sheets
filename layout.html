@@ -267,7 +267,6 @@
   ?>
 
   <?!= includeOnce('CookieHandler') ?>
-  <?!= includeOnce('AppAuthClient') ?>
   <?!= includeOnce('layoutAlerts') ?>
   <?!= includeOnce('ResponsiveStyles') ?>
 
@@ -4256,8 +4255,6 @@
             }
 
             // Call server logout
-            const appToken = readAppAuthTokenValue();
-
             window.google.script.run
                 .withSuccessHandler(function(result) {
                     console.log('✅ Server logout completed:', result);
@@ -4267,7 +4264,7 @@
                     console.warn('⚠️ Server logout failed, proceeding with client logout:', err);
                     finalizeLogout('server-failure');
                 })
-                .logout(sessionToken || '', appToken || '');
+                .logout(sessionToken || '');
         }
 
         function performLogout() {
@@ -4401,43 +4398,6 @@
             return token;
         }
 
-        function readAppAuthTokenValue() {
-            let token = '';
-            try {
-                if (window.AppAuthCookie && typeof window.AppAuthCookie.read === 'function') {
-                    token = window.AppAuthCookie.read();
-                }
-            } catch (appCookieError) {
-                console.warn('AppToken: unable to read auth cookie', appCookieError);
-            }
-
-            if (token) {
-                return token;
-            }
-
-            try {
-                if (window.localStorage) {
-                    token = window.localStorage.getItem('lumina.appAuth.token') || '';
-                }
-            } catch (storageError) {
-                console.warn('AppToken: unable to read token from localStorage', storageError);
-            }
-
-            if (token) {
-                return token;
-            }
-
-            try {
-                if (window.sessionStorage) {
-                    token = window.sessionStorage.getItem('lumina.appAuth.token') || '';
-                }
-            } catch (sessionError) {
-                console.warn('AppToken: unable to read token from sessionStorage', sessionError);
-            }
-
-            return token || '';
-        }
-
         function clearClientAuthState(reason) {
             try {
                 if (typeof stopSessionHeartbeat === 'function') {
@@ -4455,14 +4415,6 @@
                 }
             } catch (cookieError) {
                 console.warn('AuthGuard: unable to clear auth cookie', cookieError);
-            }
-
-            try {
-                if (window.AppAuthCookie && typeof window.AppAuthCookie.clear === 'function') {
-                    window.AppAuthCookie.clear();
-                }
-            } catch (appCookieError) {
-                console.warn('AuthGuard: unable to clear application auth cookie', appCookieError);
             }
 
             try {
@@ -4552,98 +4504,26 @@
             }, 0);
         }
 
-        const APP_TOKEN_GUARD_STATE = {
-            pending: false,
-            lastValidatedAt: 0
-        };
-
-        function canValidateAppToken() {
-            if (!shouldEnforceAuthGuard()) {
-                return false;
-            }
-            if (!window.google || !window.google.script || !window.google.script.run) {
-                return false;
-            }
-            return true;
-        }
-
-        function scheduleAppTokenValidation(context) {
-            if (!canValidateAppToken()) {
-                return;
-            }
-            window.setTimeout(function () {
-                validateAppTokenGuard(context);
-            }, 0);
-        }
-
-        function validateAppTokenGuard(context) {
-            if (!canValidateAppToken()) {
-                return;
-            }
-            const token = readAppAuthTokenValue();
-            if (!token) {
-                return;
-            }
-            const now = Date.now();
-            if (APP_TOKEN_GUARD_STATE.pending) {
-                return;
-            }
-            if (APP_TOKEN_GUARD_STATE.lastValidatedAt && (now - APP_TOKEN_GUARD_STATE.lastValidatedAt) < 20000) {
-                return;
-            }
-            APP_TOKEN_GUARD_STATE.pending = true;
-            window.google.script.run
-                .withSuccessHandler(function (result) {
-                    APP_TOKEN_GUARD_STATE.pending = false;
-                    APP_TOKEN_GUARD_STATE.lastValidatedAt = Date.now();
-                    if (result && result.valid) {
-                        return;
-                    }
-                    clearClientAuthState('app-token-invalid');
-                    try {
-                        if (window.AppAuthCookie && typeof window.AppAuthCookie.clear === 'function') {
-                            window.AppAuthCookie.clear();
-                        }
-                    } catch (appCookieError) {
-                        console.warn('AppTokenGuard: unable to clear cookie', appCookieError);
-                    }
-                    const currentLocation = (typeof window !== 'undefined' && window.location && window.location.href)
-                        ? window.location.href
-                        : '';
-                    redirectToLogin({ includeReturn: true, reason: 'auto', returnUrl: currentLocation });
-                })
-                .withFailureHandler(function (error) {
-                    APP_TOKEN_GUARD_STATE.pending = false;
-                    console.warn('AppTokenGuard: validation failed', error, context);
-                })
-                .validateAppToken(token);
-        }
-
         document.addEventListener('visibilitychange', function () {
             if (document.visibilityState === 'visible') {
                 scheduleAuthGuardCheck('visibilitychange');
-                scheduleAppTokenValidation('visibilitychange');
             }
         });
 
         window.addEventListener('focus', function () {
             scheduleAuthGuardCheck('window-focus');
-            scheduleAppTokenValidation('window-focus');
         });
 
         window.addEventListener('pageshow', function (event) {
             if (event && event.persisted) {
                 scheduleAuthGuardCheck('history-return');
-                scheduleAppTokenValidation('history-return');
             } else {
                 scheduleAuthGuardCheck('pageshow');
-                scheduleAppTokenValidation('pageshow');
             }
         });
 
         document.addEventListener('DOMContentLoaded', function () {
             scheduleAuthGuardCheck('dom-ready');
-            scheduleAppTokenValidation('dom-ready');
         });
 
         // ──────────────────────────────────────────────────────────────────────────────
@@ -5560,16 +5440,6 @@
                 }
 
                 try {
-                    if (global.AppAuthCookie && typeof global.AppAuthCookie.clear === 'function') {
-                        global.AppAuthCookie.clear(options || {});
-                    }
-                } catch (appTokenError) {
-                    if (global.console && typeof global.console.warn === 'function') {
-                        console.warn('LuminaSessionHeartbeat: unable to clear application token', appTokenError);
-                    }
-                }
-
-                try {
                     if (global.localStorage) {
                         global.localStorage.removeItem(FALLBACK_STORAGE_KEY);
                     }
@@ -5764,22 +5634,6 @@
                         ttlSeconds: state.ttlSeconds,
                         expiresAt: state.expiresAt
                     });
-                }
-
-                if (result.appToken) {
-                    try {
-                        if (global.AppAuthCookie && typeof global.AppAuthCookie.persist === 'function') {
-                            global.AppAuthCookie.persist(result.appToken, {
-                                ttlMinutes: result.appTokenTtlMinutes || result.ttlMinutes,
-                                expiresAt: result.appTokenExpiresAt || result.expiresAt,
-                                rememberMe: result.appTokenRememberMe || result.rememberMe
-                            });
-                        }
-                    } catch (appTokenError) {
-                        if (global.console && typeof global.console.warn === 'function') {
-                            console.warn('LuminaSessionHeartbeat: unable to persist application token', appTokenError);
-                        }
-                    }
                 }
 
                 const nextDelay = computeNextInterval();
