@@ -1588,6 +1588,35 @@
             </div>
           </div>
 
+          <!-- Export Overtime Controls -->
+          <div class="row mb-4">
+            <div class="col-12">
+              <h6 class="section-heading"><i class="fas fa-business-time"></i>Overtime Controls</h6>
+              <div class="row gy-3">
+                <div class="col-lg-6">
+                  <label class="form-label fw-bold">Overtime</label>
+                  <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="exportOvertimeToggle">
+                    <label class="form-check-label" for="exportOvertimeToggle">Enable overtime allowance</label>
+                  </div>
+                  <small class="text-muted">When disabled, billable hours are capped at 8.5 hours per day.</small>
+                </div>
+                <div class="col-lg-6">
+                  <label class="form-label fw-bold">Overtime Allowance</label>
+                  <select class="form-select" id="exportOvertimeAmount" disabled>
+                    <option value="0.5">+0.5 hours</option>
+                    <option value="1">+1.0 hours</option>
+                    <option value="2">+2.0 hours</option>
+                    <option value="3">+3.0 hours</option>
+                    <option value="4">+4.0 hours</option>
+                    <option value="5">+5.0 hours</option>
+                  </select>
+                  <small class="text-muted">Select the maximum overtime allowed beyond the 8 hour baseline.</small>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <!-- Time Period Selection -->
           <div class="row mb-4">
             <div class="col-12">
@@ -2109,9 +2138,17 @@
     }
   }
 
-  function readHourPolicyFromControls() {
-    const toggle = document.getElementById('overtimeToggle');
-    const select = document.getElementById('overtimeAmount');
+  function readHourPolicyFromControls(controlIds = {}) {
+    const toggleId = controlIds.toggleId || 'overtimeToggle';
+    const selectId = controlIds.selectId || 'overtimeAmount';
+
+    const toggle = document.getElementById(toggleId) || (toggleId !== 'overtimeToggle'
+      ? document.getElementById('overtimeToggle')
+      : null);
+    const select = document.getElementById(selectId) || (selectId !== 'overtimeAmount'
+      ? document.getElementById('overtimeAmount')
+      : null);
+
     const enabled = !!(toggle && toggle.checked);
 
     let allowance = 0;
@@ -2130,6 +2167,30 @@
       overtimeAllowanceHours: enabled ? allowance : 0,
       baseCapHours: 8
     };
+  }
+
+  function applyHourPolicyToControls(policy, controlIds = {}) {
+    const toggleId = controlIds.toggleId || 'overtimeToggle';
+    const selectId = controlIds.selectId || 'overtimeAmount';
+
+    const toggle = document.getElementById(toggleId);
+    const select = document.getElementById(selectId);
+
+    const enabled = !!(policy && policy.overtimeEnabled);
+    const allowance = (policy && policy.overtimeAllowanceHours && policy.overtimeAllowanceHours > 0)
+      ? policy.overtimeAllowanceHours
+      : 0.5;
+
+    if (toggle) {
+      toggle.checked = enabled;
+    }
+
+    if (select) {
+      const valueString = allowance.toString();
+      const optionValues = Array.from(select.options || []).map(opt => opt.value);
+      select.value = optionValues.includes(valueString) ? valueString : '0.5';
+      select.disabled = !enabled;
+    }
   }
 
   // MAIN ATTENDANCE DASHBOARD CLASS
@@ -4887,6 +4948,7 @@
       this.initializeYearSelector();
       this.loadUserList();
       this.setupEventListeners();
+      this.syncExportHourPolicyFromDashboard();
       this.updatePeriodOptions();
       this.updatePreview();
     }
@@ -5036,12 +5098,27 @@
         }
       });
 
-      ['overtimeToggle', 'overtimeAmount'].forEach(id => {
-        const control = document.getElementById(id);
-        if (control) {
-          control.addEventListener('change', () => this.updatePreview());
+      const exportOvertimeToggle = document.getElementById('exportOvertimeToggle');
+      const exportOvertimeAmount = document.getElementById('exportOvertimeAmount');
+
+      const syncExportOvertimeControls = () => {
+        if (exportOvertimeAmount) {
+          exportOvertimeAmount.disabled = !(exportOvertimeToggle && exportOvertimeToggle.checked);
         }
-      });
+      };
+
+      if (exportOvertimeToggle) {
+        exportOvertimeToggle.addEventListener('change', () => {
+          syncExportOvertimeControls();
+          this.updatePreview();
+        });
+      }
+
+      if (exportOvertimeAmount) {
+        exportOvertimeAmount.addEventListener('change', () => this.updatePreview());
+      }
+
+      syncExportOvertimeControls();
 
       ['periodSelect', 'startDate', 'endDate', 'singleUserSelect'].forEach(id => {
         const element = document.getElementById(id);
@@ -5241,6 +5318,17 @@
       }
     }
 
+    syncExportHourPolicyFromDashboard() {
+      const policy = (window.dashboard && typeof window.dashboard.getHourPolicyOptions === 'function')
+        ? window.dashboard.getHourPolicyOptions()
+        : readHourPolicyFromControls();
+
+      applyHourPolicyToControls(policy, {
+        toggleId: 'exportOvertimeToggle',
+        selectId: 'exportOvertimeAmount'
+      });
+    }
+
     collectExportParameters() {
       const format = document.querySelector('input[name="exportFormat"]:checked')?.value || 'daily_pivot';
       const exportType = document.querySelector('input[name="exportType"]:checked')?.value || 'Week';
@@ -5272,7 +5360,10 @@
       const activeTimezone = (window.dashboard && window.dashboard.currentData && window.dashboard.currentData.periodInfo && window.dashboard.currentData.periodInfo.timezone)
         || COMPANY_TIMEZONE;
 
-      const hourPolicy = readHourPolicyFromControls();
+      const hourPolicy = readHourPolicyFromControls({
+        toggleId: 'exportOvertimeToggle',
+        selectId: 'exportOvertimeAmount'
+      });
 
       const dailyPivotOptions = {
         highlightLowHours: document.getElementById('highlightLowHours')?.checked || false,
@@ -5838,6 +5929,10 @@
 
 
   function showEnhancedExportModal() {
+    if (window.exportManager && typeof window.exportManager.syncExportHourPolicyFromDashboard === 'function') {
+      window.exportManager.syncExportHourPolicyFromDashboard();
+      window.exportManager.updatePreview();
+    }
     const modal = new bootstrap.Modal(document.getElementById('exportModal'));
     modal.show();
   }
