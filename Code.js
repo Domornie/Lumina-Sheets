@@ -1106,8 +1106,12 @@ function authenticateUser(e) {
       return identity;
     }
 
-    if (token && typeof AuthenticationService !== 'undefined' && AuthenticationService.getSessionUser) {
-      const user = AuthenticationService.getSessionUser(token);
+    if (token && typeof AuthenticationService !== 'undefined' && AuthenticationService) {
+      const validation = typeof AuthenticationService.validateSessionToken === 'function'
+        ? AuthenticationService.validateSessionToken(token, { touch: true })
+        : null;
+
+      const user = validation && validation.valid ? validation.user : null;
       if (user) {
         user.sessionToken = user.sessionToken || token;
 
@@ -1123,6 +1127,9 @@ function authenticateUser(e) {
 
             if (typeof LuminaIdentity.persistActiveSessionToken === 'function') {
               const rememberValue = (function () {
+                if (validation && Object.prototype.hasOwnProperty.call(validation, 'rememberMe')) {
+                  return !!validation.rememberMe;
+                }
                 if (Object.prototype.hasOwnProperty.call(user, 'sessionRememberMe')) {
                   return !!user.sessionRememberMe;
                 }
@@ -1136,8 +1143,8 @@ function authenticateUser(e) {
               })();
 
               const metadata = {
-                sessionExpiresAt: user.sessionExpiresAt || user.expiresAt || user.ExpiresAt || '',
-                sessionTtlSeconds: user.sessionTtlSeconds || user.ttlSeconds || null,
+                sessionExpiresAt: (validation && validation.sessionExpiresAt) || user.sessionExpiresAt || user.expiresAt || user.ExpiresAt || '',
+                sessionTtlSeconds: (validation && validation.sessionTtlSeconds) || user.sessionTtlSeconds || user.ttlSeconds || null,
                 sessionIdleTimeoutMinutes: user.sessionIdleTimeoutMinutes || user.idleTimeoutMinutes || user.IdleTimeoutMinutes || null,
                 lastActivityAt: new Date().toISOString()
               };
@@ -1154,6 +1161,10 @@ function authenticateUser(e) {
         }
 
         return user;
+      }
+
+      if (validation && !validation.valid) {
+        console.log('authenticateUser: session token rejected', validation.reason || validation.status);
       }
     }
 

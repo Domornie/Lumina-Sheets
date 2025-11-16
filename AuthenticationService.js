@@ -16,7 +16,7 @@
 
 const SESSION_TTL_MS = 30 * 60 * 1000; // 30 minutes
 const REMEMBER_ME_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
-const SESSION_EXPIRATION_ENABLED = false; // Disable automatic session expiration
+const SESSION_EXPIRATION_ENABLED = true; // Enforce automatic session expiration
 
 const BASE_SESSION_COLUMNS = [
   'Token',
@@ -5516,8 +5516,19 @@ var AuthenticationService = (function () {
       if (!resolution || resolution.status !== 'active' || !resolution.entry) {
         if (resolution && resolution.status === 'expired') {
           console.log('getSessionUser: Session expired (' + resolution.reason + ')');
+        } else if (resolution && resolution.status === 'revoked') {
+          console.log('getSessionUser: Session revoked (' + resolution.reason + ')');
         } else {
           console.log('getSessionUser: Session not found');
+        }
+
+        try {
+          if (resolution && resolution.entry) {
+            removeSessionEntry(resolution.entry);
+          }
+          clearActiveSessionState();
+        } catch (cleanupError) {
+          console.warn('getSessionUser: unable to clear invalid session state', cleanupError);
         }
         return null;
       }
@@ -5534,6 +5545,67 @@ var AuthenticationService = (function () {
     } catch (error) {
       console.error('getSessionUser: Error:', error);
       return null;
+    }
+  }
+
+  function validateSessionToken(sessionToken, options) {
+    try {
+      if (!sessionToken) {
+        return { valid: false, status: 'not_found', reason: 'MISSING_TOKEN' };
+      }
+
+      const touch = options && options.touch === true;
+      const resolution = resolveSessionRecord(sessionToken, { touch: touch });
+
+      if (!resolution || resolution.status !== 'active' || !resolution.entry) {
+        const status = (resolution && resolution.status) || 'not_found';
+        const reason = (resolution && resolution.reason) || 'NOT_FOUND';
+
+        try {
+          if (resolution && resolution.entry) {
+            removeSessionEntry(resolution.entry);
+          }
+          clearActiveSessionState();
+        } catch (cleanupError) {
+          console.warn('validateSessionToken: unable to clear invalid session state', cleanupError);
+        }
+
+        return {
+          valid: false,
+          status: status,
+          reason: reason,
+          expired: status === 'expired' || status === 'idle',
+          revoked: status === 'revoked'
+        };
+      }
+
+      const context = buildSessionUserContext(resolution.entry, sessionToken, resolution);
+      if (!context || !context.user) {
+        try {
+          if (resolution.entry) {
+            removeSessionEntry(resolution.entry);
+          }
+          clearActiveSessionState();
+        } catch (cleanupError) {
+          console.warn('validateSessionToken: unable to clear orphaned session state', cleanupError);
+        }
+
+        return { valid: false, status: 'not_found', reason: 'USER_NOT_FOUND' };
+      }
+
+      return {
+        valid: true,
+        status: 'active',
+        user: context.user,
+        sessionToken: sessionToken,
+        sessionExpiresAt: resolution.expiresAt || context.user.sessionExpiresAt || null,
+        sessionTtlSeconds: context.user.sessionTtlSeconds || null,
+        rememberMe: resolution.rememberMe
+      };
+
+    } catch (error) {
+      console.error('validateSessionToken: Error validating session', error);
+      return { valid: false, status: 'error', reason: error.message };
     }
   }
 
@@ -5634,6 +5706,13 @@ var AuthenticationService = (function () {
           const message = reason === 'IDLE_TIMEOUT'
             ? 'Session expired after 30 minutes of inactivity'
             : 'Session expired or invalid';
+          try {
+            if (resolution && resolution.entry) {
+              removeSessionEntry(resolution.entry);
+            }
+          } catch (cleanupError) {
+            console.warn('keepAlive: unable to remove invalid session entry', cleanupError);
+          }
           clearActiveSessionState();
           return {
             success: false,
@@ -5770,6 +5849,7 @@ var AuthenticationService = (function () {
     logout: logout,
     createSessionFor: createSessionFor,
     getSessionUser: getSessionUser,
+    validateSessionToken: validateSessionToken,
     keepAlive: keepAlive,
     findUserByEmail: findUserByEmail,
     findUserById: findUserById,
