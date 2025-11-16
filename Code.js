@@ -1,7 +1,6 @@
 const AUTH_CONFIG = Object.freeze({
   COOKIE_NAME: 'lumina_auth_token',
   TOKEN_TTL_MINUTES: 60,
-  REMEMBER_ME_TTL_MINUTES: 24 * 60,
   SECRET_PROPERTY_KEY: 'AUTH_SIGNING_SECRET',
   TOKEN_PROPERTY_PREFIX: 'AUTH_TOKEN_',
   SECRET_LENGTH_BYTES: 48
@@ -35,10 +34,6 @@ function renderTemplate(name, data) {
     });
   }
 
-  if (TEMPLATE_INCLUDE_STATE && typeof TEMPLATE_INCLUDE_STATE === 'object') {
-    TEMPLATE_INCLUDE_STATE.once = Object.create(null);
-  }
-
   return template.evaluate()
     .setTitle('LuminaHQ')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1')
@@ -46,32 +41,57 @@ function renderTemplate(name, data) {
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
-var TEMPLATE_INCLUDE_STATE = (typeof TEMPLATE_INCLUDE_STATE !== 'undefined' && TEMPLATE_INCLUDE_STATE)
-  ? TEMPLATE_INCLUDE_STATE
-  : { once: Object.create(null) };
-
-function include(filename, data) {
-  if (!filename) {
-    return '';
-  }
-  var tpl = HtmlService.createTemplateFromFile(filename);
-  if (data && typeof data === 'object') {
-    Object.keys(data).forEach(function (key) {
-      tpl[key] = data[key];
-    });
-  }
-  return tpl.evaluate().getContent();
+function include(filename) {
+  return HtmlService.createHtmlOutputFromFile(filename).getContent();
 }
 
-function includeOnce(filename, data) {
-  if (!filename) {
-    return '';
+function loginUser(email, password) {
+  if (!email || !password) {
+    return { success: false, message: 'Enter your email and password.' };
   }
-  if (TEMPLATE_INCLUDE_STATE.once[filename]) {
-    return '';
+
+  var normalizedEmail = normalizeEmail(email);
+  var resolution = resolveUserByEmail(normalizedEmail);
+  if (!resolution || !resolution.user) {
+    return { success: false, message: 'Invalid username or password.' };
   }
-  TEMPLATE_INCLUDE_STATE.once[filename] = true;
-  return include(filename, data);
+
+  if (resolution.status && resolution.status.canLogin === false) {
+    return {
+      success: false,
+      message: 'Your account has been disabled. Please contact your administrator.'
+    };
+  }
+
+  if (resolution.status && resolution.status.emailConfirmed === false) {
+    return {
+      success: false,
+      message: 'Please confirm your email address before logging in.'
+    };
+  }
+
+  if (resolution.status && resolution.status.requiresReset === true) {
+    return {
+      success: false,
+      message: 'You must change your password before continuing.'
+    };
+  }
+
+  if (!verifyPassword(password, resolution)) {
+    return { success: false, message: 'Invalid username or password.' };
+  }
+
+  var tokenInfo = issueAuthToken(resolution.user);
+  return {
+    success: true,
+    token: tokenInfo.token,
+    expiresAt: tokenInfo.expiresAt,
+    user: {
+      id: resolution.user.id,
+      email: resolution.user.email,
+      name: resolution.user.name || ''
+    }
+  };
 }
 
 function validateToken(token) {
@@ -87,228 +107,22 @@ function validateToken(token) {
   }
 }
 
-function applyAppTokenToLoginResult(loginResult, rememberMeOverride) {
-  if (!loginResult || !loginResult.success) {
-    return loginResult;
-  }
-
-  var identity = deriveLoginIdentity(loginResult);
-  if (!identity) {
-    return loginResult;
-  }
-
-  var rememberMe = (typeof rememberMeOverride === 'boolean')
-    ? rememberMeOverride
-    : !!loginResult.rememberMe;
-  var sessionToken = extractSessionTokenFromLoginResult(loginResult);
-  var issuedToken = issueAuthToken(identity, { rememberMe: rememberMe }, sessionToken);
-
-  loginResult.token = issuedToken.token;
-  loginResult.expiresAt = issuedToken.expiresAt;
-  loginResult.ttlMinutes = issuedToken.ttlMinutes;
-  loginResult.rememberMe = issuedToken.rememberMe;
-  loginResult.cookieName = AUTH_CONFIG.COOKIE_NAME;
-
-  return loginResult;
-}
-
-function deriveLoginIdentity(loginResult) {
-  if (!loginResult) {
-    return null;
-  }
-
-  var user = loginResult.user
-    || loginResult.profile
-    || loginResult.account
-    || (loginResult.session && loginResult.session.user)
-    || null;
-
-  var email = normalizeEmail(
-    (user && (user.Email || user.email || user.UserName || user.username))
-    || loginResult.email
-    || loginResult.userEmail
-    || ''
-  );
-
-  var identifier = '';
-  if (user) {
-    identifier = extractUserId(user);
-  }
-
-  if (!identifier) {
-    identifier = normalizeString(
-      loginResult.userId
-      || loginResult.accountId
-      || loginResult.userIdentifier
-      || ''
-    );
-  }
-
-  if (!identifier && email) {
-    identifier = email;
-  }
-
-  if (!identifier) {
-    return null;
-  }
-
-  var name = '';
-  if (user) {
-    name = normalizeString(user.FullName || user.fullName || user.Name || user.name || user.UserName || user.username || '');
-  }
-
-  return {
-    id: identifier,
-    email: email,
-    name: name
-  };
-}
-
-function extractSessionTokenFromLoginResult(loginResult) {
-  if (!loginResult) {
-    return '';
-  }
-  if (loginResult.sessionToken) {
-    return loginResult.sessionToken;
-  }
-  if (loginResult.session && loginResult.session.token) {
-    return loginResult.session.token;
-  }
-  if (loginResult.session && loginResult.session.sessionToken) {
-    return loginResult.session.sessionToken;
-  }
-  return '';
-}
-
-function isAppTokenFormat(token) {
-  if (!token || typeof token !== 'string') {
-    return false;
-  }
-  if (token.indexOf('.') === -1) {
-    return false;
-  }
-  var parts = token.split('.');
-  return parts.length === 2 && parts[0].length > 8 && parts[1].length > 8;
-}
-
-function resolveSessionTokenFromAppToken(token) {
-  if (!token || typeof token !== 'string') {
-    return { sessionToken: null, jti: null, record: null };
+function logoutUser(token) {
+  if (!token) {
+    return { success: true };
   }
 
   var parsed = parseToken(token);
-  if (!parsed || !parsed.valid || !parsed.payload || !parsed.payload.jti) {
-    return { sessionToken: null, jti: null, record: null };
+  if (parsed && parsed.payload && parsed.payload.jti) {
+    deleteTokenRecord(parsed.payload.jti);
   }
 
-  var record = loadTokenRecord(parsed.payload.jti);
-  return {
-    sessionToken: record ? (record.sessionToken || null) : null,
-    jti: parsed.payload.jti,
-    record: record || null
-  };
+  return { success: true };
 }
 
-function invalidateAppToken(token) {
-  var resolution = resolveSessionTokenFromAppToken(token);
-  if (resolution && resolution.jti) {
-    deleteTokenRecord(resolution.jti);
-  }
-  return resolution;
-}
-
-/**
- * Time-driven job that checks for realtime updates without exceeding the
- * configured execution window. The job self-throttles by tracking its own
- * runtime in Script Properties so repeated triggers cannot overlap or hog the
- * Apps Script runtime.
- */
-  function checkRealtimeUpdatesJob() {
-    var lock = LockService.getScriptLock();
-    if (!lock.tryLock(REALTIME_JOB_LOCK_WAIT_MS)) {
-      console.log('[checkRealtimeUpdatesJob] Another run is already in progress; skipping.');
-      return;
-    }
-
-    var props = PropertiesService.getScriptProperties();
-    var config = getRealtimeJobConfig(props);
-    var now = Date.now();
-    var lastRun = Number(props.getProperty(REALTIME_JOB_LAST_RUN_PROP)) || 0;
-
-    if (lastRun && now - lastRun < config.minIntervalMs) {
-      console.log('[checkRealtimeUpdatesJob] Last run was ' + Math.round((now - lastRun) / 1000) + 's ago; waiting ' + Math.round(config.minIntervalMs / 1000) + 's between executions.');
-      lock.releaseLock();
-      return;
-    }
-
-    props.setProperty(REALTIME_JOB_LAST_RUN_PROP, String(now));
-    props.setProperty(REALTIME_JOB_STATUS_PROP, 'running');
-
-    var handlers = getRealtimeUpdateHandlers();
-    if (!handlers.length) {
-      console.log('[checkRealtimeUpdatesJob] No realtime handlers registered; exiting early.');
-      props.setProperty(REALTIME_JOB_STATUS_PROP, 'idle');
-      props.setProperty(REALTIME_JOB_LAST_SUCCESS_PROP, String(Date.now()));
-      lock.releaseLock();
-      return;
-    }
-
-    var start = now;
-    var iteration = 0;
-    var hasMoreWork = true;
-    var workPerformed = false;
-
-    while (hasMoreWork && Date.now() - start < config.maxRuntimeMs) {
-      hasMoreWork = false;
-
-      for (var i = 0; i < handlers.length; i++) {
-        var handler = handlers[i];
-        var handlerHasMore = false;
-
-        try {
-          handlerHasMore = runRealtimeUpdateHandler(handler, iteration, config);
-        } catch (handlerError) {
-          if (typeof logError === 'function') {
-            logError('checkRealtimeUpdatesJob.handler', handlerError);
-          } else {
-            console.error('[checkRealtimeUpdatesJob] Handler error', handlerError);
-          }
-        }
-
-        if (handlerHasMore) {
-          hasMoreWork = true;
-          workPerformed = true;
-        }
-      }
-
-      iteration++;
-
-      if (hasMoreWork && config.sleepMs > 0) {
-        Utilities.sleep(config.sleepMs);
-      }
-    }
-
-    if (!workPerformed) {
-      console.log('[checkRealtimeUpdatesJob] No realtime updates were processed during this window.');
-    } else if (hasMoreWork) {
-      console.log('[checkRealtimeUpdatesJob] Max runtime reached; remaining work will continue on the next trigger.');
-    }
-
-    props.setProperty(REALTIME_JOB_STATUS_PROP, 'idle');
-    props.setProperty(REALTIME_JOB_LAST_SUCCESS_PROP, String(Date.now()));
-    props.setProperty('REALTIME_JOB_LAST_ITERATIONS', String(iteration));
-    lock.releaseLock();
-  }
-
-/**
- * Reads realtime job configuration from Script Properties, falling back to the
- * defaults defined above.
- */
-function getRealtimeJobConfig(props) {
-  if (!props) {
-    props = PropertiesService.getScriptProperties();
-  }
-  var expires = new Date(now.getTime() + ttlMinutes * 60 * 1000);
+function issueAuthToken(user) {
+  var now = new Date();
+  var expires = new Date(now.getTime() + AUTH_CONFIG.TOKEN_TTL_MINUTES * 60 * 1000);
   var payload = {
     uid: user.id,
     email: user.email,
@@ -325,16 +139,12 @@ function getRealtimeJobConfig(props) {
   storeTokenRecord({
     jti: payload.jti,
     uid: user.id,
-    expiresAt: payload.exp,
-    rememberMe: !!(options && options.rememberMe),
-    sessionToken: sessionToken || null
+    expiresAt: payload.exp
   });
 
   return {
     token: token,
-    expiresAt: new Date(payload.exp).toISOString(),
-    ttlMinutes: ttlMinutes,
-    rememberMe: !!(options && options.rememberMe)
+    expiresAt: new Date(payload.exp).toISOString()
   };
 }
 
@@ -365,26 +175,7 @@ function verifyToken(token) {
     return { valid: false, reason: 'INVALID' };
   }
 
-  var sessionState = resolveSessionStateForRecord(record);
-  if (sessionState && sessionState.status === 'invalid') {
-    deleteTokenRecord(payload.jti);
-    return {
-      valid: false,
-      reason: sessionState.reason || 'SESSION_INVALID'
-    };
-  }
-  if (sessionState && sessionState.status === 'expired') {
-    deleteTokenRecord(payload.jti);
-    return {
-      valid: false,
-      reason: sessionState.reason || 'SESSION_EXPIRED'
-    };
-  }
-
-  var user = (sessionState && sessionState.user) ? sessionState.user : null;
-  if (!user) {
-    user = getUserById(payload.uid);
-  }
+  var user = getUserById(payload.uid);
   if (!user && payload.email) {
     user = getUserByEmail(payload.email);
   }
@@ -393,146 +184,16 @@ function verifyToken(token) {
     return { valid: false, reason: 'UNKNOWN_USER' };
   }
 
-  if (sessionState && sessionState.user) {
-    var sessionUserId = normalizeString(sessionState.user.id || '');
-    var payloadUserId = normalizeString(payload.uid || '');
-    if (sessionUserId && payloadUserId && sessionUserId !== payloadUserId) {
-      deleteTokenRecord(payload.jti);
-      return { valid: false, reason: 'SESSION_MISMATCH' };
-    }
-
-    var sessionEmail = normalizeEmail(sessionState.user.email || '');
-    var payloadEmail = normalizeEmail(payload.email || '');
-    if (sessionEmail && payloadEmail && sessionEmail !== payloadEmail) {
-      deleteTokenRecord(payload.jti);
-      return { valid: false, reason: 'SESSION_MISMATCH' };
-    }
-  }
-
-  var expiresAtMs = payload.exp;
-  if (record && record.expiresAt) {
-    expiresAtMs = Math.min(expiresAtMs, record.expiresAt);
-  }
-  if (sessionState && sessionState.expiresAt) {
-    expiresAtMs = Math.min(expiresAtMs, sessionState.expiresAt);
-  }
-
   return {
     valid: true,
     token: token,
-    expiresAt: new Date(expiresAtMs).toISOString(),
-    rememberMe: !!(record && record.rememberMe),
+    expiresAt: new Date(payload.exp).toISOString(),
     user: {
       id: user.id,
       email: user.email,
       name: user.name || ''
-    },
-    session: sessionState
-  };
-}
-
-function resolveSessionStateForRecord(record) {
-  if (!record || !record.sessionToken) {
-    return { status: 'unlinked' };
-  }
-
-  if (typeof AuthenticationService === 'undefined' || !AuthenticationService) {
-    return { status: 'unavailable' };
-  }
-
-  if (typeof AuthenticationService.getSessionStatus === 'function') {
-    try {
-      var status = AuthenticationService.getSessionStatus(record.sessionToken, { touch: true });
-      if (!status || status.valid === false) {
-        return {
-          status: status && status.status ? status.status : 'invalid',
-          reason: (status && status.reason) || 'SESSION_INVALID'
-        };
-      }
-
-      return {
-        status: 'active',
-        sessionToken: record.sessionToken,
-        expiresAt: toMillis(status.expiresAt || status.sessionExpiresAt || null),
-        rememberMe: !!status.rememberMe,
-        user: normalizeSessionUserForToken(status.user || status.sessionUser || null),
-        raw: status
-      };
-    } catch (error) {
-      console.warn('resolveSessionStateForRecord: getSessionStatus failed', error);
-      return { status: 'error', reason: 'SESSION_ERROR' };
     }
-  }
-
-  if (typeof AuthenticationService.getSessionUser === 'function') {
-    try {
-      var sessionUser = AuthenticationService.getSessionUser(record.sessionToken);
-      if (!sessionUser) {
-        return { status: 'invalid', reason: 'SESSION_INVALID' };
-      }
-      return {
-        status: 'active',
-        sessionToken: record.sessionToken,
-        expiresAt: null,
-        user: normalizeSessionUserForToken(sessionUser),
-        raw: sessionUser
-      };
-    } catch (fallbackError) {
-      console.warn('resolveSessionStateForRecord: getSessionUser failed', fallbackError);
-      return { status: 'error', reason: 'SESSION_ERROR' };
-    }
-  }
-
-  return { status: 'unsupported' };
-}
-
-function normalizeSessionUserForToken(sessionUser) {
-  if (!sessionUser) {
-    return null;
-  }
-  var email = normalizeEmail(
-    sessionUser.Email
-    || sessionUser.email
-    || sessionUser.UserName
-    || sessionUser.username
-    || ''
-  );
-  var identifier = extractUserId(sessionUser);
-  if (!identifier) {
-    identifier = normalizeString(
-      sessionUser.id
-      || sessionUser.userId
-      || sessionUser.UserId
-      || ''
-    );
-  }
-  if (!identifier && email) {
-    identifier = email;
-  }
-  return {
-    id: identifier || '',
-    email: email,
-    name: normalizeString(
-      sessionUser.FullName
-      || sessionUser.fullName
-      || sessionUser.Name
-      || sessionUser.name
-      || sessionUser.DisplayName
-      || sessionUser.displayName
-      || ''
-    )
   };
-}
-
-function toMillis(value) {
-  if (!value) {
-    return null;
-  }
-  if (typeof value === 'number') {
-    return value;
-  }
-  var parsed = Date.parse(value);
-  return isNaN(parsed) ? null : parsed;
 }
 
 function parseToken(token) {
@@ -580,22 +241,10 @@ function getSigningKey() {
     return Utilities.base64Decode(existing);
   }
 
-  var randomBytes = generateRandomBytes(AUTH_CONFIG.SECRET_LENGTH_BYTES);
+  var randomBytes = Utilities.getRandomBytes(AUTH_CONFIG.SECRET_LENGTH_BYTES);
   var encoded = Utilities.base64Encode(randomBytes);
   props.setProperty(AUTH_CONFIG.SECRET_PROPERTY_KEY, encoded);
   return randomBytes;
-}
-
-function generateRandomBytes(length) {
-  var bytes = [];
-  while (bytes.length < length) {
-    var seed = Utilities.getUuid() + ':' + Date.now() + ':' + Math.random();
-    var digest = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, seed);
-    for (var i = 0; i < digest.length && bytes.length < length; i++) {
-      bytes.push(digest[i]);
-    }
-  }
-  return bytes.slice(0, length);
 }
 
 function storeTokenRecord(record) {
@@ -892,11 +541,7 @@ function verifyPassword(password, resolution) {
     try {
       var normalizedHash = utils.normalizeHash(hash);
       var computed = utils.hashPassword(password);
-      if (typeof utils.safeCompare === 'function') {
-        if (utils.safeCompare(computed, normalizedHash)) {
-          return true;
-        }
-      } else if (typeof utils.constantTimeEquals === 'function') {
+      if (typeof utils.constantTimeEquals === 'function') {
         if (utils.constantTimeEquals(computed, normalizedHash)) {
           return true;
         }
