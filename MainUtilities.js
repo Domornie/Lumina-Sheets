@@ -1350,7 +1350,6 @@ function getAllPagesFromActualRouting() {
     { key: 'escalations', title: 'Escalations', icon: 'fas fa-exclamation-triangle', description: 'Issue escalation management and tracking', isSystem: true, requiresAdmin: false, category: 'Workflow & Operations' },
     { key: 'eodreport', title: 'EOD Report', icon: 'fas fa-clipboard-check', description: 'End of day reporting and task completion', isSystem: true, requiresAdmin: false, category: 'Workflow & Operations' },
     { key: 'incentives', title: 'Incentives', icon: 'fas fa-trophy', description: 'Employee incentives and rewards program', isSystem: true, requiresAdmin: false, category: 'Workflow & Operations' },
-    { key: 'payrollmanagement', title: 'Payroll Management', icon: 'fas fa-money-check-dollar', description: 'Manage payroll, attendance, and leave for the organization', isSystem: true, requiresAdmin: true, category: 'Workflow & Operations' },
 
     // COMMUNICATION
     { key: 'search', title: 'Web Search', icon: 'fas fa-search', description: 'Global web search functionality', isSystem: true, requiresAdmin: false, category: 'Communication' },
@@ -1554,7 +1553,6 @@ function suggestIconForPageKey(key) {
       escalations: 'fa-exclamation-triangle',
       eodreport: 'fa-clipboard-check',
       incentives: 'fa-trophy',
-      payrollmanagement: 'fa-money-check-dollar',
       search: 'fa-search',
       chat: 'fa-comments',
       bookmarks: 'fa-bookmark',
