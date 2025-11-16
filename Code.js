@@ -379,7 +379,6 @@ function verifyToken(token) {
       reason: sessionState.reason || 'SESSION_EXPIRED'
     };
   }
-  var email = resolution.user ? resolution.user.email : '';
 
   var user = (sessionState && sessionState.user) ? sessionState.user : null;
   if (!user) {
@@ -407,8 +406,6 @@ function verifyToken(token) {
       deleteTokenRecord(payload.jti);
       return { valid: false, reason: 'SESSION_MISMATCH' };
     }
-  } catch (error) {
-    console.warn('verifyPassword: SHA-256 fallback failed', error);
   }
 
   var expiresAtMs = payload.exp;
