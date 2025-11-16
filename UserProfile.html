@@ -1338,7 +1338,6 @@
   };
 
   let profileHeroChartInstance = null;
-  let profileHeroChartSignature = null;
 
   function safeString(value) {
     if (value === null || typeof value === 'undefined') return '';
@@ -2062,7 +2061,6 @@
         profileHeroChartInstance.destroy();
         profileHeroChartInstance = null;
       }
-      profileHeroChartSignature = null;
       if (canvas) {
         canvas.style.display = 'none';
       }
@@ -2085,29 +2083,6 @@
       return;
     }
 
-    const labels = Array.isArray(trend.labels) ? trend.labels.slice() : [];
-    const values = Array.isArray(trend.values) ? trend.values.slice() : [];
-    const signature = JSON.stringify({ labels, values });
-
-    if (profileHeroChartInstance && profileHeroChartSignature === signature) {
-      profileHeroChartInstance.data.labels = labels;
-      if (profileHeroChartInstance.data.datasets && profileHeroChartInstance.data.datasets[0]) {
-        const dataset = profileHeroChartInstance.data.datasets[0];
-        dataset.data = values;
-        dataset.borderColor = 'rgba(14, 165, 233, 0.9)';
-        dataset.backgroundColor = 'rgba(14, 165, 233, 0.18)';
-        dataset.pointBackgroundColor = '#0ea5e9';
-        dataset.pointBorderColor = '#ffffff';
-        dataset.pointBorderWidth = 2;
-        dataset.pointRadius = 4;
-        dataset.pointHoverRadius = 5;
-        dataset.borderWidth = 3;
-      }
-      profileHeroChartInstance.update('none');
-      profileHeroChartSignature = signature;
-      return;
-    }
-
     if (profileHeroChartInstance) {
       profileHeroChartInstance.destroy();
       profileHeroChartInstance = null;
@@ -2116,11 +2091,11 @@
     profileHeroChartInstance = new Chart(context, {
       type: 'line',
       data: {
-        labels,
+        labels: trend.labels,
         datasets: [
           {
             label: 'Performance',
-            data: values,
+            data: trend.values,
             fill: true,
             tension: 0.35,
             borderColor: 'rgba(14, 165, 233, 0.9)',
@@ -2176,8 +2151,6 @@
         }
       }
     });
-
-    profileHeroChartSignature = signature;
   }
 
   function renderProfileHero(summary) {
