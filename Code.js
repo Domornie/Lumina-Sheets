@@ -37,7 +37,6 @@ function renderTemplate(name, data) {
   return template.evaluate()
     .setTitle('LuminaHQ')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1')
-    .addMetaTag('referrer', 'no-referrer')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
