@@ -4941,6 +4941,7 @@
     constructor() {
       this.userList = [];
       this.availablePeriods = {};
+      this.loadingUsers = false;
       this.init();
     }
 
@@ -4986,48 +4987,105 @@
       }
     }
 
-    async loadUserList() {
-      try {
-        if (window.dashboard && window.dashboard.currentData && window.dashboard.currentData.userCompliance) {
-          this.userList = window.dashboard.currentData.userCompliance.map(u => u.user).filter(Boolean);
-          console.log('Export manager loaded users from dashboard data:', this.userList.length);
-        } else {
-          console.log('Export manager calling server for user list...');
-          try {
-            const campaignArg = (typeof window !== 'undefined' && window.__LAYOUT_CAMPAIGN_ID)
-              ? window.__LAYOUT_CAMPAIGN_ID
-              : (window.MANAGER_USER_ID || '');
-            this.userList = await this.callServerFunction('clientGetAssignedAgentNames', [campaignArg], { timeoutMs: 8000 });
+    setUserLoadingState(isLoading, message = 'Loading users...') {
+      this.loadingUsers = isLoading;
 
-            if (!Array.isArray(this.userList) || this.userList.length === 0) {
-              console.log('No users from clientGetAssignedAgentNames, trying getUsers fallback...');
-              const userData = await this.callServerFunction('getUsers', [{ campaignId: campaignArg, excludeGuests: true }], { timeoutMs: 6000 });
-              if (Array.isArray(userData)) {
-                this.userList = userData.map(u => u.FullName || u.UserName || u.name || u.Email).filter(Boolean);
-              } else {
-                this.userList = [];
-              }
-            }
-          } catch (error) {
-            console.error('Export manager error loading users:', error.message);
-            this.userList = [];
+      const singleSelect = document.getElementById('singleUserSelect');
+      if (singleSelect) {
+        singleSelect.disabled = isLoading;
+        if (isLoading) {
+          singleSelect.innerHTML = '';
+          const option = document.createElement('option');
+          option.value = '';
+          option.textContent = message;
+          singleSelect.appendChild(option);
+        }
+      }
+
+      const checkboxContainer = document.getElementById('userCheckboxes');
+      if (checkboxContainer) {
+        if (isLoading) {
+          checkboxContainer.innerHTML = `<div class="text-muted small">${message}</div>`;
+        }
+      }
+    }
+
+    showUserLoadError(message) {
+      const singleSelect = document.getElementById('singleUserSelect');
+      if (singleSelect) {
+        singleSelect.innerHTML = '';
+        const option = document.createElement('option');
+        option.value = '';
+        option.textContent = message;
+        singleSelect.appendChild(option);
+        singleSelect.disabled = true;
+      }
+
+      const checkboxContainer = document.getElementById('userCheckboxes');
+      if (checkboxContainer) {
+        checkboxContainer.innerHTML = `<div class="text-danger small">${message}</div>`;
+      }
+    }
+
+    async loadUserList() {
+      this.setUserLoadingState(true);
+
+      try {
+        let users = [];
+
+        if (window.dashboard && window.dashboard.currentData && window.dashboard.currentData.userCompliance) {
+          users = window.dashboard.currentData.userCompliance.map(u => u.user).filter(Boolean);
+          console.log('Export manager loaded users from dashboard data:', users.length);
+        }
+
+        const managerId = (typeof window !== 'undefined' && window.MANAGER_USER_ID)
+          ? String(window.MANAGER_USER_ID || '').trim()
+          : '';
+        const campaignId = (typeof window !== 'undefined' && window.__LAYOUT_CAMPAIGN_ID)
+          ? String(window.__LAYOUT_CAMPAIGN_ID || '').trim()
+          : '';
+
+        if ((!Array.isArray(users) || users.length === 0) && managerId) {
+          console.log('Export manager calling clientGetAssignedAgentNames with managerId:', managerId);
+          users = await this.callServerFunction('clientGetAssignedAgentNames', [managerId], { timeoutMs: 8000 });
+        }
+
+        if ((!Array.isArray(users) || users.length === 0) && campaignId) {
+          console.log('No users from manager lookup; attempting campaign-scoped getUsers...');
+          const userData = await this.callServerFunction('getUsers', [{ campaignId: campaignId, excludeGuests: true }], { timeoutMs: 7000 });
+          if (Array.isArray(userData)) {
+            users = userData.map(u => u.FullName || u.UserName || u.name || u.Email).filter(Boolean);
+          }
+        }
+
+        if (!Array.isArray(users) || users.length === 0) {
+          console.log('Falling back to global user list...');
+          const fallbackUsers = await this.callServerFunction('getUsers', [{ excludeGuests: true }], { timeoutMs: 7000 });
+          if (Array.isArray(fallbackUsers)) {
+            users = fallbackUsers.map(u => u.FullName || u.UserName || u.name || u.Email).filter(Boolean);
           }
         }
 
         const normalizedUsers = Array.from(new Set(
-          (Array.isArray(this.userList) ? this.userList : [])
+          (Array.isArray(users) ? users : [])
             .filter(name => typeof name === 'string')
             .map(name => name.trim())
             .filter(Boolean)
         )).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
 
         this.userList = normalizedUsers;
-        this.populateUserSelections();
+        if (this.userList.length === 0) {
+          this.showUserLoadError('No users available for selection.');
+        } else {
+          this.populateUserSelections();
+        }
         console.log('Export manager final user list:', this.userList.length, 'users');
       } catch (error) {
         console.error('Export manager error in loadUserList:', error);
         this.userList = [];
-        this.populateUserSelections();
+        this.showUserLoadError('Unable to load users. Please try again.');
+      } finally {
+        this.setUserLoadingState(false);
       }
     }
 
@@ -5038,6 +5096,7 @@
     populateUserSelections() {
       const singleSelect = document.getElementById('singleUserSelect');
       if (singleSelect) {
+        singleSelect.disabled = false;
         singleSelect.innerHTML = '<option value="">Choose a user...</option>';
 
         this.userList.forEach(user => {
@@ -5248,9 +5307,29 @@
 
       if (singleUserSelection) {
         singleUserSelection.style.display = userSelection === 'single' ? 'block' : 'none';
+        if (userSelection === 'single' && !this.loadingUsers && (!this.userList || this.userList.length === 0)) {
+          this.loadUserList();
+        }
       }
       if (multipleUsersSelection) {
         multipleUsersSelection.style.display = userSelection === 'multiple' ? 'block' : 'none';
+        if (userSelection === 'multiple' && !this.loadingUsers && (!this.userList || this.userList.length === 0)) {
+          this.loadUserList();
+        }
+      }
+
+      if (userSelection === 'all') {
+        const singleSelect = document.getElementById('singleUserSelect');
+        if (singleSelect) singleSelect.value = '';
+
+        const checkboxes = document.querySelectorAll('#userCheckboxes input[type="checkbox"]');
+        checkboxes.forEach(cb => { cb.checked = false; });
+      } else if (userSelection === 'single') {
+        const checkboxes = document.querySelectorAll('#userCheckboxes input[type="checkbox"]');
+        checkboxes.forEach(cb => { cb.checked = false; });
+      } else if (userSelection === 'multiple') {
+        const singleSelect = document.getElementById('singleUserSelect');
+        if (singleSelect) singleSelect.value = '';
       }
     }
 
