@@ -2631,6 +2631,9 @@ function generateDailyPivotMatrix(filteredRows, granularity, periodValue, option
     let breakViolationDays = 0;
     let lunchViolationDays = 0;
 
+    // Track weekly totals for proper overtime calculation
+    const weeklyHourBuckets = new Map();
+
     const dailyData = dateRange.map(dateInfo => {
       const rawHours = userHours.get(dateInfo.date) || 0;
       const breakMin = userBreakMin.get(dateInfo.date) || 0;
@@ -2639,8 +2642,18 @@ function generateDailyPivotMatrix(filteredRows, granularity, periodValue, option
       const cappedHours = Math.min(rawHours, capHours);
       const adjustedHours = cappedHours + breakCreditHours;
       const performanceStatus = determineDailyPerformanceStatus(adjustedHours, dateInfo.isWeekend);
-      const effectiveHoursForOvertime = adjustedHours;
       const capApplied = rawHours - cappedHours > 0.001;
+
+      // Accumulate weekly totals (Monday-based weeks)
+      const dayDate = new Date(`${dateInfo.date}T00:00:00`);
+      if (!isNaN(dayDate.getTime())) {
+        const jsDay = dayDate.getUTCDay();
+        const offset = jsDay === 0 ? -6 : 1 - jsDay;
+        dayDate.setUTCDate(dayDate.getUTCDate() + offset);
+        dayDate.setUTCHours(0, 0, 0, 0);
+        const weekKey = dayDate.toISOString().slice(0, 10);
+        weeklyHourBuckets.set(weekKey, (weeklyHourBuckets.get(weekKey) || 0) + adjustedHours);
+      }
 
       totalBreakMinutes += breakMin;
       totalLunchMinutes += lunchMin;
@@ -2676,9 +2689,6 @@ function generateDailyPivotMatrix(filteredRows, granularity, periodValue, option
           discrepancyDays++;
         }
 
-        const hoursOverTarget = Math.max(0, effectiveHoursForOvertime - baseTargetHours);
-        overtimeHours += hoursOverTarget;
-
         if (performanceStatus === 'target' && breakMin <= 30 && lunchMin <= 30) {
           perfectAttendanceDays++;
         }
@@ -2707,7 +2717,19 @@ function generateDailyPivotMatrix(filteredRows, granularity, periodValue, option
         hadCapApplied: capApplied
       };
     });
-    
+
+    // Calculate weekly overtime based on total weekly hours
+    weeklyHourBuckets.forEach(weeklyHours => {
+      if (!Number.isFinite(weeklyHours)) {
+        return;
+      }
+
+      overtimeHours += Math.max(0, weeklyHours - 40);
+    });
+
+    // Ensure total hours accounts for weekend work as well
+    totalHours += weekendHours;
+
     // Calculate efficiency and compliance metrics
     const expectedWeekdayHours = dateRange.filter(d => !d.isWeekend).length * 8;
     const efficiency = expectedWeekdayHours > 0 ? (weekdayHours / expectedWeekdayHours * 100) : 0;
