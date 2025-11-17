@@ -1067,6 +1067,7 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter, poli
 
     const allRows = fetchAllAttendanceRows();
     const normalizedAgentFilter = agentFilter ? String(agentFilter).trim() : '';
+    const normalizedAgentFilterLower = normalizedAgentFilter.toLowerCase();
 
     const summary = {};
     const stateDuration = {};
@@ -1161,7 +1162,9 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter, poli
         continue;
       }
 
-      if (normalizedAgentFilter && row.user !== normalizedAgentFilter) {
+      const normalizedRowUser = (row.user || '').trim();
+      const safeUser = normalizedRowUser || row.user;
+      if (normalizedAgentFilter && normalizedRowUser.toLowerCase() !== normalizedAgentFilterLower) {
         continue;
       }
 
@@ -1177,14 +1180,14 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter, poli
       const dateKey = row.dateString || Utilities.formatDate(timestamp, ATTENDANCE_TIMEZONE, 'yyyy-MM-dd');
       const isWeekend = typeof row.isWeekend === 'boolean' ? row.isWeekend : (dayOfWeek >= 6);
 
-      uniqueUsers.add(row.user);
+      uniqueUsers.add(safeUser);
 
       summary[state] = (summary[state] || 0) + 1;
       stateDuration[state] = (stateDuration[state] || 0) + durationSec;
 
       const compliance = (() => {
-        if (!userComplianceMap.has(row.user)) {
-          userComplianceMap.set(row.user, {
+        if (!userComplianceMap.has(safeUser)) {
+          userComplianceMap.set(safeUser, {
             weekdayBaseCappedSecs: 0,
             weekendBaseCappedSecs: 0,
             breakSecs: 0,
@@ -1204,7 +1207,7 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter, poli
             weeklyOverages: 0
           });
         }
-        return userComplianceMap.get(row.user);
+        return userComplianceMap.get(safeUser);
       })();
 
       if (state === 'Break') {
@@ -1220,7 +1223,7 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter, poli
 
       if (BILLABLE_STATES.includes(state)) {
         if (dayOfWeek >= 1 && dayOfWeek <= 5) {
-          topSeconds.set(row.user, (topSeconds.get(row.user) || 0) + durationSec);
+          topSeconds.set(safeUser, (topSeconds.get(safeUser) || 0) + durationSec);
         }
 
         totalBillableSecs += durationSec;
@@ -1231,10 +1234,10 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter, poli
         dailyMap.get(dateKey).onWorkSecs += durationSec;
       }
 
-      const userDayKey = `${row.user || ''}|${dateKey}`;
+      const userDayKey = `${safeUser || ''}|${dateKey}`;
       if (!userDayMetrics.has(userDayKey)) {
         userDayMetrics.set(userDayKey, {
-          user: row.user,
+          user: safeUser,
           dateKey,
           prod: 0,
           break: 0,
@@ -1258,7 +1261,7 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter, poli
 
       const sanitizedRow = {
         timestampMs: effectiveTimestampMs,
-        user: row.user,
+        user: safeUser,
         state,
         durationSec,
         dateString: dateKey
@@ -2438,7 +2441,7 @@ function generateEnhancedDailyPivotMatrix(params) {
     // Get analytics data
     let agentFilter = '';
     if (userSelection === 'single' && users.length > 0) {
-      agentFilter = users[0];
+      agentFilter = (users[0] || '').trim();
     }
     
     const analytics = getAttendanceAnalyticsByPeriod(granularity, periodValue, agentFilter, hourPolicyOptions);
@@ -2446,7 +2449,12 @@ function generateEnhancedDailyPivotMatrix(params) {
     // Filter users if multiple selection
     let filteredRows = analytics.filteredRows;
     if (userSelection === 'multiple' && users.length > 0) {
-      filteredRows = analytics.filteredRows.filter(row => users.includes(row.user));
+      const normalizedSelection = new Set(
+        users
+          .map(u => typeof u === 'string' ? u.trim().toLowerCase() : '')
+          .filter(Boolean)
+      );
+      filteredRows = analytics.filteredRows.filter(row => normalizedSelection.has((row.user || '').trim().toLowerCase()));
     }
     
     // Generate enhanced daily pivot matrix
@@ -2631,6 +2639,9 @@ function generateDailyPivotMatrix(filteredRows, granularity, periodValue, option
     let breakViolationDays = 0;
     let lunchViolationDays = 0;
 
+    // Track weekly totals for proper overtime calculation
+    const weeklyHourBuckets = new Map();
+
     const dailyData = dateRange.map(dateInfo => {
       const rawHours = userHours.get(dateInfo.date) || 0;
       const breakMin = userBreakMin.get(dateInfo.date) || 0;
@@ -2639,8 +2650,18 @@ function generateDailyPivotMatrix(filteredRows, granularity, periodValue, option
       const cappedHours = Math.min(rawHours, capHours);
       const adjustedHours = cappedHours + breakCreditHours;
       const performanceStatus = determineDailyPerformanceStatus(adjustedHours, dateInfo.isWeekend);
-      const effectiveHoursForOvertime = adjustedHours;
       const capApplied = rawHours - cappedHours > 0.001;
+
+      // Accumulate weekly totals (Monday-based weeks)
+      const dayDate = new Date(`${dateInfo.date}T00:00:00`);
+      if (!isNaN(dayDate.getTime())) {
+        const jsDay = dayDate.getUTCDay();
+        const offset = jsDay === 0 ? -6 : 1 - jsDay;
+        dayDate.setUTCDate(dayDate.getUTCDate() + offset);
+        dayDate.setUTCHours(0, 0, 0, 0);
+        const weekKey = dayDate.toISOString().slice(0, 10);
+        weeklyHourBuckets.set(weekKey, (weeklyHourBuckets.get(weekKey) || 0) + adjustedHours);
+      }
 
       totalBreakMinutes += breakMin;
       totalLunchMinutes += lunchMin;
@@ -2676,9 +2697,6 @@ function generateDailyPivotMatrix(filteredRows, granularity, periodValue, option
           discrepancyDays++;
         }
 
-        const hoursOverTarget = Math.max(0, effectiveHoursForOvertime - baseTargetHours);
-        overtimeHours += hoursOverTarget;
-
         if (performanceStatus === 'target' && breakMin <= 30 && lunchMin <= 30) {
           perfectAttendanceDays++;
         }
@@ -2707,7 +2725,19 @@ function generateDailyPivotMatrix(filteredRows, granularity, periodValue, option
         hadCapApplied: capApplied
       };
     });
-    
+
+    // Calculate weekly overtime based on total weekly hours
+    weeklyHourBuckets.forEach(weeklyHours => {
+      if (!Number.isFinite(weeklyHours)) {
+        return;
+      }
+
+      overtimeHours += Math.max(0, weeklyHours - 40);
+    });
+
+    // Ensure total hours accounts for weekend work as well
+    totalHours += weekendHours;
+
     // Calculate efficiency and compliance metrics
     const expectedWeekdayHours = dateRange.filter(d => !d.isWeekend).length * 8;
     const efficiency = expectedWeekdayHours > 0 ? (weekdayHours / expectedWeekdayHours * 100) : 0;
