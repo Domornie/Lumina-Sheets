@@ -1067,6 +1067,7 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter, poli
 
     const allRows = fetchAllAttendanceRows();
     const normalizedAgentFilter = agentFilter ? String(agentFilter).trim() : '';
+    const normalizedAgentFilterLower = normalizedAgentFilter.toLowerCase();
 
     const summary = {};
     const stateDuration = {};
@@ -1161,7 +1162,9 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter, poli
         continue;
       }
 
-      if (normalizedAgentFilter && row.user !== normalizedAgentFilter) {
+      const normalizedRowUser = (row.user || '').trim();
+      const safeUser = normalizedRowUser || row.user;
+      if (normalizedAgentFilter && normalizedRowUser.toLowerCase() !== normalizedAgentFilterLower) {
         continue;
       }
 
@@ -1177,14 +1180,14 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter, poli
       const dateKey = row.dateString || Utilities.formatDate(timestamp, ATTENDANCE_TIMEZONE, 'yyyy-MM-dd');
       const isWeekend = typeof row.isWeekend === 'boolean' ? row.isWeekend : (dayOfWeek >= 6);
 
-      uniqueUsers.add(row.user);
+      uniqueUsers.add(safeUser);
 
       summary[state] = (summary[state] || 0) + 1;
       stateDuration[state] = (stateDuration[state] || 0) + durationSec;
 
       const compliance = (() => {
-        if (!userComplianceMap.has(row.user)) {
-          userComplianceMap.set(row.user, {
+        if (!userComplianceMap.has(safeUser)) {
+          userComplianceMap.set(safeUser, {
             weekdayBaseCappedSecs: 0,
             weekendBaseCappedSecs: 0,
             breakSecs: 0,
@@ -1204,7 +1207,7 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter, poli
             weeklyOverages: 0
           });
         }
-        return userComplianceMap.get(row.user);
+        return userComplianceMap.get(safeUser);
       })();
 
       if (state === 'Break') {
@@ -1220,7 +1223,7 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter, poli
 
       if (BILLABLE_STATES.includes(state)) {
         if (dayOfWeek >= 1 && dayOfWeek <= 5) {
-          topSeconds.set(row.user, (topSeconds.get(row.user) || 0) + durationSec);
+          topSeconds.set(safeUser, (topSeconds.get(safeUser) || 0) + durationSec);
         }
 
         totalBillableSecs += durationSec;
@@ -1231,10 +1234,10 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter, poli
         dailyMap.get(dateKey).onWorkSecs += durationSec;
       }
 
-      const userDayKey = `${row.user || ''}|${dateKey}`;
+      const userDayKey = `${safeUser || ''}|${dateKey}`;
       if (!userDayMetrics.has(userDayKey)) {
         userDayMetrics.set(userDayKey, {
-          user: row.user,
+          user: safeUser,
           dateKey,
           prod: 0,
           break: 0,
@@ -1258,7 +1261,7 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter, poli
 
       const sanitizedRow = {
         timestampMs: effectiveTimestampMs,
-        user: row.user,
+        user: safeUser,
         state,
         durationSec,
         dateString: dateKey
@@ -2438,7 +2441,7 @@ function generateEnhancedDailyPivotMatrix(params) {
     // Get analytics data
     let agentFilter = '';
     if (userSelection === 'single' && users.length > 0) {
-      agentFilter = users[0];
+      agentFilter = (users[0] || '').trim();
     }
     
     const analytics = getAttendanceAnalyticsByPeriod(granularity, periodValue, agentFilter, hourPolicyOptions);
@@ -2446,7 +2449,12 @@ function generateEnhancedDailyPivotMatrix(params) {
     // Filter users if multiple selection
     let filteredRows = analytics.filteredRows;
     if (userSelection === 'multiple' && users.length > 0) {
-      filteredRows = analytics.filteredRows.filter(row => users.includes(row.user));
+      const normalizedSelection = new Set(
+        users
+          .map(u => typeof u === 'string' ? u.trim().toLowerCase() : '')
+          .filter(Boolean)
+      );
+      filteredRows = analytics.filteredRows.filter(row => normalizedSelection.has((row.user || '').trim().toLowerCase()));
     }
     
     // Generate enhanced daily pivot matrix
