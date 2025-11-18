@@ -1587,7 +1587,9 @@ function clientGetQADashboardSnapshot(request = {}) {
 
     const qualityRecognition = buildQualityRecognitionHighlights_(profiles, {
       timezone,
-      passMark: context.passMark
+      passMark: context.passMark,
+      granularity: context.granularity,
+      range: context.range
     });
 
     const intelligence = buildAIIntelligenceAnalysis_({
@@ -1716,6 +1718,8 @@ function normalizeIntelligenceRequest_(request, rawRecords) {
     period = determineLatestPeriod_(granularity, normalizedRecords);
   }
 
+  const range = getPeriodRange_(granularity, period, timezone);
+
   return {
     context: {
       granularity,
@@ -1724,9 +1728,10 @@ function normalizeIntelligenceRequest_(request, rawRecords) {
       filters,
       depth,
       agentUniverse,
-    passMark
-  },
-  records: normalizedRecords
+      range,
+      passMark
+    },
+    records: normalizedRecords
   };
 }
 
@@ -1831,12 +1836,18 @@ function determineLatestPeriod_(granularity, records) {
 
 function filterRecordsForIntelligence_(records, context) {
   const { filters, granularity, period } = context;
+  const range = getPeriodRange_(granularity, period, context && context.timezone);
   return (records || []).filter(record => {
     if (filters.agent && record.agent !== filters.agent) return false;
     if (filters.campaignId && record.campaign !== filters.campaignId) return false;
     if (filters.program && record.raw && record.raw.Program !== filters.program) return false;
 
     if (!period) return true;
+
+    if (range && record.callDate instanceof Date) {
+      const timestamp = record.callDate.getTime();
+      return timestamp >= range.start.getTime() && timestamp <= range.end.getTime();
+    }
 
     switch (granularity) {
       case 'Week':
@@ -2384,10 +2395,32 @@ function buildQualityRecognitionHighlights_(profiles = [], options = {}) {
     ? Math.round(passMarkValue)
     : Math.round(passMarkValue * 100);
 
+  const granularity = options.granularity || 'Week';
+  const maxEvaluations = Math.max(...profiles.map(profile => Number(profile.evaluations) || 0), 0);
+
+  let minimumEvaluations = 1;
+  switch (granularity) {
+    case 'Week':
+      minimumEvaluations = 2;
+      break;
+    case 'Month':
+      minimumEvaluations = 3;
+      break;
+    case 'Quarter':
+      minimumEvaluations = Math.max(3, Math.ceil(maxEvaluations * 0.35));
+      break;
+    case 'Year':
+      minimumEvaluations = Math.max(5, Math.ceil(maxEvaluations * 0.3));
+      break;
+    default:
+      minimumEvaluations = 1;
+  }
+
   const eligible = profiles.filter(profile => {
+    const evaluationCount = Number(profile.evaluations) || 0;
     return typeof profile.avgScore === 'number'
       && Number.isFinite(profile.avgScore)
-      && Number(profile.evaluations) > 0;
+      && evaluationCount >= minimumEvaluations;
   });
 
   if (!eligible.length) {
@@ -2395,14 +2428,15 @@ function buildQualityRecognitionHighlights_(profiles = [], options = {}) {
   }
 
   const sorted = eligible.slice().sort((a, b) => {
-    const scoreDiff = (b.avgScore || 0) - (a.avgScore || 0);
-    if (scoreDiff !== 0) {
-      return scoreDiff;
-    }
-
     const evalDiff = (Number(b.evaluations) || 0) - (Number(a.evaluations) || 0);
-    if (evalDiff !== 0) {
-      return evalDiff;
+    const scoreDiff = (b.avgScore || 0) - (a.avgScore || 0);
+
+    if (granularity === 'Quarter' || granularity === 'Year') {
+      if (evalDiff !== 0) return evalDiff;
+      if (scoreDiff !== 0) return scoreDiff;
+    } else {
+      if (scoreDiff !== 0) return scoreDiff;
+      if (evalDiff !== 0) return evalDiff;
     }
 
     const passDiff = (b.passRate || 0) - (a.passRate || 0);
@@ -2432,7 +2466,9 @@ function buildQualityRecognitionHighlights_(profiles = [], options = {}) {
       agent: profile.displayName || profile.name || profile.rawName || 'Agent',
       avgScore,
       passRate,
-      evaluations: Number(profile.evaluations) || 0
+      evaluations: Number(profile.evaluations) || 0,
+      minimumEvaluations,
+      periodLabel: options.range && options.range.label ? options.range.label : ''
     };
 
     if (profile.recentDate instanceof Date) {
@@ -3397,8 +3433,76 @@ function getPreviousPeriod_(granularity, period) {
   }
 }
 
+function getPeriodRange_(granularity, period, timezone) {
+  if (!period) {
+    return null;
+  }
+
+  const tz = timezone || Session.getScriptTimeZone();
+  const buildRange = (startDate, endDate, labelBuilder) => ({
+    start: startDate,
+    end: endDate,
+    label: labelBuilder ? labelBuilder(startDate, endDate, tz) : ''
+  });
+
+  switch (granularity) {
+    case 'Week': {
+      const match = /^([0-9]{4})-W([0-9]{2})$/.exec(period || '');
+      if (!match) return null;
+      const year = Number(match[1]);
+      const week = Number(match[2]);
+
+      const simple = new Date(Date.UTC(year, 0, 1 + (week - 1) * 7));
+      const day = simple.getUTCDay() || 7;
+      const monday = new Date(simple);
+      if (day !== 1) {
+        monday.setUTCDate(simple.getUTCDate() + (day === 0 ? -6 : 1 - day));
+      }
+      const sunday = new Date(monday);
+      sunday.setUTCDate(monday.getUTCDate() + 6);
+
+      return buildRange(monday, sunday, (start, end, zone) => {
+        const startLabel = Utilities.formatDate(start, zone, 'MMM d');
+        const endLabel = Utilities.formatDate(end, zone, 'MMM d, yyyy');
+        return `Week of ${startLabel} – ${endLabel}`;
+      });
+    }
+    case 'Month': {
+      const [y, m] = period.split('-').map(Number);
+      if (!y || !m) return null;
+      const start = new Date(Date.UTC(y, m - 1, 1));
+      const end = new Date(Date.UTC(y, m, 0, 23, 59, 59, 999));
+      return buildRange(start, end, (startDate, _, zone) => Utilities.formatDate(startDate, zone, 'MMMM yyyy'));
+    }
+    case 'Quarter': {
+      const [q, y] = period.split('-');
+      if (!q || !y) return null;
+      const quarter = Number(q.replace('Q', ''));
+      if (!quarter || quarter < 1 || quarter > 4) return null;
+      const startMonth = (quarter - 1) * 3;
+      const start = new Date(Date.UTC(Number(y), startMonth, 1));
+      const end = new Date(Date.UTC(Number(y), startMonth + 3, 0, 23, 59, 59, 999));
+      return buildRange(start, end, () => `Q${quarter} ${y}`);
+    }
+    case 'Year': {
+      const year = Number(period);
+      if (!year) return null;
+      const start = new Date(Date.UTC(year, 0, 1));
+      const end = new Date(Date.UTC(year, 12, 0, 23, 59, 59, 999));
+      return buildRange(start, end, () => `${year}`);
+    }
+    default:
+      return null;
+  }
+}
+
 function formatPeriodLabel_(granularity, period) {
   if (!period) return 'Period';
+  const range = getPeriodRange_(granularity, period);
+  if (range && range.label) {
+    return range.label;
+  }
+
   switch (granularity) {
     case 'Week':
       return period.replace(/^[0-9]{4}-/, '');
@@ -3406,7 +3510,7 @@ function formatPeriodLabel_(granularity, period) {
       const [y, m] = period.split('-');
       if (!y || !m) return period;
       const date = new Date(Number(y), Number(m) - 1, 1);
-      return date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+      return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
     }
     case 'Quarter':
       return period.replace('-', ' ');
