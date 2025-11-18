@@ -1718,7 +1718,12 @@ function normalizeIntelligenceRequest_(request, rawRecords) {
     period = determineLatestPeriod_(granularity, normalizedRecords);
   }
 
-  const range = getPeriodRange_(granularity, period, timezone);
+  if (!period) {
+    period = getCurrentPeriodKey_(granularity, timezone);
+  }
+
+  const range = getPeriodRange_(granularity, period, timezone)
+    || getPeriodRange_(granularity, getCurrentPeriodKey_(granularity, timezone), timezone);
 
   return {
     context: {
@@ -1831,6 +1836,25 @@ function determineLatestPeriod_(granularity, records) {
       return latest.year;
     default:
       return latest.week;
+  }
+}
+
+function getCurrentPeriodKey_(granularity, timezone) {
+  const tz = timezone || Session.getScriptTimeZone();
+  const nowString = Utilities.formatDate(new Date(), tz, "yyyy-MM-dd'T'HH:mm:ssXXX");
+  const now = new Date(nowString);
+
+  switch (granularity) {
+    case 'Week':
+      return toISOWeek_(now);
+    case 'Month':
+      return formatMonthKey_(now);
+    case 'Quarter':
+      return `${getQuarter_(now)}-${now.getFullYear()}`;
+    case 'Year':
+      return String(now.getFullYear());
+    default:
+      return formatMonthKey_(now);
   }
 }
 
