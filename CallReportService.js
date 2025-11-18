@@ -10,6 +10,11 @@ const __QUALIFYING_TALK_MIN_MINUTES = 1;
 const __QUALIFYING_TALK_MAX_MINUTES = 20000;
 const __MS_PER_DAY = 24 * 60 * 60 * 1000;
 
+const __CALL_REPORT_CACHE_TTL_MS = 2 * 60 * 1000; // 2 minutes of warm cache
+const __ANALYTICS_CACHE_TTL_MS = 90 * 1000; // aggressively reuse analytics payloads
+let __callReportCache = null;
+let __analyticsCache = Object.create(null);
+
 function __ensureDate(value) {
   if (value instanceof Date && !isNaN(value)) return value;
   if (value === null || value === undefined || value === '') return null;
@@ -403,8 +408,18 @@ function __getCallReportSheet() {
   return sh;
 }
 
+function __invalidateCallReportCache() {
+  __callReportCache = null;
+  __analyticsCache = Object.create(null);
+}
+
 // Internal: read all rows to objects using header row
 function __readAllCallReportRows() {
+  const now = Date.now();
+  if (__callReportCache && __callReportCache.expiresAt > now) {
+    return __callReportCache.data.map(r => Object.assign({}, r));
+  }
+
   const sh = __getCallReportSheet();
   const lr = sh.getLastRow();
   const lc = sh.getLastColumn();
@@ -428,6 +443,13 @@ function __readAllCallReportRows() {
     }
     return obj;
   });
+
+  __callReportCache = {
+    expiresAt: now + __CALL_REPORT_CACHE_TTL_MS,
+    data: rows.map(r => Object.assign({}, r))
+  };
+
+  return rows;
 }
 
 // Internal: find row number by UUID in column A (ID). Returns 0 if not found.
@@ -499,6 +521,7 @@ function deleteCallReport(id) {
   if (!rowNum) throw new Error('Invalid report ID.');
   const sh = __getCallReportSheet();
   sh.deleteRow(rowNum);
+  __invalidateCallReportCache();
   logCampaignDirtyRow(CALL_REPORT, id, 'DELETE');
   flushCampaignDirtyRows();
 }
@@ -548,6 +571,7 @@ function createOrUpdateCallReport(reportData) {
     const updatedAtIdx = headers.indexOf('UpdatedAt');
     if (updatedAtIdx >= 0) sh.getRange(rowNum, updatedAtIdx + 1).setValue(now);
 
+    __invalidateCallReportCache();
     logCampaignDirtyRow(CALL_REPORT, reportData.ID, 'UPDATE');
     flushCampaignDirtyRows();
     return String(reportData.ID);
@@ -573,6 +597,7 @@ function createOrUpdateCallReport(reportData) {
     return '';
   });
   sh.appendRow(row);
+  __invalidateCallReportCache();
   logCampaignDirtyRow(CALL_REPORT, uuid, 'CREATE');
   flushCampaignDirtyRows();
   return String(uuid);
@@ -583,6 +608,13 @@ function createOrUpdateCallReport(reportData) {
  * Returns exactly what your view expects + activeAgents (the ones with activity in range)
  */
 function getAnalyticsByPeriod(granularity, periodIdentifier, agentFilter) {
+  const cacheKey = [granularity || '', periodIdentifier || '', agentFilter || ''].join('||');
+  const now = Date.now();
+  const cached = __analyticsCache[cacheKey];
+  if (cached && cached.expiresAt > now) {
+    return JSON.parse(cached.payload);
+  }
+
   const { startDate, endDate } = __resolveCallReportPeriod(granularity, periodIdentifier);
   const tz = Session.getScriptTimeZone();
 
@@ -1102,7 +1134,7 @@ function getAnalyticsByPeriod(granularity, periodIdentifier, agentFilter) {
     };
   });
 
-  return {
+  const analytics = {
     repMetrics,
     policyDist,
     wrapDist,
@@ -1124,6 +1156,13 @@ function getAnalyticsByPeriod(granularity, periodIdentifier, agentFilter) {
         : null
     }
   };
+
+  __analyticsCache[cacheKey] = {
+    expiresAt: now + __ANALYTICS_CACHE_TTL_MS,
+    payload: JSON.stringify(analytics)
+  };
+
+  return analytics;
 }
 
 function startOfWeek(date) {
@@ -1314,6 +1353,9 @@ function importCallReports(rows) {
     const first = sh.getLastRow() + 1;
     sh.getRange(first, 1, toAppend.length, toAppend[0].length).setValues(toAppend);
   }
+  if (toAppend.length || skipped) {
+    __invalidateCallReportCache();
+  }
   flushCampaignDirtyRows();
   return { imported: toAppend.length, skipped };
 }
@@ -1332,6 +1374,7 @@ function cleanCallReportUserNames() {
   const vals = range.getValues();
   const cleaned = vals.map(r => [String(r[0] || '').replace(/\s*VLBPO\s*/gi, ' ').trim()]);
   range.setValues(cleaned);
+  __invalidateCallReportCache();
   return cleaned.length;
 }
 
