@@ -1165,6 +1165,82 @@ function getAnalyticsByPeriod(granularity, periodIdentifier, agentFilter) {
   return analytics;
 }
 
+/**
+ * Compute agents with the best (lowest) average talk time using overall data (no filters).
+ *
+ * Rules (based on the full dataset, not current UI filters):
+ *  - Agents must meet or exceed the overall average call volume.
+ *  - Agents must have an average talk time per call less than or equal to the overall average talk time per call.
+ *  - Ranking is ascending by average talk time; ties break by higher total calls.
+ *
+ * @param {Object} [options]
+ * @param {number} [options.topN] - Optional limit for returning the top N qualifying agents.
+ * @returns {Object} structured summary with benchmarks, per-agent metrics, sorted qualifying agents, and topN slice.
+ */
+function getTopTalkTimeAgents(options) {
+  const rows = __readAllCallReportRows();
+  const agentAggregates = Object.create(null);
+
+  let totalCallsAllAgents = 0;
+  let totalTalkTimeAllAgents = 0;
+
+  rows.forEach(r => {
+    const agent = r.ToSFUser || '—';
+    const talk = parseFloat(r.TalkTimeMinutes);
+    const safeTalkMinutes = isFinite(talk) && talk >= 0 ? talk : 0;
+
+    if (!agentAggregates[agent]) {
+      agentAggregates[agent] = { totalCalls: 0, totalTalkTime: 0 };
+    }
+
+    agentAggregates[agent].totalCalls += 1;
+    agentAggregates[agent].totalTalkTime += safeTalkMinutes;
+
+    totalCallsAllAgents += 1;
+    totalTalkTimeAllAgents += safeTalkMinutes;
+  });
+
+  const agentCount = Object.keys(agentAggregates).length;
+  const averageCallsPerAgent = agentCount > 0 ? totalCallsAllAgents / agentCount : 0;
+  const averageTalkTimePerCall = totalCallsAllAgents > 0 ? totalTalkTimeAllAgents / totalCallsAllAgents : 0;
+
+  const agentMetrics = Object.entries(agentAggregates).map(([agent, stats]) => {
+    const averageTalkTime = stats.totalCalls > 0 ? stats.totalTalkTime / stats.totalCalls : 0;
+    const qualifies = stats.totalCalls >= averageCallsPerAgent && averageTalkTime <= averageTalkTimePerCall;
+    return {
+      agent,
+      totalCalls: stats.totalCalls,
+      totalTalkTime: stats.totalTalkTime,
+      averageTalkTime,
+      qualifies
+    };
+  });
+
+  const qualifyingAgents = agentMetrics
+    .filter(a => a.qualifies)
+    .sort((a, b) => {
+      if (a.averageTalkTime !== b.averageTalkTime) return a.averageTalkTime - b.averageTalkTime;
+      return b.totalCalls - a.totalCalls;
+    });
+
+  const limit = options && Number(options.topN) > 0 ? Number(options.topN) : null;
+  const topAgents = limit ? qualifyingAgents.slice(0, limit) : qualifyingAgents.slice();
+
+  return {
+    benchmarks: {
+      averageCallsPerAgent,
+      averageTalkTimePerCall,
+      totalCallsAllAgents,
+      totalTalkTimeAllAgents,
+      agentCount
+    },
+    agentMetrics,
+    qualifyingAgents,
+    topAgents,
+    requestedTopN: limit
+  };
+}
+
 function startOfWeek(date) {
   const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
   const day = d.getDay();
