@@ -1205,13 +1205,13 @@
 
                 var recordIdValue = getFirstValue(record, ['ID', 'Id', 'id']);
                 var recordId = recordIdValue === undefined || recordIdValue === null ? '' : String(recordIdValue);
-                var viewUrl = recordId ? buildPageUrl('qaview', { id: recordId }) : '#';
+                var viewUrl = recordId ? buildPageUrl('qualityview', { id: recordId }) : '#';
                 var editUrl = recordId ? buildPageUrl('qualityform', { id: recordId }) : '#';
                 var deleteArg = recordId ? JSON.stringify(String(recordId)) : 'null';
 
                 var viewButton = recordId
-                    ? '<a href="' + escapeHtml(viewUrl) + '" class="btn btn-sm btn-info me-1"><i class="fas fa-eye"></i> View</a>'
-                    : '<button type="button" class="btn btn-sm btn-info me-1" disabled aria-disabled="true"><i class="fas fa-eye"></i> View</button>';
+                    ? '<a href="' + escapeHtml(viewUrl) + '" class="btn btn-sm btn-info me-1"><i class="fas fa-eye"></i> qualityview</a>'
+                    : '<button type="button" class="btn btn-sm btn-info me-1" disabled aria-disabled="true"><i class="fas fa-eye"></i> qualityview</button>';
 
                 var editButton = recordId
                     ? '<a href="' + escapeHtml(editUrl) + '" class="btn btn-sm btn-primary me-1"><i class="fas fa-edit"></i> Edit</a>'
