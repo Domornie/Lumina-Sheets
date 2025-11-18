@@ -615,7 +615,7 @@
   .qa-ai-insight-card {
     position: relative;
     border-radius: var(--qa-radius-lg);
-    padding: 1rem 1.1rem 1.1rem;
+    padding: 1.35rem 1.4rem 1.4rem;
     background: linear-gradient(160deg, rgba(37, 99, 235, 0.12), rgba(14, 165, 233, 0.08));
     border: 1px solid rgba(37, 99, 235, 0.22);
     box-shadow: var(--qa-shadow-soft);
@@ -623,7 +623,6 @@
     flex-direction: column;
     gap: 0.65rem;
     overflow: hidden;
-    max-width: 360px;
   }
 
   .qa-ai-insight-card[data-tone="positive"] {
@@ -2164,11 +2163,7 @@
       if (summary && dom.contextSummary) {
         const evaluations = formatNumber(summary.evaluations);
         const agents = formatNumber(summary.agents);
-        const rangeLabel = state && state.data && state.data.context && state.data.context.range
-          ? state.data.context.range.label
-          : '';
-        const periodPhrase = rangeLabel ? `for ${rangeLabel}` : 'this period';
-        dom.contextSummary.textContent = `Tracking ${evaluations} evaluation${summary.evaluations === 1 ? '' : 's'} across ${agents} agent${summary.agents === 1 ? '' : 's'} ${periodPhrase}.`;
+        dom.contextSummary.textContent = `Tracking ${evaluations} evaluation${summary.evaluations === 1 ? '' : 's'} across ${agents} agent${summary.agents === 1 ? '' : 's'} this period.`;
       }
 
       updateAiSignal(summary);
@@ -3198,23 +3193,7 @@
             dom.recognitionNotice.textContent = 'Top performers for the current period are spotlighted below.';
           }
         } else {
-          const threshold = (function getThreshold() {
-            const granularity = state && state.filters ? state.filters.granularity : '';
-            switch (granularity) {
-              case 'Week':
-                return 'Agents need at least 2 evaluations in the week to qualify for recognition.';
-              case 'Month':
-                return 'Agents need at least 3 evaluations in the month to qualify for recognition.';
-              case 'Quarter':
-                return 'Quarterly recognition prioritizes high-volume agents with top scores—log more reviews to qualify.';
-              case 'Year':
-                return 'Yearly recognition favors agents with the highest volume and quality across the year.';
-              default:
-                return 'The top three agents each period will be highlighted here once evaluations are available.';
-            }
-          }());
-
-          dom.recognitionNotice.textContent = threshold;
+          dom.recognitionNotice.textContent = 'The top three agents each period will be highlighted here once evaluations are available.';
         }
       }
 
@@ -3330,7 +3309,7 @@
         return;
       }
 
-      const highlights = Array.isArray(insights) ? insights : [];
+      const highlights = Array.isArray(insights) ? insights.slice(0, 3) : [];
       dom.insightHighlights.innerHTML = '';
       const hasHighlights = highlights.length > 0;
 
@@ -3769,9 +3748,9 @@
 
       if (dom.healthPeriod) {
         const context = response.context || {};
-        const badgeText = context && context.range && context.range.label
-          ? context.range.label
-          : (context && context.granularity ? `${context.granularity} view` : 'Live');
+        const badgeText = context && context.granularity
+          ? `${context.granularity} view`
+          : 'Live';
         dom.healthPeriod.textContent = badgeText;
       }
 
