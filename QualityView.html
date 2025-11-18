@@ -234,13 +234,15 @@
 </div>
 
 <script>
-  document.addEventListener('DOMContentLoaded', () => {
+  function renderRecord(rec = {}) {
+    const safeRecord = rec && typeof rec === 'object' ? rec : {};
+
     // metadata
-    document.getElementById('dTimestamp').textContent       = fmtDate(record.Timestamp, {time:true});
-    document.getElementById('dAgentName').textContent       = record.AgentName || '—';
+    document.getElementById('dTimestamp').textContent       = fmtDate(safeRecord.Timestamp, {time:true});
+    document.getElementById('dAgentName').textContent       = safeRecord.AgentName || '—';
 
     // Case # → hyperlink if starts with http
-    const cnum = record.CaseNumber || '';
+    const cnum = safeRecord.CaseNumber || '';
     const ddCase = document.getElementById('dCaseNumber');
     if (/^https?:\/\//i.test(cnum)) {
       ddCase.innerHTML = `<a href="${cnum}" target="_blank">${cnum}</a>`;
@@ -248,18 +250,19 @@
       ddCase.textContent = cnum;
     }
 
-    document.getElementById('dCallDate').textContent        = fmtDate(record.CallDate);
-    document.getElementById('dFeedbackShared').textContent  = record.FeedbackShared||'—';
-    const pct = Math.round((record.Percentage||0)*100);
+    document.getElementById('dCallDate').textContent        = fmtDate(safeRecord.CallDate);
+    document.getElementById('dFeedbackShared').textContent  = safeRecord.FeedbackShared||'—';
+    const pct = Math.round((safeRecord.Percentage||0)*100);
     document.getElementById('dPercentageMeta').textContent  = pct + '%';
 
     // Q-by-Q
     const tbody = document.getElementById('qaResultsBody');
+    tbody.innerHTML = '';
     Object.entries(categories).forEach(([cat, qs]) => {
       qs.forEach(q => {
         // upper-case key: "q1" → "Q1"
         const key = q.charAt(0).toUpperCase() + q.slice(1);
-        const raw = String(record[key]||'').toLowerCase();
+        const raw = String(safeRecord[key]||'').toLowerCase();
         let ansHTML = '—';
         if (raw === 'yes') ansHTML = `<span class="badge badge-yes">Yes</span>`;
         else if (raw === 'no') ansHTML = `<span class="badge badge-no">No</span>`;
@@ -274,9 +277,28 @@
         tbody.appendChild(tr);
       });
     });
-    document.getElementById('dTotalScore').textContent   = record.TotalScore||'—';
-    document.getElementById('dOverallFeedback').innerHTML = record.OverallFeedback||'—';
-    document.getElementById('dAgentFeedback').innerHTML   = record.AgentFeedback  ||'—';
+    document.getElementById('dTotalScore').textContent   = safeRecord.TotalScore||'—';
+    document.getElementById('dOverallFeedback').innerHTML = safeRecord.OverallFeedback||'—';
+    document.getElementById('dAgentFeedback').innerHTML   = safeRecord.AgentFeedback  ||'—';
+  }
+
+  function isRecordEmpty(value) {
+    return !value || (typeof value === 'object' && Object.keys(value).length === 0);
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    renderRecord(record);
+
+    if (recordId && isRecordEmpty(record) && typeof google !== 'undefined' && google.script?.run) {
+      google.script.run
+        .withSuccessHandler(freshRecord => {
+          if (freshRecord && typeof freshRecord === 'object') {
+            renderRecord(freshRecord);
+          }
+        })
+        .withFailureHandler(err => console.error('Failed to load QA record:', err))
+        .getQARecordById(recordId);
+    }
   });
 </script>
 </body>
