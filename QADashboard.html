@@ -1111,6 +1111,11 @@
     <select id="qa-agent" class="form-select" aria-label="Select agent">
       <option value="">All Agents</option>
     </select>
+    <label for="qa-export-link-type" class="visually-hidden">Select link type for export</label>
+    <select id="qa-export-link-type" class="form-select" aria-label="Choose which links to export">
+      <option value="pdf" selected>Google Drive / PDF links</option>
+      <option value="call">Call recording links</option>
+    </select>
     <button type="button" class="btn btn-primary" id="qa-refresh">
       <i class="fa-solid fa-rotate"></i>
       <span class="ms-1">Refresh</span>
@@ -1555,6 +1560,7 @@
         campaignId: '',
         program: ''
       },
+      exportLinkType: 'pdf',
       loading: false,
       data: null,
       agentLookup: {},
@@ -1583,6 +1589,7 @@
       period: document.getElementById('qa-period'),
       agent: document.getElementById('qa-agent'),
       refresh: document.getElementById('qa-refresh'),
+      exportLinkType: document.getElementById('qa-export-link-type'),
       exportMatrix: document.getElementById('qa-export-matrix'),
       summaryCards: dashboardEl.querySelectorAll('[data-metric]'),
       error: document.getElementById('qa-dashboard-error'),
@@ -1654,6 +1661,10 @@
       notesMeta: document.getElementById('qa-notes-meta'),
       notesCard: document.getElementById('qa-notes-card')
     };
+
+    if (dom.exportLinkType && dom.exportLinkType.value) {
+      state.exportLinkType = dom.exportLinkType.value;
+    }
 
     function tooltipPercentLabel(context) {
       if (!context) {
@@ -1910,16 +1921,50 @@
       setTimeout(() => window.URL.revokeObjectURL(link.href), 0);
     }
 
+    function setExportBusy(isBusy) {
+      if (!dom.exportMatrix) {
+        return;
+      }
+
+      if (isBusy) {
+        dom.exportMatrix.disabled = true;
+        dom.exportMatrix.setAttribute('aria-busy', 'true');
+      } else {
+        dom.exportMatrix.setAttribute('aria-busy', 'false');
+        updateExportButton(state && state.data ? state.data.agentMatrix : null);
+      }
+    }
+
     function exportAgentMatrix() {
+      const request = buildRequest();
+      request.linkType = state.exportLinkType || (dom.exportLinkType ? dom.exportLinkType.value : 'pdf');
+      request.granularity = 'Week';
+      if (state.filters.granularity !== 'Week') {
+        request.period = '';
+      }
+
+      setExportBusy(true);
+
+      if (window.google && google.script && google.script.run) {
+        google.script.run
+          .withSuccessHandler(handleExportResponse)
+          .withFailureHandler(handleExportFailure)
+          .clientExportWeeklyAgentMatrix(request);
+        return;
+      }
+
+      console.warn('google.script.run unavailable; falling back to on-page CSV export.');
       const matrix = state && state.data ? state.data.agentMatrix : null;
       if (!matrix || !Array.isArray(matrix.periods) || !matrix.periods.length) {
         console.warn('Agent matrix export requested but no data available.');
+        setExportBusy(false);
         return;
       }
 
       const csv = buildAgentMatrixCsv(matrix);
       if (!csv) {
         console.warn('Agent matrix export is empty.');
+        setExportBusy(false);
         return;
       }
 
@@ -1927,6 +1972,25 @@
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
       const filename = `qa-agent-matrix-${granularity.toLowerCase()}-${timestamp}.csv`;
       triggerCsvDownload(csv, filename);
+      setExportBusy(false);
+    }
+
+    function handleExportResponse(result) {
+      setExportBusy(false);
+      if (!result || !result.success) {
+        handleExportFailure(result && result.error ? new Error(result.error) : new Error('Export failed.'));
+        return;
+      }
+
+      if (result.spreadsheetUrl) {
+        window.open(result.spreadsheetUrl, '_blank');
+      }
+    }
+
+    function handleExportFailure(error) {
+      setExportBusy(false);
+      console.error('Weekly matrix export failed:', error);
+      showError(error && error.message ? error.message : 'Unable to export weekly view.');
     }
 
     function updateExportButton(matrix) {
@@ -3817,7 +3881,8 @@
         period: state.filters.period,
         agent: state.filters.agent,
         campaignId: state.filters.campaignId,
-        program: state.filters.program
+        program: state.filters.program,
+        linkType: state.exportLinkType
       };
     }
 
@@ -3869,6 +3934,12 @@
         dom.agent.addEventListener('change', event => {
           state.filters.agent = event.target.value;
           loadData();
+        });
+      }
+
+      if (dom.exportLinkType) {
+        dom.exportLinkType.addEventListener('change', event => {
+          state.exportLinkType = event.target.value || 'pdf';
         });
       }
 

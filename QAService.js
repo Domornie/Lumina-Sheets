@@ -1684,6 +1684,67 @@ function clientGetQADashboardSnapshot(request = {}) {
   }
 }
 
+function clientExportWeeklyAgentMatrix(request = {}) {
+  try {
+    const linkType = normalizeLinkType_(request.linkType);
+    const rawRecords = getAllQA();
+    const normalization = normalizeIntelligenceRequest_(request, rawRecords) || {};
+    const normalizedRecords = Array.isArray(normalization.records) ? normalization.records : [];
+    const baseContext = normalization.context || {
+      granularity: 'Week',
+      period: '',
+      timezone: Session.getScriptTimeZone(),
+      filters: { agent: '', campaignId: '', program: '' },
+      depth: 6,
+      agentUniverse: null,
+      passMark: QA_INTEL_PASS_MARK
+    };
+
+    const context = Object.assign({}, baseContext, {
+      granularity: 'Week',
+      depth: 1,
+      period: baseContext.period || determineLatestPeriod_('Week', normalizedRecords)
+    });
+
+    if (!context.period) {
+      return { success: false, error: 'No weekly period available to export.' };
+    }
+
+    const agentLookup = buildAgentDisplayLookup_(normalizedRecords);
+    const matrix = buildAgentGranularityMatrix_(context, normalizedRecords, { displayLookup: agentLookup });
+    const periodEntry = (matrix.periods || []).find(period => period && period.period === context.period)
+      || (matrix.periods || [])[0]
+      || null;
+
+    const weeklyRecords = filterRecordsForIntelligence_(normalizedRecords, { ...context, period: context.period });
+    const rows = buildWeeklyAgentExportRows_(context, periodEntry, weeklyRecords, {
+      linkType,
+      agentLookup
+    });
+
+    const file = writeWeeklyAgentExport_(rows, context, linkType);
+
+    return {
+      success: true,
+      linkType,
+      period: context.period,
+      granularity: context.granularity,
+      spreadsheetId: file.spreadsheetId,
+      spreadsheetUrl: file.spreadsheetUrl,
+      spreadsheetName: file.spreadsheetName,
+      sheetName: file.sheetName,
+      rows: rows.length
+    };
+  } catch (error) {
+    console.error('clientExportWeeklyAgentMatrix failed:', error);
+    writeError('clientExportWeeklyAgentMatrix', error);
+    return {
+      success: false,
+      error: error && error.message ? error.message : 'Unable to export weekly view.'
+    };
+  }
+}
+
 function normalizeIntelligenceRequest_(request, rawRecords) {
   const granularity = request && typeof request.granularity === 'string'
     ? request.granularity
@@ -2608,6 +2669,123 @@ function buildAgentGranularityMatrix_(context, records, options = {}) {
   };
 }
 
+function buildWeeklyAgentExportRows_(context, periodEntry, records, options = {}) {
+  const linkType = normalizeLinkType_(options.linkType);
+  const agentLookup = options.agentLookup || {};
+  const metrics = (periodEntry && periodEntry.metrics) ? periodEntry.metrics : {};
+  const totalEvaluations = periodEntry && typeof periodEntry.totalEvaluations === 'number'
+    ? periodEntry.totalEvaluations
+    : records.length;
+  const periodLabel = periodEntry ? (periodEntry.label || '') : formatPeriodLabel_(context.granularity || 'Week', context.period);
+  const linkLabel = linkType === 'call' ? 'Call Recording Link' : 'Google Drive/PDF Link';
+
+  const headers = [
+    'Granularity',
+    'Period Key',
+    'Period Label',
+    'Agent Identifier',
+    'Agent Name',
+    'Average Score (%)',
+    'Pass Rate (%)',
+    'Evaluations',
+    'Evaluation Share (%)',
+    'Call Date',
+    'Call Identifier',
+    'Call Score (%)',
+    'Link Type',
+    linkLabel
+  ];
+
+  const rows = [headers];
+  const agents = new Set(Object.keys(metrics));
+  records.forEach(record => agents.add(record.agent || 'Unassigned'));
+
+  Array.from(agents).sort((a, b) => {
+    const nameA = resolveAgentDisplayNameFromLookup_(a, agentLookup).toLowerCase();
+    const nameB = resolveAgentDisplayNameFromLookup_(b, agentLookup).toLowerCase();
+    return nameA.localeCompare(nameB);
+  }).forEach(agentId => {
+    const detail = metrics[agentId] || {};
+    const agentName = resolveAgentDisplayNameFromLookup_(agentId, agentLookup);
+    const evaluationShare = detail.evaluationShare !== undefined && detail.evaluationShare !== null
+      ? detail.evaluationShare
+      : (totalEvaluations ? roundOneDecimal_(((detail.evaluations || 0) / totalEvaluations) * 100) : null);
+
+    const calls = records.filter(record => (record.agent || 'Unassigned') === agentId);
+
+    if (!calls.length) {
+      rows.push([
+        context.granularity || 'Week',
+        context.period || '',
+        periodLabel,
+        agentId || 'Unassigned',
+        agentName || 'Unassigned',
+        detail.avgScore ?? '',
+        detail.passRate ?? '',
+        detail.evaluations ?? '',
+        evaluationShare ?? '',
+        '',
+        '',
+        '',
+        linkType === 'call' ? 'Call Recording' : 'QA PDF',
+        ''
+      ]);
+      return;
+    }
+
+    calls.forEach(call => {
+      const callDate = call.callDateIso || (call.callDate instanceof Date
+        ? Utilities.formatDate(call.callDate, context.timezone || Session.getScriptTimeZone(), "yyyy-MM-dd'T'HH:mm:ssXXX")
+        : '');
+      const callId = extractCallIdentifierFromRecord_(call.raw || {});
+      const link = extractLinkForType_(call.raw || {}, linkType);
+      const callScore = typeof call.recordScore === 'number' && !Number.isNaN(call.recordScore)
+        ? call.recordScore
+        : (typeof call.percentage === 'number' ? Math.round(call.percentage * 100) : '');
+
+      rows.push([
+        context.granularity || 'Week',
+        context.period || '',
+        periodLabel,
+        agentId || 'Unassigned',
+        agentName || 'Unassigned',
+        detail.avgScore ?? '',
+        detail.passRate ?? '',
+        detail.evaluations ?? '',
+        evaluationShare ?? '',
+        callDate,
+        callId || '',
+        callScore,
+        linkType === 'call' ? 'Call Recording' : 'QA PDF',
+        link || ''
+      ]);
+    });
+  });
+
+  return rows;
+}
+
+function writeWeeklyAgentExport_(rows, context, linkType) {
+  const safeRows = Array.isArray(rows) && rows.length ? rows : [['No data available for the selected week']];
+  const sheetName = 'Weekly Agent Matrix';
+  const label = formatPeriodLabel_(context.granularity || 'Week', context.period || '');
+  const spreadsheetName = `Weekly Agent Matrix - ${label || context.period || 'Latest'} (${linkType === 'call' ? 'Calls' : 'PDFs'})`;
+
+  const spreadsheet = SpreadsheetApp.create(spreadsheetName);
+  const sheet = spreadsheet.getSheets()[0];
+  sheet.setName(sheetName);
+  sheet.getRange(1, 1, safeRows.length, safeRows[0].length).setValues(safeRows);
+
+  sheet.autoResizeColumns(1, safeRows[0].length);
+
+  return {
+    spreadsheetId: spreadsheet.getId(),
+    spreadsheetUrl: spreadsheet.getUrl(),
+    spreadsheetName,
+    sheetName
+  };
+}
+
 function buildAgentDisplayLookup_(records) {
   const lookup = {};
 
@@ -3258,6 +3436,74 @@ function getRecordFieldValue_(record, candidates) {
   }
 
   return null;
+}
+
+function normalizeLinkType_(value) {
+  const raw = String(value || '').toLowerCase();
+  if (raw.indexOf('call') !== -1 || raw.indexOf('record') !== -1) {
+    return 'call';
+  }
+  return 'pdf';
+}
+
+function extractLinkForType_(record, linkType) {
+  if (!record || typeof record !== 'object') {
+    return '';
+  }
+
+  const normalizedType = normalizeLinkType_(linkType);
+  const linkCandidates = normalizedType === 'call'
+    ? [
+      'CallLink', 'Call Link', 'CallRecording', 'Call Recording', 'RecordingUrl', 'Recording URL',
+      'CallUrl', 'Call URL', 'AudioUrl', 'Audio URL', 'CallRecordingUrl', 'Call Recording Url'
+    ]
+    : [
+      'PdfUrl', 'PDF Url', 'Pdf Link', 'PDF Link', 'QA Pdf', 'QA PDF', 'Drive Link', 'Google Drive Link'
+    ];
+
+  const directLink = getRecordFieldValue_(record, linkCandidates);
+  if (directLink) {
+    return directLink;
+  }
+
+  const fuzzyMatch = Object.keys(record).find(key => {
+    const normalized = normalizeFieldKey_(key);
+    if (!normalized) {
+      return false;
+    }
+    if (normalizedType === 'call') {
+      return normalized.indexOf('calllink') !== -1
+        || normalized.indexOf('recording') !== -1
+        || normalized.indexOf('callurl') !== -1
+        || normalized.indexOf('audiourl') !== -1;
+    }
+    return normalized.indexOf('pdfurl') !== -1
+      || normalized.indexOf('pdflink') !== -1
+      || normalized.indexOf('drive') !== -1;
+  });
+
+  return fuzzyMatch ? record[fuzzyMatch] : '';
+}
+
+function extractCallIdentifierFromRecord_(record) {
+  if (!record || typeof record !== 'object') {
+    return '';
+  }
+
+  const candidates = [
+    'ID', 'Id', 'QaId', 'QA ID', 'Evaluation ID', 'CaseNumber', 'Case Number', 'CallId', 'Call ID', 'Ticket'
+  ];
+  const direct = getRecordFieldValue_(record, candidates);
+  if (direct) {
+    return direct;
+  }
+
+  const normalizedKey = Object.keys(record).find(key => {
+    const normalized = normalizeFieldKey_(key);
+    return normalized.indexOf('case') !== -1 || normalized.indexOf('ticket') !== -1;
+  });
+
+  return normalizedKey ? record[normalizedKey] : '';
 }
 
 function clamp01_(value) {
