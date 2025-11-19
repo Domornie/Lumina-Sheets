@@ -1800,6 +1800,7 @@ function normalizeQaRecord_(record, timezone, passMarkOverride) {
     percentage,
     recordScore,
     pass: percentage >= passThreshold,
+    biWeek: callDate instanceof Date ? formatBiWeekKey_(callDate) : '',
     week: callDate instanceof Date ? toISOWeek_(callDate) : '',
     month: callDate instanceof Date ? formatMonthKey_(callDate) : '',
     quarter: callDate instanceof Date ? `${getQuarter_(callDate)}-${callDate.getFullYear()}` : '',
@@ -1816,6 +1817,8 @@ function determineLatestPeriod_(granularity, records) {
   const sorted = records.slice().sort((a, b) => b.callDate - a.callDate);
   const latest = sorted[0];
   switch (granularity) {
+    case 'Bi-Week':
+      return latest.biWeek;
     case 'Week':
       return latest.week;
     case 'Month':
@@ -1839,6 +1842,8 @@ function filterRecordsForIntelligence_(records, context) {
     if (!period) return true;
 
     switch (granularity) {
+      case 'Bi-Week':
+        return record.biWeek === period;
       case 'Week':
         return record.week === period;
       case 'Month':
@@ -3179,6 +3184,44 @@ function toISOWeek_(date) {
   return `${d.getUTCFullYear()}-W${String(week).padStart(2, '0')}`;
 }
 
+function getIsoWeeksInYear_(year) {
+  const dec28 = new Date(Date.UTC(year, 11, 28));
+  const weekKey = toISOWeek_(dec28);
+  const parts = weekKey.split('-W');
+  const week = parts.length === 2 ? parseInt(parts[1], 10) : 52;
+  return Number.isFinite(week) ? week : 52;
+}
+
+function getIsoWeekStartDate_(year, week) {
+  if (!Number.isFinite(year) || !Number.isFinite(week) || week < 1) {
+    return null;
+  }
+  const simple = new Date(Date.UTC(year, 0, 1 + ((week - 1) * 7)));
+  const dow = simple.getUTCDay();
+  const isoStart = new Date(simple);
+  if (dow <= 4 && dow !== 0) {
+    isoStart.setUTCDate(simple.getUTCDate() - dow + 1);
+  } else {
+    isoStart.setUTCDate(simple.getUTCDate() + (8 - dow));
+  }
+  return isoStart;
+}
+
+function formatBiWeekKey_(date) {
+  const weekKey = toISOWeek_(date);
+  const parts = weekKey.split('-W');
+  if (parts.length !== 2) {
+    return '';
+  }
+  const year = parseInt(parts[0], 10);
+  const week = parseInt(parts[1], 10);
+  if (!year || !week) {
+    return '';
+  }
+  const biWeekIndex = Math.floor((week - 1) / 2) + 1;
+  return `${year}-BW${String(biWeekIndex).padStart(2, '0')}`;
+}
+
 function formatMonthKey_(date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
 }
@@ -3364,6 +3407,20 @@ function coerceDateValue_(value) {
 function getPreviousPeriod_(granularity, period) {
   if (!period) return '';
   switch (granularity) {
+    case 'Bi-Week': {
+      const parts = period.split('-BW');
+      if (parts.length !== 2) return '';
+      const year = parseInt(parts[0], 10);
+      const biWeek = parseInt(parts[1], 10);
+      if (!year || !biWeek) return '';
+      if (biWeek <= 1) {
+        const previousYear = year - 1;
+        const previousWeeks = getIsoWeeksInYear_(previousYear);
+        const lastBiWeek = Math.ceil(previousWeeks / 2);
+        return `${previousYear}-BW${String(lastBiWeek).padStart(2, '0')}`;
+      }
+      return `${year}-BW${String(biWeek - 1).padStart(2, '0')}`;
+    }
     case 'Week': {
       const parts = period.split('-W');
       if (parts.length !== 2) return '';
@@ -3400,13 +3457,31 @@ function getPreviousPeriod_(granularity, period) {
 function formatPeriodLabel_(granularity, period) {
   if (!period) return 'Period';
   switch (granularity) {
+    case 'Bi-Week': {
+      const [yearPart, biWeekPart] = period.split('-BW');
+      const year = parseInt(yearPart, 10);
+      const biWeekNumber = parseInt(biWeekPart, 10);
+      if (!year || !biWeekNumber) return period;
+      const startWeek = ((biWeekNumber - 1) * 2) + 1;
+      const startDate = getIsoWeekStartDate_(year, startWeek);
+      if (!startDate) return period;
+      const endDate = new Date(startDate.getTime());
+      endDate.setUTCDate(endDate.getUTCDate() + 13);
+      const dateOptions = { month: 'short', day: 'numeric' };
+      const startLabel = startDate.toLocaleDateString('en-US', dateOptions);
+      const endLabel = endDate.toLocaleDateString('en-US', dateOptions);
+      const yearLabel = startDate.getUTCFullYear() === endDate.getUTCFullYear()
+        ? startDate.getUTCFullYear()
+        : `${startDate.getUTCFullYear()} / ${endDate.getUTCFullYear()}`;
+      return `${startLabel} - ${endLabel} ${yearLabel}`;
+    }
     case 'Week':
       return period.replace(/^[0-9]{4}-/, '');
     case 'Month': {
       const [y, m] = period.split('-');
       if (!y || !m) return period;
       const date = new Date(Number(y), Number(m) - 1, 1);
-      return date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+      return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
     }
     case 'Quarter':
       return period.replace('-', ' ');
