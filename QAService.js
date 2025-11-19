@@ -3427,7 +3427,9 @@ function getPreviousPeriod_(granularity, period) {
       const year = parseInt(parts[0], 10);
       const week = parseInt(parts[1], 10);
       if (week <= 1) {
-        return `${year - 1}-W52`;
+        const previousYear = year - 1;
+        const priorYearWeeks = getIsoWeeksInYear_(previousYear);
+        return `${previousYear}-W${String(priorYearWeeks).padStart(2, '0')}`;
       }
       return `${year}-W${String(week - 1).padStart(2, '0')}`;
     }
@@ -3475,8 +3477,23 @@ function formatPeriodLabel_(granularity, period) {
         : `${startDate.getUTCFullYear()} / ${endDate.getUTCFullYear()}`;
       return `${startLabel} - ${endLabel} ${yearLabel}`;
     }
-    case 'Week':
-      return period.replace(/^[0-9]{4}-/, '');
+    case 'Week': {
+      const parts = period.split('-W');
+      if (parts.length !== 2) return period.replace(/^[0-9]{4}-/, '');
+      const year = parseInt(parts[0], 10);
+      const week = parseInt(parts[1], 10);
+      const startDate = getIsoWeekStartDate_(year, week);
+      if (!startDate) return period.replace(/^[0-9]{4}-/, '');
+      const endDate = new Date(startDate.getTime());
+      endDate.setUTCDate(endDate.getUTCDate() + 6);
+      const options = { month: 'short', day: 'numeric' };
+      const startLabel = startDate.toLocaleDateString('en-US', options);
+      const endLabel = endDate.toLocaleDateString('en-US', options);
+      const yearLabel = startDate.getUTCFullYear() === endDate.getUTCFullYear()
+        ? startDate.getUTCFullYear()
+        : `${startDate.getUTCFullYear()} / ${endDate.getUTCFullYear()}`;
+      return `${startLabel} - ${endLabel} ${yearLabel}`;
+    }
     case 'Month': {
       const [y, m] = period.split('-');
       if (!y || !m) return period;
