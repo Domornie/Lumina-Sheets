@@ -3701,7 +3701,6 @@
                     }
                     await this.refreshHolidays();
                     this.showToast('System ready! All data loaded successfully.', 'success');
-                    console.log('✅ Unified system state loaded successfully');
                     return;
                 }
 
@@ -9452,6 +9451,106 @@
                 };
             }
 
+            normalizeAttendanceDashboardData(data) {
+                const fallbackMonths = [
+                    'January', 'February', 'March', 'April', 'May', 'June',
+                    'July', 'August', 'September', 'October', 'November', 'December'
+                ];
+
+                const months = Array.isArray(data?.months) && data.months.length
+                    ? data.months.map(month => typeof month === 'string' ? month : String(month ?? ''))
+                    : fallbackMonths.slice();
+
+                const ensureNumericArray = (sourceArray, fallback = 0) => {
+                    const source = Array.isArray(sourceArray) ? sourceArray : [];
+                    return months.map((_, index) => {
+                        const value = source[index];
+                        const numeric = Number(value);
+                        return Number.isFinite(numeric) ? numeric : fallback;
+                    });
+                };
+
+                const normalized = {
+                    ...(data && typeof data === 'object' ? data : {}),
+                    months
+                };
+
+                normalized.monthlyPercent = ensureNumericArray(data?.monthlyPercent);
+                normalized.monthlyPresent = ensureNumericArray(data?.monthlyPresent);
+                normalized.monthlyPresentTrend = ensureNumericArray(data?.monthlyPresentTrend);
+                normalized.monthlyAbsent = ensureNumericArray(data?.monthlyAbsent);
+                normalized.monthlyAbsentTrend = ensureNumericArray(data?.monthlyAbsentTrend);
+                normalized.monthlyLeaves = {
+                    leaves: ensureNumericArray(data?.monthlyLeaves?.leaves),
+                    late: ensureNumericArray(data?.monthlyLeaves?.late)
+                };
+
+                const biWeeklyLabels = Array.isArray(data?.biWeekly?.labels)
+                    ? data.biWeekly.labels.map(label => typeof label === 'string' ? label : String(label ?? ''))
+                    : [];
+                const biWeeklyPunctual = Array.isArray(data?.biWeekly?.punctual)
+                    ? data.biWeekly.punctual
+                    : [];
+                normalized.biWeekly = {
+                    labels: biWeeklyLabels,
+                    punctual: biWeeklyLabels.map((_, index) => {
+                        const value = biWeeklyPunctual[index];
+                        const numeric = Number(value);
+                        return Number.isFinite(numeric) ? numeric : 0;
+                    })
+                };
+
+                normalized.yearlyTotals = {
+                    punctual: Number.isFinite(data?.yearlyTotals?.punctual) ? data.yearlyTotals.punctual : 0,
+                    bereavement: Number.isFinite(data?.yearlyTotals?.bereavement) ? data.yearlyTotals.bereavement : 0,
+                    absent: Number.isFinite(data?.yearlyTotals?.absent) ? data.yearlyTotals.absent : 0,
+                    late: Number.isFinite(data?.yearlyTotals?.late) ? data.yearlyTotals.late : 0,
+                    noCallNoShow: Number.isFinite(data?.yearlyTotals?.noCallNoShow) ? data.yearlyTotals.noCallNoShow : 0,
+                    vacation: Number.isFinite(data?.yearlyTotals?.vacation) ? data.yearlyTotals.vacation : 0,
+                    sick: Number.isFinite(data?.yearlyTotals?.sick) ? data.yearlyTotals.sick : 0,
+                    leaveOfAbsence: Number.isFinite(data?.yearlyTotals?.leaveOfAbsence)
+                        ? data.yearlyTotals.leaveOfAbsence
+                        : 0,
+                    personalLeave: Number.isFinite(data?.yearlyTotals?.personalLeave)
+                        ? data.yearlyTotals.personalLeave
+                        : 0,
+                    training: Number.isFinite(data?.yearlyTotals?.training) ? data.yearlyTotals.training : 0,
+                    other: Number.isFinite(data?.yearlyTotals?.other) ? data.yearlyTotals.other : 0
+                };
+
+                normalized.monthlyAnalysis = Array.isArray(data?.monthlyAnalysis) && data.monthlyAnalysis.length
+                    ? data.monthlyAnalysis.map(entry => ({
+                        month: typeof entry.month === 'string' ? entry.month : String(entry.month ?? ''),
+                        punctual: Number.isFinite(entry.punctual) ? entry.punctual : 0,
+                        bereavement: Number.isFinite(entry.bereavement) ? entry.bereavement : 0,
+                        absent: Number.isFinite(entry.absent) ? entry.absent : 0,
+                        late: Number.isFinite(entry.late) ? entry.late : 0,
+                        noCallNoShow: Number.isFinite(entry.noCallNoShow) ? entry.noCallNoShow : 0,
+                        vacation: Number.isFinite(entry.vacation) ? entry.vacation : 0,
+                        sick: Number.isFinite(entry.sick) ? entry.sick : 0,
+                        leaveOfAbsence: Number.isFinite(entry.leaveOfAbsence) ? entry.leaveOfAbsence : 0,
+                        personalLeave: Number.isFinite(entry.personalLeave) ? entry.personalLeave : 0,
+                        training: Number.isFinite(entry.training) ? entry.training : 0,
+                        other: Number.isFinite(entry.other) ? entry.other : 0
+                    }))
+                    : months.map(month => ({
+                        month,
+                        punctual: 0,
+                        bereavement: 0,
+                        absent: 0,
+                        late: 0,
+                        noCallNoShow: 0,
+                        vacation: 0,
+                        sick: 0,
+                        leaveOfAbsence: 0,
+                        personalLeave: 0,
+                        training: 0,
+                        other: 0
+                    }));
+
+                return normalized;
+            }
+
             resolveAttendanceDashboardUser(filterValue) {
                 const normalizedValue = this.normalizeUserIdValue(filterValue);
                 if (!normalizedValue || !Array.isArray(this.availableUsers)) {
@@ -11620,7 +11719,7 @@
                     return gradient;
                 };
 
-                let data = this.attendanceDashboardData;
+                let data = this.normalizeAttendanceDashboardData(this.attendanceDashboardData);
 
                 const monthSelect = document.getElementById('attendanceDashboardMonth');
                 const userSelect = document.getElementById('attendanceDashboardUser');
