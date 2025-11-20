@@ -1208,6 +1208,11 @@
     <select id="qa-agent" class="form-select" aria-label="Select agent">
       <option value="">All Agents</option>
     </select>
+    <label for="qa-export-link-type" class="visually-hidden">Select link type for export</label>
+    <select id="qa-export-link-type" class="form-select" aria-label="Choose which links to export">
+      <option value="pdf" selected>Google Drive / PDF links</option>
+      <option value="call">Call recording links</option>
+    </select>
     <button type="button" class="btn btn-primary" id="qa-refresh">
       <i class="fa-solid fa-rotate"></i>
       <span class="ms-1">Refresh</span>
@@ -1798,6 +1803,7 @@
       period: document.getElementById('qa-period'),
       agent: document.getElementById('qa-agent'),
       refresh: document.getElementById('qa-refresh'),
+      exportLinkType: document.getElementById('qa-export-link-type'),
       exportMatrix: document.getElementById('qa-export-matrix'),
       exportModal: document.getElementById('qa-export-modal'),
       exportSubmit: document.getElementById('qa-export-submit'),
@@ -4319,6 +4325,12 @@
         dom.agent.addEventListener('change', event => {
           state.filters.agent = event.target.value;
           loadData();
+        });
+      }
+
+      if (dom.exportLinkType) {
+        dom.exportLinkType.addEventListener('change', event => {
+          state.exportLinkType = event.target.value || 'pdf';
         });
       }
 
