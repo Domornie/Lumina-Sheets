@@ -1948,12 +1948,7 @@ function clientGetAllUsers(requestingUserId) {
       } else {
         users = readSheet(G.USERS_SHEET, { cache: false, useCache: false, suppressTenantContext: true });
       }
-    } catch (e) {
-      if (typeof writeError === 'function') {
-        writeError('clientGetAllUsers - readSheet', e);
-      }
-      return [];
-    }
+    } catch (e) { writeError('clientGetAllUsers - readSheet', e); return []; }
     if (!Array.isArray(users) || users.length === 0) return [];
 
     const enhancedUsers = [];
@@ -2038,12 +2033,7 @@ function clientGetAllUsers(requestingUserId) {
       }
     }
     return filteredUsers;
-  } catch (globalError) {
-    if (typeof writeError === 'function') {
-      writeError('clientGetAllUsers', globalError);
-    }
-    return [];
-  }
+  } catch (globalError) { writeError('clientGetAllUsers', globalError); return []; }
 }
 
 function createSafeUserObject(user) {
