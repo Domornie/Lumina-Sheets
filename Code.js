@@ -4906,7 +4906,7 @@ function getUsersByCampaign(campaignId) {
 function getAllUsersRaw() {
   try {
     if (typeof readSheet === 'function') {
-      return readSheet('Users', { cache: false, useCache: false, suppressTenantContext: true }) || [];
+      return readSheet('Users', { cache: false, useCache: false }) || [];
     }
     return [];
   } catch (error) {
