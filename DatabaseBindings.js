@@ -51,7 +51,7 @@
   }
 
   function attemptRegisterKnownSchemas() {
-    registerIfDefined(global.USERS_SHEET || 'Users', global.USERS_HEADERS, 'ID', { cache: false, cacheTTL: 0 });
+    registerIfDefined(global.USERS_SHEET || 'Users', global.USERS_HEADERS, 'ID', { cacheTTL: 1800 });
     registerIfDefined(global.ROLES_SHEET || 'Roles', global.ROLES_HEADER, 'ID', { cacheTTL: 3600 });
     registerIfDefined(global.USER_ROLES_SHEET || 'UserRoles', global.USER_ROLES_HEADER, 'UserId', { cacheTTL: 1800 });
     registerIfDefined(global.USER_CLAIMS_SHEET || 'UserClaims', global.CLAIMS_HEADERS, 'ID', { cacheTTL: 1800 });
