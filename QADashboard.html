@@ -1028,50 +1028,61 @@
   .qa-export-modal {
     border-radius: 20px;
     border: 1px solid rgba(148, 163, 184, 0.2);
-    box-shadow: 0 24px 70px rgba(15, 23, 42, 0.2);
+    box-shadow: 0 28px 80px rgba(15, 23, 42, 0.35);
+    background: linear-gradient(145deg, #0f172a 0%, #0b1220 100%);
+    color: #e2e8f0;
+  }
+
+  .qa-export-dialog {
+    max-width: 1100px;
+    width: min(96vw, 1100px);
   }
 
   .qa-export-modal__header {
-    border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+    border-bottom: 1px solid rgba(148, 163, 184, 0.2);
     padding: 1.25rem 1.5rem 1rem;
+    background: linear-gradient(120deg, rgba(79, 70, 229, 0.16), rgba(14, 165, 233, 0.12));
   }
 
   .qa-export-modal__body {
     padding: 1.5rem;
-    background: linear-gradient(135deg, rgba(37, 99, 235, 0.06), rgba(14, 165, 233, 0.05));
+    background: #0b1220;
   }
 
   .qa-export-modal__footer {
-    border-top: 1px solid rgba(148, 163, 184, 0.16);
+    border-top: 1px solid rgba(148, 163, 184, 0.2);
     padding: 1rem 1.5rem;
-    background: #f8fafc;
+    background: #0b1220;
     border-radius: 0 0 20px 20px;
   }
 
   .qa-export-modal__eyebrow {
-    color: var(--qa-primary);
-    font-weight: 700;
-    letter-spacing: 0.05em;
+    color: #cbd5e1;
+    font-weight: 800;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
     font-size: 0.8rem;
   }
 
   .qa-export-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
     gap: 1rem;
   }
 
   .qa-export-card {
-    background: rgba(255, 255, 255, 0.95);
-    border: 1px solid rgba(148, 163, 184, 0.22);
-    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    border-radius: 18px;
     padding: 1rem 1.1rem;
-    box-shadow: var(--qa-shadow-soft);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    backdrop-filter: blur(4px);
   }
 
   .qa-export-card--summary {
-    grid-column: span 2;
+    grid-column: 1 / -1;
+    background: linear-gradient(160deg, rgba(34, 197, 94, 0.08), rgba(125, 211, 252, 0.1));
+    border-color: rgba(34, 197, 94, 0.45);
   }
 
   @media (max-width: 768px) {
@@ -1081,15 +1092,18 @@
   }
 
   .qa-export-label {
-    font-weight: 700;
-    color: #0f172a;
+    font-weight: 800;
+    color: #e2e8f0;
     font-size: 0.95rem;
+    letter-spacing: 0.04em;
   }
 
   .qa-export-segmented .btn,
   .qa-export-user-toggle .btn,
   .qa-export-modal .btn-group .btn {
-    font-weight: 600;
+    font-weight: 700;
+    border-radius: 12px !important;
+    color: #e2e8f0;
   }
 
   .qa-export-user-toggle,
@@ -1099,11 +1113,11 @@
   }
 
   .qa-export-pill {
-    background: rgba(37, 99, 235, 0.1);
-    color: var(--qa-primary);
-    padding: 0.4rem 0.8rem;
+    background: rgba(37, 99, 235, 0.16);
+    color: #bfdbfe;
+    padding: 0.45rem 0.9rem;
     border-radius: 999px;
-    font-weight: 700;
+    font-weight: 800;
     font-size: 0.9rem;
   }
 
@@ -1120,6 +1134,22 @@
   .qa-export-modal .form-select,
   .qa-export-modal .form-control {
     border-radius: 12px;
+    background: rgba(255, 255, 255, 0.05);
+    color: #e2e8f0;
+    border-color: rgba(148, 163, 184, 0.35);
+  }
+
+  .qa-export-helper {
+    color: #94a3b8;
+    font-size: 0.9rem;
+  }
+
+  .qa-export-custom {
+    display: none;
+  }
+
+  .qa-export-custom.active {
+    display: block;
   }
 
   @media (max-width: 992px) {
@@ -1642,7 +1672,7 @@
   </div>
 
   <div class="modal fade" id="qa-export-modal" tabindex="-1" aria-labelledby="qa-export-modal-label" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-dialog modal-dialog-centered modal-xl qa-export-dialog">
       <div class="modal-content qa-export-modal">
         <div class="modal-header qa-export-modal__header">
           <div>
@@ -1651,7 +1681,7 @@
               Export Matrix
             </p>
             <h5 class="modal-title" id="qa-export-modal-label">QA Weekly Matrix</h5>
-            <p class="mb-0 text-muted">Choose how you want to export this weekly view, including which links to include.</p>
+            <p class="mb-0 qa-export-helper">Choose how you want to export this weekly view, including which links to include.</p>
           </div>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
@@ -1661,19 +1691,19 @@
               <div class="d-flex justify-content-between align-items-center mb-2">
                 <div>
                   <div class="qa-export-label">Time period</div>
-                  <small class="text-muted">Match the weekly dashboard view or pick another period.</small>
+                  <small class="qa-export-helper">Match the weekly dashboard view or pick another period.</small>
                 </div>
                 <span class="badge text-bg-light">QA Matrix</span>
               </div>
               <div class="btn-group w-100" role="group" aria-label="Select export granularity">
                 <input type="radio" class="btn-check" name="qa-export-granularity" id="qa-export-granularity-week" value="Week" checked>
                 <label class="btn btn-outline-primary" for="qa-export-granularity-week">Weekly</label>
-                <input type="radio" class="btn-check" name="qa-export-granularity" id="qa-export-granularity-month" value="Month" disabled>
-                <label class="btn btn-outline-secondary" for="qa-export-granularity-month" title="Monthly export coming soon">Monthly</label>
-                <input type="radio" class="btn-check" name="qa-export-granularity" id="qa-export-granularity-quarter" value="Quarter" disabled>
-                <label class="btn btn-outline-secondary" for="qa-export-granularity-quarter" title="Quarterly export coming soon">Quarterly</label>
-                <input type="radio" class="btn-check" name="qa-export-granularity" id="qa-export-granularity-custom" value="Custom" disabled>
-                <label class="btn btn-outline-secondary" for="qa-export-granularity-custom" title="Custom ranges coming soon">Custom Range</label>
+                <input type="radio" class="btn-check" name="qa-export-granularity" id="qa-export-granularity-month" value="Month">
+                <label class="btn btn-outline-primary" for="qa-export-granularity-month">Monthly</label>
+                <input type="radio" class="btn-check" name="qa-export-granularity" id="qa-export-granularity-quarter" value="Quarter">
+                <label class="btn btn-outline-primary" for="qa-export-granularity-quarter">Quarterly</label>
+                <input type="radio" class="btn-check" name="qa-export-granularity" id="qa-export-granularity-custom" value="Custom">
+                <label class="btn btn-outline-primary" for="qa-export-granularity-custom">Custom Range</label>
               </div>
               <div class="row gx-3 mt-3">
                 <div class="col-8">
@@ -1684,6 +1714,19 @@
                   <label for="qa-export-year" class="qa-export-label">Year</label>
                   <input type="text" id="qa-export-year" class="form-control" value="" readonly>
                 </div>
+              </div>
+              <div class="qa-export-custom mt-3" id="qa-export-custom-range">
+                <div class="row gx-3">
+                  <div class="col-6">
+                    <label for="qa-export-start" class="qa-export-label">Start date</label>
+                    <input type="date" id="qa-export-start" class="form-control" aria-label="Custom range start date">
+                  </div>
+                  <div class="col-6">
+                    <label for="qa-export-end" class="qa-export-label">End date</label>
+                    <input type="date" id="qa-export-end" class="form-control" aria-label="Custom range end date">
+                  </div>
+                </div>
+                <p class="qa-export-helper mt-2 mb-0"><i class="fa-regular fa-calendar me-1"></i>Pick any Monday start and Sunday end for custom exports.</p>
               </div>
               <div class="d-flex align-items-center gap-2 mt-3 small text-muted" id="qa-export-period-summary"></div>
             </div>
@@ -1772,7 +1815,16 @@
         period: '',
         agent: '',
         agentScope: '',
-        linkType: 'pdf'
+        linkType: 'pdf',
+        customRange: {
+          start: '',
+          end: ''
+        }
+      },
+      exportPeriods: {
+        Week: [],
+        Month: [],
+        Quarter: []
       },
       loading: false,
       data: null,
@@ -1865,6 +1917,9 @@
       exportPeriod: document.getElementById('qa-export-period'),
       exportYear: document.getElementById('qa-export-year'),
       exportPeriodSummary: document.getElementById('qa-export-period-summary'),
+      exportCustomRange: document.getElementById('qa-export-custom-range'),
+      exportStart: document.getElementById('qa-export-start'),
+      exportEnd: document.getElementById('qa-export-end'),
       exportAgent: document.getElementById('qa-export-agent'),
       exportAgentScope: document.querySelectorAll('input[name="qa-export-agent-scope"]'),
       exportPill: document.getElementById('qa-export-pill'),
@@ -2105,7 +2160,53 @@
         }
       });
 
-      const rows = [[
+      const allAgents = new Set(Object.keys(agentDisplay));
+      matrix.periods.forEach(period => {
+        if (period && period.metrics) {
+          Object.keys(period.metrics).forEach(key => allAgents.add(key));
+        }
+      });
+
+      const agentOrder = Array.from(allAgents).sort((a, b) => {
+        const nameA = (agentDisplay[a] || a || '').toString().toLowerCase();
+        const nameB = (agentDisplay[b] || b || '').toString().toLowerCase();
+        return nameA.localeCompare(nameB);
+      });
+
+      const agentStats = {};
+      const periodKeys = new Set();
+      let totalEvaluations = 0;
+      let totalWeightedScore = 0;
+      let totalWeightedPass = 0;
+
+      function performanceTone(avgScore, passRate) {
+        const avg = typeof avgScore === 'number' && !Number.isNaN(avgScore) ? avgScore : null;
+        const pass = typeof passRate === 'number' && !Number.isNaN(passRate) ? passRate : null;
+        if (avg === null && pass === null) {
+          return 'No data';
+        }
+        if ((avg !== null && avg < 80) || (pass !== null && pass < 80)) {
+          return 'Risk (red)';
+        }
+        if ((avg !== null && avg < 90) || (pass !== null && pass < 90)) {
+          return 'Caution (amber)';
+        }
+        return 'Pass (green)';
+      }
+
+      const rows = [
+        ['QA Quality Report', '', ''],
+        [
+          'Granularity',
+          matrix.granularity || '',
+          'Freeze row 1 to keep headers visible; apply colors: Pass=green, Caution=amber, Risk=red.'
+        ],
+        ['Generated', new Date().toISOString(), ''],
+        []
+      ];
+
+      rows.push(['Period matrix (agent by period)']);
+      rows.push([
         'Granularity',
         'Period Key',
         'Period Label',
@@ -2114,27 +2215,15 @@
         'Average Score (%)',
         'Pass Rate (%)',
         'Evaluations',
-        'Evaluation Share (%)'
-      ]];
-
-      const allAgents = new Set(Object.keys(agentDisplay));
-      matrix.periods.forEach(period => {
-        if (period && period.metrics) {
-          Object.keys(period.metrics).forEach(key => allAgents.add(key));
-        }
-      });
-
-      const agentOrder = Array.from(allAgents);
-      agentOrder.sort((a, b) => {
-        const nameA = (agentDisplay[a] || a || '').toString().toLowerCase();
-        const nameB = (agentDisplay[b] || b || '').toString().toLowerCase();
-        return nameA.localeCompare(nameB);
-      });
+        'Evaluation Share (%)',
+        'Performance Tone'
+      ]);
 
       matrix.periods.forEach(period => {
         if (!period) {
           return;
         }
+        periodKeys.add(period.period || period.label || '');
         const metrics = period.metrics || {};
 
         agentOrder.forEach(agentId => {
@@ -2152,6 +2241,50 @@
             ? detail.evaluationShare
             : '';
 
+          const numericEvals = typeof evaluations === 'number' ? evaluations : 0;
+          const numericAvg = typeof avgScore === 'number' ? avgScore : null;
+          const numericPass = typeof passRate === 'number' ? passRate : null;
+
+          if (!agentStats[agentId]) {
+            agentStats[agentId] = {
+              id: agentId,
+              name: agentDisplay[agentId] || agentId || 'Unassigned',
+              evaluations: 0,
+              weightedScore: 0,
+              weightedPass: 0,
+              periods: new Set(),
+              shares: [],
+              touches: 0
+            };
+          }
+
+          if (numericEvals > 0) {
+            agentStats[agentId].evaluations += numericEvals;
+            agentStats[agentId].touches += 1;
+          }
+          if (numericAvg !== null && numericEvals > 0) {
+            agentStats[agentId].weightedScore += numericAvg * numericEvals;
+          }
+          if (numericPass !== null && numericEvals > 0) {
+            agentStats[agentId].weightedPass += numericPass * numericEvals;
+          }
+          if (numericEvals > 0 || numericAvg !== null || numericPass !== null) {
+            agentStats[agentId].periods.add(period.period || period.label || '');
+          }
+          if (typeof share === 'number') {
+            agentStats[agentId].shares.push(share);
+          }
+
+          if (numericEvals > 0) {
+            totalEvaluations += numericEvals;
+            if (numericAvg !== null) {
+              totalWeightedScore += numericAvg * numericEvals;
+            }
+            if (numericPass !== null) {
+              totalWeightedPass += numericPass * numericEvals;
+            }
+          }
+
           rows.push([
             matrix.granularity || '',
             period.period || '',
@@ -2161,9 +2294,126 @@
             avgScore,
             passRate,
             evaluations,
-            share
+            share,
+            performanceTone(avgScore, passRate)
           ]);
         });
+      });
+
+      rows.push([]);
+      rows.push(['Agent overall scores (all periods)']);
+      rows.push([
+        'Agent Identifier',
+        'Agent Name',
+        'Average Score (%)',
+        'Pass Rate (%)',
+        'Evaluations',
+        'Periods Covered',
+        'Performance Tone'
+      ]);
+
+      agentOrder.forEach(agentId => {
+        const stats = agentStats[agentId] || { periods: new Set(), shares: [] };
+        const evals = stats.evaluations || 0;
+        const avgScore = evals > 0 && stats.weightedScore > 0 ? stats.weightedScore / evals : '';
+        const passRate = evals > 0 && stats.weightedPass >= 0 ? stats.weightedPass / evals : '';
+        rows.push([
+          agentId || '',
+          stats.name || agentDisplay[agentId] || agentId || 'Unassigned',
+          typeof avgScore === 'number' && !Number.isNaN(avgScore) ? Math.round(avgScore * 10) / 10 : '',
+          typeof passRate === 'number' && !Number.isNaN(passRate) ? Math.round(passRate * 10) / 10 : '',
+          evals,
+          Array.from(stats.periods).filter(Boolean).length,
+          performanceTone(avgScore, passRate)
+        ]);
+      });
+
+      const overallAvg = totalEvaluations > 0 ? totalWeightedScore / totalEvaluations : '';
+      const overallPass = totalEvaluations > 0 ? totalWeightedPass / totalEvaluations : '';
+      const portfolioTone = performanceTone(overallAvg, overallPass);
+
+      rows.push([]);
+      rows.push(['Portfolio totals and coverage']);
+      rows.push([
+        'Overall Avg Score (%)',
+        'Overall Pass Rate (%)',
+        'Total Evaluations',
+        'Active Agents',
+        'Periods Analyzed',
+        'Performance Tone'
+      ]);
+      rows.push([
+        typeof overallAvg === 'number' && !Number.isNaN(overallAvg) ? Math.round(overallAvg * 10) / 10 : '',
+        typeof overallPass === 'number' && !Number.isNaN(overallPass) ? Math.round(overallPass * 10) / 10 : '',
+        totalEvaluations,
+        agentOrder.length,
+        Array.from(periodKeys).filter(Boolean).length,
+        portfolioTone
+      ]);
+
+      const rankedAgents = agentOrder
+        .map(id => ({
+          id,
+          name: agentStats[id] ? agentStats[id].name : (agentDisplay[id] || id || 'Unassigned'),
+          evals: agentStats[id] ? agentStats[id].evaluations : 0,
+          avg: agentStats[id] && agentStats[id].evaluations > 0
+            ? agentStats[id].weightedScore / agentStats[id].evaluations
+            : null,
+          pass: agentStats[id] && agentStats[id].evaluations > 0
+            ? agentStats[id].weightedPass / agentStats[id].evaluations
+            : null,
+          touches: agentStats[id] ? agentStats[id].touches : 0
+        }))
+        .filter(agent => agent.evals > 0 && agent.avg !== null)
+        .sort((a, b) => (b.avg || 0) - (a.avg || 0));
+
+      const coachingNeeds = agentOrder
+        .map(id => {
+          const stats = agentStats[id];
+          const evals = stats ? stats.evaluations : 0;
+          const avg = stats && evals > 0 ? stats.weightedScore / evals : null;
+          const pass = stats && evals > 0 ? stats.weightedPass / evals : null;
+          if (!evals) {
+            return {
+              name: stats ? stats.name : (agentDisplay[id] || id || 'Unassigned'),
+              note: 'Needs more evaluations to assess performance.'
+            };
+          }
+          const gaps = [];
+          if (avg !== null && avg < 90) {
+            gaps.push('lift average QA score');
+          }
+          if (pass !== null && pass < 90) {
+            gaps.push('improve pass consistency');
+          }
+          return {
+            name: stats ? stats.name : (agentDisplay[id] || id || 'Unassigned'),
+            note: gaps.length ? gaps.join(' and ') : 'Maintain trajectory with current behaviors.'
+          };
+        })
+        .filter(item => item && item.note);
+
+      rows.push([]);
+      rows.push(['Quality highlights & readiness', 'Detail']);
+      rows.push([
+        'Top performer',
+        rankedAgents.length
+          ? `${rankedAgents[0].name} (${Math.round(rankedAgents[0].avg * 10) / 10}% avg score, ${Math.round((rankedAgents[0].pass || 0) * 10) / 10}% pass across ${rankedAgents[0].evals} evals)`
+          : 'No qualifying agents yet.'
+      ]);
+      rows.push([
+        'Operational coverage',
+        `${agentOrder.length} agents across ${Array.from(periodKeys).filter(Boolean).length} periods (${totalEvaluations} total evaluations).`
+      ]);
+      rows.push([
+        'Data completeness',
+        totalEvaluations > 0 ? 'Ready for review with agent-level rollups and links.' : 'Collect more QA forms to enable analysis.'
+      ]);
+
+      rows.push([]);
+      rows.push(['Agent coaching needs', 'Focus area']);
+      coachingNeeds.forEach(item => {
+        rows.push([item.name, item.note]);
       });
 
       return rows
@@ -2226,6 +2476,53 @@
       return 'Week';
     }
 
+    function seedCustomRangeFromSelection(force) {
+      if (!state.exportOptions.customRange) {
+        state.exportOptions.customRange = { start: '', end: '' };
+      }
+
+      const { start, end } = state.exportOptions.customRange;
+      if (!force && start && end) {
+        return;
+      }
+
+      const option = dom.exportPeriod
+        ? dom.exportPeriod.options[dom.exportPeriod.selectedIndex]
+        : null;
+      const date = option ? parseDateValue(option.value, option.textContent) : new Date();
+      const normalized = normalizeWeekRange(date || new Date());
+      if (normalized) {
+        state.exportOptions.customRange = {
+          start: normalized.monday.toISOString().slice(0, 10),
+          end: normalized.sunday.toISOString().slice(0, 10)
+        };
+      }
+    }
+
+    function handleExportGranularityChange() {
+      const granularity = getSelectedExportGranularity();
+      buildExportPeriodCollections();
+      toggleCustomRange(granularity);
+      if (granularity !== 'Custom') {
+        populateExportPeriodSelect(granularity);
+      } else {
+        seedCustomRangeFromSelection(!state.exportOptions.customRange.start || !state.exportOptions.customRange.end);
+      }
+
+      if (granularity === 'Custom') {
+        if (dom.exportStart) {
+          dom.exportStart.value = state.exportOptions.customRange.start || '';
+        }
+        if (dom.exportEnd) {
+          dom.exportEnd.value = state.exportOptions.customRange.end || '';
+        }
+      }
+      syncExportYear();
+      updateExportPeriodSummary();
+      updateExportPill();
+      updateExportNote();
+    }
+
     function toggleExportAgentScope(scopeValue) {
       if (!dom.exportAgent) {
         return;
@@ -2257,15 +2554,167 @@
       return '';
     }
 
+    function parseDateValue(value, labelText) {
+      const tryParse = input => {
+        if (!input) return null;
+        const parsed = Date.parse(input);
+        return Number.isNaN(parsed) ? null : new Date(parsed);
+      };
+
+      const candidates = [value, labelText];
+      for (let i = 0; i < candidates.length; i += 1) {
+        const candidate = candidates[i];
+        const date = tryParse(candidate);
+        if (date) {
+          return date;
+        }
+        const match = candidate && candidate.match(/(20\d{2}-\d{2}-\d{2})/);
+        if (match) {
+          const fallbackDate = tryParse(match[1]);
+          if (fallbackDate) {
+            return fallbackDate;
+          }
+        }
+      }
+
+      return null;
+    }
+
+    function formatDisplayDate(date) {
+      if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+        return '';
+      }
+      return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(date);
+    }
+
+    function normalizeWeekRange(date) {
+      if (!(date instanceof Date)) {
+        return null;
+      }
+      const monday = new Date(date);
+      const day = monday.getDay();
+      const diff = day === 0 ? -6 : 1 - day;
+      monday.setDate(monday.getDate() + diff);
+      const sunday = new Date(monday);
+      sunday.setDate(monday.getDate() + 6);
+      return { monday, sunday };
+    }
+
+    function formatWeekSummary(date, fallbackLabel) {
+      const range = normalizeWeekRange(date);
+      if (!range) {
+        return fallbackLabel || 'Latest available period';
+      }
+      return `${formatDisplayDate(range.monday)} – ${formatDisplayDate(range.sunday)}`;
+    }
+
     function syncExportYear() {
       if (!dom.exportYear) {
         return;
       }
 
-      const periodValue = dom.exportPeriod ? (dom.exportPeriod.value || '') : (state.filters.period || '');
+      const granularity = getSelectedExportGranularity();
+      if (granularity === 'Custom' && state.exportOptions.customRange) {
+        const { start, end } = state.exportOptions.customRange;
+        const preferred = parseDateValue(start || end, start || end);
+        dom.exportYear.value = preferred ? String(preferred.getFullYear()) : String(new Date().getFullYear());
+        return;
+      }
+
+      const option = dom.exportPeriod
+        ? dom.exportPeriod.options[dom.exportPeriod.selectedIndex]
+        : null;
+      const periodValue = option && option.value ? option.value : (state.filters.period || '');
       const yearMatch = periodValue && /(20\d{2})/.exec(periodValue);
       const year = yearMatch ? yearMatch[1] : String(new Date().getFullYear());
       dom.exportYear.value = year;
+    }
+
+    function buildExportPeriodCollections() {
+      const periodOptions = dom.period && dom.period.options
+        ? Array.from(dom.period.options)
+        : [];
+
+      const weekOptions = periodOptions
+        .filter(option => option && option.value)
+        .map(option => {
+          const label = option.textContent ? option.textContent.trim() : option.value;
+          const date = parseDateValue(option.value, label);
+          const summary = formatWeekSummary(date, label);
+          return {
+            value: option.value,
+            label,
+            summary,
+            date
+          };
+        });
+
+      const monthLookup = {};
+      weekOptions.forEach(option => {
+        if (!option.date) {
+          return;
+        }
+        const start = new Date(option.date.getFullYear(), option.date.getMonth(), 1);
+        const end = new Date(option.date.getFullYear(), option.date.getMonth() + 1, 0);
+        const key = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}`;
+        if (!monthLookup[key]) {
+          monthLookup[key] = {
+            value: key,
+            label: `${start.toLocaleString('en-US', { month: 'long' })} ${start.getFullYear()}`,
+            summary: `${formatDisplayDate(start)} – ${formatDisplayDate(end)}`,
+            date: start
+          };
+        }
+      });
+
+      const quarterLookup = {};
+      weekOptions.forEach(option => {
+        if (!option.date) {
+          return;
+        }
+        const quarterIndex = Math.floor(option.date.getMonth() / 3);
+        const quarterStartMonth = quarterIndex * 3;
+        const start = new Date(option.date.getFullYear(), quarterStartMonth, 1);
+        const end = new Date(option.date.getFullYear(), quarterStartMonth + 3, 0);
+        const key = `${start.getFullYear()}-Q${quarterIndex + 1}`;
+        if (!quarterLookup[key]) {
+          quarterLookup[key] = {
+            value: key,
+            label: `Q${quarterIndex + 1} ${start.getFullYear()}`,
+            summary: `${formatDisplayDate(start)} – ${formatDisplayDate(end)}`,
+            date: start
+          };
+        }
+      });
+
+      state.exportPeriods.Week = weekOptions;
+      state.exportPeriods.Month = Object.values(monthLookup).sort((a, b) => (b.value > a.value ? 1 : -1));
+      state.exportPeriods.Quarter = Object.values(quarterLookup).sort((a, b) => (b.value > a.value ? 1 : -1));
+    }
+
+    function populateExportPeriodSelect(granularity) {
+      if (!dom.exportPeriod) {
+        return;
+      }
+
+      const options = state.exportPeriods[granularity] || [];
+      dom.exportPeriod.innerHTML = '';
+
+      options.forEach(option => {
+        const opt = document.createElement('option');
+        opt.value = option.value;
+        opt.textContent = option.label;
+        if (option.summary) {
+          opt.dataset.summary = option.summary;
+        }
+        dom.exportPeriod.appendChild(opt);
+      });
+
+      const current = options.find(option => option.value === state.exportOptions.period) || options[0];
+      if (current) {
+        dom.exportPeriod.value = current.value;
+        state.exportOptions.period = current.value;
+      }
     }
 
     function updateExportPeriodSummary() {
@@ -2273,12 +2722,27 @@
         return;
       }
 
+      const granularity = getSelectedExportGranularity();
+
+      if (granularity === 'Custom' && state.exportOptions.customRange) {
+        const { start, end } = state.exportOptions.customRange;
+        const startDate = parseDateValue(start, start);
+        const endDate = parseDateValue(end, end);
+        const startLabel = startDate ? formatDisplayDate(startDate) : 'Start';
+        const endLabel = endDate ? formatDisplayDate(endDate) : 'End';
+        dom.exportPeriodSummary.innerHTML = `<i class="fa-solid fa-calendar-week me-2"></i>${startLabel} – ${endLabel}`;
+        return;
+      }
+
       const option = dom.exportPeriod
         ? dom.exportPeriod.options[dom.exportPeriod.selectedIndex]
         : null;
-      const summaryText = option && option.textContent
-        ? option.textContent.trim()
-        : 'Latest available period';
+      let summaryText = 'Latest available period';
+      if (option) {
+        summaryText = option.dataset && option.dataset.summary
+          ? option.dataset.summary
+          : (option.textContent ? option.textContent.trim() : summaryText);
+      }
 
       dom.exportPeriodSummary.innerHTML = `<i class="fa-solid fa-calendar-week me-2"></i>${summaryText}`;
     }
@@ -2291,7 +2755,24 @@
       const granularity = getSelectedExportGranularity();
       const linkType = getSelectedExportLinkType();
       const linkLabel = linkType === 'call' ? 'Call links' : 'PDF links';
-      dom.exportPill.textContent = `${granularity} • ${linkLabel}`;
+
+      let periodLabel = '';
+      if (granularity === 'Custom' && state.exportOptions.customRange) {
+        const { start, end } = state.exportOptions.customRange;
+        const startDate = parseDateValue(start, start);
+        const endDate = parseDateValue(end, end);
+        periodLabel = `${startDate ? formatDisplayDate(startDate) : 'Start'} → ${endDate ? formatDisplayDate(endDate) : 'End'}`;
+      } else if (dom.exportPeriod) {
+        const option = dom.exportPeriod.options[dom.exportPeriod.selectedIndex];
+        if (option) {
+          periodLabel = option.dataset && option.dataset.summary
+            ? option.dataset.summary
+            : option.textContent;
+        }
+      }
+
+      const labelParts = [granularity, linkLabel].filter(Boolean).join(' • ');
+      dom.exportPill.textContent = periodLabel ? `${labelParts} • ${periodLabel}` : labelParts;
     }
 
     function updateExportNote() {
@@ -2305,15 +2786,31 @@
         : null;
       const isSingle = scope && scope.value === 'single';
       const agent = isSingle && dom.exportAgent ? dom.exportAgent.value : '';
+      const linkType = getSelectedExportLinkType();
+      const linkLabel = linkType === 'call' ? 'call recording links' : 'PDF links';
       const agentNote = agent ? 'Limited to the selected agent.' : 'Includes all agents in the view.';
-      dom.exportNote.textContent = `${granularity} metrics with per-call links. ${agentNote}`;
+      const periodNote = granularity === 'Custom'
+        ? 'Custom range honors Monday starts and Sunday endings.'
+        : `${granularity} metrics with ${linkLabel}.`;
+      const contentNote = 'Report adds color-coded headers, per-period matrix, agent rollups, portfolio totals, and coaching focus areas.';
+      dom.exportNote.textContent = `${periodNote} ${agentNote} ${contentNote}`;
+    }
+
+    function toggleCustomRange(granularity) {
+      const useCustom = granularity === 'Custom';
+      if (dom.exportCustomRange) {
+        dom.exportCustomRange.classList.toggle('active', useCustom);
+      }
+      if (dom.exportPeriod) {
+        dom.exportPeriod.disabled = useCustom;
+        dom.exportPeriod.classList.toggle('disabled', useCustom);
+      }
     }
 
     function syncExportModalForm() {
-      if (dom.exportPeriod && dom.period) {
-        dom.exportPeriod.innerHTML = dom.period.innerHTML;
-        dom.exportPeriod.value = state.filters.period || dom.period.value || '';
-      }
+      buildExportPeriodCollections();
+      const granularity = getSelectedExportGranularity();
+      populateExportPeriodSelect(granularity);
 
       if (dom.exportAgent && dom.agent) {
         dom.exportAgent.innerHTML = dom.agent.innerHTML;
@@ -2325,6 +2822,7 @@
         : null;
       toggleExportAgentScope(scope && scope.value ? scope.value : '');
 
+      toggleCustomRange(granularity);
       syncExportYear();
       updateExportPeriodSummary();
       updateExportPill();
@@ -2373,8 +2871,9 @@
       const periodValue = dom.exportPeriod ? dom.exportPeriod.value : state.filters.period;
 
       request.linkType = getSelectedExportLinkType();
-      request.granularity = granularity === 'Week' ? 'Week' : 'Week';
-      request.period = granularity === 'Week' ? periodValue : '';
+      request.granularity = granularity;
+      request.period = granularity === 'Custom' ? '' : periodValue;
+      request.customRange = granularity === 'Custom' ? (state.exportOptions.customRange || null) : null;
       request.agent = selectedAgent || state.filters.agent || '';
 
       state.exportOptions.period = request.period;
@@ -4213,6 +4712,8 @@
       if (dom.granularity && response && response.context && response.context.granularity) {
         dom.granularity.value = response.context.granularity;
       }
+
+      buildExportPeriodCollections();
     }
 
     function showError(message) {
@@ -4410,16 +4911,17 @@
       if (dom.exportGranularity && dom.exportGranularity.length) {
         dom.exportGranularity.forEach(radio => {
           radio.addEventListener('change', () => {
-            updateExportPill();
-            updateExportNote();
+            handleExportGranularityChange();
           });
         });
       }
 
       if (dom.exportPeriod) {
         dom.exportPeriod.addEventListener('change', () => {
+          state.exportOptions.period = dom.exportPeriod.value;
           syncExportYear();
           updateExportPeriodSummary();
+          updateExportPill();
         });
       }
 
@@ -4436,6 +4938,24 @@
             toggleExportAgentScope(event.target.value);
             updateExportNote();
           });
+        });
+      }
+
+      if (dom.exportStart) {
+        dom.exportStart.addEventListener('change', event => {
+          state.exportOptions.customRange.start = event.target.value;
+          syncExportYear();
+          updateExportPeriodSummary();
+          updateExportPill();
+        });
+      }
+
+      if (dom.exportEnd) {
+        dom.exportEnd.addEventListener('change', event => {
+          state.exportOptions.customRange.end = event.target.value;
+          syncExportYear();
+          updateExportPeriodSummary();
+          updateExportPill();
         });
       }
 
