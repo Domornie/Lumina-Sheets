@@ -134,7 +134,10 @@
     } else {
       this.idColumn = DEFAULT_ID_COLUMN;
     }
-    this.cacheTTL = (config && config.cacheTTL) || DEFAULT_CACHE_TTL;
+    this.cacheTTL = (config && typeof config.cacheTTL !== 'undefined')
+      ? config.cacheTTL
+      : DEFAULT_CACHE_TTL;
+    this.cacheEnabled = !(config && config.cache === false) && this.cacheTTL !== 0;
     if (config && config.timestamps === false) {
       this.timestamps = null;
     } else if (config && config.timestamps) {
@@ -653,7 +656,7 @@
     options = options || {};
     var prepared = this.prepareTenantOptions(options, context, true);
     var finalOptions = prepared.options;
-    var useCache = finalOptions.cache !== false;
+    var useCache = this.cacheEnabled && finalOptions.cache !== false && this.cacheTTL > 0;
     var cache = CacheService.getScriptCache();
     var headers = this.headers;
 
