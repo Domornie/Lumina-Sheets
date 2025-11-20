@@ -4017,6 +4017,486 @@ function generateAIInsights(metrics, userStats, trends) {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
+// ATTENDANCE EXPORTS (Dashboard vs Calendar)
+// ────────────────────────────────────────────────────────────────────────────
+
+function normalizeDateRangeForExport(periodType, startDate, endDate) {
+  const normalize = (value) => {
+    if (value instanceof Date) {
+      return isNaN(value.getTime()) ? null : new Date(value.getTime());
+    }
+
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      const parsed = new Date(value);
+      return isNaN(parsed.getTime()) ? null : parsed;
+    }
+
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (!trimmed) return null;
+      const parsed = new Date(trimmed);
+      return isNaN(parsed.getTime()) ? null : parsed;
+    }
+
+    return null;
+  };
+
+  const safeStart = normalize(startDate);
+  const safeEnd = normalize(endDate);
+
+  if (!safeStart || !safeEnd || safeEnd < safeStart) {
+    throw new Error('A valid start and end date are required for export.');
+  }
+
+  const type = typeof periodType === 'string' && periodType.trim() ? periodType.trim() : 'Custom';
+  const pad = (num) => String(num).padStart(2, '0');
+  const startIso = `${safeStart.getFullYear()}-${pad(safeStart.getMonth() + 1)}-${pad(safeStart.getDate())}`;
+  const endIso = `${safeEnd.getFullYear()}-${pad(safeEnd.getMonth() + 1)}-${pad(safeEnd.getDate())}`;
+  const label = (() => {
+    switch (type.toLowerCase()) {
+      case 'week':
+      case 'weekly':
+        return `Week of ${startIso}`;
+      case 'biweekly':
+      case 'bi-weekly':
+        return `Bi-Weekly starting ${startIso}`;
+      case 'month':
+      case 'monthly':
+        return `${safeStart.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`;
+      case 'quarter':
+      case 'quarterly':
+        return `Quarter of ${safeStart.getFullYear()}`;
+      case 'year':
+      case 'yearly':
+        return `${safeStart.getFullYear()}`;
+      default:
+        return `${startIso} to ${endIso}`;
+    }
+  })();
+
+  return { type, start: safeStart, end: safeEnd, startIso, endIso, label };
+}
+
+function ensureAttendanceExportSheet(name) {
+  const fileName = `${name} - ${new Date().toISOString().replace(/[:]/g, '-')}`;
+  const spreadsheet = SpreadsheetApp.create(fileName);
+  const sheet = spreadsheet.getSheets()[0];
+  sheet.clear();
+  return { spreadsheet, sheet };
+}
+
+function applyDashboardExportFormatting(sheet, headers, rowCount) {
+  const totalRows = Math.max(1, rowCount + 1);
+  sheet.setFrozenRows(1);
+
+  const headerRange = sheet.getRange(1, 1, 1, headers.length);
+  const styleHeader = () => headerRange
+    .setFontWeight('bold')
+    .setFontColor('#ffffff')
+    .setBackground('#1f4e79')
+    .setHorizontalAlignment('center')
+    .setVerticalAlignment('middle')
+    .setWrap(true);
+  styleHeader();
+
+  if (rowCount > 0) {
+    const dataRange = sheet.getRange(2, 1, rowCount, headers.length);
+    dataRange.setHorizontalAlignment('center').setVerticalAlignment('middle');
+
+    sheet.getRange(2, 1, rowCount, 2).setBackground('#f4f5f7'); // Agent + Period
+    sheet.getRange(2, 3, rowCount, 7).setBackground('#e8f4fd'); // Totals section
+    sheet.getRange(2, 10, rowCount, 1).setBackground('#f3f6fa'); // On-Time count
+    sheet.getRange(2, 11, rowCount, headers.length - 10).setBackground('#fdf7e3'); // Percentages
+
+    sheet.getRange(1, 1, totalRows, headers.length)
+      .applyRowBanding(SpreadsheetApp.BandingTheme.BLUE, true, false);
+
+    styleHeader();
+  }
+
+  sheet.setRowHeight(1, 30);
+  sheet.setColumnWidths(1, 1, 180); // Agent
+  sheet.setColumnWidths(2, 1, 180); // Period
+  sheet.setColumnWidths(3, 7, 110); // Totals section
+  sheet.setColumnWidths(10, headers.length - 9, 120); // Percentages
+
+  if (rowCount > 0) {
+    const rules = sheet.getConditionalFormatRules() || [];
+    const addRule = (builder) => rules.push(builder.build());
+
+    const negativeCols = [11, 12]; // Absent %, Late %
+    negativeCols.forEach(col => {
+      const range = sheet.getRange(2, col, rowCount, 1);
+      addRule(SpreadsheetApp.newConditionalFormatRule()
+        .whenNumberGreaterThan(15)
+        .setBackground('#f8d7da')
+        .setFontColor('#6b0000')
+        .setRanges([range]));
+      addRule(SpreadsheetApp.newConditionalFormatRule()
+        .whenNumberBetween(5, 15)
+        .setBackground('#fff4ce')
+        .setFontColor('#8a6d00')
+        .setRanges([range]));
+      addRule(SpreadsheetApp.newConditionalFormatRule()
+        .whenNumberLessThanOrEqualTo(5)
+        .setBackground('#d9ead3')
+        .setFontColor('#114b00')
+        .setRanges([range]));
+    });
+
+    const positiveCols = [13, 16]; // On-Time %, Attendance Score %
+    positiveCols.forEach(col => {
+      const range = sheet.getRange(2, col, rowCount, 1);
+      addRule(SpreadsheetApp.newConditionalFormatRule()
+        .whenNumberGreaterThanOrEqualTo(90)
+        .setBackground('#d9ead3')
+        .setFontColor('#114b00')
+        .setRanges([range]));
+      addRule(SpreadsheetApp.newConditionalFormatRule()
+        .whenNumberBetween(70, 90)
+        .setBackground('#fff4ce')
+        .setFontColor('#8a6d00')
+        .setRanges([range]));
+      addRule(SpreadsheetApp.newConditionalFormatRule()
+        .whenNumberLessThan(70)
+        .setBackground('#f8d7da')
+        .setFontColor('#6b0000')
+        .setRanges([range]));
+    });
+
+    const neutralCols = [14, 15]; // Sick %, Vacation %
+    neutralCols.forEach(col => {
+      const range = sheet.getRange(2, col, rowCount, 1);
+      addRule(SpreadsheetApp.newConditionalFormatRule()
+        .whenNumberGreaterThan(0)
+        .setBackground('#e8f5e9')
+        .setFontColor('#1b5e20')
+        .setRanges([range]));
+    });
+
+    sheet.setConditionalFormatRules(rules);
+  }
+}
+
+function applyCalendarExportFormatting(sheet, headers, rowCount, dayColumnStart) {
+  const totalRows = Math.max(1, rowCount + 1);
+  sheet.setFrozenRows(1);
+
+  const headerRange = sheet.getRange(1, 1, 1, headers.length);
+  const styleHeader = () => headerRange
+    .setFontWeight('bold')
+    .setFontColor('#ffffff')
+    .setBackground('#264653')
+    .setHorizontalAlignment('center')
+    .setVerticalAlignment('middle')
+    .setWrap(true);
+  styleHeader();
+
+  if (rowCount > 0) {
+    const dataRange = sheet.getRange(2, 1, rowCount, headers.length);
+    dataRange.setHorizontalAlignment('center').setVerticalAlignment('middle');
+
+    sheet.getRange(2, 1, rowCount, 2).setBackground('#f4f5f7'); // Agent + Period
+    sheet.getRange(2, 3, rowCount, 7).setBackground('#e8f4fd'); // Summary counts
+    sheet.getRange(2, 10, rowCount, 6).setBackground('#fdf7e3'); // Percentage section
+    if (headers.length >= dayColumnStart) {
+      const dayCols = headers.length - dayColumnStart + 1;
+      sheet.getRange(2, dayColumnStart, rowCount, dayCols).setBackground('#f7f7f7');
+    }
+
+    sheet.getRange(1, 1, totalRows, headers.length)
+      .applyRowBanding(SpreadsheetApp.BandingTheme.CYAN, true, false);
+
+    styleHeader();
+  }
+
+  sheet.setRowHeight(1, 30);
+  sheet.setColumnWidths(1, 1, 170); // Agent
+  sheet.setColumnWidths(2, 1, 170); // Period
+  sheet.setColumnWidths(3, 13, 110); // Summary + percentages
+  if (headers.length >= dayColumnStart) {
+    const dayCols = headers.length - dayColumnStart + 1;
+    sheet.setColumnWidths(dayColumnStart, dayCols, 75);
+  }
+
+  if (rowCount > 0) {
+    const rules = sheet.getConditionalFormatRules() || [];
+    const addRule = (builder) => rules.push(builder.build());
+
+    const percentageCols = [10, 11, 12, 13, 14, 15];
+    percentageCols.forEach(col => {
+      const range = sheet.getRange(2, col, rowCount, 1);
+      addRule(SpreadsheetApp.newConditionalFormatRule()
+        .whenNumberGreaterThanOrEqualTo(90)
+        .setBackground('#d9ead3')
+        .setFontColor('#114b00')
+        .setRanges([range]));
+      addRule(SpreadsheetApp.newConditionalFormatRule()
+        .whenNumberBetween(70, 90)
+        .setBackground('#fff4ce')
+        .setFontColor('#8a6d00')
+        .setRanges([range]));
+      addRule(SpreadsheetApp.newConditionalFormatRule()
+        .whenNumberLessThan(70)
+        .setBackground('#f8d7da')
+        .setFontColor('#6b0000')
+        .setRanges([range]));
+    });
+
+    if (headers.length >= dayColumnStart) {
+      const dayCols = headers.length - dayColumnStart + 1;
+      const dayRange = sheet.getRange(2, dayColumnStart, rowCount, dayCols);
+      const statusColors = [
+        { match: 'Present', bg: '#d9ead3', fg: '#114b00' },
+        { match: 'Late', bg: '#fff4ce', fg: '#8a6d00' },
+        { match: 'Absent', bg: '#f8d7da', fg: '#6b0000' },
+        { match: 'No Call No Show', bg: '#f8d7da', fg: '#6b0000' },
+        { match: 'Sick Leave', bg: '#e9d5ff', fg: '#4a148c' },
+        { match: 'Vacation', bg: '#d0e7ff', fg: '#0b5394' },
+        { match: 'Holiday', bg: '#e2e3e5', fg: '#343a40' }
+      ];
+
+      statusColors.forEach(({ match, bg, fg }) => {
+        addRule(SpreadsheetApp.newConditionalFormatRule()
+          .whenTextEqualTo(match)
+          .setBackground(bg)
+          .setFontColor(fg)
+          .setRanges([dayRange]));
+      });
+    }
+
+    sheet.setConditionalFormatRules(rules);
+  }
+}
+
+function exportAttendanceDashboard(periodType, startDate, endDate) {
+  try {
+    const range = normalizeDateRangeForExport(periodType, startDate, endDate);
+    const attendanceData = readScheduleSheet(ATTENDANCE_STATUS_SHEET) || [];
+
+    const filtered = attendanceData.filter(record => {
+      const date = record && record.Date ? new Date(record.Date) : null;
+      return date && !isNaN(date.getTime()) && date >= range.start && date <= range.end;
+    });
+
+    const userMap = new Map();
+    filtered.forEach(record => {
+      const user = record.UserName || record.User || record.userName;
+      if (user) {
+        userMap.set(user, user);
+      }
+    });
+
+    const headers = [
+      'Agent', 'Period', 'Total Days', 'Present/Worked', 'Absent', 'Sick', 'Vacation', 'Holiday', 'Late', 'On-Time',
+      'Absent %', 'Late %', 'On-Time %', 'Sick %', 'Vacation %', 'Attendance Score %'
+    ];
+
+    const rows = Array.from(userMap.keys()).sort().map(user => {
+      const stats = filtered.filter(r => (r.UserName || r.User || r.userName) === user);
+      const totals = {
+        present: 0,
+        late: 0,
+        absent: 0,
+        sick: 0,
+        vacation: 0,
+        holiday: 0
+      };
+
+      stats.forEach(record => {
+        const status = (record.Status || record.status || '').toString();
+        switch (status) {
+          case 'Present':
+            totals.present += 1;
+            break;
+          case 'Late':
+            totals.late += 1;
+            break;
+          case 'Absent':
+          case 'No Call No Show':
+            totals.absent += 1;
+            break;
+          case 'Sick Leave':
+            totals.sick += 1;
+            break;
+          case 'Vacation':
+            totals.vacation += 1;
+            break;
+          case 'Holiday':
+            totals.holiday += 1;
+            break;
+          default:
+            break;
+        }
+      });
+
+      const totalDays = stats.length;
+      const worked = totals.present + totals.late;
+      const onTime = Math.max(0, worked - totals.late);
+      const pct = (count) => totalDays > 0 ? Math.round((count / totalDays) * 10000) / 100 : 0;
+      const attendanceScore = pct(worked);
+
+      return [
+        user,
+        range.label,
+        totalDays,
+        worked,
+        totals.absent,
+        totals.sick,
+        totals.vacation,
+        totals.holiday,
+        totals.late,
+        onTime,
+        pct(totals.absent),
+        pct(totals.late),
+        pct(onTime),
+        pct(totals.sick),
+        pct(totals.vacation),
+        attendanceScore
+      ];
+    });
+
+    const { spreadsheet, sheet } = ensureAttendanceExportSheet('Attendance Dashboard Summary');
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+    if (rows.length) {
+      sheet.getRange(2, 1, rows.length, headers.length).setValues(rows);
+    }
+
+    applyDashboardExportFormatting(sheet, headers, rows.length);
+
+    return {
+      success: true,
+      fileId: spreadsheet.getId(),
+      fileUrl: spreadsheet.getUrl(),
+      fileName: spreadsheet.getName()
+    };
+  } catch (error) {
+    console.error('Error exporting attendance dashboard summary:', error);
+    safeWriteError('exportAttendanceDashboard', error);
+    return { success: false, error: error.message };
+  }
+}
+
+function exportAttendanceCalendar(periodType, startDate, endDate) {
+  try {
+    const range = normalizeDateRangeForExport(periodType, startDate, endDate);
+    const attendanceData = readScheduleSheet(ATTENDANCE_STATUS_SHEET) || [];
+
+    const filtered = attendanceData.filter(record => {
+      const date = record && record.Date ? new Date(record.Date) : null;
+      return date && !isNaN(date.getTime()) && date >= range.start && date <= range.end;
+    });
+
+    const users = new Set();
+    filtered.forEach(record => {
+      const user = record.UserName || record.User || record.userName;
+      if (user) {
+        users.add(user);
+      }
+    });
+
+    const dates = [];
+    const cursor = new Date(range.start.getTime());
+    while (cursor <= range.end) {
+      const iso = cursor.toISOString().split('T')[0];
+      dates.push(iso);
+      cursor.setDate(cursor.getDate() + 1);
+    }
+
+    const headers = [
+      'Agent', 'Period', 'Total Days', 'Present', 'Absent', 'Sick', 'Vacation', 'Holiday', 'Late',
+      'Present %', 'Absent %', 'Sick %', 'Vacation %', 'Holiday %', 'Late %',
+      ...dates
+    ];
+
+    const rows = Array.from(users).sort().map(user => {
+      const userRecords = filtered.filter(r => (r.UserName || r.User || r.userName) === user);
+      const dayStatus = new Map();
+      const totals = { present: 0, absent: 0, sick: 0, vacation: 0, holiday: 0, late: 0 };
+
+      userRecords.forEach(record => {
+        const iso = (() => {
+          const d = record.Date ? new Date(record.Date) : null;
+          if (!d || isNaN(d.getTime())) return null;
+          return d.toISOString().split('T')[0];
+        })();
+        if (!iso) return;
+
+        const status = (record.Status || record.status || '').toString();
+        dayStatus.set(iso, status);
+
+        switch (status) {
+          case 'Present':
+            totals.present += 1;
+            break;
+          case 'Late':
+            totals.late += 1;
+            break;
+          case 'Absent':
+          case 'No Call No Show':
+            totals.absent += 1;
+            break;
+          case 'Sick Leave':
+            totals.sick += 1;
+            break;
+          case 'Vacation':
+            totals.vacation += 1;
+            break;
+          case 'Holiday':
+            totals.holiday += 1;
+            break;
+          default:
+            break;
+        }
+      });
+
+      const totalDays = dates.length || 1;
+      const pct = (count) => totalDays > 0 ? Math.round((count / totalDays) * 10000) / 100 : 0;
+      const calendarStatuses = dates.map(dateKey => dayStatus.get(dateKey) || '');
+
+      return [
+        user,
+        range.label,
+        totalDays,
+        totals.present + totals.late,
+        totals.absent,
+        totals.sick,
+        totals.vacation,
+        totals.holiday,
+        totals.late,
+        pct(totals.present + totals.late),
+        pct(totals.absent),
+        pct(totals.sick),
+        pct(totals.vacation),
+        pct(totals.holiday),
+        pct(totals.late),
+        ...calendarStatuses
+      ];
+    });
+
+    const { spreadsheet, sheet } = ensureAttendanceExportSheet('Attendance Calendar Export');
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+    if (rows.length) {
+      sheet.getRange(2, 1, rows.length, headers.length).setValues(rows);
+    }
+
+    const dayColumnStart = 16;
+    applyCalendarExportFormatting(sheet, headers, rows.length, dayColumnStart);
+
+    return {
+      success: true,
+      fileId: spreadsheet.getId(),
+      fileUrl: spreadsheet.getUrl(),
+      fileName: spreadsheet.getName()
+    };
+  } catch (error) {
+    console.error('Error exporting attendance calendar:', error);
+    safeWriteError('exportAttendanceCalendar', error);
+    return { success: false, error: error.message };
+  }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
 // HOLIDAYS MANAGEMENT WITH MULTI-COUNTRY SUPPORT - Enhanced
 // ────────────────────────────────────────────────────────────────────────────
 
