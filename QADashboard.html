@@ -1025,6 +1025,103 @@
     margin-top: 1rem;
   }
 
+  .qa-export-modal {
+    border-radius: 20px;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    box-shadow: 0 24px 70px rgba(15, 23, 42, 0.2);
+  }
+
+  .qa-export-modal__header {
+    border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+    padding: 1.25rem 1.5rem 1rem;
+  }
+
+  .qa-export-modal__body {
+    padding: 1.5rem;
+    background: linear-gradient(135deg, rgba(37, 99, 235, 0.06), rgba(14, 165, 233, 0.05));
+  }
+
+  .qa-export-modal__footer {
+    border-top: 1px solid rgba(148, 163, 184, 0.16);
+    padding: 1rem 1.5rem;
+    background: #f8fafc;
+    border-radius: 0 0 20px 20px;
+  }
+
+  .qa-export-modal__eyebrow {
+    color: var(--qa-primary);
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    font-size: 0.8rem;
+  }
+
+  .qa-export-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1rem;
+  }
+
+  .qa-export-card {
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    border-radius: 16px;
+    padding: 1rem 1.1rem;
+    box-shadow: var(--qa-shadow-soft);
+  }
+
+  .qa-export-card--summary {
+    grid-column: span 2;
+  }
+
+  @media (max-width: 768px) {
+    .qa-export-card--summary {
+      grid-column: span 1;
+    }
+  }
+
+  .qa-export-label {
+    font-weight: 700;
+    color: #0f172a;
+    font-size: 0.95rem;
+  }
+
+  .qa-export-segmented .btn,
+  .qa-export-user-toggle .btn,
+  .qa-export-modal .btn-group .btn {
+    font-weight: 600;
+  }
+
+  .qa-export-user-toggle,
+  .qa-export-segmented {
+    display: flex;
+    gap: 0.35rem;
+  }
+
+  .qa-export-pill {
+    background: rgba(37, 99, 235, 0.1);
+    color: var(--qa-primary);
+    padding: 0.4rem 0.8rem;
+    border-radius: 999px;
+    font-weight: 700;
+    font-size: 0.9rem;
+  }
+
+  .qa-export-checklist {
+    list-style: none;
+    padding-left: 0;
+    margin-bottom: 0;
+  }
+
+  .qa-export-checklist li + li {
+    margin-top: 0.4rem;
+  }
+
+  .qa-export-modal .form-select,
+  .qa-export-modal .form-control {
+    border-radius: 12px;
+  }
+
   @media (max-width: 992px) {
     .qa-filters {
       flex-wrap: wrap;
@@ -1543,6 +1640,115 @@
       </div>
     </div>
   </div>
+
+  <div class="modal fade" id="qa-export-modal" tabindex="-1" aria-labelledby="qa-export-modal-label" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+      <div class="modal-content qa-export-modal">
+        <div class="modal-header qa-export-modal__header">
+          <div>
+            <p class="qa-export-modal__eyebrow mb-1">
+              <i class="fa-solid fa-cloud-arrow-down me-2"></i>
+              Export Matrix
+            </p>
+            <h5 class="modal-title" id="qa-export-modal-label">QA Weekly Matrix</h5>
+            <p class="mb-0 text-muted">Choose how you want to export this weekly view, including which links to include.</p>
+          </div>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body qa-export-modal__body">
+          <div class="qa-export-grid">
+            <div class="qa-export-card">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <div>
+                  <div class="qa-export-label">Time period</div>
+                  <small class="text-muted">Match the weekly dashboard view or pick another period.</small>
+                </div>
+                <span class="badge text-bg-light">QA Matrix</span>
+              </div>
+              <div class="btn-group w-100" role="group" aria-label="Select export granularity">
+                <input type="radio" class="btn-check" name="qa-export-granularity" id="qa-export-granularity-week" value="Week" checked>
+                <label class="btn btn-outline-primary" for="qa-export-granularity-week">Weekly</label>
+                <input type="radio" class="btn-check" name="qa-export-granularity" id="qa-export-granularity-month" value="Month" disabled>
+                <label class="btn btn-outline-secondary" for="qa-export-granularity-month" title="Monthly export coming soon">Monthly</label>
+                <input type="radio" class="btn-check" name="qa-export-granularity" id="qa-export-granularity-quarter" value="Quarter" disabled>
+                <label class="btn btn-outline-secondary" for="qa-export-granularity-quarter" title="Quarterly export coming soon">Quarterly</label>
+                <input type="radio" class="btn-check" name="qa-export-granularity" id="qa-export-granularity-custom" value="Custom" disabled>
+                <label class="btn btn-outline-secondary" for="qa-export-granularity-custom" title="Custom ranges coming soon">Custom Range</label>
+              </div>
+              <div class="row gx-3 mt-3">
+                <div class="col-8">
+                  <label for="qa-export-period" class="qa-export-label">Select period</label>
+                  <select id="qa-export-period" class="form-select"></select>
+                </div>
+                <div class="col-4">
+                  <label for="qa-export-year" class="qa-export-label">Year</label>
+                  <input type="text" id="qa-export-year" class="form-control" value="" readonly>
+                </div>
+              </div>
+              <div class="d-flex align-items-center gap-2 mt-3 small text-muted" id="qa-export-period-summary"></div>
+            </div>
+
+            <div class="qa-export-card">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <div class="qa-export-label">Link type</div>
+                <span class="badge text-bg-light">Per-call links</span>
+              </div>
+              <div class="qa-export-segmented" role="group" aria-label="Choose which links to export">
+                <input type="radio" class="btn-check" name="qa-export-link-type" id="qa-export-link-pdf" value="pdf" checked>
+                <label class="btn btn-outline-primary" for="qa-export-link-pdf">Google Drive / PDF links</label>
+                <input type="radio" class="btn-check" name="qa-export-link-type" id="qa-export-link-call" value="call">
+                <label class="btn btn-outline-primary" for="qa-export-link-call">Call recording links</label>
+              </div>
+              <p class="small text-muted mt-2 mb-0">All calls in the selected week will include the chosen link type.</p>
+            </div>
+
+            <div class="qa-export-card">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <div class="qa-export-label">Users</div>
+                <span class="badge text-bg-light">Agent scope</span>
+              </div>
+              <div class="qa-export-user-toggle" role="group" aria-label="Select users to export">
+                <input type="radio" class="btn-check" name="qa-export-agent-scope" id="qa-export-all" value="" checked>
+                <label class="btn btn-outline-primary" for="qa-export-all">All users</label>
+                <input type="radio" class="btn-check" name="qa-export-agent-scope" id="qa-export-single" value="single">
+                <label class="btn btn-outline-primary" for="qa-export-single">Single user</label>
+              </div>
+              <label for="qa-export-agent" class="qa-export-label mt-2 mb-1">Choose agent (optional)</label>
+              <select id="qa-export-agent" class="form-select" disabled>
+                <option value="">All Agents</option>
+              </select>
+              <p class="small text-muted mt-2 mb-0">Defaults to the dashboard filter. Pick one agent to limit the export.</p>
+            </div>
+
+            <div class="qa-export-card qa-export-card--summary">
+              <div class="d-flex justify-content-between align-items-center">
+                <div>
+                  <div class="qa-export-label">Export preview</div>
+                  <p class="mb-1 small text-muted">Weekly QA metrics plus per-call links based on your selection.</p>
+                </div>
+                <div class="qa-export-pill" id="qa-export-pill">Weekly • PDF links</div>
+              </div>
+              <ul class="qa-export-checklist">
+                <li><i class="fa-solid fa-check-circle text-success me-2"></i>Weekly percentage metrics & totals</li>
+                <li><i class="fa-solid fa-check-circle text-success me-2"></i>All calls in the selected week</li>
+                <li><i class="fa-solid fa-check-circle text-success me-2"></i>Links filtered by chosen type</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer qa-export-modal__footer">
+          <div class="text-muted small" id="qa-export-note">Export mirrors the weekly matrix you see on screen.</div>
+          <div class="d-flex gap-2">
+            <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+            <button type="button" class="btn btn-primary" id="qa-export-submit">
+              <i class="fa-solid fa-cloud-arrow-up me-1"></i>
+              Start export
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -1561,6 +1767,13 @@
         program: ''
       },
       exportLinkType: 'pdf',
+      exportOptions: {
+        granularity: 'Week',
+        period: '',
+        agent: '',
+        agentScope: '',
+        linkType: 'pdf'
+      },
       loading: false,
       data: null,
       agentLookup: {},
@@ -1580,7 +1793,8 @@
       },
       modals: {
         insights: null,
-        actions: null
+        actions: null,
+        export: null
       }
     };
 
@@ -1591,6 +1805,17 @@
       refresh: document.getElementById('qa-refresh'),
       exportLinkType: document.getElementById('qa-export-link-type'),
       exportMatrix: document.getElementById('qa-export-matrix'),
+      exportModal: document.getElementById('qa-export-modal'),
+      exportSubmit: document.getElementById('qa-export-submit'),
+      exportLinkRadios: document.querySelectorAll('input[name="qa-export-link-type"]'),
+      exportGranularity: document.querySelectorAll('input[name="qa-export-granularity"]'),
+      exportPeriod: document.getElementById('qa-export-period'),
+      exportYear: document.getElementById('qa-export-year'),
+      exportPeriodSummary: document.getElementById('qa-export-period-summary'),
+      exportAgent: document.getElementById('qa-export-agent'),
+      exportAgentScope: document.querySelectorAll('input[name="qa-export-agent-scope"]'),
+      exportPill: document.getElementById('qa-export-pill'),
+      exportNote: document.getElementById('qa-export-note'),
       summaryCards: dashboardEl.querySelectorAll('[data-metric]'),
       error: document.getElementById('qa-dashboard-error'),
       empty: document.getElementById('qa-empty-state'),
@@ -1662,8 +1887,11 @@
       notesCard: document.getElementById('qa-notes-card')
     };
 
-    if (dom.exportLinkType && dom.exportLinkType.value) {
-      state.exportLinkType = dom.exportLinkType.value;
+    if (dom.exportLinkRadios && dom.exportLinkRadios.length) {
+      const selectedExportLink = Array.from(dom.exportLinkRadios).find(radio => radio.checked);
+      if (selectedExportLink && selectedExportLink.value) {
+        state.exportLinkType = selectedExportLink.value;
+      }
     }
 
     function tooltipPercentLabel(context) {
@@ -1921,29 +2149,191 @@
       setTimeout(() => window.URL.revokeObjectURL(link.href), 0);
     }
 
-    function setExportBusy(isBusy) {
+    function getSelectedExportLinkType() {
+      if (dom.exportLinkRadios && dom.exportLinkRadios.length) {
+        const selected = Array.from(dom.exportLinkRadios).find(radio => radio.checked);
+        if (selected && selected.value) {
+          state.exportLinkType = selected.value;
+          state.exportOptions.linkType = selected.value;
+          return selected.value;
+        }
+      }
+
+      return state.exportLinkType || 'pdf';
+    }
+
+    function getSelectedExportGranularity() {
+      if (dom.exportGranularity && dom.exportGranularity.length) {
+        const selected = Array.from(dom.exportGranularity).find(radio => radio.checked);
+        if (selected && selected.value) {
+          state.exportOptions.granularity = selected.value;
+          return selected.value;
+        }
+      }
+      return 'Week';
+    }
+
+    function toggleExportAgentScope(scopeValue) {
+      if (!dom.exportAgent) {
+        return;
+      }
+
+      const single = scopeValue === 'single';
+      dom.exportAgent.disabled = !single;
+      dom.exportAgent.classList.toggle('disabled', !single);
+      if (!single) {
+        dom.exportAgent.value = '';
+        state.exportOptions.agent = '';
+      }
+      state.exportOptions.agentScope = scopeValue || '';
+    }
+
+    function getSelectedExportAgent() {
+      const scope = dom.exportAgentScope && dom.exportAgentScope.length
+        ? Array.from(dom.exportAgentScope).find(radio => radio.checked)
+        : null;
+
+      const scopeValue = scope && scope.value ? scope.value : '';
+      toggleExportAgentScope(scopeValue);
+
+      if (scopeValue === 'single' && dom.exportAgent) {
+        state.exportOptions.agent = dom.exportAgent.value || '';
+        return dom.exportAgent.value || '';
+      }
+
+      return '';
+    }
+
+    function syncExportYear() {
+      if (!dom.exportYear) {
+        return;
+      }
+
+      const periodValue = dom.exportPeriod ? (dom.exportPeriod.value || '') : (state.filters.period || '');
+      const yearMatch = periodValue && /(20\d{2})/.exec(periodValue);
+      const year = yearMatch ? yearMatch[1] : String(new Date().getFullYear());
+      dom.exportYear.value = year;
+    }
+
+    function updateExportPeriodSummary() {
+      if (!dom.exportPeriodSummary) {
+        return;
+      }
+
+      const option = dom.exportPeriod
+        ? dom.exportPeriod.options[dom.exportPeriod.selectedIndex]
+        : null;
+      const summaryText = option && option.textContent
+        ? option.textContent.trim()
+        : 'Latest available period';
+
+      dom.exportPeriodSummary.innerHTML = `<i class="fa-solid fa-calendar-week me-2"></i>${summaryText}`;
+    }
+
+    function updateExportPill() {
+      if (!dom.exportPill) {
+        return;
+      }
+
+      const granularity = getSelectedExportGranularity();
+      const linkType = getSelectedExportLinkType();
+      const linkLabel = linkType === 'call' ? 'Call links' : 'PDF links';
+      dom.exportPill.textContent = `${granularity} • ${linkLabel}`;
+    }
+
+    function updateExportNote() {
+      if (!dom.exportNote) {
+        return;
+      }
+
+      const granularity = getSelectedExportGranularity();
+      const scope = dom.exportAgentScope && dom.exportAgentScope.length
+        ? Array.from(dom.exportAgentScope).find(radio => radio.checked)
+        : null;
+      const isSingle = scope && scope.value === 'single';
+      const agent = isSingle && dom.exportAgent ? dom.exportAgent.value : '';
+      const agentNote = agent ? 'Limited to the selected agent.' : 'Includes all agents in the view.';
+      dom.exportNote.textContent = `${granularity} metrics with per-call links. ${agentNote}`;
+    }
+
+    function syncExportModalForm() {
+      if (dom.exportPeriod && dom.period) {
+        dom.exportPeriod.innerHTML = dom.period.innerHTML;
+        dom.exportPeriod.value = state.filters.period || dom.period.value || '';
+      }
+
+      if (dom.exportAgent && dom.agent) {
+        dom.exportAgent.innerHTML = dom.agent.innerHTML;
+        dom.exportAgent.value = state.filters.agent || dom.agent.value || '';
+      }
+
+      const scope = dom.exportAgentScope && dom.exportAgentScope.length
+        ? Array.from(dom.exportAgentScope).find(radio => radio.checked)
+        : null;
+      toggleExportAgentScope(scope && scope.value ? scope.value : '');
+
+      syncExportYear();
+      updateExportPeriodSummary();
+      updateExportPill();
+      updateExportNote();
+    }
+
+    function openExportModal() {
       if (!dom.exportMatrix) {
         return;
       }
 
-      if (isBusy) {
-        dom.exportMatrix.disabled = true;
-        dom.exportMatrix.setAttribute('aria-busy', 'true');
-      } else {
-        dom.exportMatrix.setAttribute('aria-busy', 'false');
-        updateExportButton(state && state.data ? state.data.agentMatrix : null);
+      if (!dom.exportModal || typeof bootstrap === 'undefined') {
+        exportAgentMatrix();
+        return;
+      }
+
+      syncExportModalForm();
+
+      if (!state.modals.export) {
+        state.modals.export = new bootstrap.Modal(dom.exportModal);
+      }
+      state.modals.export.show();
+    }
+
+    function setExportBusy(isBusy) {
+      if (dom.exportMatrix) {
+        if (isBusy) {
+          dom.exportMatrix.disabled = true;
+          dom.exportMatrix.setAttribute('aria-busy', 'true');
+        } else {
+          dom.exportMatrix.setAttribute('aria-busy', 'false');
+          updateExportButton(state && state.data ? state.data.agentMatrix : null);
+        }
+      }
+
+      if (dom.exportSubmit) {
+        dom.exportSubmit.disabled = isBusy;
+        dom.exportSubmit.setAttribute('aria-busy', isBusy ? 'true' : 'false');
+        dom.exportSubmit.innerHTML = isBusy
+          ? '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Preparing export'
+          : '<i class="fa-solid fa-cloud-arrow-up me-1"></i>Start export';
       }
     }
 
     function exportAgentMatrix() {
       const request = buildRequest();
-      request.linkType = state.exportLinkType || (dom.exportLinkType ? dom.exportLinkType.value : 'pdf');
-      request.granularity = 'Week';
-      if (state.filters.granularity !== 'Week') {
-        request.period = '';
-      }
+      const granularity = getSelectedExportGranularity();
+      const selectedAgent = getSelectedExportAgent();
+      const periodValue = dom.exportPeriod ? dom.exportPeriod.value : state.filters.period;
+
+      request.linkType = getSelectedExportLinkType();
+      request.granularity = granularity === 'Week' ? 'Week' : 'Week';
+      request.period = granularity === 'Week' ? periodValue : '';
+      request.agent = selectedAgent || state.filters.agent || '';
+
+      state.exportOptions.period = request.period;
 
       setExportBusy(true);
+
+      if (state.modals.export) {
+        state.modals.export.hide();
+      }
 
       if (window.google && google.script && google.script.run) {
         google.script.run
@@ -1968,9 +2358,9 @@
         return;
       }
 
-      const granularity = matrix.granularity || state.filters.granularity || 'period';
+      const fallbackGranularity = matrix.granularity || state.filters.granularity || 'period';
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      const filename = `qa-agent-matrix-${granularity.toLowerCase()}-${timestamp}.csv`;
+      const filename = `qa-agent-matrix-${fallbackGranularity.toLowerCase()}-${timestamp}.csv`;
       triggerCsvDownload(csv, filename);
       setExportBusy(false);
     }
@@ -2010,7 +2400,7 @@
       dom.exportMatrix.disabled = !hasRows;
       dom.exportMatrix.setAttribute('aria-disabled', hasRows ? 'false' : 'true');
       dom.exportMatrix.title = hasRows
-        ? 'Download agent performance by period as CSV.'
+        ? 'Open export matrix options for the weekly QA view.'
         : 'Agent matrix export available once data loads.';
     }
 
@@ -3812,6 +4202,7 @@
       state.data = response;
       state.agentLookup = response.agentNameLookup || {};
       updateExportButton(response.agentMatrix || null);
+      syncExportModalForm();
 
       if (dom.healthPeriod) {
         const context = response.context || {};
@@ -3948,7 +4339,55 @@
           if (dom.exportMatrix.disabled) {
             return;
           }
+          openExportModal();
+        });
+      }
+
+      if (dom.exportSubmit) {
+        dom.exportSubmit.addEventListener('click', () => {
           exportAgentMatrix();
+        });
+      }
+
+      if (dom.exportLinkRadios && dom.exportLinkRadios.length) {
+        dom.exportLinkRadios.forEach(radio => {
+          radio.addEventListener('change', () => {
+            state.exportLinkType = getSelectedExportLinkType();
+            updateExportPill();
+            updateExportNote();
+          });
+        });
+      }
+
+      if (dom.exportGranularity && dom.exportGranularity.length) {
+        dom.exportGranularity.forEach(radio => {
+          radio.addEventListener('change', () => {
+            updateExportPill();
+            updateExportNote();
+          });
+        });
+      }
+
+      if (dom.exportPeriod) {
+        dom.exportPeriod.addEventListener('change', () => {
+          syncExportYear();
+          updateExportPeriodSummary();
+        });
+      }
+
+      if (dom.exportAgent) {
+        dom.exportAgent.addEventListener('change', () => {
+          state.exportOptions.agent = dom.exportAgent.value || '';
+          updateExportNote();
+        });
+      }
+
+      if (dom.exportAgentScope && dom.exportAgentScope.length) {
+        dom.exportAgentScope.forEach(radio => {
+          radio.addEventListener('change', event => {
+            toggleExportAgentScope(event.target.value);
+            updateExportNote();
+          });
         });
       }
 
