@@ -1946,9 +1946,14 @@ function clientGetAllUsers(requestingUserId) {
       if (typeof getAllUsersRaw === 'function') {
         users = getAllUsersRaw();
       } else {
-        users = readSheet(G.USERS_SHEET);
+        users = readSheet(G.USERS_SHEET, { cache: false, useCache: false });
       }
-    } catch (e) { writeError('clientGetAllUsers - readSheet', e); return []; }
+    } catch (e) {
+      if (typeof writeError === 'function') {
+        writeError('clientGetAllUsers - readSheet', e);
+      }
+      return [];
+    }
     if (!Array.isArray(users) || users.length === 0) return [];
 
     const enhancedUsers = [];
@@ -2033,7 +2038,12 @@ function clientGetAllUsers(requestingUserId) {
       }
     }
     return filteredUsers;
-  } catch (globalError) { writeError('clientGetAllUsers', globalError); return []; }
+  } catch (globalError) {
+    if (typeof writeError === 'function') {
+      writeError('clientGetAllUsers', globalError);
+    }
+    return [];
+  }
 }
 
 function createSafeUserObject(user) {
