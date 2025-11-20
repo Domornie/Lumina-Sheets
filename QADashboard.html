@@ -1798,6 +1798,59 @@
       }
     };
 
+    function hasBootstrapModal() {
+      return typeof bootstrap !== 'undefined'
+        && bootstrap
+        && bootstrap.Modal
+        && typeof bootstrap.Modal === 'function';
+    }
+
+    function getOrCreateModalInstance(key, element) {
+      if (!element || !hasBootstrapModal()) {
+        return null;
+      }
+
+      if (!state.modals[key]) {
+        state.modals[key] = bootstrap.Modal.getOrCreateInstance(element);
+      }
+
+      return state.modals[key];
+    }
+
+    function showModal(element, key) {
+      if (!element) {
+        return;
+      }
+
+      const instance = getOrCreateModalInstance(key, element);
+      if (instance && typeof instance.show === 'function') {
+        instance.show();
+        return;
+      }
+
+      element.classList.add('show');
+      element.style.display = 'block';
+      element.removeAttribute('aria-hidden');
+      element.setAttribute('aria-modal', 'true');
+    }
+
+    function hideModal(element, key) {
+      if (!element) {
+        return;
+      }
+
+      const instance = hasBootstrapModal() ? (state.modals[key] || bootstrap.Modal.getInstance(element)) : null;
+      if (instance && typeof instance.hide === 'function') {
+        instance.hide();
+        return;
+      }
+
+      element.classList.remove('show');
+      element.style.display = 'none';
+      element.setAttribute('aria-hidden', 'true');
+      element.removeAttribute('aria-modal');
+    }
+
     const dom = {
       granularity: document.getElementById('qa-granularity'),
       period: document.getElementById('qa-period'),
@@ -2283,17 +2336,14 @@
         return;
       }
 
-      if (!dom.exportModal || typeof bootstrap === 'undefined') {
+      if (!dom.exportModal) {
         exportAgentMatrix();
         return;
       }
 
       syncExportModalForm();
 
-      if (!state.modals.export) {
-        state.modals.export = new bootstrap.Modal(dom.exportModal);
-      }
-      state.modals.export.show();
+      showModal(dom.exportModal, 'export');
     }
 
     function setExportBusy(isBusy) {
@@ -2331,9 +2381,7 @@
 
       setExportBusy(true);
 
-      if (state.modals.export) {
-        state.modals.export.hide();
-      }
+      hideModal(dom.exportModal, 'export');
 
       if (window.google && google.script && google.script.run) {
         google.script.run
@@ -4393,35 +4441,45 @@
 
       if (dom.openInsights && dom.insightsModal && !dom.openInsights.hasAttribute('data-bs-toggle')) {
         dom.openInsights.addEventListener('click', () => {
-          if (typeof bootstrap === 'undefined') {
-            return;
-          }
-          if (!state.modals.insights) {
-            state.modals.insights = new bootstrap.Modal(dom.insightsModal);
-          }
-          state.modals.insights.show();
+          showModal(dom.insightsModal, 'insights');
         });
       }
 
       if (dom.openActions && dom.actionsModal && !dom.openActions.hasAttribute('data-bs-toggle')) {
         dom.openActions.addEventListener('click', () => {
-          if (typeof bootstrap === 'undefined') {
-            return;
-          }
-          if (!state.modals.actions) {
-            state.modals.actions = new bootstrap.Modal(dom.actionsModal);
-          }
-          state.modals.actions.show();
+          showModal(dom.actionsModal, 'actions');
+        });
+      }
+
+      if (dashboardEl.querySelectorAll('[data-bs-dismiss="modal"]').length) {
+        dashboardEl.querySelectorAll('[data-bs-dismiss="modal"]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const modal = btn.closest('.modal');
+            if (!modal) {
+              return;
+            }
+            if (modal === dom.exportModal) {
+              hideModal(dom.exportModal, 'export');
+              return;
+            }
+            if (modal === dom.insightsModal) {
+              hideModal(dom.insightsModal, 'insights');
+              return;
+            }
+            if (modal === dom.actionsModal) {
+              hideModal(dom.actionsModal, 'actions');
+            }
+          });
         });
       }
 
     }
 
-    function bootstrap() {
+    function initializeDashboard() {
       attachEvents();
       loadData();
     }
 
-    bootstrap();
+    initializeDashboard();
   })();
 </script>
