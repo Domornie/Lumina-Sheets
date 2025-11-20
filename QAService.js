@@ -1697,32 +1697,39 @@ function clientExportWeeklyAgentMatrix(request = {}) {
       filters: { agent: '', campaignId: '', program: '' },
       depth: 6,
       agentUniverse: null,
-      passMark: QA_INTEL_PASS_MARK
+      passMark: QA_INTEL_PASS_MARK,
+      customRange: null
     };
 
     const context = Object.assign({}, baseContext, {
-      granularity: 'Week',
+      granularity: baseContext.granularity || 'Week',
       depth: 1,
-      period: baseContext.period || determineLatestPeriod_('Week', normalizedRecords)
+      period: baseContext.granularity === 'Custom'
+        ? buildCustomPeriodKey_(baseContext.customRange)
+        : (baseContext.period || determineLatestPeriod_(baseContext.granularity || 'Week', normalizedRecords))
     });
 
-    if (!context.period) {
-      return { success: false, error: 'No weekly period available to export.' };
+    if (!context.period && context.granularity !== 'Custom') {
+      return { success: false, error: 'No period available to export.' };
     }
 
     const agentLookup = buildAgentDisplayLookup_(normalizedRecords);
-    const matrix = buildAgentGranularityMatrix_(context, normalizedRecords, { displayLookup: agentLookup });
-    const periodEntry = (matrix.periods || []).find(period => period && period.period === context.period)
-      || (matrix.periods || [])[0]
-      || null;
+    const currentPeriodRecords = filterRecordsForIntelligence_(normalizedRecords, context);
+    const previousPeriod = context.granularity !== 'Custom'
+      ? getPreviousPeriod_(context.granularity, context.period)
+      : '';
+    const previousPeriodRecords = previousPeriod
+      ? filterRecordsForIntelligence_(normalizedRecords, { ...context, period: previousPeriod })
+      : [];
 
-    const weeklyRecords = filterRecordsForIntelligence_(normalizedRecords, { ...context, period: context.period });
-    const rows = buildWeeklyAgentExportRows_(context, periodEntry, weeklyRecords, {
+    const report = buildQualityReport_(context, currentPeriodRecords, {
       linkType,
-      agentLookup
+      agentLookup,
+      previousPeriodRecords,
+      previousPeriod
     });
 
-    const file = writeWeeklyAgentExport_(rows, context, linkType);
+    const file = writeWeeklyAgentExport_(report, context, linkType);
 
     return {
       success: true,
@@ -1733,7 +1740,7 @@ function clientExportWeeklyAgentMatrix(request = {}) {
       spreadsheetUrl: file.spreadsheetUrl,
       spreadsheetName: file.spreadsheetName,
       sheetName: file.sheetName,
-      rows: rows.length
+      rows: report && report.detail && report.detail.rows ? report.detail.rows.length : 0
     };
   } catch (error) {
     console.error('clientExportWeeklyAgentMatrix failed:', error);
@@ -1767,13 +1774,14 @@ function normalizeIntelligenceRequest_(request, rawRecords) {
   const depth = Number(request.depth) > 0 ? Math.min(Number(request.depth), 12) : 6;
 
   const passMark = typeof request.passMark === 'number' ? request.passMark : QA_INTEL_PASS_MARK;
+  const customRange = normalizeCustomRange_(request.customRange, timezone);
 
   const normalizedRecords = (rawRecords || [])
     .map(record => normalizeQaRecord_(record, timezone, passMark))
     .filter(record => record.callDate instanceof Date);
 
   let period = (request && request.period) ? String(request.period) : '';
-  if (!period) {
+  if (!period && granularity !== 'Custom') {
     period = determineLatestPeriod_(granularity, normalizedRecords);
   }
 
@@ -1785,9 +1793,10 @@ function normalizeIntelligenceRequest_(request, rawRecords) {
       filters,
       depth,
       agentUniverse,
-    passMark
-  },
-  records: normalizedRecords
+      passMark,
+      customRange
+    },
+    records: normalizedRecords
   };
 }
 
@@ -1899,6 +1908,14 @@ function filterRecordsForIntelligence_(records, context) {
     if (filters.agent && record.agent !== filters.agent) return false;
     if (filters.campaignId && record.campaign !== filters.campaignId) return false;
     if (filters.program && record.raw && record.raw.Program !== filters.program) return false;
+
+    if (granularity === 'Custom' && context.customRange && context.customRange.start && context.customRange.end) {
+      const callDate = record.callDate;
+      if (!(callDate instanceof Date)) {
+        return false;
+      }
+      return callDate >= context.customRange.start && callDate <= context.customRange.end;
+    }
 
     if (!period) return true;
 
@@ -2669,114 +2686,104 @@ function buildAgentGranularityMatrix_(context, records, options = {}) {
   };
 }
 
-function buildWeeklyAgentExportRows_(context, periodEntry, records, options = {}) {
+function buildQualityReport_(context, records, options = {}) {
   const linkType = normalizeLinkType_(options.linkType);
   const agentLookup = options.agentLookup || {};
-  const metrics = (periodEntry && periodEntry.metrics) ? periodEntry.metrics : {};
-  const totalEvaluations = periodEntry && typeof periodEntry.totalEvaluations === 'number'
-    ? periodEntry.totalEvaluations
-    : records.length;
-  const periodLabel = periodEntry ? (periodEntry.label || '') : formatPeriodLabel_(context.granularity || 'Week', context.period);
-  const linkLabel = linkType === 'call' ? 'Call Recording Link' : 'Google Drive/PDF Link';
+  const passMark = typeof context.passMark === 'number' ? context.passMark : QA_INTEL_PASS_MARK;
+  const timezone = context.timezone || Session.getScriptTimeZone();
+  const categories = qaCategories_();
 
-  const headers = [
-    'Granularity',
-    'Period Key',
-    'Period Label',
-    'Agent Identifier',
-    'Agent Name',
-    'Average Score (%)',
-    'Pass Rate (%)',
-    'Evaluations',
-    'Evaluation Share (%)',
-    'Call Date',
-    'Call Identifier',
-    'Call Score (%)',
-    'Link Type',
-    linkLabel
-  ];
-
-  const rows = [headers];
-  const agents = new Set(Object.keys(metrics));
-  records.forEach(record => agents.add(record.agent || 'Unassigned'));
-
-  Array.from(agents).sort((a, b) => {
-    const nameA = resolveAgentDisplayNameFromLookup_(a, agentLookup).toLowerCase();
-    const nameB = resolveAgentDisplayNameFromLookup_(b, agentLookup).toLowerCase();
-    return nameA.localeCompare(nameB);
-  }).forEach(agentId => {
-    const detail = metrics[agentId] || {};
-    const agentName = resolveAgentDisplayNameFromLookup_(agentId, agentLookup);
-    const evaluationShare = detail.evaluationShare !== undefined && detail.evaluationShare !== null
-      ? detail.evaluationShare
-      : (totalEvaluations ? roundOneDecimal_(((detail.evaluations || 0) / totalEvaluations) * 100) : null);
-
-    const calls = records.filter(record => (record.agent || 'Unassigned') === agentId);
-
-    if (!calls.length) {
-      rows.push([
-        context.granularity || 'Week',
-        context.period || '',
-        periodLabel,
-        agentId || 'Unassigned',
-        agentName || 'Unassigned',
-        detail.avgScore ?? '',
-        detail.passRate ?? '',
-        detail.evaluations ?? '',
-        evaluationShare ?? '',
-        '',
-        '',
-        '',
-        linkType === 'call' ? 'Call Recording' : 'QA PDF',
-        ''
-      ]);
-      return;
-    }
-
-    calls.forEach(call => {
-      const callDate = call.callDateIso || (call.callDate instanceof Date
-        ? Utilities.formatDate(call.callDate, context.timezone || Session.getScriptTimeZone(), "yyyy-MM-dd'T'HH:mm:ssXXX")
-        : '');
-      const callId = extractCallIdentifierFromRecord_(call.raw || {});
-      const link = extractLinkForType_(call.raw || {}, linkType);
-      const callScore = typeof call.recordScore === 'number' && !Number.isNaN(call.recordScore)
-        ? call.recordScore
-        : (typeof call.percentage === 'number' ? Math.round(call.percentage * 100) : '');
-
-      rows.push([
-        context.granularity || 'Week',
-        context.period || '',
-        periodLabel,
-        agentId || 'Unassigned',
-        agentName || 'Unassigned',
-        detail.avgScore ?? '',
-        detail.passRate ?? '',
-        detail.evaluations ?? '',
-        evaluationShare ?? '',
-        callDate,
-        callId || '',
-        callScore,
-        linkType === 'call' ? 'Call Recording' : 'QA PDF',
-        link || ''
-      ]);
-    });
+  const detail = buildQualityDetailRows_(records, {
+    linkType,
+    agentLookup,
+    passMark,
+    timezone,
+    categories,
+    periodLabel: formatPeriodLabelSafe_(context)
   });
 
-  return rows;
+  const agentSummary = buildAgentSummaryRows_(records, {
+    agentLookup,
+    passMark,
+    categories,
+    previousRecords: options.previousPeriodRecords || [],
+    previousPeriod: options.previousPeriod || ''
+  });
+
+  const teamSummary = buildTeamSummaryRows_(records, {
+    agentLookup,
+    passMark,
+    categories,
+    agentUniverse: context.agentUniverse,
+    previousRecords: options.previousPeriodRecords || [],
+    previousPeriod: options.previousPeriod || '',
+    granularity: context.granularity,
+    periodLabel: formatPeriodLabelSafe_(context)
+  });
+
+  const improvement = buildImprovementRows_(records, {
+    agentLookup,
+    passMark,
+    categories,
+    timezone
+  });
+
+  return {
+    detail,
+    agentSummary,
+    teamSummary,
+    improvement,
+    context,
+    linkType
+  };
 }
 
-function writeWeeklyAgentExport_(rows, context, linkType) {
-  const safeRows = Array.isArray(rows) && rows.length ? rows : [['No data available for the selected week']];
-  const sheetName = 'Weekly Agent Matrix';
-  const label = formatPeriodLabel_(context.granularity || 'Week', context.period || '');
-  const spreadsheetName = `Weekly Agent Matrix - ${label || context.period || 'Latest'} (${linkType === 'call' ? 'Calls' : 'PDFs'})`;
+function writeWeeklyAgentExport_(report, context, linkType) {
+  const detailRows = (report.detail && report.detail.rows && report.detail.rows.length)
+    ? report.detail.rows
+    : [['No data available for the selected period']];
+  const sheetName = 'Quality Report';
+  const label = formatPeriodLabelSafe_(context);
+  const spreadsheetName = `${context.granularity || 'Quality'} Report - ${label || context.period || 'Latest'} (${linkType === 'call' ? 'Calls' : 'PDFs'})`;
 
   const spreadsheet = SpreadsheetApp.create(spreadsheetName);
-  const sheet = spreadsheet.getSheets()[0];
-  sheet.setName(sheetName);
-  sheet.getRange(1, 1, safeRows.length, safeRows[0].length).setValues(safeRows);
+  const detailSheet = spreadsheet.getSheets()[0];
+  detailSheet.setName('Detail');
+  detailSheet.getRange(1, 1, detailRows.length, detailRows[0].length).setValues(detailRows);
+  applyHeaderStyling_(detailSheet, 1);
+  detailSheet.setFrozenRows(1);
+  applyPassFailFormatting_(detailSheet, report.detail.scoreColumns, detailRows.length, passMarkForContext_(context));
+  detailSheet.autoResizeColumns(1, detailRows[0].length);
 
-  sheet.autoResizeColumns(1, safeRows[0].length);
+  if (report.agentSummary && report.agentSummary.rows && report.agentSummary.rows.length) {
+    const agentSheet = spreadsheet.insertSheet('Agent Summary');
+    agentSheet.getRange(1, 1, report.agentSummary.rows.length, report.agentSummary.rows[0].length)
+      .setValues(report.agentSummary.rows);
+    applyHeaderStyling_(agentSheet, 1);
+    agentSheet.setFrozenRows(1);
+    applyPassFailFormatting_(agentSheet, report.agentSummary.scoreColumns, report.agentSummary.rows.length, passMarkForContext_(context));
+    agentSheet.autoResizeColumns(1, report.agentSummary.rows[0].length);
+  }
+
+  if (report.teamSummary && report.teamSummary.rows && report.teamSummary.rows.length) {
+    const teamSheet = spreadsheet.insertSheet('Team Summary');
+    teamSheet.getRange(1, 1, report.teamSummary.rows.length, report.teamSummary.rows[0].length)
+      .setValues(report.teamSummary.rows);
+    applyHeaderStyling_(teamSheet, 1);
+    teamSheet.setFrozenRows(1);
+    applyPassFailFormatting_(teamSheet, report.teamSummary.scoreColumns, report.teamSummary.rows.length, passMarkForContext_(context));
+    teamSheet.autoResizeColumns(1, report.teamSummary.rows[0].length);
+  }
+
+  if (report.improvement && report.improvement.rows && report.improvement.rows.length) {
+    const improvementSheet = spreadsheet.insertSheet('Agent Improvement Areas');
+    improvementSheet.getRange(1, 1, report.improvement.rows.length, report.improvement.rows[0].length)
+      .setValues(report.improvement.rows);
+    applyHeaderStyling_(improvementSheet, 1);
+    improvementSheet.setFrozenRows(1);
+    applyPassFailFormatting_(improvementSheet, report.improvement.scoreColumns, report.improvement.rows.length, passMarkForContext_(context));
+    improvementSheet.autoResizeColumns(1, report.improvement.rows[0].length);
+  }
 
   return {
     spreadsheetId: spreadsheet.getId(),
@@ -2784,6 +2791,389 @@ function writeWeeklyAgentExport_(rows, context, linkType) {
     spreadsheetName,
     sheetName
   };
+}
+
+function buildQualityDetailRows_(records, options) {
+  const rows = [[
+    'Agent ID',
+    'Agent Name',
+    'Call Date',
+    'Program/Campaign',
+    'Period',
+    'Overall QA Score (%)',
+    'Pass/Fail',
+    'Compliance (%)',
+    'Resolution (%)',
+    'Case Documentation (%)',
+    'Process Compliance (%)',
+    'Critical Fail',
+    'Link Type',
+    options.linkType === 'call' ? 'Call Recording Link' : 'QA PDF/Drive Link',
+    'Evaluator',
+    'Notes',
+    'Evaluation ID'
+  ]];
+
+  const scoreColumns = [6, 8, 9, 10, 11];
+  const timezone = options.timezone || Session.getScriptTimeZone();
+  (records || []).forEach(record => {
+    const categories = computeCategoryMetrics_([record]);
+    const compliance = categories['Courtesy & Communication'] ? categories['Courtesy & Communication'].avgScore : '';
+    const resolution = categories.Resolution ? categories.Resolution.avgScore : '';
+    const documentation = categories['Case Documentation'] ? categories['Case Documentation'].avgScore : '';
+    const process = categories['Process Compliance'] ? categories['Process Compliance'].avgScore : '';
+    const callDate = record.callDate instanceof Date
+      ? Utilities.formatDate(record.callDate, timezone, 'yyyy-MM-dd')
+      : '';
+    const evaluator = getRecordFieldValue_(record.raw || {}, ['Evaluator', 'QA Agent', 'Quality Analyst', 'QA']);
+    const notes = getRecordFieldValue_(record.raw || {}, ['Notes', 'Summary', 'Comments', 'Agent Feedback']) || '';
+    const evaluationId = getRecordFieldValue_(record.raw || {}, ['QAID', 'ID', 'Eval ID', 'Evaluation ID']);
+    const overallScore = typeof record.recordScore === 'number' ? record.recordScore : Math.round((record.percentage || 0) * 100);
+    const link = extractLinkForType_(record.raw || {}, options.linkType);
+    const callId = extractCallIdentifierFromRecord_(record.raw || {});
+
+    rows.push([
+      record.agent || 'Unassigned',
+      resolveAgentDisplayNameFromLookup_(record.agent, options.agentLookup),
+      callDate,
+      resolveProgramNameFromRecord_(record),
+      options.periodLabel || '',
+      overallScore,
+      record.pass ? 'Pass' : 'Fail',
+      compliance,
+      resolution,
+      documentation,
+      process,
+      hasCriticalFail_(record.raw || {}) ? 'Yes' : 'No',
+      options.linkType === 'call' ? 'Call Recording' : 'QA PDF',
+      link || callId || '',
+      evaluator || '',
+      notes || '',
+      evaluationId || ''
+    ]);
+  });
+
+  return { rows, scoreColumns };
+}
+
+function buildAgentSummaryRows_(records, options) {
+  const headers = [
+    'Agent ID', 'Agent Name', 'Evaluations', 'Average QA Score (%)', 'Pass Rate (%)', 'Passes', 'Fails', 'Critical Fails',
+    'Compliance Avg (%)', 'Resolution Avg (%)', 'Documentation Avg (%)', 'Process Avg (%)', 'Trend vs Prior'
+  ];
+  const rows = [headers];
+  const scoreColumns = [4, 5, 9, 10, 11, 12];
+  const grouped = groupRecordsByAgent_(records);
+  const previousGrouped = groupRecordsByAgent_(options.previousRecords || []);
+
+  Object.keys(grouped).sort().forEach(agentId => {
+    const agentRecords = grouped[agentId];
+    const stats = summarizeAgentMetrics_(agentRecords, options.passMark, options.categories);
+    const priorStats = previousGrouped[agentId]
+      ? summarizeAgentMetrics_(previousGrouped[agentId], options.passMark, options.categories)
+      : null;
+    const trend = priorStats && typeof stats.avgScore === 'number' && typeof priorStats.avgScore === 'number'
+      ? describeTrend_(stats.avgScore, priorStats.avgScore)
+      : 'N/A';
+
+    rows.push([
+      agentId,
+      resolveAgentDisplayNameFromLookup_(agentId, options.agentLookup),
+      stats.evaluations,
+      stats.avgScore,
+      stats.passRate,
+      stats.passCount,
+      stats.failCount,
+      stats.criticalFails,
+      stats.categories['Courtesy & Communication'],
+      stats.categories.Resolution,
+      stats.categories['Case Documentation'],
+      stats.categories['Process Compliance'],
+      trend
+    ]);
+  });
+
+  return { rows, scoreColumns };
+}
+
+function buildTeamSummaryRows_(records, options) {
+  const totalEvaluations = records.length;
+  const uniqueAgents = new Set((records || []).map(r => r.agent).filter(Boolean));
+  const avgScore = totalEvaluations
+    ? Math.round((records.reduce((sum, r) => sum + (r.recordScore || Math.round((r.percentage || 0) * 100)), 0) / totalEvaluations) * 10) / 10
+    : 0;
+  const passCount = (records || []).filter(r => r.pass).length;
+  const passRate = totalEvaluations ? Math.round((passCount / totalEvaluations) * 1000) / 10 : 0;
+  const coverage = options.agentUniverse
+    ? Math.min(Math.round((uniqueAgents.size / options.agentUniverse) * 1000) / 10, 100)
+    : (uniqueAgents.size > 0 ? 100 : 0);
+  const categories = computeCategoryMetrics_(records);
+  const criticalFails = (records || []).filter(r => hasCriticalFail_(r.raw || {})).length;
+  const distribution = buildScoreDistribution_(records);
+  const programCounts = buildProgramCounts_(records);
+  const previousStats = summarizeAgentMetrics_(options.previousRecords || [], options.passMark, options.categories);
+  const avgTrend = previousStats && typeof previousStats.avgScore === 'number'
+    ? describeTrend_(avgScore, previousStats.avgScore)
+    : 'N/A';
+  const passTrend = previousStats && typeof previousStats.passRate === 'number'
+    ? describeTrend_(passRate, previousStats.passRate)
+    : 'N/A';
+  const impactAgents = identifyImpactAgents_(records, options.passMark, options.categories);
+  const topBottom = rankAgentsByScore_(records, options.categories, 3);
+
+  const rows = [[
+    'Metric', 'Value'
+  ],
+  ['Granularity', options.granularity || ''],
+  ['Period', options.periodLabel || ''],
+  ['Evaluations', totalEvaluations],
+  ['Agents Evaluated', uniqueAgents.size],
+  ['Agent Coverage (%)', coverage],
+  ['Average QA Score (%)', avgScore],
+  ['Pass Rate (%)', passRate],
+  ['Critical Fails', criticalFails],
+  ['Avg Compliance (%)', categories['Courtesy & Communication'] ? categories['Courtesy & Communication'].avgScore : ''],
+  ['Avg Resolution (%)', categories.Resolution ? categories.Resolution.avgScore : ''],
+  ['Avg Documentation (%)', categories['Case Documentation'] ? categories['Case Documentation'].avgScore : ''],
+  ['Avg Process (%)', categories['Process Compliance'] ? categories['Process Compliance'].avgScore : ''],
+  ['Trend (Avg Score)', avgTrend],
+  ['Trend (Pass Rate)', passTrend],
+  ['Top Performers', topBottom.top.join(', ') || ''],
+  ['Lowest Performers', topBottom.bottom.join(', ') || ''],
+  ['Highest Impact Agents', impactAgents.join(', ') || '']
+  ];
+
+  rows.push(['', '']);
+  rows.push(['Score Distribution', 'Count']);
+  distribution.forEach(entry => rows.push([entry.label, entry.count]));
+
+  rows.push(['', '']);
+  rows.push(['Evaluations by Program/Campaign', 'Count']);
+  programCounts.forEach(entry => rows.push([entry.program, entry.count]));
+
+  return { rows, scoreColumns: [2] };
+}
+
+function buildImprovementRows_(records, options) {
+  const headers = ['Agent ID', 'Agent Name', 'Key Weaknesses', 'Suggested Coaching Focus', 'Supporting Evaluations'];
+  const rows = [headers];
+  const grouped = groupRecordsByAgent_(records);
+
+  Object.keys(grouped).sort().forEach(agentId => {
+    const agentRecords = grouped[agentId];
+    const categoryStats = summarizeAgentMetrics_(agentRecords, options.passMark, options.categories);
+    const weakAreas = Object.keys(categoryStats.categories)
+      .map(key => ({ key, value: categoryStats.categories[key] }))
+      .filter(item => typeof item.value === 'number' && item.value < options.passMark)
+      .sort((a, b) => a.value - b.value)
+      .slice(0, 3)
+      .map(item => `${item.key} (${item.value}%)`);
+
+    const notes = aggregateNotes_(agentRecords).slice(0, 2).join(' | ');
+    const failDates = agentRecords
+      .filter(r => !r.pass || hasCriticalFail_(r.raw || {}))
+      .map(r => r.callDate instanceof Date ? Utilities.formatDate(r.callDate, options.timezone || Session.getScriptTimeZone(), 'yyyy-MM-dd') : '')
+      .filter(Boolean)
+      .slice(0, 3)
+      .join(', ');
+
+    const focus = weakAreas.length
+      ? `Improve on ${weakAreas.join(', ')}. ${notes || 'Reinforce SOP adherence and documentation.'}`
+      : (notes || 'Maintain consistency and reinforce strengths.');
+
+    rows.push([
+      agentId,
+      resolveAgentDisplayNameFromLookup_(agentId, options.agentLookup),
+      weakAreas.join(', ') || 'None flagged',
+      focus,
+      failDates || 'Recent evaluations referenced'
+    ]);
+  });
+
+  return { rows, scoreColumns: [] };
+}
+
+function applyHeaderStyling_(sheet, headerRow) {
+  const range = sheet.getRange(headerRow, 1, 1, sheet.getLastColumn());
+  range.setBackground('#0f172a').setFontColor('#ffffff').setFontWeight('bold').setHorizontalAlignment('center');
+}
+
+function applyPassFailFormatting_(sheet, scoreColumns, rowCount, passMark) {
+  if (!scoreColumns || !scoreColumns.length || rowCount <= 1) {
+    return;
+  }
+  const rules = sheet.getConditionalFormatRules() || [];
+  scoreColumns.forEach(col => {
+    const range = sheet.getRange(2, col, rowCount - 1, 1);
+    rules.push(SpreadsheetApp.newConditionalFormatRule()
+      .whenNumberGreaterThanOrEqualTo(passMark)
+      .setBackground('#d1fae5')
+      .setRanges([range])
+      .build());
+    rules.push(SpreadsheetApp.newConditionalFormatRule()
+      .whenNumberLessThan(passMark)
+      .setBackground('#fee2e2')
+      .setRanges([range])
+      .build());
+  });
+  sheet.setConditionalFormatRules(rules);
+}
+
+function formatPeriodLabelSafe_(context) {
+  if (context.granularity === 'Custom' && context.customRange) {
+    const start = context.customRange.start
+      ? Utilities.formatDate(context.customRange.start, context.timezone || Session.getScriptTimeZone(), 'yyyy-MM-dd')
+      : 'Start';
+    const end = context.customRange.end
+      ? Utilities.formatDate(context.customRange.end, context.timezone || Session.getScriptTimeZone(), 'yyyy-MM-dd')
+      : 'End';
+    return `${start} to ${end}`;
+  }
+  return formatPeriodLabel_(context.granularity || 'Week', context.period || '');
+}
+
+function passMarkForContext_(context) {
+  return typeof context.passMark === 'number' ? context.passMark : QA_INTEL_PASS_MARK;
+}
+
+function normalizeCustomRange_(range, timezone) {
+  if (!range || (!range.start && !range.end)) {
+    return null;
+  }
+  const start = coerceDateValue_(range.start || range.from);
+  const end = coerceDateValue_(range.end || range.to);
+  if (!(start instanceof Date) || !(end instanceof Date)) {
+    return null;
+  }
+  const tz = timezone || Session.getScriptTimeZone();
+  const startDate = new Date(Utilities.formatDate(start, tz, 'yyyy-MM-dd'));
+  const endDate = new Date(Utilities.formatDate(end, tz, 'yyyy-MM-dd'));
+  const startOffset = (startDate.getDay() + 6) % 7;
+  const endOffset = (7 - endDate.getDay()) % 7;
+  startDate.setDate(startDate.getDate() - startOffset);
+  endDate.setDate(endDate.getDate() + endOffset);
+  return { start: startDate, end: endDate };
+}
+
+function buildCustomPeriodKey_(range) {
+  if (!range || !range.start || !range.end) {
+    return '';
+  }
+  return `${Utilities.formatDate(range.start, Session.getScriptTimeZone(), 'yyyyMMdd')}_${Utilities.formatDate(range.end, Session.getScriptTimeZone(), 'yyyyMMdd')}`;
+}
+
+function summarizeAgentMetrics_(records, passMark, categories) {
+  const total = records.length;
+  const passCount = records.filter(r => r.pass).length;
+  const avgScore = total
+    ? Math.round((records.reduce((sum, r) => sum + (typeof r.recordScore === 'number' ? r.recordScore : Math.round((r.percentage || 0) * 100)), 0) / total) * 10) / 10
+    : 0;
+  const catMetrics = computeCategoryMetrics_(records, categories || qaCategories_());
+  const critFails = records.filter(r => hasCriticalFail_(r.raw || {})).length;
+  return {
+    evaluations: total,
+    avgScore,
+    passRate: total ? Math.round((passCount / total) * 1000) / 10 : 0,
+    passCount,
+    failCount: total - passCount,
+    criticalFails: critFails,
+    categories: {
+      'Courtesy & Communication': catMetrics['Courtesy & Communication'] ? catMetrics['Courtesy & Communication'].avgScore : null,
+      'Resolution': catMetrics.Resolution ? catMetrics.Resolution.avgScore : null,
+      'Case Documentation': catMetrics['Case Documentation'] ? catMetrics['Case Documentation'].avgScore : null,
+      'Process Compliance': catMetrics['Process Compliance'] ? catMetrics['Process Compliance'].avgScore : null
+    }
+  };
+}
+
+function groupRecordsByAgent_(records) {
+  const grouped = {};
+  (records || []).forEach(record => {
+    const id = record.agent || 'Unassigned';
+    if (!grouped[id]) {
+      grouped[id] = [];
+    }
+    grouped[id].push(record);
+  });
+  return grouped;
+}
+
+function describeTrend_(current, previous) {
+  const delta = Math.round((current - previous) * 10) / 10;
+  if (delta > 0.5) return `Up (+${delta})`;
+  if (delta < -0.5) return `Down (${delta})`;
+  return 'Flat';
+}
+
+function buildScoreDistribution_(records) {
+  const buckets = [
+    { label: '100%', min: 100, max: 100 },
+    { label: '90-99%', min: 90, max: 99.99 },
+    { label: '80-89%', min: 80, max: 89.99 },
+    { label: '70-79%', min: 70, max: 79.99 },
+    { label: '<70%', min: 0, max: 69.99 }
+  ];
+  const scores = (records || []).map(r => typeof r.recordScore === 'number' ? r.recordScore : Math.round((r.percentage || 0) * 100));
+  buckets.forEach(bucket => {
+    bucket.count = scores.filter(score => score >= bucket.min && score <= bucket.max).length;
+  });
+  return buckets;
+}
+
+function buildProgramCounts_(records) {
+  const counts = {};
+  (records || []).forEach(record => {
+    const program = resolveProgramNameFromRecord_(record) || 'Unspecified';
+    counts[program] = (counts[program] || 0) + 1;
+  });
+  return Object.keys(counts).sort((a, b) => counts[b] - counts[a]).map(key => ({ program: key, count: counts[key] }));
+}
+
+function identifyImpactAgents_(records, passMark, categories) {
+  const grouped = groupRecordsByAgent_(records);
+  const impact = Object.keys(grouped).map(agentId => {
+    const stats = summarizeAgentMetrics_(grouped[agentId], passMark, categories);
+    return { agentId, evals: stats.evaluations, avg: stats.avgScore };
+  }).filter(entry => entry.evals >= 3);
+
+  impact.sort((a, b) => (b.evals * b.avg) - (a.evals * a.avg));
+  return impact.slice(0, 5).map(entry => `${entry.agentId} (${entry.evals} evals @ ${entry.avg}%)`);
+}
+
+function rankAgentsByScore_(records, categories, limit) {
+  const grouped = groupRecordsByAgent_(records);
+  const stats = Object.keys(grouped).map(agentId => {
+    const detail = summarizeAgentMetrics_(grouped[agentId], QA_INTEL_PASS_MARK, categories);
+    return { agentId, avg: detail.avgScore, evals: detail.evaluations };
+  }).filter(entry => entry.evals >= 2);
+
+  const sorted = stats.sort((a, b) => b.avg - a.avg);
+  return {
+    top: sorted.slice(0, limit || 3).map(entry => `${entry.agentId} (${entry.avg}%)`),
+    bottom: sorted.slice(-(limit || 3)).map(entry => `${entry.agentId} (${entry.avg}%)`)
+  };
+}
+
+function aggregateNotes_(records) {
+  return (records || [])
+    .map(r => getRecordFieldValue_(r.raw || {}, ['Notes', 'Summary', 'Comments', 'Agent Feedback']))
+    .filter(Boolean)
+    .map(note => String(note))
+    .slice(0, 5);
+}
+
+function hasCriticalFail_(record) {
+  if (!record) {
+    return false;
+  }
+  return Object.keys(record).some(key => {
+    const normalized = key.toLowerCase();
+    if (normalized.indexOf('critical') === -1) return false;
+    const value = record[key];
+    if (typeof value === 'boolean') return value;
+    const text = String(value || '').toLowerCase();
+    return ['yes', 'true', 'y'].some(token => text === token || text === token + 's') || text === '1';
+  });
 }
 
 function buildAgentDisplayLookup_(records) {

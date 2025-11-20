@@ -2160,7 +2160,53 @@
         }
       });
 
-      const rows = [[
+      const allAgents = new Set(Object.keys(agentDisplay));
+      matrix.periods.forEach(period => {
+        if (period && period.metrics) {
+          Object.keys(period.metrics).forEach(key => allAgents.add(key));
+        }
+      });
+
+      const agentOrder = Array.from(allAgents).sort((a, b) => {
+        const nameA = (agentDisplay[a] || a || '').toString().toLowerCase();
+        const nameB = (agentDisplay[b] || b || '').toString().toLowerCase();
+        return nameA.localeCompare(nameB);
+      });
+
+      const agentStats = {};
+      const periodKeys = new Set();
+      let totalEvaluations = 0;
+      let totalWeightedScore = 0;
+      let totalWeightedPass = 0;
+
+      function performanceTone(avgScore, passRate) {
+        const avg = typeof avgScore === 'number' && !Number.isNaN(avgScore) ? avgScore : null;
+        const pass = typeof passRate === 'number' && !Number.isNaN(passRate) ? passRate : null;
+        if (avg === null && pass === null) {
+          return 'No data';
+        }
+        if ((avg !== null && avg < 80) || (pass !== null && pass < 80)) {
+          return 'Risk (red)';
+        }
+        if ((avg !== null && avg < 90) || (pass !== null && pass < 90)) {
+          return 'Caution (amber)';
+        }
+        return 'Pass (green)';
+      }
+
+      const rows = [
+        ['QA Quality Report', '', ''],
+        [
+          'Granularity',
+          matrix.granularity || '',
+          'Freeze row 1 to keep headers visible; apply colors: Pass=green, Caution=amber, Risk=red.'
+        ],
+        ['Generated', new Date().toISOString(), ''],
+        []
+      ];
+
+      rows.push(['Period matrix (agent by period)']);
+      rows.push([
         'Granularity',
         'Period Key',
         'Period Label',
@@ -2169,27 +2215,15 @@
         'Average Score (%)',
         'Pass Rate (%)',
         'Evaluations',
-        'Evaluation Share (%)'
-      ]];
-
-      const allAgents = new Set(Object.keys(agentDisplay));
-      matrix.periods.forEach(period => {
-        if (period && period.metrics) {
-          Object.keys(period.metrics).forEach(key => allAgents.add(key));
-        }
-      });
-
-      const agentOrder = Array.from(allAgents);
-      agentOrder.sort((a, b) => {
-        const nameA = (agentDisplay[a] || a || '').toString().toLowerCase();
-        const nameB = (agentDisplay[b] || b || '').toString().toLowerCase();
-        return nameA.localeCompare(nameB);
-      });
+        'Evaluation Share (%)',
+        'Performance Tone'
+      ]);
 
       matrix.periods.forEach(period => {
         if (!period) {
           return;
         }
+        periodKeys.add(period.period || period.label || '');
         const metrics = period.metrics || {};
 
         agentOrder.forEach(agentId => {
@@ -2207,6 +2241,50 @@
             ? detail.evaluationShare
             : '';
 
+          const numericEvals = typeof evaluations === 'number' ? evaluations : 0;
+          const numericAvg = typeof avgScore === 'number' ? avgScore : null;
+          const numericPass = typeof passRate === 'number' ? passRate : null;
+
+          if (!agentStats[agentId]) {
+            agentStats[agentId] = {
+              id: agentId,
+              name: agentDisplay[agentId] || agentId || 'Unassigned',
+              evaluations: 0,
+              weightedScore: 0,
+              weightedPass: 0,
+              periods: new Set(),
+              shares: [],
+              touches: 0
+            };
+          }
+
+          if (numericEvals > 0) {
+            agentStats[agentId].evaluations += numericEvals;
+            agentStats[agentId].touches += 1;
+          }
+          if (numericAvg !== null && numericEvals > 0) {
+            agentStats[agentId].weightedScore += numericAvg * numericEvals;
+          }
+          if (numericPass !== null && numericEvals > 0) {
+            agentStats[agentId].weightedPass += numericPass * numericEvals;
+          }
+          if (numericEvals > 0 || numericAvg !== null || numericPass !== null) {
+            agentStats[agentId].periods.add(period.period || period.label || '');
+          }
+          if (typeof share === 'number') {
+            agentStats[agentId].shares.push(share);
+          }
+
+          if (numericEvals > 0) {
+            totalEvaluations += numericEvals;
+            if (numericAvg !== null) {
+              totalWeightedScore += numericAvg * numericEvals;
+            }
+            if (numericPass !== null) {
+              totalWeightedPass += numericPass * numericEvals;
+            }
+          }
+
           rows.push([
             matrix.granularity || '',
             period.period || '',
@@ -2216,9 +2294,126 @@
             avgScore,
             passRate,
             evaluations,
-            share
+            share,
+            performanceTone(avgScore, passRate)
           ]);
         });
+      });
+
+      rows.push([]);
+      rows.push(['Agent overall scores (all periods)']);
+      rows.push([
+        'Agent Identifier',
+        'Agent Name',
+        'Average Score (%)',
+        'Pass Rate (%)',
+        'Evaluations',
+        'Periods Covered',
+        'Performance Tone'
+      ]);
+
+      agentOrder.forEach(agentId => {
+        const stats = agentStats[agentId] || { periods: new Set(), shares: [] };
+        const evals = stats.evaluations || 0;
+        const avgScore = evals > 0 && stats.weightedScore > 0 ? stats.weightedScore / evals : '';
+        const passRate = evals > 0 && stats.weightedPass >= 0 ? stats.weightedPass / evals : '';
+        rows.push([
+          agentId || '',
+          stats.name || agentDisplay[agentId] || agentId || 'Unassigned',
+          typeof avgScore === 'number' && !Number.isNaN(avgScore) ? Math.round(avgScore * 10) / 10 : '',
+          typeof passRate === 'number' && !Number.isNaN(passRate) ? Math.round(passRate * 10) / 10 : '',
+          evals,
+          Array.from(stats.periods).filter(Boolean).length,
+          performanceTone(avgScore, passRate)
+        ]);
+      });
+
+      const overallAvg = totalEvaluations > 0 ? totalWeightedScore / totalEvaluations : '';
+      const overallPass = totalEvaluations > 0 ? totalWeightedPass / totalEvaluations : '';
+      const portfolioTone = performanceTone(overallAvg, overallPass);
+
+      rows.push([]);
+      rows.push(['Portfolio totals and coverage']);
+      rows.push([
+        'Overall Avg Score (%)',
+        'Overall Pass Rate (%)',
+        'Total Evaluations',
+        'Active Agents',
+        'Periods Analyzed',
+        'Performance Tone'
+      ]);
+      rows.push([
+        typeof overallAvg === 'number' && !Number.isNaN(overallAvg) ? Math.round(overallAvg * 10) / 10 : '',
+        typeof overallPass === 'number' && !Number.isNaN(overallPass) ? Math.round(overallPass * 10) / 10 : '',
+        totalEvaluations,
+        agentOrder.length,
+        Array.from(periodKeys).filter(Boolean).length,
+        portfolioTone
+      ]);
+
+      const rankedAgents = agentOrder
+        .map(id => ({
+          id,
+          name: agentStats[id] ? agentStats[id].name : (agentDisplay[id] || id || 'Unassigned'),
+          evals: agentStats[id] ? agentStats[id].evaluations : 0,
+          avg: agentStats[id] && agentStats[id].evaluations > 0
+            ? agentStats[id].weightedScore / agentStats[id].evaluations
+            : null,
+          pass: agentStats[id] && agentStats[id].evaluations > 0
+            ? agentStats[id].weightedPass / agentStats[id].evaluations
+            : null,
+          touches: agentStats[id] ? agentStats[id].touches : 0
+        }))
+        .filter(agent => agent.evals > 0 && agent.avg !== null)
+        .sort((a, b) => (b.avg || 0) - (a.avg || 0));
+
+      const coachingNeeds = agentOrder
+        .map(id => {
+          const stats = agentStats[id];
+          const evals = stats ? stats.evaluations : 0;
+          const avg = stats && evals > 0 ? stats.weightedScore / evals : null;
+          const pass = stats && evals > 0 ? stats.weightedPass / evals : null;
+          if (!evals) {
+            return {
+              name: stats ? stats.name : (agentDisplay[id] || id || 'Unassigned'),
+              note: 'Needs more evaluations to assess performance.'
+            };
+          }
+          const gaps = [];
+          if (avg !== null && avg < 90) {
+            gaps.push('lift average QA score');
+          }
+          if (pass !== null && pass < 90) {
+            gaps.push('improve pass consistency');
+          }
+          return {
+            name: stats ? stats.name : (agentDisplay[id] || id || 'Unassigned'),
+            note: gaps.length ? gaps.join(' and ') : 'Maintain trajectory with current behaviors.'
+          };
+        })
+        .filter(item => item && item.note);
+
+      rows.push([]);
+      rows.push(['Quality highlights & readiness', 'Detail']);
+      rows.push([
+        'Top performer',
+        rankedAgents.length
+          ? `${rankedAgents[0].name} (${Math.round(rankedAgents[0].avg * 10) / 10}% avg score, ${Math.round((rankedAgents[0].pass || 0) * 10) / 10}% pass across ${rankedAgents[0].evals} evals)`
+          : 'No qualifying agents yet.'
+      ]);
+      rows.push([
+        'Operational coverage',
+        `${agentOrder.length} agents across ${Array.from(periodKeys).filter(Boolean).length} periods (${totalEvaluations} total evaluations).`
+      ]);
+      rows.push([
+        'Data completeness',
+        totalEvaluations > 0 ? 'Ready for review with agent-level rollups and links.' : 'Collect more QA forms to enable analysis.'
+      ]);
+
+      rows.push([]);
+      rows.push(['Agent coaching needs', 'Focus area']);
+      coachingNeeds.forEach(item => {
+        rows.push([item.name, item.note]);
       });
 
       return rows
@@ -2597,7 +2792,8 @@
       const periodNote = granularity === 'Custom'
         ? 'Custom range honors Monday starts and Sunday endings.'
         : `${granularity} metrics with ${linkLabel}.`;
-      dom.exportNote.textContent = `${periodNote} ${agentNote}`;
+      const contentNote = 'Report adds color-coded headers, per-period matrix, agent rollups, portfolio totals, and coaching focus areas.';
+      dom.exportNote.textContent = `${periodNote} ${agentNote} ${contentNote}`;
     }
 
     function toggleCustomRange(granularity) {
