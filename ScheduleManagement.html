@@ -3701,7 +3701,6 @@
                     }
                     await this.refreshHolidays();
                     this.showToast('System ready! All data loaded successfully.', 'success');
-                    console.log('✅ Unified system state loaded successfully');
                     return;
                 }
 
@@ -14207,20 +14206,28 @@
 
                 const displayValue = displayName || userName;
                 const resolvedCell = cellElement instanceof HTMLElement ? cellElement : null;
+                const previousStatus = this.getCachedAttendanceStatus(userName, date);
+
+                // Optimistically update the UI and caches for a snappier experience
+                this.updateAttendanceRecordCache(userName, date, trimmedStatus);
+                this.updateAttendanceDashboardRecord(userName, date, trimmedStatus);
+                this.updateAttendanceCalendarCell(userName, date, trimmedStatus, resolvedCell);
 
                 try {
                     const result = await this.callServerFunction('clientMarkAttendanceStatus', userName, date, trimmedStatus);
                     if (result && result.success) {
                         this.showToast(`Marked ${displayValue} as ${trimmedStatus} on ${date}`, 'success');
-                        this.updateAttendanceRecordCache(userName, date, trimmedStatus);
-                        this.updateAttendanceDashboardRecord(userName, date, trimmedStatus);
-                        this.updateAttendanceCalendarCell(userName, date, trimmedStatus, resolvedCell);
                     } else {
                         throw new Error(result?.error || 'Failed to mark attendance');
                     }
                 } catch (error) {
                     console.error('Error marking attendance:', error);
                     this.showToast('Failed to mark attendance: ' + error.message, 'danger');
+
+                    // Revert to the previous status if the server call fails
+                    this.updateAttendanceRecordCache(userName, date, previousStatus || '');
+                    this.updateAttendanceDashboardRecord(userName, date, previousStatus || '');
+                    this.updateAttendanceCalendarCell(userName, date, previousStatus || '', resolvedCell);
                 }
             }
 
@@ -14231,20 +14238,28 @@
 
                 const displayValue = displayName || userName;
                 const resolvedCell = cellElement instanceof HTMLElement ? cellElement : null;
+                const previousStatus = this.getCachedAttendanceStatus(userName, date);
+
+                // Optimistically clear the status for instant feedback
+                this.updateAttendanceRecordCache(userName, date, '');
+                this.updateAttendanceDashboardRecord(userName, date, '');
+                this.updateAttendanceCalendarCell(userName, date, '', resolvedCell);
 
                 try {
                     const result = await this.callServerFunction('clientRemoveAttendanceStatus', userName, date);
                     if (result && result.success) {
                         this.showToast(`Cleared attendance status for ${displayValue} on ${date}`, 'info');
-                        this.updateAttendanceRecordCache(userName, date, '');
-                        this.updateAttendanceDashboardRecord(userName, date, '');
-                        this.updateAttendanceCalendarCell(userName, date, '', resolvedCell);
                     } else {
                         throw new Error(result?.error || 'Failed to clear attendance status');
                     }
                 } catch (error) {
                     console.error('Error clearing attendance status:', error);
                     this.showToast('Failed to clear attendance status: ' + error.message, 'danger');
+
+                    // Restore previous status if clearing fails
+                    this.updateAttendanceRecordCache(userName, date, previousStatus || '');
+                    this.updateAttendanceDashboardRecord(userName, date, previousStatus || '');
+                    this.updateAttendanceCalendarCell(userName, date, previousStatus || '', resolvedCell);
                 }
             }
 
@@ -14300,6 +14315,78 @@
                         Status: trimmedStatus
                     });
                 }
+
+                this.updateAttendancePrefetchCache(userName, isoDate, trimmedStatus);
+            }
+
+            getCachedAttendanceStatus(userName, date) {
+                const isoDate = this.normalizeAttendanceDateValue(date);
+                const normalizedUser = this.normalizePersonKey(userName);
+
+                if (!isoDate || !normalizedUser || !Array.isArray(this.attendanceCalendarRecords)) {
+                    return '';
+                }
+
+                const match = this.attendanceCalendarRecords.find(record => {
+                    const recordUser = record?.userName || record?.UserName || record?.user || record?.User || '';
+                    const recordDate = record?.date || record?.Date || record?.timestamp || record?.Timestamp || '';
+                    return this.normalizePersonKey(recordUser) === normalizedUser
+                        && this.normalizeAttendanceDateValue(recordDate) === isoDate;
+                });
+
+                return (match?.status || match?.Status || '').toString();
+            }
+
+            updateAttendancePrefetchCache(userName, isoDate, status) {
+                const prefetch = this.attendanceCalendarPrefetch;
+                if (!prefetch || !isoDate || !userName) {
+                    return;
+                }
+
+                const normalizedUser = this.normalizePersonKey(userName);
+                const syncedRecord = {
+                    userName,
+                    UserName: userName,
+                    date: isoDate,
+                    Date: isoDate,
+                    status,
+                    Status: status
+                };
+
+                const syncArray = (records) => {
+                    if (!Array.isArray(records)) {
+                        return;
+                    }
+
+                    let foundIndex = -1;
+                    for (let i = 0; i < records.length; i++) {
+                        const candidate = records[i];
+                        const candidateUser = candidate?.userName || candidate?.UserName || candidate?.user || candidate?.User || '';
+                        const candidateDate = candidate?.date || candidate?.Date || candidate?.timestamp || candidate?.Timestamp || '';
+                        if (this.normalizePersonKey(candidateUser) === normalizedUser
+                            && this.normalizeAttendanceDateValue(candidateDate) === isoDate) {
+                            foundIndex = i;
+                            break;
+                        }
+                    }
+
+                    if (!status && foundIndex >= 0) {
+                        records.splice(foundIndex, 1);
+                        return;
+                    }
+
+                    if (status && foundIndex >= 0) {
+                        records[foundIndex] = Object.assign({}, records[foundIndex], syncedRecord);
+                        return;
+                    }
+
+                    if (status && foundIndex === -1) {
+                        records.push(Object.assign({}, syncedRecord));
+                    }
+                };
+
+                syncArray(prefetch.monthlyRecords);
+                syncArray(prefetch.yearlyRecords);
             }
 
             updateAttendanceDashboardRecord(userName, date, status, notes = '') {
