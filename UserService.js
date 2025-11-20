@@ -1946,7 +1946,7 @@ function clientGetAllUsers(requestingUserId) {
       if (typeof getAllUsersRaw === 'function') {
         users = getAllUsersRaw();
       } else {
-        users = readSheet(G.USERS_SHEET, { cache: false, useCache: false, suppressTenantContext: true });
+        users = readSheet(G.USERS_SHEET);
       }
     } catch (e) { writeError('clientGetAllUsers - readSheet', e); return []; }
     if (!Array.isArray(users) || users.length === 0) return [];

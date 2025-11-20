@@ -4579,9 +4579,7 @@ function _uiUserShape_(u, cmap) {
 
 function _readUsersSheetSafe_() {
   try {
-    return (typeof readSheet === 'function')
-      ? (readSheet('Users', { cache: false, useCache: false }) || [])
-      : [];
+    return (typeof readSheet === 'function') ? (readSheet('Users') || []) : [];
   } catch (err) {
     console.warn('Unable to read Users sheet:', err);
     return [];
@@ -4590,9 +4588,7 @@ function _readUsersSheetSafe_() {
 
 function _readManagerUsersSheetSafe_() {
   try {
-    return (typeof readSheet === 'function')
-      ? (readSheet('MANAGER_USERS', { cache: false, useCache: false }) || [])
-      : [];
+    return (typeof readSheet === 'function') ? (readSheet('MANAGER_USERS') || []) : [];
   } catch (err) {
     console.warn('Unable to read MANAGER_USERS sheet:', err);
     return [];
@@ -4906,7 +4902,7 @@ function getUsersByCampaign(campaignId) {
 function getAllUsersRaw() {
   try {
     if (typeof readSheet === 'function') {
-      return readSheet('Users', { cache: false, useCache: false, suppressTenantContext: true }) || [];
+      return readSheet('Users') || [];
     }
     return [];
   } catch (error) {
