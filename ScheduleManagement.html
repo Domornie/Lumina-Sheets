@@ -9395,13 +9395,21 @@
                 const month = monthInput ? parseInt(monthInput.value, 10) : NaN;
                 const year = yearInput ? parseInt(yearInput.value, 10) : NaN;
 
-                if (!Number.isFinite(month) || !Number.isFinite(year)) {
+                const monthInRange = Number.isFinite(month) && month >= 1 && month <= 12;
+                const yearInRange = Number.isFinite(year) && year >= 1900 && year <= 2500;
+
+                if (!monthInRange || !yearInRange) {
                     this.showToast('Select a month and year before exporting.', 'warning');
                     return;
                 }
 
                 const start = new Date(year, month - 1, 1, 0, 0, 0, 0);
                 const end = new Date(year, month, 0, 23, 59, 59, 999);
+
+                if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+                    this.showToast('Invalid date range. Please pick a valid month and year.', 'warning');
+                    return;
+                }
 
                 try {
                     this.showLoading(true, {
@@ -9412,8 +9420,8 @@
                     const response = await this.callServerFunction(
                         'exportAttendanceCalendar',
                         'Month',
-                        start,
-                        end
+                        start.toISOString(),
+                        end.toISOString()
                     );
 
                     if (!response || response.success !== true || !response.fileUrl) {
