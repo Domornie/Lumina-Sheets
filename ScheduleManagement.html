@@ -1823,8 +1823,8 @@
                             </select>
                         </div>
                         <button id="attendanceExportButton" class="btn btn-outline-modern btn-sm" type="button">
-                            <i class="fas fa-download me-1"></i>
-                            Export CSV
+                            <i class="fas fa-file-export me-1"></i>
+                            Export Dashboard
                         </button>
                     </div>
                 </div>
@@ -2553,9 +2553,9 @@
                                     <i class="fas fa-plus"></i>
                                     Quick Mark
                                 </button>
-                                <button class="btn btn-outline-modern btn-modern" onclick="exportAttendanceReport()">
+                                <button class="btn btn-outline-modern btn-modern" onclick="exportAttendanceCalendarReport()">
                                     <i class="fas fa-download"></i>
-                                    Export Report
+                                    Export Calendar
                                 </button>
                             </div>
                         </div>
@@ -8650,7 +8650,7 @@
                 if (exportButton && !exportButton.dataset.luminaAttendanceExportListener) {
                     exportButton.addEventListener('click', (event) => {
                         event.preventDefault();
-                        this.exportAttendanceReport().catch(error => {
+                        this.exportAttendanceDashboardSummary().catch(error => {
                             console.error('Attendance export failed:', error);
                         });
                     });
@@ -9325,52 +9325,113 @@
                 `;
             }
 
-            async exportAttendanceReport() {
+            resolveSelectedAttendancePeriod() {
                 const granularity = this.normalizeGranularity(this.attendanceDashboardGranularity);
-                const periodValue = this.attendanceDashboardPeriod;
+                const year = this.attendanceDashboardYear || this.getSelectedAttendanceYear();
 
-                if (!periodValue) {
+                if (this.attendancePeriodOptionsYear !== year || !this.attendancePeriodOptions) {
+                    this.attendancePeriodOptions = this.buildAttendancePeriodOptionsForYear(year);
+                    this.attendancePeriodOptionsYear = year;
+                }
+
+                const options = (this.attendancePeriodOptions && this.attendancePeriodOptions[granularity])
+                    ? this.attendancePeriodOptions[granularity]
+                    : [];
+
+                const selected = options.find(option => option && option.value === this.attendanceDashboardPeriod)
+                    || options[0];
+
+                if (!selected) {
+                    return null;
+                }
+
+                return {
+                    granularity,
+                    start: selected.start,
+                    end: selected.end,
+                    label: selected.descriptor || selected.label || '',
+                    value: selected.value
+                };
+            }
+
+            async exportAttendanceDashboardSummary() {
+                const selection = this.resolveSelectedAttendancePeriod();
+
+                if (!selection || !(selection.start instanceof Date) || !(selection.end instanceof Date)) {
                     this.showToast('Select a period to export before downloading.', 'warning');
                     return;
                 }
 
                 try {
                     this.showLoading(true, {
-                        title: 'Exporting Attendance Report',
-                        detail: 'Generating CSV snapshot…'
+                        title: 'Exporting Attendance Dashboard',
+                        detail: 'Generating summary sheet…'
                     });
 
-                    const agentFilter = this.attendanceDashboardUserFilter || '';
-                    const csvContent = await this.callServerFunction('exportAttendanceCsv', granularity, periodValue, agentFilter, {});
+                    const response = await this.callServerFunction(
+                        'exportAttendanceDashboard',
+                        selection.granularity,
+                        selection.start,
+                        selection.end
+                    );
 
-                    if (typeof csvContent !== 'string' || !csvContent.trim()) {
-                        throw new Error('No CSV content was returned.');
+                    if (!response || response.success !== true || !response.fileUrl) {
+                        throw new Error(response?.error || 'Export failed.');
                     }
 
-                    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-                    const url = URL.createObjectURL(blob);
-                    const safeGranularity = granularity.toLowerCase();
-                    const safePeriod = periodValue.replace(/[^A-Za-z0-9_-]+/g, '-');
-                    const safeUser = agentFilter ? agentFilter.replace(/[^A-Za-z0-9_-]+/g, '') : 'all';
-                    const filename = `attendance-${safeGranularity}-${safePeriod}-${safeUser}.csv`;
-
-                    const link = document.createElement('a');
-                    link.href = url;
-                    link.download = filename;
-                    document.body.appendChild(link);
-                    link.click();
-                    setTimeout(() => {
-                        document.body.removeChild(link);
-                        URL.revokeObjectURL(url);
-                    }, 0);
-
-                    this.showToast('Attendance report exported successfully.', 'success');
+                    window.open(response.fileUrl, '_blank');
+                    this.showToast('Attendance dashboard exported to Sheets.', 'success');
                 } catch (error) {
-                    console.error('Error exporting attendance report:', error);
-                    this.showToast('Failed to export attendance report: ' + error.message, 'danger');
+                    console.error('Error exporting attendance dashboard:', error);
+                    this.showToast('Failed to export attendance dashboard: ' + error.message, 'danger');
                 } finally {
                     this.showLoading(false);
                 }
+            }
+
+            async exportAttendanceCalendarReport() {
+                const monthInput = document.getElementById('attendanceMonth');
+                const yearInput = document.getElementById('attendanceYear');
+                const month = monthInput ? parseInt(monthInput.value, 10) : NaN;
+                const year = yearInput ? parseInt(yearInput.value, 10) : NaN;
+
+                if (!Number.isFinite(month) || !Number.isFinite(year)) {
+                    this.showToast('Select a month and year before exporting.', 'warning');
+                    return;
+                }
+
+                const start = new Date(year, month - 1, 1, 0, 0, 0, 0);
+                const end = new Date(year, month, 0, 23, 59, 59, 999);
+
+                try {
+                    this.showLoading(true, {
+                        title: 'Exporting Attendance Calendar',
+                        detail: 'Building calendar workbook…'
+                    });
+
+                    const response = await this.callServerFunction(
+                        'exportAttendanceCalendar',
+                        'Month',
+                        start,
+                        end
+                    );
+
+                    if (!response || response.success !== true || !response.fileUrl) {
+                        throw new Error(response?.error || 'Export failed.');
+                    }
+
+                    window.open(response.fileUrl, '_blank');
+                    this.showToast('Attendance calendar exported to Sheets.', 'success');
+                } catch (error) {
+                    console.error('Error exporting attendance calendar:', error);
+                    this.showToast('Failed to export calendar: ' + error.message, 'danger');
+                } finally {
+                    this.showLoading(false);
+                }
+            }
+
+            async exportAttendanceReport() {
+                return this.exportAttendanceCalendarReport();
             }
 
             formatPercentage(value) {
@@ -9601,7 +9662,7 @@
                 if (exportButton && !exportButton.dataset.luminaAttendanceExportListener) {
                     exportButton.addEventListener('click', (event) => {
                         event.preventDefault();
-                        this.exportAttendanceReport().catch(error => {
+                        this.exportAttendanceDashboardSummary().catch(error => {
                             console.error('Attendance export failed:', error);
                         });
                     });
@@ -10258,51 +10319,7 @@
             }
 
             async exportAttendanceReport() {
-                const granularity = this.normalizeGranularity(this.attendanceDashboardGranularity);
-                const periodValue = this.attendanceDashboardPeriod;
-
-                if (!periodValue) {
-                    this.showToast('Select a period to export before downloading.', 'warning');
-                    return;
-                }
-
-                try {
-                    this.showLoading(true, {
-                        title: 'Exporting Attendance Report',
-                        detail: 'Generating CSV snapshot…'
-                    });
-
-                    const agentFilter = this.attendanceDashboardUserFilter || '';
-                    const csvContent = await this.callServerFunction('exportAttendanceCsv', granularity, periodValue, agentFilter, {});
-
-                    if (typeof csvContent !== 'string' || !csvContent.trim()) {
-                        throw new Error('No CSV content was returned.');
-                    }
-
-                    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-                    const url = URL.createObjectURL(blob);
-                    const safeGranularity = granularity.toLowerCase();
-                    const safePeriod = periodValue.replace(/[^A-Za-z0-9_-]+/g, '-');
-                    const safeUser = agentFilter ? agentFilter.replace(/[^A-Za-z0-9_-]+/g, '') : 'all';
-                    const filename = `attendance-${safeGranularity}-${safePeriod}-${safeUser}.csv`;
-
-                    const link = document.createElement('a');
-                    link.href = url;
-                    link.download = filename;
-                    document.body.appendChild(link);
-                    link.click();
-                    setTimeout(() => {
-                        document.body.removeChild(link);
-                        URL.revokeObjectURL(url);
-                    }, 0);
-
-                    this.showToast('Attendance report exported successfully.', 'success');
-                } catch (error) {
-                    console.error('Error exporting attendance report:', error);
-                    this.showToast('Failed to export attendance report: ' + error.message, 'danger');
-                } finally {
-                    this.showLoading(false);
-                }
+                return this.exportAttendanceCalendarReport();
             }
 
             formatPercentage(value) {
@@ -10525,7 +10542,7 @@
                 if (exportButton && !exportButton.dataset.luminaAttendanceExportListener) {
                     exportButton.addEventListener('click', (event) => {
                         event.preventDefault();
-                        this.exportAttendanceReport().catch(error => {
+                        this.exportAttendanceDashboardSummary().catch(error => {
                             console.error('Attendance export failed:', error);
                         });
                     });
@@ -11209,51 +11226,7 @@
             }
 
             async exportAttendanceReport() {
-                const granularity = this.normalizeGranularity(this.attendanceDashboardGranularity);
-                const periodValue = this.attendanceDashboardPeriod;
-
-                if (!periodValue) {
-                    this.showToast('Select a period to export before downloading.', 'warning');
-                    return;
-                }
-
-                try {
-                    this.showLoading(true, {
-                        title: 'Exporting Attendance Report',
-                        detail: 'Generating CSV snapshot…'
-                    });
-
-                    const agentFilter = this.attendanceDashboardUserFilter || '';
-                    const csvContent = await this.callServerFunction('exportAttendanceCsv', granularity, periodValue, agentFilter, {});
-
-                    if (typeof csvContent !== 'string' || !csvContent.trim()) {
-                        throw new Error('No CSV content was returned.');
-                    }
-
-                    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-                    const url = URL.createObjectURL(blob);
-                    const safeGranularity = granularity.toLowerCase();
-                    const safePeriod = periodValue.replace(/[^A-Za-z0-9_-]+/g, '-');
-                    const safeUser = agentFilter ? agentFilter.replace(/[^A-Za-z0-9_-]+/g, '') : 'all';
-                    const filename = `attendance-${safeGranularity}-${safePeriod}-${safeUser}.csv`;
-
-                    const link = document.createElement('a');
-                    link.href = url;
-                    link.download = filename;
-                    document.body.appendChild(link);
-                    link.click();
-                    setTimeout(() => {
-                        document.body.removeChild(link);
-                        URL.revokeObjectURL(url);
-                    }, 0);
-
-                    this.showToast('Attendance report exported successfully.', 'success');
-                } catch (error) {
-                    console.error('Error exporting attendance report:', error);
-                    this.showToast('Failed to export attendance report: ' + error.message, 'danger');
-                } finally {
-                    this.showLoading(false);
-                }
+                return this.exportAttendanceCalendarReport();
             }
 
             formatPercentage(value) {
@@ -16598,12 +16571,24 @@
             }
         }
 
-        function exportAttendanceReport() {
-            if (window.scheduleManager && typeof window.scheduleManager.exportAttendanceReport === 'function') {
-                window.scheduleManager.exportAttendanceReport().catch(error => {
+        function exportAttendanceDashboardSummary() {
+            if (window.scheduleManager && typeof window.scheduleManager.exportAttendanceDashboardSummary === 'function') {
+                window.scheduleManager.exportAttendanceDashboardSummary().catch(error => {
                     console.error('Attendance export failed:', error);
                 });
             }
+        }
+
+        function exportAttendanceCalendarReport() {
+            if (window.scheduleManager && typeof window.scheduleManager.exportAttendanceCalendarReport === 'function') {
+                window.scheduleManager.exportAttendanceCalendarReport().catch(error => {
+                    console.error('Attendance export failed:', error);
+                });
+            }
+        }
+
+        function exportAttendanceReport() {
+            return exportAttendanceCalendarReport();
         }
 
         function previewHolidays() {
