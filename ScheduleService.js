@@ -4048,10 +4048,15 @@ function normalizeDateRangeForExport(periodType, startDate, endDate) {
     throw new Error('A valid start and end date are required for export.');
   }
 
+  const normalizedStart = new Date(safeStart.getTime());
+  const normalizedEnd = new Date(safeEnd.getTime());
+  normalizedStart.setHours(0, 0, 0, 0);
+  normalizedEnd.setHours(23, 59, 59, 999);
+
   const type = typeof periodType === 'string' && periodType.trim() ? periodType.trim() : 'Custom';
   const pad = (num) => String(num).padStart(2, '0');
-  const startIso = `${safeStart.getFullYear()}-${pad(safeStart.getMonth() + 1)}-${pad(safeStart.getDate())}`;
-  const endIso = `${safeEnd.getFullYear()}-${pad(safeEnd.getMonth() + 1)}-${pad(safeEnd.getDate())}`;
+  const startIso = `${normalizedStart.getFullYear()}-${pad(normalizedStart.getMonth() + 1)}-${pad(normalizedStart.getDate())}`;
+  const endIso = `${normalizedEnd.getFullYear()}-${pad(normalizedEnd.getMonth() + 1)}-${pad(normalizedEnd.getDate())}`;
   const label = (() => {
     switch (type.toLowerCase()) {
       case 'week':
@@ -4074,7 +4079,7 @@ function normalizeDateRangeForExport(periodType, startDate, endDate) {
     }
   })();
 
-  return { type, start: safeStart, end: safeEnd, startIso, endIso, label };
+  return { type, start: normalizedStart, end: normalizedEnd, startIso, endIso, label };
 }
 
 function ensureAttendanceExportSheet(name) {
