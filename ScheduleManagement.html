@@ -14189,6 +14189,7 @@
                 try {
                     const result = await this.callServerFunction('clientMarkAttendanceStatus', userName, date, trimmedStatus);
                     if (result && result.success) {
+                        await this.syncAttendanceStatusFromServer(userName, date);
                         this.showToast(`Marked ${displayValue} as ${trimmedStatus} on ${date}`, 'success');
                     } else {
                         throw new Error(result?.error || 'Failed to mark attendance');
@@ -14221,6 +14222,7 @@
                 try {
                     const result = await this.callServerFunction('clientRemoveAttendanceStatus', userName, date);
                     if (result && result.success) {
+                        await this.syncAttendanceStatusFromServer(userName, date);
                         this.showToast(`Cleared attendance status for ${displayValue} on ${date}`, 'info');
                     } else {
                         throw new Error(result?.error || 'Failed to clear attendance status');
@@ -14233,6 +14235,44 @@
                     this.updateAttendanceRecordCache(userName, date, previousStatus || '');
                     this.updateAttendanceDashboardRecord(userName, date, previousStatus || '');
                     this.updateAttendanceCalendarCell(userName, date, previousStatus || '', resolvedCell);
+                }
+            }
+
+            async syncAttendanceStatusFromServer(userName, date) {
+                const isoDate = this.normalizeAttendanceDateValue(date);
+                if (!userName || !isoDate) {
+                    return;
+                }
+
+                const normalizedUser = this.normalizePersonKey(userName);
+                const campaignId = this.getCurrentCampaignId ? this.getCurrentCampaignId() || null : null;
+
+                try {
+                    const response = await this.callServerFunction(
+                        'clientGetAttendanceDataRange',
+                        isoDate,
+                        isoDate,
+                        campaignId
+                    );
+
+                    if (!response || !response.success || !Array.isArray(response.records)) {
+                        return;
+                    }
+
+                    const match = response.records.find(record => {
+                        const recordUser = record?.userName || record?.UserName || record?.user || record?.User || '';
+                        const recordDate = record?.date || record?.Date || record?.timestamp || record?.Timestamp || '';
+                        return this.normalizePersonKey(recordUser) === normalizedUser
+                            && this.normalizeAttendanceDateValue(recordDate) === isoDate;
+                    });
+
+                    const latestStatus = (match?.status || match?.Status || '').toString();
+                    this.updateAttendanceRecordCache(userName, isoDate, latestStatus);
+                    this.updateAttendanceDashboardRecord(userName, isoDate, latestStatus);
+                    this.updateAttendanceCalendarCell(userName, isoDate, latestStatus, null);
+                    this.updateAttendancePrefetchCache(userName, isoDate, latestStatus);
+                } catch (error) {
+                    console.warn('Unable to sync attendance status from server:', error);
                 }
             }
 

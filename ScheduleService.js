@@ -4934,18 +4934,61 @@ function clientGetCountryHolidays(countryCode, year) {
   }
 }
 
+function normalizeAttendanceDateValue(value, timeZone = getScheduleTimeZone()) {
+  const zone = timeZone || Session.getScriptTimeZone() || 'UTC';
+
+  if (value instanceof Date && !isNaN(value.getTime())) {
+    return Utilities.formatDate(value, zone, 'yyyy-MM-dd');
+  }
+
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    const parsed = new Date(value);
+    if (!isNaN(parsed.getTime())) {
+      return Utilities.formatDate(parsed, zone, 'yyyy-MM-dd');
+    }
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return '';
+    }
+
+    const isoMatch = trimmed.match(/^(\d{4}-\d{2}-\d{2})(?:[T\s].*)?$/);
+    if (isoMatch && isoMatch[1]) {
+      return isoMatch[1];
+    }
+
+    const parsed = new Date(trimmed);
+    if (!isNaN(parsed.getTime())) {
+      return Utilities.formatDate(parsed, zone, 'yyyy-MM-dd');
+    }
+  }
+
+  return '';
+}
+
 function clientMarkAttendanceStatus(userName, date, status, notes = '') {
   try {
     console.log('📝 Marking attendance status:', { userName, date, status, notes });
 
+    const timeZone = getScheduleTimeZone();
+    const normalizedDate = normalizeAttendanceDateValue(date, timeZone);
+
+    if (!normalizedDate) {
+      throw new Error('A valid date is required to update attendance status.');
+    }
+
     // Use ScheduleUtilities to ensure proper sheet structure
     const sheet = ensureScheduleSheetWithHeaders(ATTENDANCE_STATUS_SHEET, ATTENDANCE_STATUS_HEADERS);
 
-    // Check if entry already exists
+    // Check if entry already exists (normalize both sides to avoid duplicate rows)
     const existingData = readScheduleSheet(ATTENDANCE_STATUS_SHEET) || [];
-    const existingEntry = existingData.find(entry =>
-      entry.UserName === userName && entry.Date === date
-    );
+    const existingEntry = existingData.find(entry => {
+      const entryDate = normalizeAttendanceDateValue(entry.Date, timeZone);
+      const entryUser = String(entry.UserName || '').trim();
+      return entryUser === String(userName || '').trim() && entryDate === normalizedDate;
+    });
 
     const now = new Date();
 
@@ -4956,6 +4999,7 @@ function clientMarkAttendanceStatus(userName, date, status, notes = '') {
 
       for (let i = 1; i < data.length; i++) {
         if (data[i][0] === existingEntry.ID) {
+          sheet.getRange(i + 1, headers.indexOf('Date') + 1).setValue(normalizedDate);
           sheet.getRange(i + 1, headers.indexOf('Status') + 1).setValue(status);
           sheet.getRange(i + 1, headers.indexOf('Notes') + 1).setValue(notes);
           sheet.getRange(i + 1, headers.indexOf('UpdatedAt') + 1).setValue(now);
@@ -4968,7 +5012,7 @@ function clientMarkAttendanceStatus(userName, date, status, notes = '') {
         ID: Utilities.getUuid(),
         UserID: getUserIdByName(userName) || userName,
         UserName: userName,
-        Date: date,
+        Date: normalizedDate,
         Status: status,
         Notes: notes,
         MarkedBy: Session.getActiveUser().getEmail(),
@@ -4985,7 +5029,7 @@ function clientMarkAttendanceStatus(userName, date, status, notes = '') {
 
     return {
       success: true,
-      message: `Attendance status updated to ${status} for ${userName} on ${date}`
+      message: `Attendance status updated to ${status} for ${userName} on ${normalizedDate}`
     };
 
   } catch (error) {
@@ -5393,7 +5437,7 @@ function clientRemoveAttendanceStatus(userName, date) {
       }
 
       const normalizedUser = String(userName || '').trim();
-      const normalizedDate = String(date || '').trim();
+      const normalizedDate = normalizeAttendanceDateValue(date, getScheduleTimeZone());
 
       if (!normalizedUser || !normalizedDate) {
         throw new Error('Both userName and date are required to clear attendance status.');
@@ -5403,7 +5447,7 @@ function clientRemoveAttendanceStatus(userName, date) {
 
       for (let row = data.length - 1; row >= 1; row--) {
         const rowUser = String(data[row][userNameIndex] || '').trim();
-        const rowDate = String(data[row][dateIndex] || '').trim();
+        const rowDate = normalizeAttendanceDateValue(data[row][dateIndex], getScheduleTimeZone());
 
         if (rowUser === normalizedUser && rowDate === normalizedDate) {
           sheet.deleteRow(row + 1);
@@ -6783,95 +6827,94 @@ function persistScheduleHealthSnapshot(context, evaluation, bundle, options = {}
 function clientGetAttendanceDataRange(startDate, endDate, campaignId = null) {
   try {
     const attendanceData = readScheduleSheet(ATTENDANCE_STATUS_SHEET) || [];
+    const timeZone = getScheduleTimeZone();
 
     const normalizeDate = (value) => {
-      if (value instanceof Date) {
-        return isNaN(value.getTime()) ? null : new Date(value.getTime());
+      const iso = normalizeAttendanceDateValue(value, timeZone);
+      if (!iso) {
+        return null;
       }
+      const [year, month, day] = iso.split('-').map(Number);
+      if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
+        return null;
+      }
+      return new Date(Date.UTC(year, month - 1, day));
+    };
 
+    const normalizeTimestamp = (value) => {
+      if (value instanceof Date && !isNaN(value.getTime())) {
+        return value.getTime();
+      }
       if (typeof value === 'number' && Number.isFinite(value)) {
         const parsed = new Date(value);
-        return Number.isNaN(parsed.getTime()) ? null : parsed;
+        return isNaN(parsed.getTime()) ? null : parsed.getTime();
       }
-
-      if (typeof value === 'string') {
-        const trimmed = value.trim();
-        if (!trimmed) {
-          return null;
-        }
-
-        const isoDateMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-        if (isoDateMatch) {
-          const year = Number(isoDateMatch[1]);
-          const month = Number(isoDateMatch[2]);
-          const day = Number(isoDateMatch[3]);
-          if (Number.isFinite(year) && Number.isFinite(month) && Number.isFinite(day)) {
-            return new Date(Date.UTC(year, month - 1, day));
-          }
-        }
-
-        const parsed = new Date(trimmed);
-        return Number.isNaN(parsed.getTime()) ? null : parsed;
+      if (typeof value === 'string' && value.trim()) {
+        const parsed = new Date(value.trim());
+        return isNaN(parsed.getTime()) ? null : parsed.getTime();
       }
-
       return null;
     };
 
     const rangeStart = normalizeDate(startDate);
     const rangeEnd = normalizeDate(endDate);
 
-    const filtered = attendanceData.filter(record => {
-      const recordDate = normalizeDate(record.Date || record.date);
+    const deduped = new Map();
+
+    attendanceData.forEach(record => {
+      const isoDate = normalizeAttendanceDateValue(record.Date || record.date, timeZone);
+      if (!isoDate) {
+        return;
+      }
+
+      const recordDate = normalizeDate(isoDate);
       if (!recordDate) {
-        return false;
+        return;
       }
 
       if (rangeStart && recordDate < rangeStart) {
-        return false;
+        return;
       }
       if (rangeEnd && recordDate > rangeEnd) {
-        return false;
+        return;
       }
 
       if (campaignId) {
         const recordCampaign = record.CampaignID || record.CampaignId || record.Campaign || null;
         if (recordCampaign && recordCampaign !== campaignId) {
-          return false;
+          return;
         }
       }
 
-      return true;
-    });
-
-    const toIsoDate = (date) => {
-      if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
-        return '';
+      const userName = String(record.UserName || record.User || record.user || '').trim();
+      const status = (record.Status || record.status || record.state || '').toString();
+      if (!userName || !status) {
+        return;
       }
-      const year = date.getUTCFullYear();
-      const month = String(date.getUTCMonth() + 1).padStart(2, '0');
-      const day = String(date.getUTCDate()).padStart(2, '0');
-      return `${year}-${month}-${day}`;
-    };
 
-    const records = filtered
-      .map(record => {
-        const date = normalizeDate(record.Date || record.date);
-        const isoDate = toIsoDate(date);
-        const userName = record.UserName || record.User || record.user || '';
-        const status = record.Status || record.status || record.state || '';
+      const key = `${userName.toLowerCase()}__${isoDate}`;
+      const existing = deduped.get(key);
+      const timestamp = normalizeTimestamp(record.UpdatedAt || record.CreatedAt || record.Updated || record.Created) || 0;
 
-        if (!userName || !isoDate || !status) {
-          return null;
-        }
-
-        return {
+      if (!existing || timestamp >= existing.timestamp) {
+        deduped.set(key, {
           userName,
           status,
           date: isoDate,
-          notes: record.Notes || record.notes || ''
-        };
-      })
-      .filter(Boolean);
+          notes: record.Notes || record.notes || '',
+          timestamp
+        });
+      }
+    });
+
+    const records = Array.from(deduped.values())
+      .filter(entry => entry && entry.userName && entry.date && entry.status)
+      .map(entry => ({
+        userName: entry.userName,
+        status: entry.status,
+        date: entry.date,
+        notes: entry.notes || ''
+      }));
 
     return {
       success: true,
