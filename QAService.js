@@ -2515,6 +2515,56 @@ function calculateAgentProfiles_(records, options = {}) {
   return { totalEvaluations, profiles };
 }
 
+function resolveCallLinkFromRecord_(record) {
+  const raw = record && record.raw ? record.raw : {};
+  const link = getRecordFieldValue_(raw, [
+    'callLink', 'Call Link', 'Call Recording Url', 'Call Recording URL',
+    'callRecordingUrl', 'recordingLink', 'callUrl', 'Call Url',
+    'AudioUrl', 'Audio Url', 'Audio URL', 'Recording URL'
+  ]);
+  return link ? String(link).trim() : '';
+}
+
+function resolvePdfLinkFromRecord_(record) {
+  const raw = record && record.raw ? record.raw : {};
+  const pdf = getRecordFieldValue_(raw, [
+    'qaPdfUrl', 'QA PDF URL', 'qaPdfLink', 'PDF Url', 'PDF URL', 'Pdf Link',
+    'QA PDF', 'QA Pdf', 'pdfLink'
+  ]);
+  return pdf ? String(pdf).trim() : '';
+}
+
+function resolveResultLinkFromRecord_(record) {
+  const raw = record && record.raw ? record.raw : {};
+  const result = getRecordFieldValue_(raw, [
+    'Result Link', 'Result Url', 'QA Url', 'QA Link', 'Review Url',
+    'Submission Link', 'Submission Url'
+  ]);
+  return result ? String(result).trim() : '';
+}
+
+function resolveResultLabelFromRecord_(record) {
+  if (!record) {
+    return '';
+  }
+  const raw = record.raw || {};
+  const explicit = getRecordFieldValue_(raw, ['Result', 'QA Result', 'Outcome', 'Status']);
+  if (explicit !== null && explicit !== undefined && explicit !== '') {
+    const value = String(explicit).trim();
+    if (value) {
+      return value;
+    }
+  }
+
+  if (typeof record.recordScore === 'number') {
+    const score = Math.round(record.recordScore);
+    const descriptor = record.pass ? 'Pass' : 'Needs Improvement';
+    return `${score}% • ${descriptor}`;
+  }
+
+  return record.pass ? 'Pass' : '';
+}
+
 function buildAgentGranularityMatrix_(context, records, options = {}) {
   if (!context) {
     return { granularity: '', periods: [], agents: [] };
@@ -2540,6 +2590,7 @@ function buildAgentGranularityMatrix_(context, records, options = {}) {
     const bucket = filterRecordsForIntelligence_(safeRecords, { ...context, period: cursor });
     const totalEvaluations = bucket.length;
     const aggregates = {};
+    const agentDetails = {};
 
     bucket.forEach(record => {
       if (!record) {
@@ -2553,12 +2604,46 @@ function buildAgentGranularityMatrix_(context, records, options = {}) {
           passCount: 0
         };
       }
+      if (!agentDetails[identifier]) {
+        agentDetails[identifier] = { latest: null, bestScore: -Infinity };
+      }
+
       const stats = aggregates[identifier];
       stats.evaluations += 1;
       stats.scoreSum += Number(record.percentage) || 0;
       if (record.pass) {
         stats.passCount += 1;
       }
+
+      const resolvedScore = typeof record.recordScore === 'number'
+        ? Math.round(record.recordScore)
+        : Math.round((record.percentage || 0) * 100);
+      const links = {
+        callLink: resolveCallLinkFromRecord_(record),
+        pdfLink: resolvePdfLinkFromRecord_(record),
+        resultLink: resolveResultLinkFromRecord_(record)
+      };
+
+      const detail = {
+        callDate: record.callDateIso || '',
+        score: resolvedScore,
+        pass: record.pass,
+        result: resolveResultLabelFromRecord_(record),
+        callLink: links.callLink,
+        pdfLink: links.pdfLink,
+        resultLink: links.resultLink
+      };
+
+      const currentDetail = agentDetails[identifier];
+      if (!currentDetail.latest || (record.callDate && record.callDate > (currentDetail.callDate || new Date(0)))) {
+        currentDetail.latest = detail;
+        currentDetail.callDate = record.callDate || null;
+      }
+      if (resolvedScore > currentDetail.bestScore) {
+        currentDetail.bestScore = resolvedScore;
+        currentDetail.best = detail;
+      }
+
       universe.add(identifier);
     });
 
@@ -2576,8 +2661,28 @@ function buildAgentGranularityMatrix_(context, records, options = {}) {
         avgScore,
         passRate,
         evaluations: evals,
-        evaluationShare
+        evaluationShare,
+        latest: agentDetails[identifier] ? agentDetails[identifier].latest : null,
+        best: agentDetails[identifier] ? agentDetails[identifier].best : null
       };
+    });
+
+    const ranking = Object.keys(metrics)
+      .map(id => ({ id, score: typeof metrics[id].avgScore === 'number' ? metrics[id].avgScore : -Infinity }))
+      .sort((a, b) => b.score - a.score);
+
+    ranking.forEach((entry, index) => {
+      const metric = metrics[entry.id];
+      if (!metric) return;
+      metric.rank = index + 1;
+      metric.placement = index === 0
+        ? 'Champion'
+        : index === 1
+          ? 'Runner-up'
+          : index === 2
+            ? 'Contender'
+            : 'Needs Focus';
+      metric.needsImprovement = typeof metric.avgScore === 'number' ? metric.avgScore < 80 : false;
     });
 
     periods.push({
@@ -2592,6 +2697,19 @@ function buildAgentGranularityMatrix_(context, records, options = {}) {
     steps += 1;
   }
 
+  const ordered = periods.reverse();
+  ordered.forEach((period, idx) => {
+    if (idx === 0) return;
+    const previous = ordered[idx - 1];
+    Object.keys(period.metrics || {}).forEach(agentId => {
+      const metric = period.metrics[agentId];
+      const prevMetric = previous.metrics ? previous.metrics[agentId] : null;
+      if (metric && prevMetric && typeof metric.avgScore === 'number' && typeof prevMetric.avgScore === 'number') {
+        metric.momentum = roundOneDecimal_(metric.avgScore - prevMetric.avgScore);
+      }
+    });
+  });
+
   const agents = Array.from(universe).map(identifier => ({
     id: identifier,
     label: resolveAgentDisplayNameFromLookup_(identifier, displayLookup)
@@ -2603,7 +2721,7 @@ function buildAgentGranularityMatrix_(context, records, options = {}) {
 
   return {
     granularity,
-    periods: periods.reverse(),
+    periods: ordered,
     agents
   };
 }
