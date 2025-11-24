@@ -1462,6 +1462,9 @@
         <button class="btn btn-sm btn-outline-primary" onclick="exportData()">
           <i class="fas fa-download me-1"></i>Export
         </button>
+        <button class="btn btn-sm btn-outline-secondary" data-open-adherence-export>
+          <i class="fas fa-table me-1"></i>Adherence & Compliance Export
+        </button>
         <div class="btn-group">
           <button class="btn btn-sm btn-outline-danger" onclick="exportAttendanceViolations('sheet')">
             <i class="fas fa-file-excel me-1"></i>Export Violations
@@ -1796,6 +1799,60 @@
         <button type="button" class="btn btn-success" id="executeExport">
           <i class="fas fa-download me-2"></i>Export Matrix
         </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Adherence & Compliance Export Modal -->
+<div class="modal fade" id="adherenceExportModal" tabindex="-1" aria-labelledby="adherenceExportModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="adherenceExportModalLabel"><i class="fas fa-table me-2"></i>Export Adherence & Compliance</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted small">Choose filters to export adherence and compliance with a Google Sheets-ready header. Defaults follow the dashboard filters so you can export what you see.</p>
+        <div class="row g-3 mb-3">
+          <div class="col-md-6">
+            <label class="form-label fw-bold">Start Date</label>
+            <input type="date" class="form-control" id="adherenceExportStart" />
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-bold">End Date</label>
+            <input type="date" class="form-control" id="adherenceExportEnd" />
+          </div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-bold">User Scope</label>
+          <div class="d-flex gap-3 flex-wrap align-items-center">
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="adherenceExportUserMode" id="adherenceExportAll" value="all" checked>
+              <label class="form-check-label" for="adherenceExportAll">All Users</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="adherenceExportUserMode" id="adherenceExportSingle" value="single">
+              <label class="form-check-label" for="adherenceExportSingle">Single User</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="adherenceExportUserMode" id="adherenceExportMultiple" value="multiple">
+              <label class="form-check-label" for="adherenceExportMultiple">Selected Users</label>
+            </div>
+          </div>
+          <div class="mt-2 d-flex gap-2 flex-wrap">
+            <select class="form-select" id="adherenceExportSingleSelect" style="min-width: 220px;" disabled></select>
+            <select class="form-select" id="adherenceExportMultiSelect" style="min-width: 260px;" multiple disabled></select>
+          </div>
+        </div>
+        <div class="alert alert-info small mb-0"><i class="fas fa-info-circle me-2"></i>Exports include Capped Billable Hours, Break Credit Hours, Lunch Adjustment Hours, Adjusted Billable Hours, Compliance %, Status, and adherence % rollups.</div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <div class="btn-group">
+          <button type="button" class="btn btn-primary" id="adherenceExportSheets"><i class="fas fa-file-excel me-2"></i>Google Sheets</button>
+          <button type="button" class="btn btn-outline-primary" id="adherenceExportCsv"><i class="fas fa-file-csv me-2"></i>CSV</button>
+        </div>
       </div>
     </div>
   </div>
@@ -2301,6 +2358,7 @@
       this.initializeControls();
       this.initializeLoginLogoutEditor();
       this.setupAttendanceSummaryFilters();
+      this.setupAdherenceExportModal();
 
       if (window.INITIAL_ATTENDANCE_DATA && Object.keys(window.INITIAL_ATTENDANCE_DATA).length) {
         try {
@@ -2711,6 +2769,121 @@
           this.openLoginLogoutEditor(user, dateKey);
         });
       });
+    }
+
+    setupAdherenceExportModal() {
+      const modalEl = document.getElementById('adherenceExportModal');
+      if (!modalEl || typeof bootstrap === 'undefined') return;
+
+      this.adherenceExportFilters = { ...this.summaryFilters };
+      const modal = new bootstrap.Modal(modalEl);
+
+      const startInput = document.getElementById('adherenceExportStart');
+      const endInput = document.getElementById('adherenceExportEnd');
+      const singleSelect = document.getElementById('adherenceExportSingleSelect');
+      const multiSelect = document.getElementById('adherenceExportMultiSelect');
+      const modeRadios = document.querySelectorAll('input[name="adherenceExportUserMode"]');
+
+      const hydrateUserSelects = () => {
+        const users = Array.isArray(window.INITIAL_USER_LIST) ? window.INITIAL_USER_LIST : [];
+        if (singleSelect) {
+          singleSelect.innerHTML = '<option value="">Select a user</option>';
+          users.forEach((name) => {
+            const opt = document.createElement('option');
+            opt.value = name;
+            opt.textContent = name;
+            singleSelect.appendChild(opt);
+          });
+        }
+        if (multiSelect) {
+          multiSelect.innerHTML = '';
+          users.forEach((name) => {
+            const opt = document.createElement('option');
+            opt.value = name;
+            opt.textContent = name;
+            multiSelect.appendChild(opt);
+          });
+        }
+      };
+
+      const syncFromFilters = () => {
+        const filters = this.adherenceExportFilters || this.summaryFilters;
+        if (startInput) startInput.value = filters.dateFrom || this.summaryFilters.dateFrom || '';
+        if (endInput) endInput.value = filters.dateTo || this.summaryFilters.dateTo || '';
+
+        const mode = filters.userMode || 'all';
+        modeRadios.forEach((radio) => {
+          radio.checked = radio.value === mode;
+        });
+
+        const enableSingle = mode === 'single';
+        const enableMulti = mode === 'multiple';
+        if (singleSelect) singleSelect.disabled = !enableSingle;
+        if (multiSelect) multiSelect.disabled = !enableMulti;
+
+        if (enableSingle && singleSelect) {
+          singleSelect.value = filters.selectedUsers?.[0] || '';
+        }
+        if (enableMulti && multiSelect) {
+          Array.from(multiSelect.options).forEach((opt) => {
+            opt.selected = Array.isArray(filters.selectedUsers) && filters.selectedUsers.includes(opt.value);
+          });
+        }
+      };
+
+      const syncFilters = () => {
+        this.adherenceExportFilters = {
+          dateFrom: startInput?.value || this.summaryFilters.dateFrom || '',
+          dateTo: endInput?.value || this.summaryFilters.dateTo || '',
+          userMode: document.querySelector('input[name="adherenceExportUserMode"]:checked')?.value || 'all',
+          selectedUsers: []
+        };
+
+        if (this.adherenceExportFilters.userMode === 'single' && singleSelect && singleSelect.value) {
+          this.adherenceExportFilters.selectedUsers = [singleSelect.value];
+        }
+        if (this.adherenceExportFilters.userMode === 'multiple' && multiSelect) {
+          this.adherenceExportFilters.selectedUsers = Array.from(multiSelect.selectedOptions).map((opt) => opt.value);
+        }
+      };
+
+      if (startInput) startInput.addEventListener('change', syncFilters);
+      if (endInput) endInput.addEventListener('change', syncFilters);
+      modeRadios.forEach((radio) => {
+        radio.addEventListener('change', () => {
+          syncFilters();
+          syncFromFilters();
+        });
+      });
+      if (singleSelect) singleSelect.addEventListener('change', syncFilters);
+      if (multiSelect) multiSelect.addEventListener('change', syncFilters);
+
+      const openButtons = document.querySelectorAll('[data-open-adherence-export]');
+      openButtons.forEach((btn) => {
+        btn.addEventListener('click', () => {
+          hydrateUserSelects();
+          this.adherenceExportFilters = { ...this.summaryFilters };
+          syncFromFilters();
+          modal.show();
+        });
+      });
+
+      const exportSheetsBtn = document.getElementById('adherenceExportSheets');
+      const exportCsvBtn = document.getElementById('adherenceExportCsv');
+
+      if (exportSheetsBtn) {
+        exportSheetsBtn.addEventListener('click', () => {
+          syncFilters();
+          this.exportAdherenceCompliance('sheet', this.adherenceExportFilters);
+        });
+      }
+
+      if (exportCsvBtn) {
+        exportCsvBtn.addEventListener('click', () => {
+          syncFilters();
+          this.exportAdherenceCompliance('csv', this.adherenceExportFilters);
+        });
+      }
     }
 
     openLoginLogoutEditor(user, dateKey) {
@@ -4448,9 +4621,10 @@
       this.exportViolationsWorkbook(rows, overallAdherence);
     }
 
-    getFilteredComplianceData() {
+    getFilteredComplianceData(customFilters = null) {
+      const filters = customFilters || this.summaryFilters;
       let compliance = Array.isArray(this.currentData?.userCompliance) ? [...this.currentData.userCompliance] : [];
-      const { userMode, selectedUsers, dateFrom, dateTo } = this.summaryFilters;
+      const { userMode, selectedUsers, dateFrom, dateTo } = filters;
 
       if (userMode === 'single' && selectedUsers.length === 1) {
         compliance = compliance.filter(u => u.user === selectedUsers[0]);
@@ -4511,6 +4685,163 @@
       }
 
       return compliance;
+    }
+
+    async exportAdherenceCompliance(format = 'sheet', filters = null) {
+      if (!this.currentData || !Array.isArray(this.currentData.userCompliance) || this.currentData.userCompliance.length === 0) {
+        this.showToast('No attendance data available to export.', 'warning');
+        return;
+      }
+
+      const effectiveFilters = filters || this.summaryFilters;
+      const filteredCompliance = this.getFilteredComplianceData(effectiveFilters);
+      if (!filteredCompliance.length) {
+        this.showToast('No records match the selected adherence filters.', 'warning');
+        return;
+      }
+
+      const rows = filteredCompliance.map((entry) => {
+        const complianceScore = this.calculateComplianceScore(entry);
+        return {
+          employee: entry?.user || 'Unknown',
+          cappedBillable: convertSecondsToDecimalHours(entry?.baseBillableSecs || 0),
+          breakCredit: convertSecondsToDecimalHours(entry?.breakCreditSecs || 0),
+          lunchAdjustment: convertSecondsToDecimalHours(entry?.lunchAdjustmentSecs || 0),
+          adjustedBillable: convertSecondsToDecimalHours(entry?.adjustedBillableSecs || 0),
+          compliancePercent: complianceScore,
+          status: this.getComplianceStatusLabel(complianceScore)
+        };
+      });
+
+      const overallCompliance = rows.length
+        ? Math.round(rows.reduce((sum, row) => sum + (Number(row.compliancePercent) || 0), 0) / rows.length)
+        : 0;
+
+      const header = [
+        'Employee',
+        'Capped Billable Hours',
+        'Break Credit Hours',
+        'Lunch Adjustment Hours',
+        'Adjusted Billable Hours',
+        'Compliance %',
+        'Status'
+      ];
+
+      if (format === 'csv') {
+        const escapeCsv = (value) => {
+          const stringValue = value === undefined || value === null ? '' : String(value);
+          if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
+            return '"' + stringValue.replace(/"/g, '""') + '"';
+          }
+          return stringValue;
+        };
+
+        const csvLines = [header.join(',')];
+        rows.forEach((row) => {
+          csvLines.push([
+            escapeCsv(row.employee),
+            escapeCsv(row.cappedBillable.toFixed(2)),
+            escapeCsv(row.breakCredit.toFixed(2)),
+            escapeCsv(row.lunchAdjustment.toFixed(2)),
+            escapeCsv(row.adjustedBillable.toFixed(2)),
+            escapeCsv(row.compliancePercent),
+            escapeCsv(row.status)
+          ].join(','));
+        });
+        csvLines.push('');
+        csvLines.push(`Overall Compliance,${overallCompliance}%`);
+
+        const blob = new Blob([csvLines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `adherence-compliance-${new Date().toISOString().slice(0, 10)}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+
+        this.showToast('Adherence & compliance exported as CSV.', 'success');
+        return;
+      }
+
+      await this.exportAdherenceWorkbook(rows, overallCompliance);
+    }
+
+    async exportAdherenceWorkbook(rows, overallCompliance) {
+      const XLSX = await this.ensureXlsxLib();
+      if (!XLSX) {
+        this.exportAdherenceCompliance('csv');
+        return;
+      }
+
+      const header = [
+        'Employee',
+        'Capped Billable Hours',
+        'Break Credit Hours',
+        'Lunch Adjustment Hours',
+        'Adjusted Billable Hours',
+        'Compliance %',
+        'Status'
+      ];
+
+      const data = [header, ...rows.map((row) => [
+        row.employee,
+        Number(row.cappedBillable.toFixed(2)),
+        Number(row.breakCredit.toFixed(2)),
+        Number(row.lunchAdjustment.toFixed(2)),
+        Number(row.adjustedBillable.toFixed(2)),
+        row.compliancePercent,
+        row.status
+      ])];
+
+      data.push([]);
+      data.push(['Overall Compliance', `${overallCompliance}%`]);
+
+      const worksheet = XLSX.utils.aoa_to_sheet(data);
+      worksheet['!freeze'] = { xSplit: 0, ySplit: 1, topLeftCell: 'A2', activePane: 'bottomLeft', state: 'frozen' };
+      worksheet['!cols'] = [
+        { wch: 24 }, { wch: 20 }, { wch: 20 }, { wch: 22 }, { wch: 22 }, { wch: 14 }, { wch: 14 }
+      ];
+
+      const headerStyle = {
+        font: { bold: true, color: { rgb: 'FFFFFFFF' } },
+        fill: { fgColor: { rgb: 'FF0F172A' } },
+        alignment: { horizontal: 'center', vertical: 'center' },
+        border: {
+          top: { style: 'thin', color: { rgb: 'FFCBD5E1' } },
+          bottom: { style: 'thin', color: { rgb: 'FFCBD5E1' } }
+        }
+      };
+
+      header.forEach((_, idx) => {
+        const cellRef = XLSX.utils.encode_cell({ c: idx, r: 0 });
+        if (!worksheet[cellRef]) return;
+        worksheet[cellRef].s = headerStyle;
+      });
+
+      const summaryCell = XLSX.utils.encode_cell({ c: 1, r: data.length - 1 });
+      if (worksheet[summaryCell]) {
+        worksheet[summaryCell].s = {
+          font: { bold: true, color: { rgb: 'FF0F172A' } },
+          alignment: { horizontal: 'left' }
+        };
+      }
+
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Adherence Compliance');
+
+      const arrayBuffer = XLSX.write(workbook, { type: 'array', bookType: 'xlsx', cellStyles: true });
+      const blob = new Blob([arrayBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      this.downloadFile(blob, `adherence-compliance-${new Date().toISOString().slice(0, 10)}.xlsx`, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      this.showToast('Google Sheets-ready adherence & compliance workbook generated.', 'success');
+    }
+
+    getComplianceStatusLabel(score) {
+      if (score >= 90) return 'Excellent';
+      if (score >= 80) return 'Good';
+      if (score >= 60) return 'Needs Attention';
+      return 'Critical';
     }
 
     async ensureXlsxLib() {
