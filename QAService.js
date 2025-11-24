@@ -1207,6 +1207,17 @@ function ensureRootFolder_() {
   }
 }
 
+function normalizeExportSettings_(settings) {
+  const safe = settings || {};
+  return {
+    includePerformance: safe.includePerformance !== false,
+    includeRanking: safe.includeRanking !== false,
+    includeLinks: safe.includeLinks !== false,
+    includeContext: safe.includeContext !== false,
+    period: typeof safe.period === 'string' ? safe.period : ''
+  };
+}
+
 function getQaSheet_() {
   const ss = typeof getIBTRSpreadsheet === 'function' ? getIBTRSpreadsheet() : SpreadsheetApp.getActive();
   const sheetName = (typeof QA_RECORDS !== 'undefined' && QA_RECORDS) ? QA_RECORDS : 'QA Records';
@@ -1681,6 +1692,42 @@ function clientGetQADashboardSnapshot(request = {}) {
       success: false,
       error: error && error.message ? error.message : 'Unable to build QA dashboard snapshot.'
     };
+  }
+}
+
+function clientExportAgentMatrix(request = {}) {
+  try {
+    const settings = normalizeExportSettings_(request.settings);
+    const targetPeriod = request.period
+      || (settings.period && settings.period !== 'latest' ? settings.period : '');
+
+    const normalization = normalizeIntelligenceRequest_({
+      granularity: request.granularity || (request.context && request.context.granularity),
+      period: targetPeriod,
+      agent: request.agent || (request.context && request.context.filters ? request.context.filters.agent : ''),
+      campaignId: request.campaignId || (request.context && request.context.filters ? request.context.filters.campaignId : ''),
+      program: request.program || (request.context && request.context.filters ? request.context.filters.program : ''),
+      depth: request.depth || (request.context && request.context.depth)
+    }, getAllQA()) || {};
+
+    const context = normalization.context || {};
+    const records = normalization.records || [];
+    const displayLookup = buildAgentDisplayLookup_(records);
+    const filteredForMatrix = filterRecordsForIntelligence_(records, { ...context, period: '' });
+    const matrix = buildAgentGranularityMatrix_(context, filteredForMatrix, { displayLookup });
+
+    const exportResult = writeAgentMatrixToSheet_(matrix, settings, context);
+
+    return {
+      success: true,
+      fileId: exportResult.id,
+      url: exportResult.url,
+      name: exportResult.name
+    };
+  } catch (error) {
+    console.error('clientExportAgentMatrix failed:', error);
+    writeError('clientExportAgentMatrix', error);
+    return { success: false, error: error && error.message ? error.message : 'Unable to export agent matrix.' };
   }
 }
 
@@ -2515,6 +2562,56 @@ function calculateAgentProfiles_(records, options = {}) {
   return { totalEvaluations, profiles };
 }
 
+function resolveCallLinkFromRecord_(record) {
+  const raw = record && record.raw ? record.raw : {};
+  const link = getRecordFieldValue_(raw, [
+    'callLink', 'Call Link', 'Call Recording Url', 'Call Recording URL',
+    'callRecordingUrl', 'recordingLink', 'callUrl', 'Call Url',
+    'AudioUrl', 'Audio Url', 'Audio URL', 'Recording URL'
+  ]);
+  return link ? String(link).trim() : '';
+}
+
+function resolvePdfLinkFromRecord_(record) {
+  const raw = record && record.raw ? record.raw : {};
+  const pdf = getRecordFieldValue_(raw, [
+    'qaPdfUrl', 'QA PDF URL', 'qaPdfLink', 'PDF Url', 'PDF URL', 'Pdf Link',
+    'QA PDF', 'QA Pdf', 'pdfLink'
+  ]);
+  return pdf ? String(pdf).trim() : '';
+}
+
+function resolveResultLinkFromRecord_(record) {
+  const raw = record && record.raw ? record.raw : {};
+  const result = getRecordFieldValue_(raw, [
+    'Result Link', 'Result Url', 'QA Url', 'QA Link', 'Review Url',
+    'Submission Link', 'Submission Url'
+  ]);
+  return result ? String(result).trim() : '';
+}
+
+function resolveResultLabelFromRecord_(record) {
+  if (!record) {
+    return '';
+  }
+  const raw = record.raw || {};
+  const explicit = getRecordFieldValue_(raw, ['Result', 'QA Result', 'Outcome', 'Status']);
+  if (explicit !== null && explicit !== undefined && explicit !== '') {
+    const value = String(explicit).trim();
+    if (value) {
+      return value;
+    }
+  }
+
+  if (typeof record.recordScore === 'number') {
+    const score = Math.round(record.recordScore);
+    const descriptor = record.pass ? 'Pass' : 'Needs Improvement';
+    return `${score}% • ${descriptor}`;
+  }
+
+  return record.pass ? 'Pass' : '';
+}
+
 function buildAgentGranularityMatrix_(context, records, options = {}) {
   if (!context) {
     return { granularity: '', periods: [], agents: [] };
@@ -2540,6 +2637,7 @@ function buildAgentGranularityMatrix_(context, records, options = {}) {
     const bucket = filterRecordsForIntelligence_(safeRecords, { ...context, period: cursor });
     const totalEvaluations = bucket.length;
     const aggregates = {};
+    const agentDetails = {};
 
     bucket.forEach(record => {
       if (!record) {
@@ -2553,12 +2651,46 @@ function buildAgentGranularityMatrix_(context, records, options = {}) {
           passCount: 0
         };
       }
+      if (!agentDetails[identifier]) {
+        agentDetails[identifier] = { latest: null, bestScore: -Infinity };
+      }
+
       const stats = aggregates[identifier];
       stats.evaluations += 1;
       stats.scoreSum += Number(record.percentage) || 0;
       if (record.pass) {
         stats.passCount += 1;
       }
+
+      const resolvedScore = typeof record.recordScore === 'number'
+        ? Math.round(record.recordScore)
+        : Math.round((record.percentage || 0) * 100);
+      const links = {
+        callLink: resolveCallLinkFromRecord_(record),
+        pdfLink: resolvePdfLinkFromRecord_(record),
+        resultLink: resolveResultLinkFromRecord_(record)
+      };
+
+      const detail = {
+        callDate: record.callDateIso || '',
+        score: resolvedScore,
+        pass: record.pass,
+        result: resolveResultLabelFromRecord_(record),
+        callLink: links.callLink,
+        pdfLink: links.pdfLink,
+        resultLink: links.resultLink
+      };
+
+      const currentDetail = agentDetails[identifier];
+      if (!currentDetail.latest || (record.callDate && record.callDate > (currentDetail.callDate || new Date(0)))) {
+        currentDetail.latest = detail;
+        currentDetail.callDate = record.callDate || null;
+      }
+      if (resolvedScore > currentDetail.bestScore) {
+        currentDetail.bestScore = resolvedScore;
+        currentDetail.best = detail;
+      }
+
       universe.add(identifier);
     });
 
@@ -2576,8 +2708,28 @@ function buildAgentGranularityMatrix_(context, records, options = {}) {
         avgScore,
         passRate,
         evaluations: evals,
-        evaluationShare
+        evaluationShare,
+        latest: agentDetails[identifier] ? agentDetails[identifier].latest : null,
+        best: agentDetails[identifier] ? agentDetails[identifier].best : null
       };
+    });
+
+    const ranking = Object.keys(metrics)
+      .map(id => ({ id, score: typeof metrics[id].avgScore === 'number' ? metrics[id].avgScore : -Infinity }))
+      .sort((a, b) => b.score - a.score);
+
+    ranking.forEach((entry, index) => {
+      const metric = metrics[entry.id];
+      if (!metric) return;
+      metric.rank = index + 1;
+      metric.placement = index === 0
+        ? 'Champion'
+        : index === 1
+          ? 'Runner-up'
+          : index === 2
+            ? 'Contender'
+            : 'Needs Focus';
+      metric.needsImprovement = typeof metric.avgScore === 'number' ? metric.avgScore < 80 : false;
     });
 
     periods.push({
@@ -2592,6 +2744,19 @@ function buildAgentGranularityMatrix_(context, records, options = {}) {
     steps += 1;
   }
 
+  const ordered = periods.reverse();
+  ordered.forEach((period, idx) => {
+    if (idx === 0) return;
+    const previous = ordered[idx - 1];
+    Object.keys(period.metrics || {}).forEach(agentId => {
+      const metric = period.metrics[agentId];
+      const prevMetric = previous.metrics ? previous.metrics[agentId] : null;
+      if (metric && prevMetric && typeof metric.avgScore === 'number' && typeof prevMetric.avgScore === 'number') {
+        metric.momentum = roundOneDecimal_(metric.avgScore - prevMetric.avgScore);
+      }
+    });
+  });
+
   const agents = Array.from(universe).map(identifier => ({
     id: identifier,
     label: resolveAgentDisplayNameFromLookup_(identifier, displayLookup)
@@ -2603,8 +2768,281 @@ function buildAgentGranularityMatrix_(context, records, options = {}) {
 
   return {
     granularity,
-    periods: periods.reverse(),
+    periods: ordered,
     agents
+  };
+}
+
+function determineExportPeriods_(matrix, settings) {
+  if (!matrix || !Array.isArray(matrix.periods)) {
+    return [];
+  }
+
+  const selected = settings && settings.period ? settings.period : '';
+  if (!selected) {
+    return matrix.periods;
+  }
+
+  if (selected === 'latest') {
+    return matrix.periods.length ? [matrix.periods[matrix.periods.length - 1]] : [];
+  }
+
+  return matrix.periods.filter(period => period && period.period === selected);
+}
+
+function buildAgentMatrixSheetData_(matrix, settings = {}) {
+  if (!matrix || !Array.isArray(matrix.periods) || !matrix.periods.length) {
+    return { rows: [], headerRowIndex: 0, columns: [] };
+  }
+
+  const normalized = normalizeExportSettings_(settings);
+  const includePerformance = normalized.includePerformance;
+  const includeRanking = normalized.includeRanking;
+  const includeLinks = normalized.includeLinks;
+  const includeContext = normalized.includeContext;
+
+  const exportPeriods = determineExportPeriods_(matrix, normalized);
+  if (!exportPeriods.length) {
+    return { rows: [], headerRowIndex: 0, columns: [] };
+  }
+
+  const agentDisplay = {};
+  (matrix.agents || []).forEach(agent => {
+    if (agent && agent.id) {
+      agentDisplay[agent.id] = agent.label || agent.id;
+    }
+  });
+
+  const rows = [];
+  if (includeContext) {
+    rows.push(['Report', 'QA Agent Performance Export']);
+    rows.push(['Granularity', matrix.granularity || '']);
+    rows.push(['Included Periods', exportPeriods.map(p => p && p.label ? p.label : p.period).filter(Boolean).join(' | ')]);
+    rows.push(['Generated At', new Date().toISOString()]);
+    rows.push([]);
+  }
+
+  const columns = [
+    { key: 'granularity', label: 'Granularity' },
+    { key: 'periodKey', label: 'Period Key' },
+    { key: 'periodLabel', label: 'Period Label' },
+    { key: 'agentId', label: 'Agent Identifier' },
+    { key: 'agentName', label: 'Agent Name' }
+  ];
+
+  if (includeRanking) {
+    columns.push(
+      { key: 'rank', label: 'Rank' },
+      { key: 'placement', label: 'Placement Badge' },
+      { key: 'momentum', label: 'Momentum vs Prior (pts)' },
+      { key: 'improvement', label: 'Needs Improvement?' }
+    );
+  }
+
+  if (includePerformance) {
+    columns.push(
+      { key: 'avgScore', label: 'Average Score (%)' },
+      { key: 'passRate', label: 'Pass Rate (%)' },
+      { key: 'evaluations', label: 'Evaluations' },
+      { key: 'evaluationShare', label: 'Evaluation Share (%)' }
+    );
+  }
+
+  if (includeLinks) {
+    columns.push(
+      { key: 'result', label: 'Latest Result' },
+      { key: 'callLink', label: 'Call Link' },
+      { key: 'pdfLink', label: 'QA PDF Link' },
+      { key: 'resultLink', label: 'Result / Playback Link' }
+    );
+  }
+
+  const headerRowIndex = rows.length + 1;
+  rows.push(columns.map(column => column.label));
+
+  const allAgents = new Set(Object.keys(agentDisplay));
+  exportPeriods.forEach(period => {
+    if (period && period.metrics) {
+      Object.keys(period.metrics).forEach(key => allAgents.add(key));
+    }
+  });
+
+  const agentOrder = Array.from(allAgents);
+  agentOrder.sort((a, b) => {
+    const nameA = (agentDisplay[a] || a || '').toString().toLowerCase();
+    const nameB = (agentDisplay[b] || b || '').toString().toLowerCase();
+    return nameA.localeCompare(nameB);
+  });
+
+  exportPeriods.forEach(period => {
+    if (!period) {
+      return;
+    }
+    const metrics = period.metrics || {};
+
+    agentOrder.forEach(agentId => {
+      const detail = metrics[agentId] || {};
+      const avgScore = typeof detail.avgScore === 'number' && !Number.isNaN(detail.avgScore)
+        ? detail.avgScore
+        : '';
+      const passRate = typeof detail.passRate === 'number' && !Number.isNaN(detail.passRate)
+        ? detail.passRate
+        : '';
+      const evaluations = typeof detail.evaluations === 'number' && !Number.isNaN(detail.evaluations)
+        ? detail.evaluations
+        : '';
+      const share = typeof detail.evaluationShare === 'number' && !Number.isNaN(detail.evaluationShare)
+        ? detail.evaluationShare
+        : '';
+
+      const latest = detail.latest || {};
+      const momentum = typeof detail.momentum === 'number' && !Number.isNaN(detail.momentum)
+        ? detail.momentum
+        : '';
+
+      const row = [];
+      columns.forEach(column => {
+        switch (column.key) {
+          case 'granularity':
+            row.push(matrix.granularity || '');
+            break;
+          case 'periodKey':
+            row.push(period.period || '');
+            break;
+          case 'periodLabel':
+            row.push(period.label || '');
+            break;
+          case 'agentId':
+            row.push(agentId || '');
+            break;
+          case 'agentName':
+            row.push(agentDisplay[agentId] || agentId || 'Unassigned');
+            break;
+          case 'rank':
+            row.push(detail.rank || '');
+            break;
+          case 'placement':
+            row.push(detail.placement || '');
+            break;
+          case 'momentum':
+            row.push(momentum);
+            break;
+          case 'improvement':
+            row.push(detail.needsImprovement ? 'Yes' : '');
+            break;
+          case 'avgScore':
+            row.push(avgScore);
+            break;
+          case 'passRate':
+            row.push(passRate);
+            break;
+          case 'evaluations':
+            row.push(evaluations);
+            break;
+          case 'evaluationShare':
+            row.push(share);
+            break;
+          case 'result':
+            row.push(latest.result || '');
+            break;
+          case 'callLink':
+            row.push(latest.callLink || '');
+            break;
+          case 'pdfLink':
+            row.push(latest.pdfLink || '');
+            break;
+          case 'resultLink':
+            row.push(latest.resultLink || '');
+            break;
+          default:
+            row.push('');
+            break;
+        }
+      });
+
+      rows.push(row);
+    });
+  });
+
+  return { rows, headerRowIndex, columns };
+}
+
+function writeAgentMatrixToSheet_(matrix, settings = {}, context = {}) {
+  const sheetData = buildAgentMatrixSheetData_(matrix, settings);
+  if (!sheetData.rows.length) {
+    throw new Error('Agent matrix export has no rows to write.');
+  }
+
+  const columnCount = sheetData.rows.reduce((max, row) => Math.max(max, row.length), 0) || 1;
+  const normalizedRows = sheetData.rows.map(row => {
+    const padded = row.slice();
+    while (padded.length < columnCount) {
+      padded.push('');
+    }
+    return padded;
+  });
+
+  const granularity = matrix.granularity || context.granularity || 'Period';
+  const periodLabel = settings.period || context.period || 'all-periods';
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const filename = `QA Agent Matrix - ${granularity} - ${periodLabel} - ${timestamp}`;
+
+  const ss = SpreadsheetApp.create(filename);
+  const sh = ss.getActiveSheet();
+  sh.clear();
+  sh.getRange(1, 1, normalizedRows.length, columnCount).setValues(normalizedRows);
+
+  if (sheetData.headerRowIndex > 0) {
+    sh.setFrozenRows(sheetData.headerRowIndex);
+    sh.getRange(sheetData.headerRowIndex, 1, 1, columnCount)
+      .setFontWeight('bold')
+      .setBackground('#0d6efd')
+      .setFontColor('#ffffff');
+  }
+
+  const dataStart = sheetData.headerRowIndex ? sheetData.headerRowIndex + 1 : 2;
+  if (normalizedRows.length >= dataStart) {
+    const dataRowCount = normalizedRows.length - dataStart + 1;
+    if (dataRowCount > 0) {
+      sh.getRange(dataStart, 1, dataRowCount, columnCount)
+        .applyRowBanding(SpreadsheetApp.BandingTheme.TEAL, true, false);
+    }
+  }
+
+  const numberColumns = sheetData.columns
+    .map((col, idx) => ({ idx: idx + 1, key: col.key }))
+    .filter(col => ['avgScore', 'passRate', 'evaluationShare', 'momentum'].includes(col.key));
+
+  const numericRowCount = normalizedRows.length - sheetData.headerRowIndex;
+  if (sheetData.headerRowIndex > 0 && numericRowCount > 0) {
+    numberColumns.forEach(col => {
+      const format = col.key === 'momentum' ? '0.0' : '0.0';
+      sh.getRange(sheetData.headerRowIndex + 1, col.idx, numericRowCount, 1)
+        .setNumberFormat(format);
+    });
+  }
+
+  sh.autoResizeColumns(1, columnCount);
+
+  const file = DriveApp.getFileById(ss.getId());
+  const folder = ensureRootFolder_();
+  if (folder) {
+    folder.addFile(file);
+    const parents = file.getParents();
+    while (parents.hasNext()) {
+      const parent = parents.next();
+      if (parent.getId() !== folder.getId()) {
+        parent.removeFile(file);
+      }
+    }
+  }
+
+  ensurePublicSharing_(file);
+
+  return {
+    id: ss.getId(),
+    url: ss.getUrl(),
+    name: filename
   };
 }
 
