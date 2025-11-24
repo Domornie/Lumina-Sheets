@@ -226,6 +226,29 @@
     }
   }
 
+  .qa-export-card {
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    border-radius: var(--qa-radius-md);
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(241, 245, 249, 0.9));
+  }
+
+  .qa-export-card .form-check-input {
+    cursor: pointer;
+  }
+
+  .qa-export-card .form-check-label {
+    cursor: pointer;
+  }
+
+  .qa-export-preview {
+    border-style: dashed;
+    background: rgba(56, 189, 248, 0.08);
+  }
+
+  .qa-export-hint {
+    line-height: 1.45;
+  }
+
   .qa-summary-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -1152,6 +1175,82 @@
     <p class="mb-0">Adjust your filters or capture new QA reviews to populate this dashboard.</p>
   </div>
 
+  <div class="modal fade" id="qaExportModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <div>
+            <div class="qa-page-header__eyebrow text-uppercase small text-primary fw-semibold">Matrix Export</div>
+            <h5 class="modal-title">Curate and Export QA Performance</h5>
+            <div class="text-muted small">Choose the cadence, filters, and embellishments to build a browsable, formatted export.</div>
+          </div>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Timeframe</label>
+              <div class="qa-export-card p-3">
+                <div class="d-flex align-items-center mb-2">
+                  <i class="fa-solid fa-calendar-week text-primary me-2"></i>
+                  <div>
+                    <div class="small text-muted mb-1">Granularity</div>
+                    <div class="fw-semibold" id="qa-export-granularity-label">Week</div>
+                  </div>
+                </div>
+                <label class="form-label small text-muted mb-1" for="qa-export-period">Period Selection</label>
+                <select id="qa-export-period" class="form-select">
+                  <option value="">All available periods</option>
+                </select>
+                <div class="qa-export-hint small text-muted mt-2" id="qa-export-period-hint">Latest cadence will be applied. Use the filters above to change cadence.</div>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Include</label>
+              <div class="qa-export-card p-3">
+                <div class="form-check mb-2">
+                  <input class="form-check-input" type="checkbox" id="qa-export-performance" checked>
+                  <label class="form-check-label" for="qa-export-performance">Performance metrics (scores, pass rate, evaluation share)</label>
+                </div>
+                <div class="form-check mb-2">
+                  <input class="form-check-input" type="checkbox" id="qa-export-ranking" checked>
+                  <label class="form-check-label" for="qa-export-ranking">Ranking system with momentum and improvement badges</label>
+                </div>
+                <div class="form-check mb-2">
+                  <input class="form-check-input" type="checkbox" id="qa-export-links" checked>
+                  <label class="form-check-label" for="qa-export-links">Latest results, call links, and QA PDF links</label>
+                </div>
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" id="qa-export-context" checked>
+                  <label class="form-check-label" for="qa-export-context">Context rows (generated at, cadence, agent count)</label>
+                </div>
+              </div>
+            </div>
+            <div class="col-12">
+              <div class="qa-export-card qa-export-preview p-3">
+                <div class="d-flex align-items-start gap-3">
+                  <i class="fa-solid fa-wand-magic-sparkles text-info"></i>
+                  <div>
+                    <div class="fw-semibold">Stylized export</div>
+                    <div class="small text-muted">Header row stays frozen, leader rows are color tagged, and links are preserved for quick QA call-backs.</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <div class="small text-muted me-auto" id="qa-export-summary">Ready to export.</div>
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-primary" id="qa-export-confirm">
+            <i class="fa-solid fa-file-export me-1"></i>
+            Export Matrix
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="qa-spotlight-grid mt-4" id="qa-spotlight-grid">
     <div class="qa-spotlight-grid__item">
       <div class="card qa-health-card h-100">
@@ -1574,7 +1673,8 @@
       },
       modals: {
         insights: null,
-        actions: null
+        actions: null,
+        export: null
       }
     };
 
@@ -1584,6 +1684,16 @@
       agent: document.getElementById('qa-agent'),
       refresh: document.getElementById('qa-refresh'),
       exportMatrix: document.getElementById('qa-export-matrix'),
+      exportModal: document.getElementById('qaExportModal'),
+      exportGranularityLabel: document.getElementById('qa-export-granularity-label'),
+      exportPeriod: document.getElementById('qa-export-period'),
+      exportPerformance: document.getElementById('qa-export-performance'),
+      exportRanking: document.getElementById('qa-export-ranking'),
+      exportLinks: document.getElementById('qa-export-links'),
+      exportContext: document.getElementById('qa-export-context'),
+      exportSummary: document.getElementById('qa-export-summary'),
+      exportConfirm: document.getElementById('qa-export-confirm'),
+      exportPeriodHint: document.getElementById('qa-export-period-hint'),
       summaryCards: dashboardEl.querySelectorAll('[data-metric]'),
       error: document.getElementById('qa-dashboard-error'),
       empty: document.getElementById('qa-empty-state'),
@@ -1801,8 +1911,35 @@
       return stringValue;
     }
 
-    function buildAgentMatrixCsv(matrix) {
+    function determineExportPeriods(matrix, settings) {
+      if (!matrix || !Array.isArray(matrix.periods)) {
+        return [];
+      }
+
+      const selected = settings && settings.period ? settings.period : '';
+      if (!selected) {
+        return matrix.periods;
+      }
+
+      if (selected === 'latest') {
+        return matrix.periods.length ? [matrix.periods[matrix.periods.length - 1]] : [];
+      }
+
+      return matrix.periods.filter(period => period && period.period === selected);
+    }
+
+    function buildAgentMatrixCsv(matrix, settings = {}) {
       if (!matrix || !Array.isArray(matrix.periods) || !matrix.periods.length) {
+        return '';
+      }
+
+      const includePerformance = settings.includePerformance !== false;
+      const includeRanking = settings.includeRanking !== false;
+      const includeLinks = settings.includeLinks !== false;
+      const includeContext = settings.includeContext !== false;
+
+      const exportPeriods = determineExportPeriods(matrix, settings);
+      if (!exportPeriods.length) {
         return '';
       }
 
@@ -1813,20 +1950,54 @@
         }
       });
 
-      const rows = [[
-        'Granularity',
-        'Period Key',
-        'Period Label',
-        'Agent Identifier',
-        'Agent Name',
-        'Average Score (%)',
-        'Pass Rate (%)',
-        'Evaluations',
-        'Evaluation Share (%)'
-      ]];
+      const rows = [];
+      if (includeContext) {
+        rows.push(['Report', 'QA Agent Performance Export']);
+        rows.push(['Granularity', matrix.granularity || '']);
+        rows.push(['Included Periods', exportPeriods.map(p => p && p.label ? p.label : p.period).filter(Boolean).join(' | ')]);
+        rows.push(['Generated At', new Date().toISOString()]);
+        rows.push([]);
+      }
+
+      const columns = [
+        { key: 'granularity', label: 'Granularity' },
+        { key: 'periodKey', label: 'Period Key' },
+        { key: 'periodLabel', label: 'Period Label' },
+        { key: 'agentId', label: 'Agent Identifier' },
+        { key: 'agentName', label: 'Agent Name' }
+      ];
+
+      if (includeRanking) {
+        columns.push(
+          { key: 'rank', label: 'Rank' },
+          { key: 'placement', label: 'Placement Badge' },
+          { key: 'momentum', label: 'Momentum vs Prior (pts)' },
+          { key: 'improvement', label: 'Needs Improvement?' }
+        );
+      }
+
+      if (includePerformance) {
+        columns.push(
+          { key: 'avgScore', label: 'Average Score (%)' },
+          { key: 'passRate', label: 'Pass Rate (%)' },
+          { key: 'evaluations', label: 'Evaluations' },
+          { key: 'evaluationShare', label: 'Evaluation Share (%)' }
+        );
+      }
+
+      if (includeLinks) {
+        columns.push(
+          { key: 'result', label: 'Latest Result' },
+          { key: 'callLink', label: 'Call Link' },
+          { key: 'pdfLink', label: 'QA PDF Link' },
+          { key: 'resultLink', label: 'Result / Playback Link' }
+        );
+      }
+
+      rows.push(columns.map(column => column.label));
 
       const allAgents = new Set(Object.keys(agentDisplay));
-      matrix.periods.forEach(period => {
+      exportPeriods.forEach(period => {
         if (period && period.metrics) {
           Object.keys(period.metrics).forEach(key => allAgents.add(key));
         }
@@ -1839,7 +2010,7 @@
         return nameA.localeCompare(nameB);
       });
 
-      matrix.periods.forEach(period => {
+      exportPeriods.forEach(period => {
         if (!period) {
           return;
         }
@@ -1860,17 +2031,72 @@
             ? detail.evaluationShare
             : '';
 
-          rows.push([
-            matrix.granularity || '',
-            period.period || '',
-            period.label || '',
-            agentId || '',
-            agentDisplay[agentId] || agentId || 'Unassigned',
-            avgScore,
-            passRate,
-            evaluations,
-            share
-          ]);
+          const latest = detail.latest || {};
+          const momentum = typeof detail.momentum === 'number' && !Number.isNaN(detail.momentum)
+            ? detail.momentum
+            : '';
+
+          const row = [];
+          columns.forEach(column => {
+            switch (column.key) {
+              case 'granularity':
+                row.push(matrix.granularity || '');
+                break;
+              case 'periodKey':
+                row.push(period.period || '');
+                break;
+              case 'periodLabel':
+                row.push(period.label || '');
+                break;
+              case 'agentId':
+                row.push(agentId || '');
+                break;
+              case 'agentName':
+                row.push(agentDisplay[agentId] || agentId || 'Unassigned');
+                break;
+              case 'rank':
+                row.push(detail.rank || '');
+                break;
+              case 'placement':
+                row.push(detail.placement || '');
+                break;
+              case 'momentum':
+                row.push(momentum);
+                break;
+              case 'improvement':
+                row.push(detail.needsImprovement ? 'Yes' : '');
+                break;
+              case 'avgScore':
+                row.push(avgScore);
+                break;
+              case 'passRate':
+                row.push(passRate);
+                break;
+              case 'evaluations':
+                row.push(evaluations);
+                break;
+              case 'evaluationShare':
+                row.push(share);
+                break;
+              case 'result':
+                row.push(latest.result || '');
+                break;
+              case 'callLink':
+                row.push(latest.callLink || '');
+                break;
+              case 'pdfLink':
+                row.push(latest.pdfLink || '');
+                break;
+              case 'resultLink':
+                row.push(latest.resultLink || '');
+                break;
+              default:
+                row.push('');
+                break;
+            }
+          });
+
+          rows.push(row);
         });
       });
 
@@ -1910,22 +2136,25 @@
       setTimeout(() => window.URL.revokeObjectURL(link.href), 0);
     }
 
-    function exportAgentMatrix() {
+    function exportAgentMatrix(settings = null) {
       const matrix = state && state.data ? state.data.agentMatrix : null;
       if (!matrix || !Array.isArray(matrix.periods) || !matrix.periods.length) {
         console.warn('Agent matrix export requested but no data available.');
         return;
       }
 
-      const csv = buildAgentMatrixCsv(matrix);
+      const csv = buildAgentMatrixCsv(matrix, settings || {});
       if (!csv) {
         console.warn('Agent matrix export is empty.');
         return;
       }
 
       const granularity = matrix.granularity || state.filters.granularity || 'period';
+      const periodLabel = settings && settings.period
+        ? settings.period
+        : 'all-periods';
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      const filename = `qa-agent-matrix-${granularity.toLowerCase()}-${timestamp}.csv`;
+      const filename = `qa-agent-matrix-${granularity.toLowerCase()}-${periodLabel}-${timestamp}.csv`;
       triggerCsvDownload(csv, filename);
     }
 
@@ -1948,6 +2177,62 @@
       dom.exportMatrix.title = hasRows
         ? 'Download agent performance by period as CSV.'
         : 'Agent matrix export available once data loads.';
+
+      hydrateExportModal(matrix);
+    }
+
+    function hydrateExportModal(matrix) {
+      if (!dom.exportGranularityLabel) {
+        return;
+      }
+
+      const granularity = (matrix && matrix.granularity) || state.filters.granularity || 'Week';
+      dom.exportGranularityLabel.textContent = granularity;
+
+      const periods = matrix && Array.isArray(matrix.periods) ? matrix.periods : [];
+      if (dom.exportPeriod) {
+        dom.exportPeriod.innerHTML = '<option value="">All available periods</option>';
+        periods.forEach(period => {
+          if (!period) return;
+          const option = document.createElement('option');
+          option.value = period.period || '';
+          option.textContent = period.label || period.period || 'Unnamed period';
+          dom.exportPeriod.appendChild(option);
+        });
+      }
+
+      if (dom.exportSummary) {
+        dom.exportSummary.textContent = periods.length
+          ? `${periods.length} period${periods.length === 1 ? '' : 's'} ready for export.`
+          : 'Waiting for QA data to enable export.';
+      }
+
+      if (dom.exportPeriodHint) {
+        dom.exportPeriodHint.textContent = 'Use the dashboard filters to change cadence. You can also target a single period here.';
+      }
+    }
+
+    function getExportSettings() {
+      return {
+        includePerformance: dom.exportPerformance ? dom.exportPerformance.checked : true,
+        includeRanking: dom.exportRanking ? dom.exportRanking.checked : true,
+        includeLinks: dom.exportLinks ? dom.exportLinks.checked : true,
+        includeContext: dom.exportContext ? dom.exportContext.checked : true,
+        period: dom.exportPeriod ? dom.exportPeriod.value : ''
+      };
+    }
+
+    function openExportModal() {
+      if (typeof bootstrap === 'undefined' || !dom.exportModal) {
+        exportAgentMatrix(getExportSettings());
+        return;
+      }
+
+      if (!state.modals.export) {
+        state.modals.export = new bootstrap.Modal(dom.exportModal);
+      }
+
+      state.modals.export.show();
     }
 
     function updateAiSignal(summary) {
@@ -3877,7 +4162,16 @@
           if (dom.exportMatrix.disabled) {
             return;
           }
-          exportAgentMatrix();
+          openExportModal();
+        });
+      }
+
+      if (dom.exportConfirm) {
+        dom.exportConfirm.addEventListener('click', () => {
+          if (state.modals.export) {
+            state.modals.export.hide();
+          }
+          exportAgentMatrix(getExportSettings());
         });
       }
 
