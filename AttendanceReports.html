@@ -1458,9 +1458,59 @@
   <div class="card">
     <div class="card-header d-flex justify-content-between align-items-center">
       <h5><i class="fas fa-users"></i>Employee Attendance Summary</h5>
-      <button class="btn btn-sm btn-outline-primary" onclick="exportData()">
-        <i class="fas fa-download me-1"></i>Export
-      </button>
+      <div class="d-flex gap-2 align-items-center flex-wrap">
+        <button class="btn btn-sm btn-outline-primary" onclick="exportData()">
+          <i class="fas fa-download me-1"></i>Export
+        </button>
+        <button class="btn btn-sm btn-outline-secondary" data-open-adherence-export>
+          <i class="fas fa-table me-1"></i>Adherence & Compliance Export
+        </button>
+        <div class="btn-group">
+          <button class="btn btn-sm btn-outline-danger" onclick="exportAttendanceViolations('sheet')">
+            <i class="fas fa-file-excel me-1"></i>Export Violations
+          </button>
+          <button type="button" class="btn btn-sm btn-outline-danger dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
+            <span class="visually-hidden">Toggle Dropdown</span>
+          </button>
+          <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="#" onclick="exportAttendanceViolations('sheet')"><i class="fas fa-file-excel me-2"></i>Google Sheets (styled)</a></li>
+            <li><a class="dropdown-item" href="#" onclick="exportAttendanceViolations('csv')"><i class="fas fa-file-csv me-2"></i>CSV</a></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div class="card-body border-top py-3 bg-light">
+      <div class="row g-3 align-items-end">
+        <div class="col-md-3">
+          <label class="form-label fw-bold">Start Date</label>
+          <input type="date" class="form-control" id="attendanceFilterStart" />
+        </div>
+        <div class="col-md-3">
+          <label class="form-label fw-bold">End Date</label>
+          <input type="date" class="form-control" id="attendanceFilterEnd" />
+        </div>
+        <div class="col-md-6">
+          <label class="form-label fw-bold">User Scope</label>
+          <div class="d-flex flex-wrap gap-3 align-items-center">
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="attendanceUserFilter" id="attendanceFilterAll" value="all" checked>
+              <label class="form-check-label" for="attendanceFilterAll">All Users</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="attendanceUserFilter" id="attendanceFilterSingle" value="single">
+              <label class="form-check-label" for="attendanceFilterSingle">Single User</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="attendanceUserFilter" id="attendanceFilterMultiple" value="multiple">
+              <label class="form-check-label" for="attendanceFilterMultiple">Selected Users</label>
+            </div>
+          </div>
+          <div class="mt-2 d-flex gap-2 flex-wrap">
+            <select class="form-select" id="attendanceSingleSelect" style="min-width: 200px;" disabled></select>
+            <select class="form-select" id="attendanceMultiSelect" style="min-width: 240px;" multiple disabled></select>
+          </div>
+        </div>
+      </div>
     </div>
     <div id="attendanceTableContainer" class="card-body">
       <div class="loading-state">
@@ -1749,6 +1799,60 @@
         <button type="button" class="btn btn-success" id="executeExport">
           <i class="fas fa-download me-2"></i>Export Matrix
         </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Adherence & Compliance Export Modal -->
+<div class="modal fade" id="adherenceExportModal" tabindex="-1" aria-labelledby="adherenceExportModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="adherenceExportModalLabel"><i class="fas fa-table me-2"></i>Export Adherence & Compliance</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted small">Choose filters to export adherence and compliance with a Google Sheets-ready header. Defaults follow the dashboard filters so you can export what you see.</p>
+        <div class="row g-3 mb-3">
+          <div class="col-md-6">
+            <label class="form-label fw-bold">Start Date</label>
+            <input type="date" class="form-control" id="adherenceExportStart" />
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-bold">End Date</label>
+            <input type="date" class="form-control" id="adherenceExportEnd" />
+          </div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-bold">User Scope</label>
+          <div class="d-flex gap-3 flex-wrap align-items-center">
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="adherenceExportUserMode" id="adherenceExportAll" value="all" checked>
+              <label class="form-check-label" for="adherenceExportAll">All Users</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="adherenceExportUserMode" id="adherenceExportSingle" value="single">
+              <label class="form-check-label" for="adherenceExportSingle">Single User</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="adherenceExportUserMode" id="adherenceExportMultiple" value="multiple">
+              <label class="form-check-label" for="adherenceExportMultiple">Selected Users</label>
+            </div>
+          </div>
+          <div class="mt-2 d-flex gap-2 flex-wrap">
+            <select class="form-select" id="adherenceExportSingleSelect" style="min-width: 220px;" disabled></select>
+            <select class="form-select" id="adherenceExportMultiSelect" style="min-width: 260px;" multiple disabled></select>
+          </div>
+        </div>
+        <div class="alert alert-info small mb-0"><i class="fas fa-info-circle me-2"></i>Exports include Capped Billable Hours, Break Credit Hours, Lunch Adjustment Hours, Adjusted Billable Hours, Compliance %, Status, and adherence % rollups.</div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <div class="btn-group">
+          <button type="button" class="btn btn-primary" id="adherenceExportSheets"><i class="fas fa-file-excel me-2"></i>Google Sheets</button>
+          <button type="button" class="btn btn-outline-primary" id="adherenceExportCsv"><i class="fas fa-file-csv me-2"></i>CSV</button>
+        </div>
       </div>
     </div>
   </div>
@@ -2233,6 +2337,15 @@
       this.originalUserComplianceMap = new Map();
       this.suppressRenderToast = false;
 
+      this.summaryFilters = {
+        dateFrom: '',
+        dateTo: '',
+        userMode: 'all',
+        selectedUsers: []
+      };
+
+      this.xlsxLib = null;
+
       this.loadDataDebounced = debounce(() => this.loadData(), 250);
       this._reqSeq = 0;
 
@@ -2244,6 +2357,8 @@
       this.setupEventListeners();
       this.initializeControls();
       this.initializeLoginLogoutEditor();
+      this.setupAttendanceSummaryFilters();
+      this.setupAdherenceExportModal();
 
       if (window.INITIAL_ATTENDANCE_DATA && Object.keys(window.INITIAL_ATTENDANCE_DATA).length) {
         try {
@@ -2254,6 +2369,7 @@
           this.resetManualAdjustmentsIfContextChanged();
           this.applyManualSecondsAdjustmentsToCurrentData();
           this.renderDashboard();
+          this.refreshAttendanceFilterOptions();
         } catch (bootstrapError) {
           console.warn('Unable to bootstrap dashboard from initial data:', bootstrapError);
         }
@@ -2337,6 +2453,75 @@
       this.loadUserList();
       this.updateViewMode();
       this.syncHourPolicyControls();
+
+      const periodInfo = window.INITIAL_ATTENDANCE_DATA?.periodInfo || {};
+      const startInput = document.getElementById('attendanceFilterStart');
+      const endInput = document.getElementById('attendanceFilterEnd');
+      if (startInput && periodInfo.startDate) startInput.value = periodInfo.startDate;
+      if (endInput && periodInfo.endDate) endInput.value = periodInfo.endDate;
+      if (startInput && startInput.value) this.summaryFilters.dateFrom = startInput.value;
+      if (endInput && endInput.value) this.summaryFilters.dateTo = endInput.value;
+    }
+
+    setupAttendanceSummaryFilters() {
+      const startInput = document.getElementById('attendanceFilterStart');
+      const endInput = document.getElementById('attendanceFilterEnd');
+      if (startInput) {
+        startInput.addEventListener('change', (e) => {
+          this.summaryFilters.dateFrom = e.target.value || '';
+          this.renderAttendanceTable();
+        });
+      }
+      if (endInput) {
+        endInput.addEventListener('change', (e) => {
+          this.summaryFilters.dateTo = e.target.value || '';
+          this.renderAttendanceTable();
+        });
+      }
+
+      const userRadios = document.querySelectorAll('input[name="attendanceUserFilter"]');
+      userRadios.forEach((radio) => {
+        radio.addEventListener('change', (e) => {
+          this.summaryFilters.userMode = e.target.value;
+          this.syncAttendanceUserControls();
+          this.renderAttendanceTable();
+        });
+      });
+
+      const singleSelect = document.getElementById('attendanceSingleSelect');
+      const multiSelect = document.getElementById('attendanceMultiSelect');
+
+      if (singleSelect) {
+        singleSelect.addEventListener('change', (e) => {
+          this.summaryFilters.selectedUsers = e.target.value ? [e.target.value] : [];
+          this.renderAttendanceTable();
+        });
+      }
+
+      if (multiSelect) {
+        multiSelect.addEventListener('change', () => {
+          const values = Array.from(multiSelect.selectedOptions).map(opt => opt.value);
+          this.summaryFilters.selectedUsers = values;
+          this.renderAttendanceTable();
+        });
+      }
+    }
+
+    syncAttendanceUserControls() {
+      const singleSelect = document.getElementById('attendanceSingleSelect');
+      const multiSelect = document.getElementById('attendanceMultiSelect');
+      const mode = this.summaryFilters.userMode;
+
+      if (singleSelect) {
+        singleSelect.disabled = mode !== 'single';
+        if (mode !== 'single') singleSelect.value = '';
+      }
+      if (multiSelect) {
+        multiSelect.disabled = mode !== 'multiple';
+        if (mode !== 'multiple') {
+          Array.from(multiSelect.options).forEach(opt => { opt.selected = false; });
+        }
+      }
     }
 
     setCurrentPeriod(value) {
@@ -2375,6 +2560,25 @@
       if (capButton) {
         capButton.disabled = false;
       }
+    }
+
+    refreshAttendanceFilterOptions() {
+      const users = Array.isArray(this.currentData?.userCompliance)
+        ? this.currentData.userCompliance.map(u => u.user).filter(Boolean)
+        : [];
+      const uniqueUsers = Array.from(new Set(users)).sort();
+
+      const singleSelect = document.getElementById('attendanceSingleSelect');
+      const multiSelect = document.getElementById('attendanceMultiSelect');
+
+      if (singleSelect) {
+        singleSelect.innerHTML = '<option value="">Select user...</option>' + uniqueUsers.map(u => `<option value="${escapeHtml(u)}">${escapeHtml(u)}</option>`).join('');
+      }
+      if (multiSelect) {
+        multiSelect.innerHTML = uniqueUsers.map(u => `<option value="${escapeHtml(u)}">${escapeHtml(u)}</option>`).join('');
+      }
+
+      this.syncAttendanceUserControls();
     }
 
     applyHourPolicyFromData(policy) {
@@ -2565,6 +2769,121 @@
           this.openLoginLogoutEditor(user, dateKey);
         });
       });
+    }
+
+    setupAdherenceExportModal() {
+      const modalEl = document.getElementById('adherenceExportModal');
+      if (!modalEl || typeof bootstrap === 'undefined') return;
+
+      this.adherenceExportFilters = { ...this.summaryFilters };
+      const modal = new bootstrap.Modal(modalEl);
+
+      const startInput = document.getElementById('adherenceExportStart');
+      const endInput = document.getElementById('adherenceExportEnd');
+      const singleSelect = document.getElementById('adherenceExportSingleSelect');
+      const multiSelect = document.getElementById('adherenceExportMultiSelect');
+      const modeRadios = document.querySelectorAll('input[name="adherenceExportUserMode"]');
+
+      const hydrateUserSelects = () => {
+        const users = Array.isArray(window.INITIAL_USER_LIST) ? window.INITIAL_USER_LIST : [];
+        if (singleSelect) {
+          singleSelect.innerHTML = '<option value="">Select a user</option>';
+          users.forEach((name) => {
+            const opt = document.createElement('option');
+            opt.value = name;
+            opt.textContent = name;
+            singleSelect.appendChild(opt);
+          });
+        }
+        if (multiSelect) {
+          multiSelect.innerHTML = '';
+          users.forEach((name) => {
+            const opt = document.createElement('option');
+            opt.value = name;
+            opt.textContent = name;
+            multiSelect.appendChild(opt);
+          });
+        }
+      };
+
+      const syncFromFilters = () => {
+        const filters = this.adherenceExportFilters || this.summaryFilters;
+        if (startInput) startInput.value = filters.dateFrom || this.summaryFilters.dateFrom || '';
+        if (endInput) endInput.value = filters.dateTo || this.summaryFilters.dateTo || '';
+
+        const mode = filters.userMode || 'all';
+        modeRadios.forEach((radio) => {
+          radio.checked = radio.value === mode;
+        });
+
+        const enableSingle = mode === 'single';
+        const enableMulti = mode === 'multiple';
+        if (singleSelect) singleSelect.disabled = !enableSingle;
+        if (multiSelect) multiSelect.disabled = !enableMulti;
+
+        if (enableSingle && singleSelect) {
+          singleSelect.value = filters.selectedUsers?.[0] || '';
+        }
+        if (enableMulti && multiSelect) {
+          Array.from(multiSelect.options).forEach((opt) => {
+            opt.selected = Array.isArray(filters.selectedUsers) && filters.selectedUsers.includes(opt.value);
+          });
+        }
+      };
+
+      const syncFilters = () => {
+        this.adherenceExportFilters = {
+          dateFrom: startInput?.value || this.summaryFilters.dateFrom || '',
+          dateTo: endInput?.value || this.summaryFilters.dateTo || '',
+          userMode: document.querySelector('input[name="adherenceExportUserMode"]:checked')?.value || 'all',
+          selectedUsers: []
+        };
+
+        if (this.adherenceExportFilters.userMode === 'single' && singleSelect && singleSelect.value) {
+          this.adherenceExportFilters.selectedUsers = [singleSelect.value];
+        }
+        if (this.adherenceExportFilters.userMode === 'multiple' && multiSelect) {
+          this.adherenceExportFilters.selectedUsers = Array.from(multiSelect.selectedOptions).map((opt) => opt.value);
+        }
+      };
+
+      if (startInput) startInput.addEventListener('change', syncFilters);
+      if (endInput) endInput.addEventListener('change', syncFilters);
+      modeRadios.forEach((radio) => {
+        radio.addEventListener('change', () => {
+          syncFilters();
+          syncFromFilters();
+        });
+      });
+      if (singleSelect) singleSelect.addEventListener('change', syncFilters);
+      if (multiSelect) multiSelect.addEventListener('change', syncFilters);
+
+      const openButtons = document.querySelectorAll('[data-open-adherence-export]');
+      openButtons.forEach((btn) => {
+        btn.addEventListener('click', () => {
+          hydrateUserSelects();
+          this.adherenceExportFilters = { ...this.summaryFilters };
+          syncFromFilters();
+          modal.show();
+        });
+      });
+
+      const exportSheetsBtn = document.getElementById('adherenceExportSheets');
+      const exportCsvBtn = document.getElementById('adherenceExportCsv');
+
+      if (exportSheetsBtn) {
+        exportSheetsBtn.addEventListener('click', () => {
+          syncFilters();
+          this.exportAdherenceCompliance('sheet', this.adherenceExportFilters);
+        });
+      }
+
+      if (exportCsvBtn) {
+        exportCsvBtn.addEventListener('click', () => {
+          syncFilters();
+          this.exportAdherenceCompliance('csv', this.adherenceExportFilters);
+        });
+      }
     }
 
     openLoginLogoutEditor(user, dateKey) {
@@ -3110,8 +3429,21 @@
           this.currentData.manualSecondsDeltaHours = Math.round((this.currentData.manualSecondsDelta / 3600) * 100) / 100;
         }
 
+        const periodInfo = this.currentData.periodInfo || {};
+        const startInput = document.getElementById('attendanceFilterStart');
+        const endInput = document.getElementById('attendanceFilterEnd');
+        if (startInput && !this.summaryFilters.dateFrom && periodInfo.startDate) {
+          startInput.value = periodInfo.startDate;
+          this.summaryFilters.dateFrom = periodInfo.startDate;
+        }
+        if (endInput && !this.summaryFilters.dateTo && periodInfo.endDate) {
+          endInput.value = periodInfo.endDate;
+          this.summaryFilters.dateTo = periodInfo.endDate;
+        }
+
         this.applyManualSecondsAdjustmentsToCurrentData();
         this.renderDashboard();
+        this.refreshAttendanceFilterOptions();
 
       } catch (error) {
         const msg = (error && error.message) ? String(error.message) : String(error);
@@ -3565,9 +3897,9 @@
         if (!container) return;
 
         const weeklyTableContainer = document.getElementById('weeklyLoginLogoutContainer');
-        const userCompliance = this.currentData.userCompliance || [];
+        const filteredCompliance = this.getFilteredComplianceData();
 
-        if (userCompliance.length === 0) {
+        if (!filteredCompliance.length) {
           this.weeklyPagination.totalItems = 0;
           this.weeklyPagination.totalPages = 0;
           this.weeklyPagination.currentPage = 1;
@@ -3578,7 +3910,7 @@
           return;
         }
 
-        this.pagination.totalItems = userCompliance.length;
+        this.pagination.totalItems = filteredCompliance.length;
         this.pagination.totalPages = Math.ceil(this.pagination.totalItems / this.pagination.itemsPerPage);
 
         if (this.pagination.currentPage > this.pagination.totalPages) {
@@ -3586,8 +3918,8 @@
         }
 
         const startIndex = (this.pagination.currentPage - 1) * this.pagination.itemsPerPage;
-        const endIndex = Math.min(startIndex + this.pagination.itemsPerPage, userCompliance.length);
-        const currentPageData = userCompliance.slice(startIndex, endIndex);
+        const endIndex = Math.min(startIndex + this.pagination.itemsPerPage, filteredCompliance.length);
+        const currentPageData = filteredCompliance.slice(startIndex, endIndex);
 
         const BREAK_ALLOWANCE_SECS = 30 * 60;
         const LUNCH_ALLOWANCE_SECS = 30 * 60;
@@ -4192,6 +4524,412 @@
       } catch (error) {
         console.error('Error rendering attendance table:', error);
       }
+    }
+
+    exportAttendanceViolations(format = 'sheet') {
+      if (!this.currentData || !Array.isArray(this.currentData.userCompliance) || this.currentData.userCompliance.length === 0) {
+        this.showToast('No attendance data available to export.', 'warning');
+        return;
+      }
+
+      const BREAK_ALLOWANCE_SECS = 30 * 60;
+      const LUNCH_ALLOWANCE_SECS = 30 * 60;
+
+      const escapeCsv = (value) => {
+        const stringValue = value === undefined || value === null ? '' : String(value);
+        if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
+          return '"' + stringValue.replace(/"/g, '""') + '"';
+        }
+        return stringValue;
+      };
+
+      const formatMinutes = (seconds, allowance) => {
+        const minutes = Math.max(0, (Math.max(0, seconds) - allowance) / 60);
+        return Math.round(minutes * 100) / 100;
+      };
+
+      const filteredCompliance = this.getFilteredComplianceData();
+      const rows = filteredCompliance.map((entry) => {
+        const breakSecs = Number(entry?.breakSecs) || 0;
+        const lunchSecs = Number(entry?.lunchSecs) || 0;
+        const breakOverMinutes = formatMinutes(breakSecs, BREAK_ALLOWANCE_SECS);
+        const lunchOverMinutes = formatMinutes(lunchSecs, LUNCH_ALLOWANCE_SECS);
+        const adherencePercent = this.calculateComplianceScore(entry);
+
+        return {
+          employee: entry?.user || 'Unknown',
+          breakHours: convertSecondsToDecimalHours(breakSecs),
+          breakOverMinutes,
+          breakViolationDays: Number.isFinite(entry?.exceededBreakDays) ? entry.exceededBreakDays : 0,
+          lunchHours: convertSecondsToDecimalHours(lunchSecs),
+          lunchOverMinutes,
+          lunchViolationDays: Number.isFinite(entry?.exceededLunchDays) ? entry.exceededLunchDays : 0,
+          weeklyOverages: Number.isFinite(entry?.exceededWeeklyCount) ? entry.exceededWeeklyCount : 0,
+          adherencePercent
+        };
+      });
+
+      const overallAdherence = rows.length > 0
+        ? Math.round(rows.reduce((sum, row) => sum + (Number(row.adherencePercent) || 0), 0) / rows.length)
+        : 0;
+
+      const header = [
+        'Employee',
+        'Break Hours Recorded',
+        'Break Over Minutes',
+        'Break Violation Days',
+        'Lunch Hours Recorded',
+        'Lunch Over Minutes',
+        'Lunch Violation Days',
+        'Weekly Overages',
+        'Adherence %'
+      ];
+
+      const csvLines = [header.join(',')];
+      rows.forEach((row) => {
+        csvLines.push([
+          escapeCsv(row.employee),
+          escapeCsv(row.breakHours.toFixed(2)),
+          escapeCsv(row.breakOverMinutes.toFixed(2)),
+          escapeCsv(row.breakViolationDays),
+          escapeCsv(row.lunchHours.toFixed(2)),
+          escapeCsv(row.lunchOverMinutes.toFixed(2)),
+          escapeCsv(row.lunchViolationDays),
+          escapeCsv(row.weeklyOverages),
+          escapeCsv(row.adherencePercent)
+        ].join(','));
+      });
+
+      csvLines.push('');
+      csvLines.push(`Overall Adherence,${overallAdherence}%`);
+
+      if (format === 'csv') {
+        const blob = new Blob([csvLines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `adherence-break-lunch-violations-${new Date().toISOString().slice(0, 10)}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+
+        this.showToast('Adherence break & lunch violations exported.', 'success');
+        return;
+      }
+
+      this.exportViolationsWorkbook(rows, overallAdherence);
+    }
+
+    getFilteredComplianceData(customFilters = null) {
+      const filters = customFilters || this.summaryFilters;
+      let compliance = Array.isArray(this.currentData?.userCompliance) ? [...this.currentData.userCompliance] : [];
+      const { userMode, selectedUsers, dateFrom, dateTo } = filters;
+
+      if (userMode === 'single' && selectedUsers.length === 1) {
+        compliance = compliance.filter(u => u.user === selectedUsers[0]);
+      } else if (userMode === 'multiple' && selectedUsers.length > 0) {
+        const set = new Set(selectedUsers);
+        compliance = compliance.filter(u => set.has(u.user));
+      }
+
+      if (dateFrom || dateTo) {
+        const fromDate = dateFrom ? new Date(dateFrom) : null;
+        const toDate = dateTo ? new Date(dateTo) : null;
+
+        compliance = compliance.map((entry) => {
+          if (!Array.isArray(entry?.dailyBreakdown)) return entry;
+          const filteredDays = entry.dailyBreakdown.filter((d) => {
+            if (!d?.dateKey) return false;
+            const candidate = new Date(d.dateKey);
+            if (Number.isNaN(candidate.getTime())) return true;
+            if (fromDate && candidate < fromDate) return false;
+            if (toDate && candidate > toDate) return false;
+            return true;
+          });
+          if (filteredDays.length === entry.dailyBreakdown.length) return entry;
+
+          const clone = { ...entry };
+          clone.dailyBreakdown = filteredDays;
+
+          const sumSeconds = filteredDays.reduce((acc, day) => {
+            const available = Number(day.availableSecs) || 0;
+            const breakSecs = Number(day.breakSecs) || 0;
+            const lunchSecs = Number(day.lunchSecs) || 0;
+            const weekend = Number(day.weekendSecs) || 0;
+            return {
+              available: acc.available + available,
+              break: acc.break + breakSecs,
+              lunch: acc.lunch + lunchSecs,
+              weekend: acc.weekend + weekend,
+              base: acc.base + (Number(day.baseBillableSecs) || 0),
+              adjusted: acc.adjusted + (Number(day.adjustedBillableSecs) || 0),
+              breakViolations: acc.breakViolations + (Number.isFinite(day.exceededBreakDays) ? day.exceededBreakDays : 0),
+              lunchViolations: acc.lunchViolations + (Number.isFinite(day.exceededLunchDays) ? day.exceededLunchDays : 0),
+              weeklyOverages: acc.weeklyOverages + (Number.isFinite(day.exceededWeeklyCount) ? day.exceededWeeklyCount : 0)
+            };
+          }, { available: 0, break: 0, lunch: 0, weekend: 0, base: 0, adjusted: 0, breakViolations: 0, lunchViolations: 0, weeklyOverages: 0 });
+
+          clone.availableSecsWeekday = sumSeconds.available;
+          clone.weekendSecs = sumSeconds.weekend;
+          clone.breakSecs = sumSeconds.break;
+          clone.lunchSecs = sumSeconds.lunch;
+          clone.baseBillableSecs = sumSeconds.base;
+          clone.adjustedBillableSecs = sumSeconds.adjusted;
+          clone.exceededBreakDays = sumSeconds.breakViolations;
+          clone.exceededLunchDays = sumSeconds.lunchViolations;
+          clone.exceededWeeklyCount = sumSeconds.weeklyOverages;
+
+          return clone;
+        });
+      }
+
+      return compliance;
+    }
+
+    async exportAdherenceCompliance(format = 'sheet', filters = null) {
+      if (!this.currentData || !Array.isArray(this.currentData.userCompliance) || this.currentData.userCompliance.length === 0) {
+        this.showToast('No attendance data available to export.', 'warning');
+        return;
+      }
+
+      const effectiveFilters = filters || this.summaryFilters;
+      const filteredCompliance = this.getFilteredComplianceData(effectiveFilters);
+      if (!filteredCompliance.length) {
+        this.showToast('No records match the selected adherence filters.', 'warning');
+        return;
+      }
+
+      const rows = filteredCompliance.map((entry) => {
+        const complianceScore = this.calculateComplianceScore(entry);
+        return {
+          employee: entry?.user || 'Unknown',
+          cappedBillable: convertSecondsToDecimalHours(entry?.baseBillableSecs || 0),
+          breakCredit: convertSecondsToDecimalHours(entry?.breakCreditSecs || 0),
+          lunchAdjustment: convertSecondsToDecimalHours(entry?.lunchAdjustmentSecs || 0),
+          adjustedBillable: convertSecondsToDecimalHours(entry?.adjustedBillableSecs || 0),
+          compliancePercent: complianceScore,
+          status: this.getComplianceStatusLabel(complianceScore)
+        };
+      });
+
+      const overallCompliance = rows.length
+        ? Math.round(rows.reduce((sum, row) => sum + (Number(row.compliancePercent) || 0), 0) / rows.length)
+        : 0;
+
+      const header = [
+        'Employee',
+        'Capped Billable Hours',
+        'Break Credit Hours',
+        'Lunch Adjustment Hours',
+        'Adjusted Billable Hours',
+        'Compliance %',
+        'Status'
+      ];
+
+      if (format === 'csv') {
+        const escapeCsv = (value) => {
+          const stringValue = value === undefined || value === null ? '' : String(value);
+          if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
+            return '"' + stringValue.replace(/"/g, '""') + '"';
+          }
+          return stringValue;
+        };
+
+        const csvLines = [header.join(',')];
+        rows.forEach((row) => {
+          csvLines.push([
+            escapeCsv(row.employee),
+            escapeCsv(row.cappedBillable.toFixed(2)),
+            escapeCsv(row.breakCredit.toFixed(2)),
+            escapeCsv(row.lunchAdjustment.toFixed(2)),
+            escapeCsv(row.adjustedBillable.toFixed(2)),
+            escapeCsv(row.compliancePercent),
+            escapeCsv(row.status)
+          ].join(','));
+        });
+        csvLines.push('');
+        csvLines.push(`Overall Compliance,${overallCompliance}%`);
+
+        const blob = new Blob([csvLines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `adherence-compliance-${new Date().toISOString().slice(0, 10)}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+
+        this.showToast('Adherence & compliance exported as CSV.', 'success');
+        return;
+      }
+
+      await this.exportAdherenceWorkbook(rows, overallCompliance);
+    }
+
+    async exportAdherenceWorkbook(rows, overallCompliance) {
+      const XLSX = await this.ensureXlsxLib();
+      if (!XLSX) {
+        this.exportAdherenceCompliance('csv');
+        return;
+      }
+
+      const header = [
+        'Employee',
+        'Capped Billable Hours',
+        'Break Credit Hours',
+        'Lunch Adjustment Hours',
+        'Adjusted Billable Hours',
+        'Compliance %',
+        'Status'
+      ];
+
+      const data = [header, ...rows.map((row) => [
+        row.employee,
+        Number(row.cappedBillable.toFixed(2)),
+        Number(row.breakCredit.toFixed(2)),
+        Number(row.lunchAdjustment.toFixed(2)),
+        Number(row.adjustedBillable.toFixed(2)),
+        row.compliancePercent,
+        row.status
+      ])];
+
+      data.push([]);
+      data.push(['Overall Compliance', `${overallCompliance}%`]);
+
+      const worksheet = XLSX.utils.aoa_to_sheet(data);
+      worksheet['!freeze'] = { xSplit: 0, ySplit: 1, topLeftCell: 'A2', activePane: 'bottomLeft', state: 'frozen' };
+      worksheet['!cols'] = [
+        { wch: 24 }, { wch: 20 }, { wch: 20 }, { wch: 22 }, { wch: 22 }, { wch: 14 }, { wch: 14 }
+      ];
+
+      const headerStyle = {
+        font: { bold: true, color: { rgb: 'FFFFFFFF' } },
+        fill: { fgColor: { rgb: 'FF0F172A' } },
+        alignment: { horizontal: 'center', vertical: 'center' },
+        border: {
+          top: { style: 'thin', color: { rgb: 'FFCBD5E1' } },
+          bottom: { style: 'thin', color: { rgb: 'FFCBD5E1' } }
+        }
+      };
+
+      header.forEach((_, idx) => {
+        const cellRef = XLSX.utils.encode_cell({ c: idx, r: 0 });
+        if (!worksheet[cellRef]) return;
+        worksheet[cellRef].s = headerStyle;
+      });
+
+      const summaryCell = XLSX.utils.encode_cell({ c: 1, r: data.length - 1 });
+      if (worksheet[summaryCell]) {
+        worksheet[summaryCell].s = {
+          font: { bold: true, color: { rgb: 'FF0F172A' } },
+          alignment: { horizontal: 'left' }
+        };
+      }
+
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Adherence Compliance');
+
+      const arrayBuffer = XLSX.write(workbook, { type: 'array', bookType: 'xlsx', cellStyles: true });
+      const blob = new Blob([arrayBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      this.downloadFile(blob, `adherence-compliance-${new Date().toISOString().slice(0, 10)}.xlsx`, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      this.showToast('Google Sheets-ready adherence & compliance workbook generated.', 'success');
+    }
+
+    getComplianceStatusLabel(score) {
+      if (score >= 90) return 'Excellent';
+      if (score >= 80) return 'Good';
+      if (score >= 60) return 'Needs Attention';
+      return 'Critical';
+    }
+
+    async ensureXlsxLib() {
+      if (this.xlsxLib) return this.xlsxLib;
+      if (window.XLSX) {
+        this.xlsxLib = window.XLSX;
+        return this.xlsxLib;
+      }
+      try {
+        const module = await import('https://cdn.sheetjs.com/xlsx-latest/package/xlsx.mjs');
+        this.xlsxLib = module;
+        window.XLSX = module;
+        return this.xlsxLib;
+      } catch (error) {
+        console.error('Failed to load SheetJS library', error);
+        this.showToast('Unable to load Excel export library. CSV fallback used instead.', 'warning');
+        return null;
+      }
+    }
+
+    async exportViolationsWorkbook(rows, overallAdherence) {
+      const XLSX = await this.ensureXlsxLib();
+      if (!XLSX) {
+        this.exportAttendanceViolations('csv');
+        return;
+      }
+
+      const header = [
+        'Employee',
+        'Break Hours Recorded',
+        'Break Over Minutes',
+        'Break Violation Days',
+        'Lunch Hours Recorded',
+        'Lunch Over Minutes',
+        'Lunch Violation Days',
+        'Weekly Overages',
+        'Adherence %'
+      ];
+
+      const data = [header, ...rows.map((row) => [
+        row.employee,
+        Number(row.breakHours.toFixed(2)),
+        Number(row.breakOverMinutes.toFixed(2)),
+        row.breakViolationDays,
+        Number(row.lunchHours.toFixed(2)),
+        Number(row.lunchOverMinutes.toFixed(2)),
+        row.lunchViolationDays,
+        row.weeklyOverages,
+        row.adherencePercent
+      ])];
+
+      data.push([]);
+      data.push(['Overall Adherence', `${overallAdherence}%`]);
+
+      const worksheet = XLSX.utils.aoa_to_sheet(data);
+
+      worksheet['!freeze'] = { xSplit: 0, ySplit: 1, topLeftCell: 'A2', activePane: 'bottomLeft', state: 'frozen' };
+      worksheet['!cols'] = [
+        { wch: 24 }, { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 16 }, { wch: 14 }
+      ];
+
+      const headerStyle = {
+        font: { bold: true, color: { rgb: 'FFFFFFFF' } },
+        fill: { fgColor: { rgb: 'FF1E293B' } },
+        alignment: { horizontal: 'center', vertical: 'center' }
+      };
+
+      header.forEach((_, idx) => {
+        const cellRef = XLSX.utils.encode_cell({ c: idx, r: 0 });
+        if (!worksheet[cellRef]) return;
+        worksheet[cellRef].s = headerStyle;
+      });
+
+      const summaryCell = XLSX.utils.encode_cell({ c: 1, r: data.length - 1 });
+      if (worksheet[summaryCell]) {
+        worksheet[summaryCell].s = {
+          font: { bold: true },
+          alignment: { horizontal: 'left' }
+        };
+      }
+
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Adherence');
+
+      const arrayBuffer = XLSX.write(workbook, { type: 'array', bookType: 'xlsx', cellStyles: true });
+      const blob = new Blob([arrayBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      this.downloadFile(blob, `adherence-break-lunch-violations-${new Date().toISOString().slice(0, 10)}.xlsx`, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      this.showToast('Adherence violations exported to Google Sheets ready format.', 'success');
     }
 
     renderWeeklyPaginationControls() {
@@ -6018,6 +6756,14 @@
 
   function exportData() {
     showEnhancedExportModal();
+  }
+
+  function exportAttendanceViolations(format) {
+    if (dashboard && typeof dashboard.exportAttendanceViolations === 'function') {
+      dashboard.exportAttendanceViolations(format);
+    } else {
+      console.warn('Attendance dashboard not ready for adherence violation export.');
+    }
   }
 
   function showModalLoading(containerId, message) {
