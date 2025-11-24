@@ -2143,15 +2143,70 @@
         return;
       }
 
-      const csv = buildAgentMatrixCsv(matrix, settings || {});
+      const exportSettings = settings || {};
+
+      if (window.google && google.script && google.script.run) {
+        if (dom.exportConfirm) {
+          dom.exportConfirm.disabled = true;
+        }
+        if (dom.exportSummary) {
+          dom.exportSummary.textContent = 'Exporting to Google Sheets...';
+        }
+
+        const request = {
+          settings: exportSettings,
+          granularity: state.filters.granularity,
+          period: exportSettings.period && exportSettings.period !== 'latest'
+            ? exportSettings.period
+            : state.filters.period,
+          agent: state.filters.agent,
+          campaignId: state.filters.campaignId,
+          program: state.filters.program,
+          context: state.data ? state.data.context : null
+        };
+
+        google.script.run
+          .withSuccessHandler(result => {
+            if (dom.exportSummary) {
+              if (result && result.success) {
+                const name = result.name || 'Agent Matrix Export';
+                dom.exportSummary.textContent = `Exported to Google Sheets: ${name}.`;
+              } else {
+                dom.exportSummary.textContent = 'Export failed. Please try again.';
+              }
+            }
+
+            if (result && result.success && result.url) {
+              window.open(result.url, '_blank');
+            }
+
+            if (dom.exportConfirm) {
+              dom.exportConfirm.disabled = false;
+            }
+          })
+          .withFailureHandler(error => {
+            console.error('Agent matrix export failed:', error);
+            if (dom.exportSummary) {
+              dom.exportSummary.textContent = 'Export failed. Please try again.';
+            }
+            if (dom.exportConfirm) {
+              dom.exportConfirm.disabled = false;
+            }
+          })
+          .clientExportAgentMatrix(request);
+
+        return;
+      }
+
+      const csv = buildAgentMatrixCsv(matrix, exportSettings);
       if (!csv) {
         console.warn('Agent matrix export is empty.');
         return;
       }
 
       const granularity = matrix.granularity || state.filters.granularity || 'period';
-      const periodLabel = settings && settings.period
-        ? settings.period
+      const periodLabel = exportSettings && exportSettings.period
+        ? exportSettings.period
         : 'all-periods';
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
       const filename = `qa-agent-matrix-${granularity.toLowerCase()}-${periodLabel}-${timestamp}.csv`;
