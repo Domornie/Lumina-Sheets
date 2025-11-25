@@ -428,7 +428,7 @@ function __readAllCallReportRows() {
   const headers = sh.getRange(1, 1, 1, lc).getValues()[0].map(String);
   const rows = sh.getRange(2, 1, lr - 1, lc).getValues();
 
-  return rows.map(r => {
+  const normalized = rows.map(r => {
     const obj = {};
     headers.forEach((h, i) => (obj[h] = r[i]));
     // normalize CreatedDate to Date if parsable
@@ -446,10 +446,10 @@ function __readAllCallReportRows() {
 
   __callReportCache = {
     expiresAt: now + __CALL_REPORT_CACHE_TTL_MS,
-    data: rows.map(r => Object.assign({}, r))
+    data: normalized.map(r => Object.assign({}, r))
   };
 
-  return rows;
+  return normalized;
 }
 
 // Internal: find row number by UUID in column A (ID). Returns 0 if not found.
