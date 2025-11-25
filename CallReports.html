@@ -1307,6 +1307,9 @@
             <button type="button" class="btn btn-outline-light btn-sm" id="exportCallCsvBtn">
                 <i class="fas fa-file-export me-2"></i>Export CSV
             </button>
+            <button type="button" class="btn btn-outline-light btn-sm" id="exportCallCsatBtn">
+                <i class="fas fa-chart-pie me-2"></i>Export CSAT
+            </button>
             <a class="btn btn-outline-glass btn-sm" id="importCallReportsLink" href="<?= __importCallReportUrl ?>">
                 <i class="fas fa-file-import me-2"></i>Import Call Reports
             </a>
@@ -1772,6 +1775,18 @@
         const url = baseUrl
           + "&page=CallReports"
           + "&action=exportCallCsv"
+          + "&granularity=" + encodeURIComponent(currentGran)
+          + "&period=" + encodeURIComponent(currentPeriod)
+          + "&agent=" + encodeURIComponent(currentAgent);
+        window.open(url, "_blank");
+      });
+
+    document
+      .getElementById("exportCallCsatBtn")
+      .addEventListener("click", () => {
+        const url = baseUrl
+          + "&page=CallReports"
+          + "&action=exportCallCsat"
           + "&granularity=" + encodeURIComponent(currentGran)
           + "&period=" + encodeURIComponent(currentPeriod)
           + "&agent=" + encodeURIComponent(currentAgent);

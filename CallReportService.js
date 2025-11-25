@@ -1483,3 +1483,23 @@ function exportCallAnalyticsCsv(granularity, periodIdentifier, agentFilter) {
 
   return [toCsv(repRows), toCsv(policyRows), toCsv(wrapRows), toCsv(callTrendRows), toCsv(talkTrendRows), toCsv(csatRows)].join('\r\n\r\n');
 }
+
+/**
+ * exportCallCsatCsv(granularity, periodIdentifier, agentFilter)
+ * Exports CSAT totals and percentage per agent for the selected window.
+ */
+function exportCallCsatCsv(granularity, periodIdentifier, agentFilter) {
+  const analytics = getAnalyticsByPeriod(granularity, periodIdentifier, agentFilter);
+
+  const headers = ['Agent', 'CSAT Yes', 'Total CSAT', 'CSAT %'];
+  const rows = analytics.repMetrics
+    .map(r => {
+      const yes = Number(r.csatYes || 0);
+      const total = Number(r.csatTotal || 0);
+      const pct = total > 0 ? Math.round((yes / total) * 1000) / 10 : 0;
+      return [r.agent, yes, total, `${pct}%`];
+    });
+
+  const toCsv = rws => rws.map(r => r.map(c => `"${c}"`).join(',')).join('\r\n');
+  return toCsv([headers].concat(rows));
+}
