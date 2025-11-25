@@ -611,14 +611,34 @@ var AuthorizationRegistry = (function () {
     return snapshot;
   }
 
+  function buildPersistableSnapshot(snapshot) {
+    var persistable = {};
+    Object.keys(snapshot || {}).forEach(function (key) {
+      if (key === 'rawScope') return; // avoid persisting large scope payloads
+      persistable[key] = snapshot[key];
+    });
+    return persistable;
+  }
+
+  function dropSnapshotProperties(props, snapshot) {
+    if (!props || !snapshot) return;
+    try {
+      if (snapshot.userId) props.deleteProperty(PROFILE_PROPERTY_PREFIX + snapshot.userId);
+      if (snapshot.sessionToken) props.deleteProperty(SESSION_PROPERTY_PREFIX + snapshot.sessionToken);
+    } catch (cleanupErr) {
+      console.warn('AuthorizationRegistry: unable to clear snapshot properties after quota error', cleanupErr);
+    }
+  }
+
   function storeSnapshot(snapshot) {
     if (!snapshot || !snapshot.userId) {
       return null;
     }
 
+    var persistable = buildPersistableSnapshot(snapshot);
     var json;
     try {
-      json = JSON.stringify(snapshot);
+      json = JSON.stringify(persistable);
     } catch (err) {
       console.warn('AuthorizationRegistry: unable to serialize snapshot for user', snapshot.userId, err);
       return null;
@@ -640,6 +660,10 @@ var AuthorizationRegistry = (function () {
           props.setProperty(SESSION_PROPERTY_PREFIX + snapshot.sessionToken, json);
         }
       } catch (err) {
+        var isQuotaError = err && typeof err.message === 'string' && err.message.indexOf('property storage quota') !== -1;
+        if (isQuotaError) {
+          dropSnapshotProperties(props, snapshot);
+        }
         console.warn('AuthorizationRegistry: failed to persist snapshot for user', snapshot.userId, err);
       }
     }
