@@ -621,7 +621,28 @@ function getAnalyticsByPeriod(granularity, periodIdentifier, agentFilter) {
     return JSON.parse(cached.payload);
   }
 
-  const { startDate, endDate } = __resolveCallReportPeriod(granularity, periodIdentifier);
+  const resolvedPeriod = __resolveCallReportPeriod(granularity, periodIdentifier);
+  const startDate = resolvedPeriod && resolvedPeriod.startDate
+    ? resolvedPeriod.startDate
+    : __startOfDay(new Date());
+  const endDate = resolvedPeriod && resolvedPeriod.endDate
+    ? resolvedPeriod.endDate
+    : __endOfDay(new Date());
+
+  if (!(startDate instanceof Date) || isNaN(startDate) || !(endDate instanceof Date) || isNaN(endDate)) {
+    console.warn('getAnalyticsByPeriod: invalid date range, falling back to current week.', {
+      granularity,
+      periodIdentifier,
+      resolvedPeriod
+    });
+    const fallbackStart = __startOfDay(new Date());
+    const fallbackEnd = __endOfDay(new Date());
+    if (fallbackStart && fallbackEnd) {
+      startDate.setTime(fallbackStart.getTime());
+      endDate.setTime(fallbackEnd.getTime());
+    }
+  }
+
   const tz = Session.getScriptTimeZone();
 
   const normalizedStart = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
