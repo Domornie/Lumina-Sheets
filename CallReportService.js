@@ -622,11 +622,11 @@ function getAnalyticsByPeriod(granularity, periodIdentifier, agentFilter) {
   }
 
   const resolvedPeriod = __resolveCallReportPeriod(granularity, periodIdentifier);
-  const startDate = resolvedPeriod && resolvedPeriod.startDate
-    ? resolvedPeriod.startDate
+  let startDate = resolvedPeriod && resolvedPeriod.startDate instanceof Date && !isNaN(resolvedPeriod.startDate)
+    ? new Date(resolvedPeriod.startDate.getTime())
     : __startOfDay(new Date());
-  const endDate = resolvedPeriod && resolvedPeriod.endDate
-    ? resolvedPeriod.endDate
+  let endDate = resolvedPeriod && resolvedPeriod.endDate instanceof Date && !isNaN(resolvedPeriod.endDate)
+    ? new Date(resolvedPeriod.endDate.getTime())
     : __endOfDay(new Date());
 
   if (!(startDate instanceof Date) || isNaN(startDate) || !(endDate instanceof Date) || isNaN(endDate)) {
@@ -637,10 +637,8 @@ function getAnalyticsByPeriod(granularity, periodIdentifier, agentFilter) {
     });
     const fallbackStart = __startOfDay(new Date());
     const fallbackEnd = __endOfDay(new Date());
-    if (fallbackStart && fallbackEnd) {
-      startDate.setTime(fallbackStart.getTime());
-      endDate.setTime(fallbackEnd.getTime());
-    }
+    startDate = fallbackStart || new Date();
+    endDate = fallbackEnd || new Date();
   }
 
   const tz = Session.getScriptTimeZone();
