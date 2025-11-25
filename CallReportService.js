@@ -428,7 +428,7 @@ function __readAllCallReportRows() {
   const headers = sh.getRange(1, 1, 1, lc).getValues()[0].map(String);
   const rows = sh.getRange(2, 1, lr - 1, lc).getValues();
 
-  return rows.map(r => {
+  const normalized = rows.map(r => {
     const obj = {};
     headers.forEach((h, i) => (obj[h] = r[i]));
     // normalize CreatedDate to Date if parsable
@@ -446,10 +446,10 @@ function __readAllCallReportRows() {
 
   __callReportCache = {
     expiresAt: now + __CALL_REPORT_CACHE_TTL_MS,
-    data: rows.map(r => Object.assign({}, r))
+    data: normalized.map(r => Object.assign({}, r))
   };
 
-  return rows;
+  return normalized;
 }
 
 // Internal: find row number by UUID in column A (ID). Returns 0 if not found.
@@ -1482,4 +1482,24 @@ function exportCallAnalyticsCsv(granularity, periodIdentifier, agentFilter) {
     .concat(a.csatDist.map(o => [o.csat, o.count]));
 
   return [toCsv(repRows), toCsv(policyRows), toCsv(wrapRows), toCsv(callTrendRows), toCsv(talkTrendRows), toCsv(csatRows)].join('\r\n\r\n');
+}
+
+/**
+ * exportCallCsatCsv(granularity, periodIdentifier, agentFilter)
+ * Exports CSAT totals and percentage per agent for the selected window.
+ */
+function exportCallCsatCsv(granularity, periodIdentifier, agentFilter) {
+  const analytics = getAnalyticsByPeriod(granularity, periodIdentifier, agentFilter);
+
+  const headers = ['Agent', 'CSAT Yes', 'Total CSAT', 'CSAT %'];
+  const rows = analytics.repMetrics
+    .map(r => {
+      const yes = Number(r.csatYes || 0);
+      const total = Number(r.csatTotal || 0);
+      const pct = total > 0 ? Math.round((yes / total) * 1000) / 10 : 0;
+      return [r.agent, yes, total, `${pct}%`];
+    });
+
+  const toCsv = rws => rws.map(r => r.map(c => `"${c}"`).join(',')).join('\r\n');
+  return toCsv([headers].concat(rows));
 }
