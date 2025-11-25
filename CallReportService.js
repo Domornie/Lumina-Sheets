@@ -415,41 +415,47 @@ function __invalidateCallReportCache() {
 
 // Internal: read all rows to objects using header row
 function __readAllCallReportRows() {
-  const now = Date.now();
-  if (__callReportCache && __callReportCache.expiresAt > now) {
-    return __callReportCache.data.map(r => Object.assign({}, r));
+  try {
+    const now = Date.now();
+    if (__callReportCache && __callReportCache.expiresAt > now) {
+      return __callReportCache.data.map(r => Object.assign({}, r));
+    }
+
+    const sh = __getCallReportSheet();
+    const lr = sh.getLastRow();
+    const lc = sh.getLastColumn();
+    if (lr < 2 || lc < CALL_REPORT_HEADERS.length) return [];
+
+    const headers = sh.getRange(1, 1, 1, lc).getValues()[0].map(String);
+    const rows = sh.getRange(2, 1, lr - 1, lc).getValues();
+
+    const normalized = rows.map(r => {
+      const obj = {};
+      headers.forEach((h, i) => (obj[h] = r[i]));
+      // normalize CreatedDate to Date if parsable
+      if (obj.CreatedDate && !(obj.CreatedDate instanceof Date)) {
+        const d = new Date(obj.CreatedDate);
+        if (!isNaN(d)) obj.CreatedDate = d;
+      }
+      const answerValue = __getAnswerFieldValue(obj);
+      if (answerValue !== undefined) {
+        const normalizedAnswer = __coerceAnswerCell(answerValue);
+        __applyAnswerFieldAliases(obj, normalizedAnswer);
+      }
+      return obj;
+    });
+
+    __callReportCache = {
+      expiresAt: now + __CALL_REPORT_CACHE_TTL_MS,
+      data: normalized.map(r => Object.assign({}, r))
+    };
+
+    return normalized;
+  } catch (error) {
+    console.error('Failed to read call report rows', error);
+    __invalidateCallReportCache();
+    return [];
   }
-
-  const sh = __getCallReportSheet();
-  const lr = sh.getLastRow();
-  const lc = sh.getLastColumn();
-  if (lr < 2 || lc < CALL_REPORT_HEADERS.length) return [];
-
-  const headers = sh.getRange(1, 1, 1, lc).getValues()[0].map(String);
-  const rows = sh.getRange(2, 1, lr - 1, lc).getValues();
-
-  return rows.map(r => {
-    const obj = {};
-    headers.forEach((h, i) => (obj[h] = r[i]));
-    // normalize CreatedDate to Date if parsable
-    if (obj.CreatedDate && !(obj.CreatedDate instanceof Date)) {
-      const d = new Date(obj.CreatedDate);
-      if (!isNaN(d)) obj.CreatedDate = d;
-    }
-    const answerValue = __getAnswerFieldValue(obj);
-    if (answerValue !== undefined) {
-      const normalizedAnswer = __coerceAnswerCell(answerValue);
-      __applyAnswerFieldAliases(obj, normalizedAnswer);
-    }
-    return obj;
-  });
-
-  __callReportCache = {
-    expiresAt: now + __CALL_REPORT_CACHE_TTL_MS,
-    data: rows.map(r => Object.assign({}, r))
-  };
-
-  return rows;
 }
 
 // Internal: find row number by UUID in column A (ID). Returns 0 if not found.
@@ -1482,4 +1488,24 @@ function exportCallAnalyticsCsv(granularity, periodIdentifier, agentFilter) {
     .concat(a.csatDist.map(o => [o.csat, o.count]));
 
   return [toCsv(repRows), toCsv(policyRows), toCsv(wrapRows), toCsv(callTrendRows), toCsv(talkTrendRows), toCsv(csatRows)].join('\r\n\r\n');
+}
+
+/**
+ * exportCallCsatCsv(granularity, periodIdentifier, agentFilter)
+ * Exports CSAT totals and percentage per agent for the selected window.
+ */
+function exportCallCsatCsv(granularity, periodIdentifier, agentFilter) {
+  const analytics = getAnalyticsByPeriod(granularity, periodIdentifier, agentFilter);
+
+  const headers = ['Agent', 'CSAT Yes', 'Total CSAT', 'CSAT %'];
+  const rows = analytics.repMetrics
+    .map(r => {
+      const yes = Number(r.csatYes || 0);
+      const total = Number(r.csatTotal || 0);
+      const pct = total > 0 ? Math.round((yes / total) * 1000) / 10 : 0;
+      return [r.agent, yes, total, `${pct}%`];
+    });
+
+  const toCsv = rws => rws.map(r => r.map(c => `"${c}"`).join(',')).join('\r\n');
+  return toCsv([headers].concat(rows));
 }
