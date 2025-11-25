@@ -3765,6 +3765,14 @@ function handleCallReportsData(tpl, e, user, campaignId) {
     tpl.PAGE_SIZE = 50;
     tpl.data = [];
     tpl.userList = [];
+    tpl.callVolumeLast7 = JSON.stringify([]);
+    tpl.hourlyHeatmapLast7 = JSON.stringify([]);
+    tpl.avgIntervalByAgentLast7 = JSON.stringify([]);
+    tpl.talkTimeByAgentLast7 = JSON.stringify([]);
+    tpl.wrapupCountsLast7 = JSON.stringify([]);
+    tpl.csatDistLast7 = JSON.stringify([]);
+    tpl.policyCountsLast7 = JSON.stringify([]);
+    tpl.agentLeaderboardLast7 = JSON.stringify([]);
   }
 }
 
