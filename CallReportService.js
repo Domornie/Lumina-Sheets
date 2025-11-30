@@ -351,6 +351,25 @@ function __resolveCallReportPeriod(granularity, periodIdentifier) {
     return { startDate: start, endDate: __endOfDay(end) };
   }
 
+  if (granularity === 'Custom') {
+    if (typeof periodIdentifier === 'string') {
+      const parts = periodIdentifier.split('::');
+      if (parts.length === 2) {
+        const start = __startOfDay(parts[0]);
+        const end = __endOfDay(parts[1]);
+        if (start && end && start <= end) {
+          return { startDate: start, endDate: end };
+        }
+      }
+    }
+    const today = __startOfDay(new Date());
+    const defaultEnd = __endOfDay(new Date());
+    const defaultStart = today ? new Date(today.getTime() - (13 * __MS_PER_DAY)) : null;
+    if (defaultStart && defaultEnd) {
+      return { startDate: defaultStart, endDate: defaultEnd };
+    }
+  }
+
   return fallbackRange();
 }
 
@@ -1592,4 +1611,113 @@ function exportCallCsatCsv(granularity, periodIdentifier, agentFilter) {
 
   const toCsv = rws => rws.map(r => r.map(c => `"${c}"`).join(',')).join('\r\n');
   return toCsv([headers].concat(rows));
+}
+
+/**
+ * exportCallPerformanceMatrixCsv(granularity, periodIdentifier, agentFilter)
+ * Exports a matrix with per-agent counts, percentages, and leader callouts.
+ */
+function exportCallPerformanceMatrixCsv(granularity, periodIdentifier, agentFilter) {
+  const analytics = getAnalyticsByPeriod(granularity, periodIdentifier, agentFilter);
+  const reps = Array.isArray(analytics.repMetrics) ? analytics.repMetrics : [];
+
+  const totals = reps.reduce((acc, r) => {
+    const calls = Number(r.totalCalls || 0);
+    const talk = Number(r.totalTalk || 0);
+    const csatTotal = Number(r.csatTotal || 0);
+    const csatYes = Number(r.csatYes || 0);
+    return {
+      totalCalls: acc.totalCalls + (isFinite(calls) ? calls : 0),
+      totalTalk: acc.totalTalk + (isFinite(talk) ? talk : 0),
+      totalCsat: acc.totalCsat + (isFinite(csatTotal) ? csatTotal : 0),
+      totalCsatYes: acc.totalCsatYes + (isFinite(csatYes) ? csatYes : 0)
+    };
+  }, { totalCalls: 0, totalTalk: 0, totalCsat: 0, totalCsatYes: 0 });
+
+  const pct = (num, den) => {
+    if (!isFinite(num) || !isFinite(den) || den <= 0) return 0;
+    return Math.round((num / den) * 1000) / 10;
+  };
+
+  const round1 = (num) => {
+    const n = Number(num);
+    if (!isFinite(n)) return 0;
+    return Math.round(n * 10) / 10;
+  };
+
+  const summaryRows = [['Leaderboard', 'Agent', 'Metric', 'Value']];
+  if (reps.length) {
+    const byCalls = reps.slice().sort((a, b) => (Number(b.totalCalls || 0) - Number(a.totalCalls || 0)));
+    const byTalk = reps.slice().sort((a, b) => (Number(b.totalTalk || 0) - Number(a.totalTalk || 0)));
+    const byCsat = reps.slice().sort((a, b) => (pct(b.csatYes, b.csatTotal) - pct(a.csatYes, a.csatTotal)));
+
+    summaryRows.push([
+      'Most Calls',
+      byCalls[0].agent,
+      'Total Calls',
+      Number(byCalls[0].totalCalls || 0)
+    ]);
+    summaryRows.push([
+      'Least Calls',
+      byCalls[byCalls.length - 1].agent,
+      'Total Calls',
+      Number(byCalls[byCalls.length - 1].totalCalls || 0)
+    ]);
+    summaryRows.push([
+      'Most Talk Time',
+      byTalk[0].agent,
+      'Total Talk (min)',
+      round1(byTalk[0].totalTalk || 0)
+    ]);
+    summaryRows.push([
+      'Highest CSAT %',
+      byCsat[0].agent,
+      'CSAT %',
+      `${pct(byCsat[0].csatYes, byCsat[0].csatTotal)}%`
+    ]);
+  } else {
+    summaryRows.push(['No data', '—', '—', '—']);
+  }
+
+  const detailHeader = [
+    'Agent',
+    'Total Calls',
+    'Call %',
+    'Total Talk (min)',
+    'Talk %',
+    'CSAT Total',
+    'CSAT %',
+    'Avg Talk (min)',
+    'Avg Answer (s)',
+    '≤30s Answer %'
+  ];
+
+  const detailRows = reps.map(r => {
+    const callPct = pct(r.totalCalls || 0, totals.totalCalls || 0);
+    const talkPct = pct(r.totalTalk || 0, totals.totalTalk || 0);
+    const csatPct = pct(r.csatYes || 0, r.csatTotal || 0);
+    const avgTalk = (isFinite(r.totalTalk) && isFinite(r.totalCalls) && r.totalCalls > 0)
+      ? (r.totalTalk / r.totalCalls)
+      : 0;
+    const answerSeconds = isFinite(r.averageAnswerSeconds) ? r.averageAnswerSeconds : 0;
+    const fastAnswerRate = isFinite(r.fastAnswerRate) ? r.fastAnswerRate : 0;
+
+    return [
+      r.agent,
+      Number(r.totalCalls || 0),
+      `${callPct}%`,
+      round1(r.totalTalk || 0),
+      `${talkPct}%`,
+      Number(r.csatTotal || 0),
+      `${csatPct}%`,
+      round1(avgTalk),
+      round1(answerSeconds),
+      `${round1(fastAnswerRate)}%`
+    ];
+  });
+
+  const toCsv = rws => rws.map(r => r.map(c => `"${c}"`).join(',')).join('\r\n');
+  return [summaryRows, [detailHeader].concat(detailRows)]
+    .map(toCsv)
+    .join('\r\n\r\n');
 }
