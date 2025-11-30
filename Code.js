@@ -3717,9 +3717,10 @@ function handleCallReportsData(tpl, e, user, campaignId) {
       const formattedReps = pageSlice.map((r) => {
         const totalCalls = r.totalCalls || 0;
         const totalTalkDecimal = parseFloat(r.totalTalk) || 0;
-        const totalTalkFormatted = formatDuration ? formatDuration(totalTalkDecimal) : totalTalkDecimal;
+        const formatDurationFn = (typeof formatDuration === 'function') ? formatDuration : null;
+        const totalTalkFormatted = formatDurationFn ? formatDurationFn(totalTalkDecimal) : totalTalkDecimal;
         const avgTalkDecimal = totalCalls > 0 ? totalTalkDecimal / totalCalls : 0;
-        const avgTalkFormatted = formatDuration ? formatDuration(avgTalkDecimal) : avgTalkDecimal;
+        const avgTalkFormatted = formatDurationFn ? formatDurationFn(avgTalkDecimal) : avgTalkDecimal;
         return {
           agent: r.agent,
           totalCalls: totalCalls,
