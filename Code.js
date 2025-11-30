@@ -3707,7 +3707,7 @@ function handleCallReportsData(tpl, e, user, campaignId) {
     const selectedAgent = e.parameter.agent || "";
 
     if (typeof getAnalyticsByPeriod === 'function') {
-      const analytics = getAnalyticsByPeriod("Week", periodValue, "");
+      const analytics = getAnalyticsByPeriod(granularity, periodValue, selectedAgent);
       const rawReps = analytics.repMetrics || [];
       const pageNum = parseInt(e.parameter.page, 10) || 1;
       const PAGE_SIZE = 50;
