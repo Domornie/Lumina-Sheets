@@ -1304,11 +1304,8 @@
             <button type="button" class="btn btn-ai btn-sm" id="aiAnalyzerBtn" aria-expanded="false">
                 <i class="fas fa-robot me-2"></i><span class="btn-label">AI Analyzer</span>
             </button>
-            <button type="button" class="btn btn-outline-light btn-sm" id="exportCallCsvBtn">
-                <i class="fas fa-file-export me-2"></i>Export CSV
-            </button>
-            <button type="button" class="btn btn-outline-light btn-sm" id="exportCallCsatBtn">
-                <i class="fas fa-chart-pie me-2"></i>Export CSAT
+            <button type="button" class="btn btn-outline-light btn-sm" id="exportOptionsBtn">
+                <i class="fas fa-file-export me-2"></i>Export
             </button>
             <a class="btn btn-outline-glass btn-sm" id="importCallReportsLink" href="<?= __importCallReportUrl ?>">
                 <i class="fas fa-file-import me-2"></i>Import Call Reports
@@ -1323,6 +1320,7 @@
                     <option value="Month">📆 Monthly</option>
                     <option value="Quarter">📋 Quarterly</option>
                     <option value="Year">📊 Yearly</option>
+                    <option value="Custom">🗓️ Custom Range</option>
                 </select>
             </div>
 
@@ -1375,6 +1373,13 @@
                     min="2000"
                     max="2100"/>
             </div>
+            <div class="ms-0 ms-sm-2" id="customPicker" style="display: none;">
+                <div class="d-flex flex-wrap align-items-center gap-2">
+                    <input type="date" class="form-control form-control-sm" id="customStartInput" aria-label="Custom start date" />
+                    <span class="text-muted" style="font-size: 0.9rem;">to</span>
+                    <input type="date" class="form-control form-control-sm" id="customEndInput" aria-label="Custom end date" />
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -1426,6 +1431,61 @@
                             <div class="ai-insight-card">
                                 <h6 class="ai-section-title"><i class="fas fa-utensils me-2 text-success"></i>Break & Lunch Planner</h6>
                                 <div id="schedulePlannerContainer" class="schedule-planner-container text-muted">Recommendations will appear once data loads.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="exportOptionsModal" tabindex="-1" aria-labelledby="exportOptionsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="exportOptionsModalLabel"><i class="fas fa-file-export me-2"></i>Export Call Reports</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted mb-3">Choose which report to export. Your current filters, agent selection, and date period will be applied to the download.</p>
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <div class="card h-100 shadow-sm">
+                            <div class="card-body d-flex flex-column gap-2">
+                                <div>
+                                    <div class="fw-bold">Call CSV</div>
+                                    <div class="text-muted small">Raw call data with all selected filters.</div>
+                                </div>
+                                <button type="button" class="btn btn-outline-primary w-100" id="exportCallCsvBtn">
+                                    <i class="fas fa-file-csv me-2"></i>Export CSV
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card h-100 shadow-sm">
+                            <div class="card-body d-flex flex-column gap-2">
+                                <div>
+                                    <div class="fw-bold">CSAT Summary</div>
+                                    <div class="text-muted small">Customer satisfaction metrics by period.</div>
+                                </div>
+                                <button type="button" class="btn btn-outline-primary w-100" id="exportCallCsatBtn">
+                                    <i class="fas fa-chart-pie me-2"></i>Export CSAT
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card h-100 shadow-sm">
+                            <div class="card-body d-flex flex-column gap-2">
+                                <div>
+                                    <div class="fw-bold">Performance Matrix</div>
+                                    <div class="text-muted small">Leaderboard with calls, talk time, and CSAT.</div>
+                                </div>
+                                <button type="button" class="btn btn-primary w-100" id="exportCallMatrixBtn">
+                                    <i class="fas fa-table me-2"></i>Export Matrix
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -1639,6 +1699,7 @@
 <script>
   // Keep all existing server-side variables exactly as they were
   const baseUrl = '<?= baseUrl ?>';
+  const scriptUrl = '<?= typeof scriptUrl !== "undefined" ? scriptUrl : baseUrl ?>';
   const callVolumeLast7 = <?= callVolumeLast7 ?>;
   const hourlyHeatmapLast7 = <?= hourlyHeatmapLast7 ?>;
   const avgIntervalByAgentLast7= <?= avgIntervalByAgentLast7 ?>;
@@ -1660,6 +1721,91 @@
   let currentGran = "Week";
   let currentPeriod = "<?= selectedPeriod ?>"; // initial ISO week, e.g. "2025-W23"
   let currentAgent = "<?= selectedAgent ?>";  // initial agent filter (probably "")
+
+  function formatDateInputValue(dateObj) {
+    if (!(dateObj instanceof Date) || isNaN(dateObj)) return "";
+    const year = dateObj.getFullYear();
+    const month = String(dateObj.getMonth() + 1).padStart(2, "0");
+    const day = String(dateObj.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
+
+  function buildCustomPeriodValue(options = {}) {
+    const { quietMissing = false } = options;
+    const startEl = document.getElementById("customStartInput");
+    const endEl = document.getElementById("customEndInput");
+    if (!startEl || !endEl) return null;
+
+    const startVal = startEl.value;
+    const endVal = endEl.value;
+    if (!startVal || !endVal) {
+      if (!quietMissing) {
+        showToast("Select both a start and end date to use the custom range.", "warning");
+      }
+      return null;
+    }
+
+    const startDate = new Date(startVal);
+    const endDate = new Date(endVal);
+    if (isNaN(startDate) || isNaN(endDate)) {
+      showToast("Invalid custom date range provided.", "warning");
+      return null;
+    }
+
+    if (startDate > endDate) {
+      showToast("Start date must be on or before the end date.", "warning");
+      return null;
+    }
+
+    const normalizedStart = formatDateInputValue(startDate);
+    const normalizedEnd = formatDateInputValue(endDate);
+    return `${normalizedStart}::${normalizedEnd}`;
+  }
+
+  function resolvePeriodForRequest() {
+    if (currentGran !== "Custom") {
+      if (!currentPeriod) {
+        if (currentGran === "Week") {
+          const wk = document.getElementById("weekInput");
+          if (wk && wk.value) {
+            currentPeriod = wk.value;
+          }
+        }
+      }
+      return currentPeriod;
+    }
+    const resolved = buildCustomPeriodValue();
+    if (resolved) currentPeriod = resolved;
+    return resolved;
+  }
+
+  function resolveExportBaseUrl() {
+    const candidate = (scriptUrl && scriptUrl.length) ? scriptUrl : baseUrl;
+    if (!candidate) return null;
+    const hasQuery = candidate.indexOf("?") !== -1;
+    return hasQuery ? candidate : `${candidate}?page=CallReports`;
+  }
+
+  function openExport(actionName) {
+    const safePeriod = resolvePeriodForRequest();
+    if (!safePeriod) return;
+
+    const exportBase = resolveExportBaseUrl();
+    if (!exportBase) {
+      showToast("Export URL is not available. Please refresh and try again.", "danger");
+      return;
+    }
+
+    const separator = /[?&]$/.test(exportBase) ? "" : (exportBase.indexOf("?") === -1 ? "?" : "&");
+    const url = exportBase
+      + separator
+      + "page=CallReports"
+      + "&action=" + encodeURIComponent(actionName)
+      + "&granularity=" + encodeURIComponent(currentGran)
+      + "&period=" + encodeURIComponent(safePeriod)
+      + "&agent=" + encodeURIComponent(currentAgent);
+    window.open(url, "_blank");
+  }
 
   // Enhanced Chart.js defaults
   function setupChartDefaults() {
@@ -1755,51 +1901,143 @@
       triggerLoadAnalytics();
     });
 
+    const customStartInput = document.getElementById("customStartInput");
+    const customEndInput = document.getElementById("customEndInput");
+    const customPattern = /^\d{4}-\d{2}-\d{2}::\d{4}-\d{2}-\d{2}$/;
+
+    function seedCustomRangeDefaults() {
+      if (!customStartInput || !customEndInput) return;
+      if (!customStartInput.value) {
+        const start = new Date();
+        start.setDate(start.getDate() - 13);
+        customStartInput.value = formatDateInputValue(start);
+      }
+      if (!customEndInput.value) {
+        customEndInput.value = formatDateInputValue(new Date());
+      }
+    }
+
+    if (customPattern.test(currentPeriod)) {
+      const [start, end] = currentPeriod.split("::");
+      if (customStartInput && customEndInput) {
+        customStartInput.value = start;
+        customEndInput.value = end;
+      }
+    } else {
+      seedCustomRangeDefaults();
+    }
+
+    const handleCustomRangeChange = () => {
+      if (currentGran !== "Custom") return;
+      const value = buildCustomPeriodValue({ quietMissing: true });
+      if (value) {
+        currentPeriod = value;
+        triggerLoadAnalytics();
+      }
+    };
+
+    customStartInput?.addEventListener("change", handleCustomRangeChange);
+    customEndInput?.addEventListener("change", handleCustomRangeChange);
+
     // Keep existing picker initialization
-    document.getElementById("weekPicker").style.display = "none";
-    document.getElementById("biWeekPicker").style.display = "none";
-    document.getElementById("monthPicker").style.display = "none";
-    document.getElementById("quarterPicker").style.display = "none";
-    document.getElementById("yearPicker").style.display = "none";
+    ["weekPicker", "biWeekPicker", "monthPicker", "quarterPicker", "yearPicker", "customPicker"].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = "none";
+    });
 
     populateBiWeeklyOptions();
 
     const today = new Date();
     const weekPattern = /^\d{4}-W\d{2}$/i;
-    if (currentPeriod && weekPattern.test(currentPeriod)) {
-      wk.value = currentPeriod;
+    const monthPattern = /^\d{4}-\d{2}$/;
+    const quarterPattern = /^Q[1-4]-\d{4}$/i;
+    if (currentGran === "BiWeekly") {
+      const select = document.getElementById("biWeekSelect");
+      if (select) {
+        if (currentPeriod && Array.from(select.options).some(opt => opt.value === currentPeriod)) {
+          select.value = currentPeriod;
+        }
+        document.getElementById("biWeekPicker").style.display = "block";
+      }
+    } else if (currentGran === "Month") {
+      if (m && monthPattern.test(currentPeriod)) {
+        m.value = currentPeriod;
+      }
+      document.getElementById("monthPicker").style.display = "block";
+    } else if (currentGran === "Quarter") {
+      if (quarterPattern.test(currentPeriod)) {
+        const [selectedQuarter, selectedYear] = currentPeriod.split("-");
+        if (qs) qs.value = selectedQuarter;
+        if (qy) qy.value = selectedYear;
+      }
+      document.getElementById("quarterPicker").style.display = "block";
+    } else if (currentGran === "Year") {
+      if (yr && currentPeriod) {
+        yr.value = currentPeriod;
+      }
+      document.getElementById("yearPicker").style.display = "block";
+    } else if (currentGran === "Custom") {
+      document.getElementById("customPicker").style.display = "block";
+      const seeded = buildCustomPeriodValue({ quietMissing: true });
+      if (seeded) currentPeriod = seeded;
     } else {
-      const isoWeek = weekStringFromDate(today);
-      wk.value = isoWeek;
-      if (!currentPeriod || !currentPeriod.length) {
-        currentPeriod = isoWeek;
+      if (currentPeriod && weekPattern.test(currentPeriod)) {
+        wk.value = currentPeriod;
+      } else {
+        const isoWeek = weekStringFromDate(today);
+        wk.value = isoWeek;
+        if (!currentPeriod || !currentPeriod.length) {
+          currentPeriod = isoWeek;
+        }
+      }
+      document.getElementById("weekPicker").style.display = "block";
+    }
+
+    const exportOptionsBtn = document.getElementById("exportOptionsBtn");
+    const exportOptionsModalEl = document.getElementById("exportOptionsModal");
+    const exportButtons = {
+      exportCallCsvBtn: "exportCallCsv",
+      exportCallCsatBtn: "exportCallCsat",
+      exportCallMatrixBtn: "exportCallMatrix",
+    };
+
+    const attachExportHandlers = (modalInstance) => {
+      Object.entries(exportButtons).forEach(([btnId, action]) => {
+        const btn = document.getElementById(btnId);
+        if (!btn) return;
+        btn.addEventListener("click", () => {
+          openExport(action);
+          modalInstance?.hide?.();
+        });
+      });
+    };
+
+    if (exportOptionsBtn && exportOptionsModalEl) {
+      if (exportOptionsModalEl.parentNode !== document.body) {
+        document.body.appendChild(exportOptionsModalEl);
+      }
+      const bootstrapModal = window.bootstrap?.Modal;
+      if (bootstrapModal) {
+        const exportOptionsModal = new bootstrapModal(exportOptionsModalEl);
+        exportOptionsBtn.addEventListener("click", () => exportOptionsModal.show());
+        attachExportHandlers(exportOptionsModal);
+      } else {
+        exportOptionsBtn.addEventListener("click", () => {
+          const isOpen = exportOptionsModalEl.classList.toggle("show");
+          exportOptionsModalEl.setAttribute("aria-hidden", (!isOpen).toString());
+        });
+        attachExportHandlers({ hide: () => {
+          exportOptionsModalEl.classList.remove("show");
+          exportOptionsModalEl.setAttribute("aria-hidden", "true");
+        }});
+        exportOptionsModalEl
+          .querySelectorAll('[data-bs-dismiss="modal"]')
+          .forEach(btn => btn.addEventListener("click", () => {
+            exportOptionsModalEl.classList.remove("show");
+            exportOptionsModalEl.setAttribute("aria-hidden", "true");
+          }));
       }
     }
-    document.getElementById("weekPicker").style.display = "block";
-
-    document
-      .getElementById("exportCallCsvBtn")
-      .addEventListener("click", () => {
-        const url = baseUrl
-          + "&page=CallReports"
-          + "&action=exportCallCsv"
-          + "&granularity=" + encodeURIComponent(currentGran)
-          + "&period=" + encodeURIComponent(currentPeriod)
-          + "&agent=" + encodeURIComponent(currentAgent);
-        window.open(url, "_blank");
-      });
-
-    document
-      .getElementById("exportCallCsatBtn")
-      .addEventListener("click", () => {
-        const url = baseUrl
-          + "&page=CallReports"
-          + "&action=exportCallCsat"
-          + "&granularity=" + encodeURIComponent(currentGran)
-          + "&period=" + encodeURIComponent(currentPeriod)
-          + "&agent=" + encodeURIComponent(currentAgent);
-        window.open(url, "_blank");
-      });
 
     const aiAnalyzerBtn = document.getElementById("aiAnalyzerBtn");
     const aiAnalyzerModalEl = document.getElementById("aiAnalyzerModal");
@@ -1861,13 +2099,16 @@
 
     // Load initial analytics - keep existing function call
     if (chartsReady !== false) {
-      loadAnalytics(currentGran, currentPeriod, currentAgent);
+      const safePeriod = resolvePeriodForRequest();
+      if (safePeriod) {
+        loadAnalytics(currentGran, safePeriod, currentAgent);
+      }
     }
   });
 
   // Keep all existing functions exactly as they were, just enhance the rendering
   function onGranChange() {
-    ["weekPicker", "biWeekPicker", "monthPicker", "quarterPicker", "yearPicker"].forEach(id => {
+    ["weekPicker", "biWeekPicker", "monthPicker", "quarterPicker", "yearPicker", "customPicker"].forEach(id => {
       document.getElementById(id).style.display = "none";
     });
 
@@ -1901,13 +2142,21 @@
       document.getElementById("yearPicker").style.display = "block";
       const yr = document.getElementById("yearInput");
       currentPeriod = yr.value;
+    } else if (currentGran === "Custom") {
+      document.getElementById("customPicker").style.display = "block";
+      const seeded = buildCustomPeriodValue({ quietMissing: true });
+      if (seeded) {
+        currentPeriod = seeded;
+      }
     }
 
     triggerLoadAnalytics();
   }
 
   function triggerLoadAnalytics() {
-    loadAnalytics(currentGran, currentPeriod, currentAgent);
+    const safePeriod = resolvePeriodForRequest();
+    if (!safePeriod) return;
+    loadAnalytics(currentGran, safePeriod, currentAgent);
   }
 
   function renderEverything(analytics) {
