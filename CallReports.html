@@ -1236,7 +1236,7 @@
     @media (max-width: 576px) {
         .btn-ai,
         .btn-outline-glass,
-        #exportCallCsvBtn {
+        #matrixExportBtn {
             width: 100%;
             justify-content: center;
         }
@@ -1304,10 +1304,7 @@
             <button type="button" class="btn btn-ai btn-sm" id="aiAnalyzerBtn" aria-expanded="false">
                 <i class="fas fa-robot me-2"></i><span class="btn-label">AI Analyzer</span>
             </button>
-            <button type="button" class="btn btn-outline-light btn-sm" id="exportOptionsBtn">
-                <i class="fas fa-file-export me-2"></i>Export
-            </button>
-            <button type="button" class="btn btn-outline-light btn-sm" id="exportCallMatrixBtn">
+            <button type="button" class="btn btn-outline-light btn-sm" id="matrixExportBtn">
                 <i class="fas fa-table me-2"></i>Export Matrix
             </button>
             <a class="btn btn-outline-glass btn-sm" id="importCallReportsLink" href="<?= __importCallReportUrl ?>">
@@ -1443,56 +1440,98 @@
     </div>
 </div>
 
-<div class="modal fade" id="exportOptionsModal" tabindex="-1" aria-labelledby="exportOptionsModalLabel" aria-hidden="true">
+<div class="modal fade" id="matrixExportModal" tabindex="-1" aria-labelledby="matrixExportModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="exportOptionsModalLabel"><i class="fas fa-file-export me-2"></i>Export Call Reports</h5>
+                <h5 class="modal-title" id="matrixExportModalLabel"><i class="fas fa-table me-2"></i>Export Performance Matrix</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <p class="text-muted mb-3">Choose which report to export. Your current filters, agent selection, and date period will be applied to the download.</p>
-                <div class="row g-3">
-                    <div class="col-md-4">
+                <p class="text-muted mb-3">Choose the window and metrics to generate a single matrix that blends calls, CSAT, talk time, and hold time with leaderboards.</p>
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
                         <div class="card h-100 shadow-sm">
-                            <div class="card-body d-flex flex-column gap-2">
-                                <div>
-                                    <div class="fw-bold">Call CSV</div>
-                                    <div class="text-muted small">Raw call data with all selected filters.</div>
+                            <div class="card-body">
+                                <div class="fw-bold mb-2">Time period</div>
+                                <div class="d-flex flex-column gap-2" id="matrixPeriodGroup">
+                                    <label class="form-check">
+                                        <input class="form-check-input" type="radio" name="matrixPeriod" value="weekly" checked>
+                                        <span class="form-check-label">Weekly</span>
+                                    </label>
+                                    <label class="form-check">
+                                        <input class="form-check-input" type="radio" name="matrixPeriod" value="biweekly">
+                                        <span class="form-check-label">Bi-Weekly</span>
+                                    </label>
+                                    <label class="form-check">
+                                        <input class="form-check-input" type="radio" name="matrixPeriod" value="monthly">
+                                        <span class="form-check-label">Monthly</span>
+                                    </label>
+                                    <label class="form-check">
+                                        <input class="form-check-input" type="radio" name="matrixPeriod" value="quarterly">
+                                        <span class="form-check-label">Quarterly</span>
+                                    </label>
+                                    <label class="form-check">
+                                        <input class="form-check-input" type="radio" name="matrixPeriod" value="yearly">
+                                        <span class="form-check-label">Yearly</span>
+                                    </label>
+                                    <label class="form-check">
+                                        <input class="form-check-input" type="radio" name="matrixPeriod" value="custom">
+                                        <span class="form-check-label">Custom date range</span>
+                                    </label>
+                                    <div class="mt-2 d-none" id="matrixCustomRange">
+                                        <div class="row g-2">
+                                            <div class="col-6">
+                                                <label class="form-label small text-muted">Start date</label>
+                                                <input type="date" class="form-control" id="matrixStartDate">
+                                            </div>
+                                            <div class="col-6">
+                                                <label class="form-label small text-muted">End date</label>
+                                                <input type="date" class="form-control" id="matrixEndDate">
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
-                                <button type="button" class="btn btn-outline-primary w-100" id="exportCallCsvBtn">
-                                    <i class="fas fa-file-csv me-2"></i>Export CSV
-                                </button>
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-6">
                         <div class="card h-100 shadow-sm">
-                            <div class="card-body d-flex flex-column gap-2">
+                            <div class="card-body d-flex flex-column gap-3">
                                 <div>
-                                    <div class="fw-bold">CSAT Summary</div>
-                                    <div class="text-muted small">Customer satisfaction metrics by period.</div>
+                                    <div class="fw-bold mb-1">Metrics to include</div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="matrixIncludeCalls" checked>
+                                        <label class="form-check-label" for="matrixIncludeCalls">Call metrics (volume, talk time, hold time, rankings)</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="matrixIncludeCsat" checked>
+                                        <label class="form-check-label" for="matrixIncludeCsat">CSAT metrics (counts, % satisfied, CSAT rank)</label>
+                                    </div>
                                 </div>
-                                <button type="button" class="btn btn-outline-primary w-100" id="exportCallCsatBtn">
-                                    <i class="fas fa-chart-pie me-2"></i>Export CSAT
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="card h-100 shadow-sm">
-                            <div class="card-body d-flex flex-column gap-2">
                                 <div>
-                                    <div class="fw-bold">Performance Matrix</div>
-                                    <div class="text-muted small">Leaderboard with calls, talk time, and CSAT.</div>
+                                    <div class="fw-bold mb-1">What you'll get</div>
+                                    <ul class="small text-muted ps-3 mb-0">
+                                        <li>One row per agent with calls, talk, hold, and CSAT performance</li>
+                                        <li>Call %, Talk %, Hold %, CSAT % plus Average Talk/Hold and answer speed</li>
+                                        <li>Call/Talk/CSAT ranks and leader highlights for top and bottom performers</li>
+                                    </ul>
                                 </div>
-                                <button type="button" class="btn btn-primary w-100" id="exportCallMatrixBtn">
-                                    <i class="fas fa-table me-2"></i>Export Matrix
-                                </button>
                             </div>
                         </div>
                     </div>
                 </div>
+                <div class="alert alert-light border d-flex align-items-center gap-2" id="matrixExportStatus" role="status">
+                    <i class="fas fa-info-circle text-primary"></i>
+                    <span>Exports open in a new Google Sheet. Your current agent filter is applied automatically.</span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="matrixExportConfirmBtn">
+                    <span class="export-action-label"><i class="fas fa-download me-2"></i>Export Matrix</span>
+                    <span class="export-action-progress d-none"><i class="fas fa-circle-notch fa-spin me-2"></i>Preparing…</span>
+                </button>
             </div>
         </div>
     </div>
@@ -1782,32 +1821,89 @@
     return resolved;
   }
 
-  function resolveExportBaseUrl() {
-    const candidate = (scriptUrl && scriptUrl.length) ? scriptUrl : baseUrl;
-    if (!candidate) return null;
-    const hasQuery = candidate.indexOf("?") !== -1;
-    return hasQuery ? candidate : `${candidate}?page=CallReports`;
+  function setMatrixStatus(message, tone = 'info') {
+    const status = document.getElementById('matrixExportStatus');
+    if (!status) return;
+    status.classList.remove('alert-info', 'alert-danger', 'alert-success', 'alert-warning', 'alert-light');
+    status.classList.add(`alert-${tone === 'danger' ? 'danger' : tone}`);
+    const textNode = status.querySelector('span');
+    if (textNode) textNode.textContent = message;
   }
 
-  function openExport(actionName) {
-    const safePeriod = resolvePeriodForRequest();
-    if (!safePeriod) return;
+  function toggleMatrixCustomRange() {
+    const selected = document.querySelector('input[name="matrixPeriod"]:checked');
+    const isCustom = selected && selected.value === 'custom';
+    const wrapper = document.getElementById('matrixCustomRange');
+    if (wrapper) {
+      wrapper.classList.toggle('d-none', !isCustom);
+    }
+  }
 
-    const exportBase = resolveExportBaseUrl();
-    if (!exportBase) {
-      showToast("Export URL is not available. Please refresh and try again.", "danger");
-      return;
+  function resolveMatrixSelection() {
+    const selected = document.querySelector('input[name="matrixPeriod"]:checked');
+    const includeCalls = document.getElementById('matrixIncludeCalls')?.checked !== false;
+    const includeCsat = document.getElementById('matrixIncludeCsat')?.checked !== false;
+    const startDate = document.getElementById('matrixStartDate')?.value;
+    const endDate = document.getElementById('matrixEndDate')?.value;
+
+    const periodType = selected ? selected.value : 'weekly';
+    if (periodType === 'custom') {
+      if (!startDate || !endDate) {
+        showToast('Select both start and end dates for a custom export.', 'warning');
+        return null;
+      }
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      if (isNaN(start) || isNaN(end) || start > end) {
+        showToast('Custom date range is invalid. Please correct it and try again.', 'danger');
+        return null;
+      }
     }
 
-    const separator = /[?&]$/.test(exportBase) ? "" : (exportBase.indexOf("?") === -1 ? "?" : "&");
-    const url = exportBase
-      + separator
-      + "page=CallReports"
-      + "&action=" + encodeURIComponent(actionName)
-      + "&granularity=" + encodeURIComponent(currentGran)
-      + "&period=" + encodeURIComponent(safePeriod)
-      + "&agent=" + encodeURIComponent(currentAgent);
-    window.open(url, "_blank");
+    return {
+      periodType,
+      startDate,
+      endDate,
+      includeCalls,
+      includeCsat,
+      agent: currentAgent
+    };
+  }
+
+  function runMatrixExport(modalInstance) {
+    const selection = resolveMatrixSelection();
+    if (!selection) return;
+
+    const confirmBtn = document.getElementById('matrixExportConfirmBtn');
+    const label = confirmBtn?.querySelector('.export-action-label');
+    const progress = confirmBtn?.querySelector('.export-action-progress');
+    if (confirmBtn) confirmBtn.disabled = true;
+    if (label) label.classList.add('d-none');
+    if (progress) progress.classList.remove('d-none');
+    setMatrixStatus('Preparing export…', 'info');
+
+    google.script.run
+      .withSuccessHandler((res) => {
+        if (confirmBtn) confirmBtn.disabled = false;
+        if (label) label.classList.remove('d-none');
+        if (progress) progress.classList.add('d-none');
+        if (res && res.spreadsheetUrl) {
+          setMatrixStatus('Export ready. Opening your matrix in a new tab…', 'success');
+          window.open(res.spreadsheetUrl, '_blank');
+          modalInstance?.hide?.();
+        } else {
+          setMatrixStatus('Export completed but no file link was returned.', 'warning');
+        }
+      })
+      .withFailureHandler((err) => {
+        if (confirmBtn) confirmBtn.disabled = false;
+        if (label) label.classList.remove('d-none');
+        if (progress) progress.classList.add('d-none');
+        const msg = err && err.message ? err.message : 'Matrix export failed.';
+        setMatrixStatus(msg, 'danger');
+        showToast(msg, 'danger');
+      })
+      .exportCallReportMatrix(selection);
   }
 
   // Enhanced Chart.js defaults
@@ -1996,48 +2092,71 @@
       document.getElementById("weekPicker").style.display = "block";
     }
 
-    const exportOptionsBtn = document.getElementById("exportOptionsBtn");
-    const exportOptionsModalEl = document.getElementById("exportOptionsModal");
-    const exportButtons = {
-      exportCallCsvBtn: "exportCallCsv",
-      exportCallCsatBtn: "exportCallCsat",
-      exportCallMatrixBtn: "exportCallMatrix",
-    };
+    const matrixExportBtn = document.getElementById("matrixExportBtn");
+    const matrixExportModalEl = document.getElementById("matrixExportModal");
+    const matrixExportConfirmBtn = document.getElementById("matrixExportConfirmBtn");
 
-    const attachExportHandlers = (modalInstance) => {
-      Object.entries(exportButtons).forEach(([btnId, action]) => {
-        const btn = document.getElementById(btnId);
-        if (!btn) return;
-        btn.addEventListener("click", () => {
-          openExport(action);
-          modalInstance?.hide?.();
-        });
-      });
-    };
-
-    if (exportOptionsBtn && exportOptionsModalEl) {
-      if (exportOptionsModalEl.parentNode !== document.body) {
-        document.body.appendChild(exportOptionsModalEl);
+    if (matrixExportBtn && matrixExportModalEl) {
+      if (matrixExportModalEl.parentNode !== document.body) {
+        document.body.appendChild(matrixExportModalEl);
       }
       const bootstrapModal = window.bootstrap?.Modal;
-      if (bootstrapModal) {
-        const exportOptionsModal = new bootstrapModal(exportOptionsModalEl);
-        exportOptionsBtn.addEventListener("click", () => exportOptionsModal.show());
-        attachExportHandlers(exportOptionsModal);
-      } else {
-        exportOptionsBtn.addEventListener("click", () => {
-          const isOpen = exportOptionsModalEl.classList.toggle("show");
-          exportOptionsModalEl.setAttribute("aria-hidden", (!isOpen).toString());
+      const bindPeriodRadios = () => {
+        document.querySelectorAll('input[name="matrixPeriod"]').forEach(radio => {
+          radio.addEventListener('change', toggleMatrixCustomRange);
         });
-        attachExportHandlers({ hide: () => {
-          exportOptionsModalEl.classList.remove("show");
-          exportOptionsModalEl.setAttribute("aria-hidden", "true");
-        }});
-        exportOptionsModalEl
+        toggleMatrixCustomRange();
+      };
+      bindPeriodRadios();
+
+      if (bootstrapModal) {
+        const matrixModal = new bootstrapModal(matrixExportModalEl);
+        matrixExportBtn.addEventListener("click", () => {
+          setMatrixStatus('Exports open in a new Google Sheet. Your current agent filter is applied automatically.', 'info');
+          const granMap = { Week: 'weekly', BiWeekly: 'biweekly', Month: 'monthly', Quarter: 'quarterly', Year: 'yearly', Custom: 'custom' };
+          const targetValue = granMap[currentGran] || 'weekly';
+          const targetRadio = document.querySelector(`input[name="matrixPeriod"][value="${targetValue}"]`);
+          if (targetRadio) {
+            targetRadio.checked = true;
+          }
+          if (targetValue === 'custom') {
+            const customStart = document.getElementById('customStartInput')?.value;
+            const customEnd = document.getElementById('customEndInput')?.value;
+            if (customStart) document.getElementById('matrixStartDate').value = customStart;
+            if (customEnd) document.getElementById('matrixEndDate').value = customEnd;
+          }
+          toggleMatrixCustomRange();
+          matrixModal.show();
+        });
+        matrixExportConfirmBtn?.addEventListener("click", () => runMatrixExport(matrixModal));
+      } else {
+        matrixExportBtn.addEventListener("click", () => {
+          const isOpen = matrixExportModalEl.classList.toggle("show");
+          matrixExportModalEl.setAttribute("aria-hidden", (!isOpen).toString());
+          if (isOpen) {
+            const granMap = { Week: 'weekly', BiWeekly: 'biweekly', Month: 'monthly', Quarter: 'quarterly', Year: 'yearly', Custom: 'custom' };
+            const targetValue = granMap[currentGran] || 'weekly';
+            const targetRadio = document.querySelector(`input[name="matrixPeriod"][value="${targetValue}"]`);
+            if (targetRadio) targetRadio.checked = true;
+            if (targetValue === 'custom') {
+              const customStart = document.getElementById('customStartInput')?.value;
+              const customEnd = document.getElementById('customEndInput')?.value;
+              if (customStart) document.getElementById('matrixStartDate').value = customStart;
+              if (customEnd) document.getElementById('matrixEndDate').value = customEnd;
+            }
+            toggleMatrixCustomRange();
+            setMatrixStatus('Exports open in a new Google Sheet. Your current agent filter is applied automatically.', 'info');
+          }
+        });
+        matrixExportConfirmBtn?.addEventListener("click", () => runMatrixExport({ hide: () => {
+          matrixExportModalEl.classList.remove("show");
+          matrixExportModalEl.setAttribute("aria-hidden", "true");
+        }}));
+        matrixExportModalEl
           .querySelectorAll('[data-bs-dismiss="modal"]')
           .forEach(btn => btn.addEventListener("click", () => {
-            exportOptionsModalEl.classList.remove("show");
-            exportOptionsModalEl.setAttribute("aria-hidden", "true");
+            matrixExportModalEl.classList.remove("show");
+            matrixExportModalEl.setAttribute("aria-hidden", "true");
           }));
       }
     }
