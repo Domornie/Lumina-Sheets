@@ -413,6 +413,76 @@ function __invalidateCallReportCache() {
   __analyticsCache = Object.create(null);
 }
 
+// Internal: read only the columns needed for analytics and filter by date/agent
+function __readCallReportRowsForAnalytics(startDate, endDate, agentFilter) {
+  const sh = __getCallReportSheet();
+  const lr = sh.getLastRow();
+  const lc = sh.getLastColumn();
+  if (lr < 2 || lc < CALL_REPORT_HEADERS.length) return [];
+
+  const headers = sh.getRange(1, 1, 1, lc).getValues()[0].map(String);
+  const headerIndex = {};
+  headers.forEach((h, i) => { headerIndex[h] = i; });
+
+  const answerHeader = __CALL_REPORT_ANSWER_HEADER_ALIASES.find(h => typeof headerIndex[h] === 'number');
+  const requiredHeaders = [
+    'CreatedDate',
+    'ToSFUser',
+    'TalkTimeMinutes',
+    'CSAT',
+    'FromRoutingPolicy',
+    'WrapupLabel'
+  ];
+
+  if (answerHeader) {
+    requiredHeaders.push(answerHeader);
+  }
+
+  const existingHeaders = requiredHeaders.filter(h => typeof headerIndex[h] === 'number');
+  if (!existingHeaders.length) return [];
+
+  const requiredColumns = existingHeaders.map(h => sh.getRange(2, headerIndex[h] + 1, lr - 1, 1).getValues());
+
+  const start = __startOfDay(startDate) || null;
+  const end = __endOfDay(endDate) || null;
+  const filteredRows = [];
+
+  for (let i = 0; i < lr - 1; i++) {
+    const rowObj = {};
+
+    existingHeaders.forEach((h, colIdx) => {
+      rowObj[h] = requiredColumns[colIdx][i][0];
+    });
+
+    if (rowObj.CreatedDate && !(rowObj.CreatedDate instanceof Date)) {
+      const d = new Date(rowObj.CreatedDate);
+      if (!isNaN(d)) rowObj.CreatedDate = d;
+    }
+
+    const created = rowObj.CreatedDate instanceof Date ? rowObj.CreatedDate : new Date(rowObj.CreatedDate);
+    if (!(created instanceof Date) || isNaN(created)) {
+      continue;
+    }
+
+    const createdDay = new Date(created.getFullYear(), created.getMonth(), created.getDate());
+    if (start && createdDay < start) continue;
+    if (end && createdDay > end) continue;
+
+    if (agentFilter && agentFilter !== '' && rowObj.ToSFUser !== agentFilter) {
+      continue;
+    }
+
+    // Ensure the answer value is available under all aliases
+    if (answerHeader && rowObj[answerHeader] !== undefined) {
+      __applyAnswerFieldAliases(rowObj, rowObj[answerHeader]);
+    }
+
+    filteredRows.push(rowObj);
+  }
+
+  return filteredRows;
+}
+
 // Internal: read all rows to objects using header row
 function __readAllCallReportRows() {
   try {
@@ -649,12 +719,7 @@ function getAnalyticsByPeriod(granularity, periodIdentifier, agentFilter) {
   const weekRequirements = buildWeekRequirements(normalizedStart, normalizedEnd, tz);
 
   // Filter by date range (CreatedDate, date-only)
-  const dateFiltered = __readAllCallReportRows().filter(r => {
-    const dt = r.CreatedDate instanceof Date ? r.CreatedDate : new Date(r.CreatedDate);
-    if (isNaN(dt)) return false;
-    const d = new Date(dt.getFullYear(), dt.getMonth(), dt.getDate());
-    return d >= startDate && d <= endDate;
-  });
+  const dateFiltered = __readCallReportRowsForAnalytics(startDate, endDate, agentFilter);
 
   // Agents active in this window
   const activeAgents = Array.from(new Set(dateFiltered.map(r => r.ToSFUser || '—'))).sort();
