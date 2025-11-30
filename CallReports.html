@@ -1304,11 +1304,8 @@
             <button type="button" class="btn btn-ai btn-sm" id="aiAnalyzerBtn" aria-expanded="false">
                 <i class="fas fa-robot me-2"></i><span class="btn-label">AI Analyzer</span>
             </button>
-            <button type="button" class="btn btn-outline-light btn-sm" id="exportCallCsvBtn">
-                <i class="fas fa-file-export me-2"></i>Export CSV
-            </button>
-            <button type="button" class="btn btn-outline-light btn-sm" id="exportCallCsatBtn">
-                <i class="fas fa-chart-pie me-2"></i>Export CSAT
+            <button type="button" class="btn btn-outline-light btn-sm" id="exportOptionsBtn">
+                <i class="fas fa-file-export me-2"></i>Export
             </button>
             <button type="button" class="btn btn-outline-light btn-sm" id="exportCallMatrixBtn">
                 <i class="fas fa-table me-2"></i>Export Matrix
@@ -1437,6 +1434,61 @@
                             <div class="ai-insight-card">
                                 <h6 class="ai-section-title"><i class="fas fa-utensils me-2 text-success"></i>Break & Lunch Planner</h6>
                                 <div id="schedulePlannerContainer" class="schedule-planner-container text-muted">Recommendations will appear once data loads.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="exportOptionsModal" tabindex="-1" aria-labelledby="exportOptionsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="exportOptionsModalLabel"><i class="fas fa-file-export me-2"></i>Export Call Reports</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted mb-3">Choose which report to export. Your current filters, agent selection, and date period will be applied to the download.</p>
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <div class="card h-100 shadow-sm">
+                            <div class="card-body d-flex flex-column gap-2">
+                                <div>
+                                    <div class="fw-bold">Call CSV</div>
+                                    <div class="text-muted small">Raw call data with all selected filters.</div>
+                                </div>
+                                <button type="button" class="btn btn-outline-primary w-100" id="exportCallCsvBtn">
+                                    <i class="fas fa-file-csv me-2"></i>Export CSV
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card h-100 shadow-sm">
+                            <div class="card-body d-flex flex-column gap-2">
+                                <div>
+                                    <div class="fw-bold">CSAT Summary</div>
+                                    <div class="text-muted small">Customer satisfaction metrics by period.</div>
+                                </div>
+                                <button type="button" class="btn btn-outline-primary w-100" id="exportCallCsatBtn">
+                                    <i class="fas fa-chart-pie me-2"></i>Export CSAT
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card h-100 shadow-sm">
+                            <div class="card-body d-flex flex-column gap-2">
+                                <div>
+                                    <div class="fw-bold">Performance Matrix</div>
+                                    <div class="text-muted small">Leaderboard with calls, talk time, and CSAT.</div>
+                                </div>
+                                <button type="button" class="btn btn-primary w-100" id="exportCallMatrixBtn">
+                                    <i class="fas fa-table me-2"></i>Export Matrix
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -1944,17 +1996,51 @@
       document.getElementById("weekPicker").style.display = "block";
     }
 
-    document
-      .getElementById("exportCallCsvBtn")
-      .addEventListener("click", () => openExport("exportCallCsv"));
+    const exportOptionsBtn = document.getElementById("exportOptionsBtn");
+    const exportOptionsModalEl = document.getElementById("exportOptionsModal");
+    const exportButtons = {
+      exportCallCsvBtn: "exportCallCsv",
+      exportCallCsatBtn: "exportCallCsat",
+      exportCallMatrixBtn: "exportCallMatrix",
+    };
 
-    document
-      .getElementById("exportCallCsatBtn")
-      .addEventListener("click", () => openExport("exportCallCsat"));
+    const attachExportHandlers = (modalInstance) => {
+      Object.entries(exportButtons).forEach(([btnId, action]) => {
+        const btn = document.getElementById(btnId);
+        if (!btn) return;
+        btn.addEventListener("click", () => {
+          openExport(action);
+          modalInstance?.hide?.();
+        });
+      });
+    };
 
-    document
-      .getElementById("exportCallMatrixBtn")
-      .addEventListener("click", () => openExport("exportCallMatrix"));
+    if (exportOptionsBtn && exportOptionsModalEl) {
+      if (exportOptionsModalEl.parentNode !== document.body) {
+        document.body.appendChild(exportOptionsModalEl);
+      }
+      const bootstrapModal = window.bootstrap?.Modal;
+      if (bootstrapModal) {
+        const exportOptionsModal = new bootstrapModal(exportOptionsModalEl);
+        exportOptionsBtn.addEventListener("click", () => exportOptionsModal.show());
+        attachExportHandlers(exportOptionsModal);
+      } else {
+        exportOptionsBtn.addEventListener("click", () => {
+          const isOpen = exportOptionsModalEl.classList.toggle("show");
+          exportOptionsModalEl.setAttribute("aria-hidden", (!isOpen).toString());
+        });
+        attachExportHandlers({ hide: () => {
+          exportOptionsModalEl.classList.remove("show");
+          exportOptionsModalEl.setAttribute("aria-hidden", "true");
+        }});
+        exportOptionsModalEl
+          .querySelectorAll('[data-bs-dismiss="modal"]')
+          .forEach(btn => btn.addEventListener("click", () => {
+            exportOptionsModalEl.classList.remove("show");
+            exportOptionsModalEl.setAttribute("aria-hidden", "true");
+          }));
+      }
+    }
 
     const aiAnalyzerBtn = document.getElementById("aiAnalyzerBtn");
     const aiAnalyzerModalEl = document.getElementById("aiAnalyzerModal");
