@@ -1650,6 +1650,7 @@
 <script>
   // Keep all existing server-side variables exactly as they were
   const baseUrl = '<?= baseUrl ?>';
+  const scriptUrl = '<?= typeof scriptUrl !== "undefined" ? scriptUrl : baseUrl ?>';
   const callVolumeLast7 = <?= callVolumeLast7 ?>;
   const hourlyHeatmapLast7 = <?= hourlyHeatmapLast7 ?>;
   const avgIntervalByAgentLast7= <?= avgIntervalByAgentLast7 ?>;
@@ -1727,6 +1728,34 @@
     const resolved = buildCustomPeriodValue();
     if (resolved) currentPeriod = resolved;
     return resolved;
+  }
+
+  function resolveExportBaseUrl() {
+    const candidate = (scriptUrl && scriptUrl.length) ? scriptUrl : baseUrl;
+    if (!candidate) return null;
+    const hasQuery = candidate.indexOf("?") !== -1;
+    return hasQuery ? candidate : `${candidate}?page=CallReports`;
+  }
+
+  function openExport(actionName) {
+    const safePeriod = resolvePeriodForRequest();
+    if (!safePeriod) return;
+
+    const exportBase = resolveExportBaseUrl();
+    if (!exportBase) {
+      showToast("Export URL is not available. Please refresh and try again.", "danger");
+      return;
+    }
+
+    const separator = /[?&]$/.test(exportBase) ? "" : (exportBase.indexOf("?") === -1 ? "?" : "&");
+    const url = exportBase
+      + separator
+      + "page=CallReports"
+      + "&action=" + encodeURIComponent(actionName)
+      + "&granularity=" + encodeURIComponent(currentGran)
+      + "&period=" + encodeURIComponent(safePeriod)
+      + "&agent=" + encodeURIComponent(currentAgent);
+    window.open(url, "_blank");
   }
 
   // Enhanced Chart.js defaults
@@ -1917,45 +1946,15 @@
 
     document
       .getElementById("exportCallCsvBtn")
-      .addEventListener("click", () => {
-        const safePeriod = resolvePeriodForRequest();
-        if (!safePeriod) return;
-        const url = baseUrl
-          + "&page=CallReports"
-          + "&action=exportCallCsv"
-          + "&granularity=" + encodeURIComponent(currentGran)
-          + "&period=" + encodeURIComponent(safePeriod)
-          + "&agent=" + encodeURIComponent(currentAgent);
-        window.open(url, "_blank");
-      });
+      .addEventListener("click", () => openExport("exportCallCsv"));
 
     document
       .getElementById("exportCallCsatBtn")
-      .addEventListener("click", () => {
-        const safePeriod = resolvePeriodForRequest();
-        if (!safePeriod) return;
-        const url = baseUrl
-          + "&page=CallReports"
-          + "&action=exportCallCsat"
-          + "&granularity=" + encodeURIComponent(currentGran)
-          + "&period=" + encodeURIComponent(safePeriod)
-          + "&agent=" + encodeURIComponent(currentAgent);
-        window.open(url, "_blank");
-      });
+      .addEventListener("click", () => openExport("exportCallCsat"));
 
     document
       .getElementById("exportCallMatrixBtn")
-      .addEventListener("click", () => {
-        const safePeriod = resolvePeriodForRequest();
-        if (!safePeriod) return;
-        const url = baseUrl
-          + "&page=CallReports"
-          + "&action=exportCallMatrix"
-          + "&granularity=" + encodeURIComponent(currentGran)
-          + "&period=" + encodeURIComponent(safePeriod)
-          + "&agent=" + encodeURIComponent(currentAgent);
-        window.open(url, "_blank");
-      });
+      .addEventListener("click", () => openExport("exportCallMatrix"));
 
     const aiAnalyzerBtn = document.getElementById("aiAnalyzerBtn");
     const aiAnalyzerModalEl = document.getElementById("aiAnalyzerModal");
