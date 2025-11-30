@@ -4788,7 +4788,22 @@
 
       const arrayBuffer = XLSX.write(workbook, { type: 'array', bookType: 'xlsx', cellStyles: true });
       const blob = new Blob([arrayBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-      this.downloadFile(blob, `adherence-compliance-${new Date().toISOString().slice(0, 10)}.xlsx`, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      if (typeof this.downloadFile === 'function') {
+        this.downloadFile(
+          blob,
+          `adherence-compliance-${new Date().toISOString().slice(0, 10)}.xlsx`,
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        );
+      } else {
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `adherence-compliance-${new Date().toISOString().slice(0, 10)}.xlsx`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      }
       this.showToast('Google Sheets-ready adherence & compliance workbook generated.', 'success');
     }
 
@@ -4883,7 +4898,23 @@
 
       const arrayBuffer = XLSX.write(workbook, { type: 'array', bookType: 'xlsx', cellStyles: true });
       const blob = new Blob([arrayBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-      this.downloadFile(blob, `adherence-break-lunch-violations-${new Date().toISOString().slice(0, 10)}.xlsx`, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      const violationsFilename = `adherence-break-lunch-violations-${new Date().toISOString().slice(0, 10)}.xlsx`;
+      if (typeof this.downloadFile === 'function') {
+        this.downloadFile(
+          blob,
+          violationsFilename,
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        );
+      } else {
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = violationsFilename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      }
       this.showToast('Adherence violations exported to Google Sheets ready format.', 'success');
     }
 
