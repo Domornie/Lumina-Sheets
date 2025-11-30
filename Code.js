@@ -2582,6 +2582,16 @@ function doGet(e) {
         .downloadAsFile(`callCsat_${period}.csv`);
     }
 
+    if (page === "callreports" && e.parameter.action === "exportCallMatrix") {
+      const gran = e.parameter.granularity || "Week";
+      const period = e.parameter.period || weekStringFromDate(new Date());
+      const agent = e.parameter.agent || "";
+      const csv = exportCallPerformanceMatrixCsv(gran, period, agent);
+      return ContentService.createTextOutput(csv)
+        .setMimeType(ContentService.MimeType.CSV)
+        .downloadAsFile(`callMatrix_${period}.csv`);
+    }
+
     if (page === 'attendancereports' && e.parameter.action === 'exportCsv') {
       const gran = e.parameter.granularity || 'Week';
       const period = e.parameter.period || weekStringFromDate(new Date());
