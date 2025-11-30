@@ -4219,6 +4219,8 @@
             return;
           }
 
+          const userCompliance = this.getFilteredComplianceData();
+
           const activeTimingInfo = this.weeklyTimingInfo instanceof Map ? this.weeklyTimingInfo : new Map();
 
           const availableDateKeys = new Set();
