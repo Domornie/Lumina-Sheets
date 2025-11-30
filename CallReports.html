@@ -1310,6 +1310,9 @@
             <button type="button" class="btn btn-outline-light btn-sm" id="exportCallCsatBtn">
                 <i class="fas fa-chart-pie me-2"></i>Export CSAT
             </button>
+            <button type="button" class="btn btn-outline-light btn-sm" id="exportCallMatrixBtn">
+                <i class="fas fa-table me-2"></i>Export Matrix
+            </button>
             <a class="btn btn-outline-glass btn-sm" id="importCallReportsLink" href="<?= __importCallReportUrl ?>">
                 <i class="fas fa-file-import me-2"></i>Import Call Reports
             </a>
@@ -1323,6 +1326,7 @@
                     <option value="Month">📆 Monthly</option>
                     <option value="Quarter">📋 Quarterly</option>
                     <option value="Year">📊 Yearly</option>
+                    <option value="Custom">🗓️ Custom Range</option>
                 </select>
             </div>
 
@@ -1374,6 +1378,13 @@
                     placeholder="YYYY"
                     min="2000"
                     max="2100"/>
+            </div>
+            <div class="ms-0 ms-sm-2" id="customPicker" style="display: none;">
+                <div class="d-flex flex-wrap align-items-center gap-2">
+                    <input type="date" class="form-control form-control-sm" id="customStartInput" aria-label="Custom start date" />
+                    <span class="text-muted" style="font-size: 0.9rem;">to</span>
+                    <input type="date" class="form-control form-control-sm" id="customEndInput" aria-label="Custom end date" />
+                </div>
             </div>
         </div>
     </div>
@@ -1661,6 +1672,63 @@
   let currentPeriod = "<?= selectedPeriod ?>"; // initial ISO week, e.g. "2025-W23"
   let currentAgent = "<?= selectedAgent ?>";  // initial agent filter (probably "")
 
+  function formatDateInputValue(dateObj) {
+    if (!(dateObj instanceof Date) || isNaN(dateObj)) return "";
+    const year = dateObj.getFullYear();
+    const month = String(dateObj.getMonth() + 1).padStart(2, "0");
+    const day = String(dateObj.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
+
+  function buildCustomPeriodValue(options = {}) {
+    const { quietMissing = false } = options;
+    const startEl = document.getElementById("customStartInput");
+    const endEl = document.getElementById("customEndInput");
+    if (!startEl || !endEl) return null;
+
+    const startVal = startEl.value;
+    const endVal = endEl.value;
+    if (!startVal || !endVal) {
+      if (!quietMissing) {
+        showToast("Select both a start and end date to use the custom range.", "warning");
+      }
+      return null;
+    }
+
+    const startDate = new Date(startVal);
+    const endDate = new Date(endVal);
+    if (isNaN(startDate) || isNaN(endDate)) {
+      showToast("Invalid custom date range provided.", "warning");
+      return null;
+    }
+
+    if (startDate > endDate) {
+      showToast("Start date must be on or before the end date.", "warning");
+      return null;
+    }
+
+    const normalizedStart = formatDateInputValue(startDate);
+    const normalizedEnd = formatDateInputValue(endDate);
+    return `${normalizedStart}::${normalizedEnd}`;
+  }
+
+  function resolvePeriodForRequest() {
+    if (currentGran !== "Custom") {
+      if (!currentPeriod) {
+        if (currentGran === "Week") {
+          const wk = document.getElementById("weekInput");
+          if (wk && wk.value) {
+            currentPeriod = wk.value;
+          }
+        }
+      }
+      return currentPeriod;
+    }
+    const resolved = buildCustomPeriodValue();
+    if (resolved) currentPeriod = resolved;
+    return resolved;
+  }
+
   // Enhanced Chart.js defaults
   function setupChartDefaults() {
     if (typeof Chart === 'undefined' || !Chart?.defaults) {
@@ -1755,36 +1823,108 @@
       triggerLoadAnalytics();
     });
 
+    const customStartInput = document.getElementById("customStartInput");
+    const customEndInput = document.getElementById("customEndInput");
+    const customPattern = /^\d{4}-\d{2}-\d{2}::\d{4}-\d{2}-\d{2}$/;
+
+    function seedCustomRangeDefaults() {
+      if (!customStartInput || !customEndInput) return;
+      if (!customStartInput.value) {
+        const start = new Date();
+        start.setDate(start.getDate() - 13);
+        customStartInput.value = formatDateInputValue(start);
+      }
+      if (!customEndInput.value) {
+        customEndInput.value = formatDateInputValue(new Date());
+      }
+    }
+
+    if (customPattern.test(currentPeriod)) {
+      const [start, end] = currentPeriod.split("::");
+      if (customStartInput && customEndInput) {
+        customStartInput.value = start;
+        customEndInput.value = end;
+      }
+    } else {
+      seedCustomRangeDefaults();
+    }
+
+    const handleCustomRangeChange = () => {
+      if (currentGran !== "Custom") return;
+      const value = buildCustomPeriodValue({ quietMissing: true });
+      if (value) {
+        currentPeriod = value;
+        triggerLoadAnalytics();
+      }
+    };
+
+    customStartInput?.addEventListener("change", handleCustomRangeChange);
+    customEndInput?.addEventListener("change", handleCustomRangeChange);
+
     // Keep existing picker initialization
-    document.getElementById("weekPicker").style.display = "none";
-    document.getElementById("biWeekPicker").style.display = "none";
-    document.getElementById("monthPicker").style.display = "none";
-    document.getElementById("quarterPicker").style.display = "none";
-    document.getElementById("yearPicker").style.display = "none";
+    ["weekPicker", "biWeekPicker", "monthPicker", "quarterPicker", "yearPicker", "customPicker"].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = "none";
+    });
 
     populateBiWeeklyOptions();
 
     const today = new Date();
     const weekPattern = /^\d{4}-W\d{2}$/i;
-    if (currentPeriod && weekPattern.test(currentPeriod)) {
-      wk.value = currentPeriod;
-    } else {
-      const isoWeek = weekStringFromDate(today);
-      wk.value = isoWeek;
-      if (!currentPeriod || !currentPeriod.length) {
-        currentPeriod = isoWeek;
+    const monthPattern = /^\d{4}-\d{2}$/;
+    const quarterPattern = /^Q[1-4]-\d{4}$/i;
+    if (currentGran === "BiWeekly") {
+      const select = document.getElementById("biWeekSelect");
+      if (select) {
+        if (currentPeriod && Array.from(select.options).some(opt => opt.value === currentPeriod)) {
+          select.value = currentPeriod;
+        }
+        document.getElementById("biWeekPicker").style.display = "block";
       }
+    } else if (currentGran === "Month") {
+      if (m && monthPattern.test(currentPeriod)) {
+        m.value = currentPeriod;
+      }
+      document.getElementById("monthPicker").style.display = "block";
+    } else if (currentGran === "Quarter") {
+      if (quarterPattern.test(currentPeriod)) {
+        const [selectedQuarter, selectedYear] = currentPeriod.split("-");
+        if (qs) qs.value = selectedQuarter;
+        if (qy) qy.value = selectedYear;
+      }
+      document.getElementById("quarterPicker").style.display = "block";
+    } else if (currentGran === "Year") {
+      if (yr && currentPeriod) {
+        yr.value = currentPeriod;
+      }
+      document.getElementById("yearPicker").style.display = "block";
+    } else if (currentGran === "Custom") {
+      document.getElementById("customPicker").style.display = "block";
+      const seeded = buildCustomPeriodValue({ quietMissing: true });
+      if (seeded) currentPeriod = seeded;
+    } else {
+      if (currentPeriod && weekPattern.test(currentPeriod)) {
+        wk.value = currentPeriod;
+      } else {
+        const isoWeek = weekStringFromDate(today);
+        wk.value = isoWeek;
+        if (!currentPeriod || !currentPeriod.length) {
+          currentPeriod = isoWeek;
+        }
+      }
+      document.getElementById("weekPicker").style.display = "block";
     }
-    document.getElementById("weekPicker").style.display = "block";
 
     document
       .getElementById("exportCallCsvBtn")
       .addEventListener("click", () => {
+        const safePeriod = resolvePeriodForRequest();
+        if (!safePeriod) return;
         const url = baseUrl
           + "&page=CallReports"
           + "&action=exportCallCsv"
           + "&granularity=" + encodeURIComponent(currentGran)
-          + "&period=" + encodeURIComponent(currentPeriod)
+          + "&period=" + encodeURIComponent(safePeriod)
           + "&agent=" + encodeURIComponent(currentAgent);
         window.open(url, "_blank");
       });
@@ -1792,11 +1932,27 @@
     document
       .getElementById("exportCallCsatBtn")
       .addEventListener("click", () => {
+        const safePeriod = resolvePeriodForRequest();
+        if (!safePeriod) return;
         const url = baseUrl
           + "&page=CallReports"
           + "&action=exportCallCsat"
           + "&granularity=" + encodeURIComponent(currentGran)
-          + "&period=" + encodeURIComponent(currentPeriod)
+          + "&period=" + encodeURIComponent(safePeriod)
+          + "&agent=" + encodeURIComponent(currentAgent);
+        window.open(url, "_blank");
+      });
+
+    document
+      .getElementById("exportCallMatrixBtn")
+      .addEventListener("click", () => {
+        const safePeriod = resolvePeriodForRequest();
+        if (!safePeriod) return;
+        const url = baseUrl
+          + "&page=CallReports"
+          + "&action=exportCallMatrix"
+          + "&granularity=" + encodeURIComponent(currentGran)
+          + "&period=" + encodeURIComponent(safePeriod)
           + "&agent=" + encodeURIComponent(currentAgent);
         window.open(url, "_blank");
       });
@@ -1861,13 +2017,16 @@
 
     // Load initial analytics - keep existing function call
     if (chartsReady !== false) {
-      loadAnalytics(currentGran, currentPeriod, currentAgent);
+      const safePeriod = resolvePeriodForRequest();
+      if (safePeriod) {
+        loadAnalytics(currentGran, safePeriod, currentAgent);
+      }
     }
   });
 
   // Keep all existing functions exactly as they were, just enhance the rendering
   function onGranChange() {
-    ["weekPicker", "biWeekPicker", "monthPicker", "quarterPicker", "yearPicker"].forEach(id => {
+    ["weekPicker", "biWeekPicker", "monthPicker", "quarterPicker", "yearPicker", "customPicker"].forEach(id => {
       document.getElementById(id).style.display = "none";
     });
 
@@ -1901,13 +2060,21 @@
       document.getElementById("yearPicker").style.display = "block";
       const yr = document.getElementById("yearInput");
       currentPeriod = yr.value;
+    } else if (currentGran === "Custom") {
+      document.getElementById("customPicker").style.display = "block";
+      const seeded = buildCustomPeriodValue({ quietMissing: true });
+      if (seeded) {
+        currentPeriod = seeded;
+      }
     }
 
     triggerLoadAnalytics();
   }
 
   function triggerLoadAnalytics() {
-    loadAnalytics(currentGran, currentPeriod, currentAgent);
+    const safePeriod = resolvePeriodForRequest();
+    if (!safePeriod) return;
+    loadAnalytics(currentGran, safePeriod, currentAgent);
   }
 
   function renderEverything(analytics) {
