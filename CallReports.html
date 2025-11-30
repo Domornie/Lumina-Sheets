@@ -1663,6 +1663,12 @@
 
   // Enhanced Chart.js defaults
   function setupChartDefaults() {
+    if (typeof Chart === 'undefined' || !Chart?.defaults) {
+      console.error('Chart.js failed to load; charts will be skipped.');
+      showToast('Charts failed to load. Please check your network connection and refresh.', 'warning');
+      return false;
+    }
+
     Chart.defaults.font.family = 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
     Chart.defaults.color = '#64748b';
     Chart.defaults.borderColor = '#e2e8f0';
@@ -1684,11 +1690,13 @@
     Chart.defaults.plugins.tooltip.displayColors = true;
     Chart.defaults.plugins.tooltip.titleFont = { size: 14, weight: 'bold' };
     Chart.defaults.plugins.tooltip.bodyFont = { size: 13 };
+
+    return true;
   }
 
   document.addEventListener("DOMContentLoaded", function () {
     // Setup enhanced chart defaults
-    setupChartDefaults();
+    const chartsReady = setupChartDefaults();
 
     // Keep all existing event listeners exactly as they were
     document.getElementById("reportTypeSelect")
@@ -1852,7 +1860,9 @@
     });
 
     // Load initial analytics - keep existing function call
-    loadAnalytics(currentGran, currentPeriod, currentAgent);
+    if (chartsReady !== false) {
+      loadAnalytics(currentGran, currentPeriod, currentAgent);
+    }
   });
 
   // Keep all existing functions exactly as they were, just enhance the rendering
