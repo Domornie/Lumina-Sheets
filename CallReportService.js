@@ -12,6 +12,13 @@ const __MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 const __CALL_REPORT_CACHE_TTL_MS = 2 * 60 * 1000; // 2 minutes of warm cache
 const __ANALYTICS_CACHE_TTL_MS = 90 * 1000; // aggressively reuse analytics payloads
+const __MATRIX_EXPORT_TZ = (function () {
+  try {
+    return Session.getScriptTimeZone();
+  } catch (err) {
+    return 'UTC';
+  }
+})();
 let __callReportCache = null;
 let __analyticsCache = Object.create(null);
 
@@ -351,7 +358,109 @@ function __resolveCallReportPeriod(granularity, periodIdentifier) {
     return { startDate: start, endDate: __endOfDay(end) };
   }
 
+  if (granularity === 'Custom') {
+    if (typeof periodIdentifier === 'string') {
+      const parts = periodIdentifier.split('::');
+      if (parts.length === 2) {
+        const start = __startOfDay(parts[0]);
+        const end = __endOfDay(parts[1]);
+        if (start && end && start <= end) {
+          return { startDate: start, endDate: end };
+        }
+      }
+    }
+    const today = __startOfDay(new Date());
+    const defaultEnd = __endOfDay(new Date());
+    const defaultStart = today ? new Date(today.getTime() - (13 * __MS_PER_DAY)) : null;
+    if (defaultStart && defaultEnd) {
+      return { startDate: defaultStart, endDate: defaultEnd };
+    }
+  }
+
   return fallbackRange();
+}
+
+function __resolveMatrixPeriod(periodType, startDate, endDate) {
+  const normalized = (periodType || '').toLowerCase();
+  const today = __startOfDay(new Date());
+  const cloneDay = (d) => d ? new Date(d.getTime()) : null;
+
+  if (normalized === 'custom') {
+    const start = __startOfDay(startDate);
+    const end = __endOfDay(endDate);
+    if (!start || !end || start > end) return null;
+    return {
+      startDate: start,
+      endDate: end,
+      label: Utilities.formatDate(start, __MATRIX_EXPORT_TZ, 'yyyyMMdd') + '_' + Utilities.formatDate(end, __MATRIX_EXPORT_TZ, 'yyyyMMdd')
+    };
+  }
+
+  if (!today || isNaN(today)) return null;
+
+  const year = today.getFullYear();
+  const month = today.getMonth();
+  const quarterStartMonth = Math.floor(month / 3) * 3;
+
+  const ranges = {
+    weekly: () => {
+      const monday = __ensureMondayStart(today);
+      const end = new Date(monday.getTime());
+      end.setDate(end.getDate() + 6);
+      return { startDate: monday, endDate: __endOfDay(end), label: Utilities.formatDate(monday, __MATRIX_EXPORT_TZ, 'yyyy_MM_dd') + '_W' };
+    },
+    biweekly: () => {
+      const monday = __ensureMondayStart(today);
+      const end = new Date(monday.getTime());
+      end.setDate(end.getDate() + 13);
+      return { startDate: monday, endDate: __endOfDay(end), label: Utilities.formatDate(monday, __MATRIX_EXPORT_TZ, 'yyyy_MM_dd') + '_BW' };
+    },
+    monthly: () => {
+      const start = new Date(year, month, 1);
+      const end = new Date(year, month + 1, 0);
+      return { startDate: start, endDate: __endOfDay(end), label: Utilities.formatDate(start, __MATRIX_EXPORT_TZ, 'yyyy_MM') };
+    },
+    quarterly: () => {
+      const start = new Date(year, quarterStartMonth, 1);
+      const end = new Date(year, quarterStartMonth + 3, 0);
+      const qNum = Math.floor(month / 3) + 1;
+      return { startDate: start, endDate: __endOfDay(end), label: `${year}_Q${qNum}` };
+    },
+    yearly: () => {
+      const start = new Date(year, 0, 1);
+      const end = new Date(year, 11, 31);
+      return { startDate: start, endDate: __endOfDay(end), label: `${year}` };
+    }
+  };
+
+  const resolver = ranges[normalized];
+  if (resolver) {
+    const range = resolver();
+    if (range && range.startDate && range.endDate) {
+      return { startDate: cloneDay(range.startDate), endDate: cloneDay(range.endDate), label: range.label };
+    }
+  }
+
+  return null;
+}
+
+function __extractHoldSeconds(record) {
+  if (!record || typeof record !== 'object') return 0;
+  const candidates = ['HoldTimeSeconds', 'HoldTime', 'Hold Duration', 'HundredTime', 'HundredTimeSeconds'];
+  for (let i = 0; i < candidates.length; i++) {
+    const key = candidates[i];
+    if (Object.prototype.hasOwnProperty.call(record, key)) {
+      const raw = record[key];
+      const num = Number(raw);
+      if (isFinite(num) && num >= 0) {
+        if (num > 0 && num < 1) {
+          return num * 86400; // spreadsheet time stored as fraction of a day
+        }
+        return num;
+      }
+    }
+  }
+  return 0;
 }
 
 var __CALL_REPORT_ANSWER_HEADER_ALIASES = (function (global) {
@@ -428,10 +537,18 @@ function __readCallReportRowsForAnalytics(startDate, endDate, agentFilter) {
   const requiredHeaders = [
     'CreatedDate',
     'ToSFUser',
+    'UserID',
     'TalkTimeMinutes',
     'CSAT',
     'FromRoutingPolicy',
-    'WrapupLabel'
+    'WrapupLabel',
+    'HoldTimeSeconds',
+    'HoldTime',
+    'Hold Duration',
+    'HundredTime',
+    'HundredTimeSeconds',
+    'Team',
+    'Program'
   ];
 
   if (answerHeader) {
@@ -1592,4 +1709,304 @@ function exportCallCsatCsv(granularity, periodIdentifier, agentFilter) {
 
   const toCsv = rws => rws.map(r => r.map(c => `"${c}"`).join(',')).join('\r\n');
   return toCsv([headers].concat(rows));
+}
+
+/**
+ * exportCallPerformanceMatrixCsv(granularity, periodIdentifier, agentFilter)
+ * Exports a matrix with per-agent counts, percentages, and leader callouts.
+ */
+function exportCallPerformanceMatrixCsv(granularity, periodIdentifier, agentFilter) {
+  const analytics = getAnalyticsByPeriod(granularity, periodIdentifier, agentFilter);
+  const reps = Array.isArray(analytics.repMetrics) ? analytics.repMetrics : [];
+
+  const totals = reps.reduce((acc, r) => {
+    const calls = Number(r.totalCalls || 0);
+    const talk = Number(r.totalTalk || 0);
+    const csatTotal = Number(r.csatTotal || 0);
+    const csatYes = Number(r.csatYes || 0);
+    return {
+      totalCalls: acc.totalCalls + (isFinite(calls) ? calls : 0),
+      totalTalk: acc.totalTalk + (isFinite(talk) ? talk : 0),
+      totalCsat: acc.totalCsat + (isFinite(csatTotal) ? csatTotal : 0),
+      totalCsatYes: acc.totalCsatYes + (isFinite(csatYes) ? csatYes : 0)
+    };
+  }, { totalCalls: 0, totalTalk: 0, totalCsat: 0, totalCsatYes: 0 });
+
+  const pct = (num, den) => {
+    if (!isFinite(num) || !isFinite(den) || den <= 0) return 0;
+    return Math.round((num / den) * 1000) / 10;
+  };
+
+  const round1 = (num) => {
+    const n = Number(num);
+    if (!isFinite(n)) return 0;
+    return Math.round(n * 10) / 10;
+  };
+
+  const summaryRows = [['Leaderboard', 'Agent', 'Metric', 'Value']];
+  if (reps.length) {
+    const byCalls = reps.slice().sort((a, b) => (Number(b.totalCalls || 0) - Number(a.totalCalls || 0)));
+    const byTalk = reps.slice().sort((a, b) => (Number(b.totalTalk || 0) - Number(a.totalTalk || 0)));
+    const byCsat = reps.slice().sort((a, b) => (pct(b.csatYes, b.csatTotal) - pct(a.csatYes, a.csatTotal)));
+
+    summaryRows.push([
+      'Most Calls',
+      byCalls[0].agent,
+      'Total Calls',
+      Number(byCalls[0].totalCalls || 0)
+    ]);
+    summaryRows.push([
+      'Least Calls',
+      byCalls[byCalls.length - 1].agent,
+      'Total Calls',
+      Number(byCalls[byCalls.length - 1].totalCalls || 0)
+    ]);
+    summaryRows.push([
+      'Most Talk Time',
+      byTalk[0].agent,
+      'Total Talk (min)',
+      round1(byTalk[0].totalTalk || 0)
+    ]);
+    summaryRows.push([
+      'Highest CSAT %',
+      byCsat[0].agent,
+      'CSAT %',
+      `${pct(byCsat[0].csatYes, byCsat[0].csatTotal)}%`
+    ]);
+  } else {
+    summaryRows.push(['No data', '—', '—', '—']);
+  }
+
+  const detailHeader = [
+    'Agent',
+    'Total Calls',
+    'Call %',
+    'Total Talk (min)',
+    'Talk %',
+    'CSAT Total',
+    'CSAT %',
+    'Avg Talk (min)',
+    'Avg Answer (s)',
+    '≤30s Answer %'
+  ];
+
+  const detailRows = reps.map(r => {
+    const callPct = pct(r.totalCalls || 0, totals.totalCalls || 0);
+    const talkPct = pct(r.totalTalk || 0, totals.totalTalk || 0);
+    const csatPct = pct(r.csatYes || 0, r.csatTotal || 0);
+    const avgTalk = (isFinite(r.totalTalk) && isFinite(r.totalCalls) && r.totalCalls > 0)
+      ? (r.totalTalk / r.totalCalls)
+      : 0;
+    const answerSeconds = isFinite(r.averageAnswerSeconds) ? r.averageAnswerSeconds : 0;
+    const fastAnswerRate = isFinite(r.fastAnswerRate) ? r.fastAnswerRate : 0;
+
+    return [
+      r.agent,
+      Number(r.totalCalls || 0),
+      `${callPct}%`,
+      round1(r.totalTalk || 0),
+      `${talkPct}%`,
+      Number(r.csatTotal || 0),
+      `${csatPct}%`,
+      round1(avgTalk),
+      round1(answerSeconds),
+      `${round1(fastAnswerRate)}%`
+    ];
+  });
+
+  const toCsv = rws => rws.map(r => r.map(c => `"${c}"`).join(',')).join('\r\n');
+  return [summaryRows, [detailHeader].concat(detailRows)]
+    .map(toCsv)
+    .join('\r\n\r\n');
+}
+
+function __buildRankMap(items, key, direction) {
+  const sorted = items.slice().sort((a, b) => {
+    const av = Number(a[key] || 0);
+    const bv = Number(b[key] || 0);
+    return direction === 'asc' ? av - bv : bv - av;
+  });
+  const ranks = Object.create(null);
+  let currentRank = 0;
+  let lastValue = null;
+  sorted.forEach((item, idx) => {
+    const val = Number(item[key] || 0);
+    if (lastValue === null || val !== lastValue) {
+      currentRank = idx + 1;
+      lastValue = val;
+    }
+    ranks[item.agent] = isFinite(val) ? currentRank : '-';
+  });
+  return ranks;
+}
+
+function exportCallReportMatrix(config) {
+  const cfg = Object.assign({
+    periodType: 'weekly',
+    includeCalls: true,
+    includeCsat: true,
+    agent: ''
+  }, config || {});
+
+  const period = __resolveMatrixPeriod(cfg.periodType, cfg.startDate, cfg.endDate);
+  if (!period || !period.startDate || !period.endDate) {
+    throw new Error('Unable to resolve the requested export period. Please check your selection.');
+  }
+
+  const rows = __readCallReportRowsForAnalytics(period.startDate, period.endDate, cfg.agent || cfg.agentFilter || '');
+  const includeCalls = cfg.includeCalls !== false;
+  const includeCsat = cfg.includeCsat !== false;
+
+  const agentMap = Object.create(null);
+
+  rows.forEach(r => {
+    const agent = r.ToSFUser || '—';
+    if (!agentMap[agent]) {
+      agentMap[agent] = {
+        agent,
+        userId: r.UserID || '',
+        team: r.Team || r.Program || '',
+        totalCalls: 0,
+        talkSeconds: 0,
+        holdSeconds: 0,
+        csatYes: 0,
+        csatTotal: 0,
+        totalAnswerSeconds: 0,
+        answeredCount: 0,
+        fastAnswerCount: 0
+      };
+    }
+
+    if (includeCalls) {
+      agentMap[agent].totalCalls += 1;
+      const talkMinutes = Number(r.TalkTimeMinutes || 0);
+      if (isFinite(talkMinutes)) {
+        agentMap[agent].talkSeconds += Math.max(0, talkMinutes) * 60;
+      }
+      agentMap[agent].holdSeconds += __extractHoldSeconds(r);
+    }
+
+    const csatValue = (r.CSAT || '').toString().trim().toLowerCase();
+    if (includeCsat && csatValue) {
+      if (csatValue === 'yes' || csatValue === 'true' || csatValue === '1') {
+        agentMap[agent].csatYes += 1;
+        agentMap[agent].csatTotal += 1;
+      } else if (csatValue === 'no' || csatValue === 'false' || csatValue === '0') {
+        agentMap[agent].csatTotal += 1;
+      }
+    }
+
+    const answerSeconds = __parseAnswerSeconds(__getAnswerFieldValue(r), r.CreatedDate);
+    if (isFinite(answerSeconds)) {
+      agentMap[agent].totalAnswerSeconds += answerSeconds;
+      agentMap[agent].answeredCount += 1;
+      if (answerSeconds <= 30) {
+        agentMap[agent].fastAnswerCount += 1;
+      }
+    }
+  });
+
+  const agents = Object.values(agentMap);
+
+  const totals = agents.reduce((acc, a) => {
+    acc.calls += a.totalCalls;
+    acc.talkSeconds += a.talkSeconds;
+    acc.holdSeconds += a.holdSeconds;
+    acc.csatYes += a.csatYes;
+    acc.csatTotal += a.csatTotal;
+    acc.answered += a.answeredCount;
+    acc.answerSeconds += a.totalAnswerSeconds;
+    return acc;
+  }, { calls: 0, talkSeconds: 0, holdSeconds: 0, csatYes: 0, csatTotal: 0, answered: 0, answerSeconds: 0 });
+
+  const pct = (num, den) => {
+    if (!isFinite(num) || !isFinite(den) || den <= 0) return 0;
+    return Math.round((num / den) * 1000) / 10;
+  };
+
+  const callRanks = includeCalls ? __buildRankMap(agents, 'totalCalls', 'desc') : {};
+  const talkRanks = includeCalls ? __buildRankMap(agents, 'talkSeconds', 'desc') : {};
+  const csatRanks = includeCsat ? __buildRankMap(agents.map(a => Object.assign({}, a, { csatPercent: pct(a.csatYes, a.csatTotal) })), 'csatPercent', 'desc') : {};
+
+  const detailHeaders = [
+    'Agent Name', 'Agent ID', 'Team/Program', 'Total Calls', 'Call %', 'CSAT Count', 'CSAT %',
+    'Total Talk (min)', 'Talk %', 'Avg Talk (min)', 'Total Hold (min)', 'Hold %', 'Avg Hold (min)',
+    'Avg Answer (s)', '≤30s Answer %', 'Call Rank', 'Talk Rank', 'CSAT Rank'
+  ];
+
+  const detailRows = agents.map(a => {
+    const avgTalkMin = (a.totalCalls > 0 && a.talkSeconds > 0) ? (a.talkSeconds / 60) / a.totalCalls : 0;
+    const avgHoldMin = (a.totalCalls > 0 && a.holdSeconds > 0) ? (a.holdSeconds / 60) / a.totalCalls : 0;
+    const avgAnswer = (a.answeredCount > 0 && a.totalAnswerSeconds > 0) ? (a.totalAnswerSeconds / a.answeredCount) : 0;
+    const fastAnswerPct = (a.answeredCount > 0) ? pct(a.fastAnswerCount, a.answeredCount) : 0;
+    const csatPercent = includeCsat ? pct(a.csatYes, a.csatTotal) : 0;
+
+    return [
+      a.agent,
+      a.userId,
+      a.team,
+      includeCalls ? Number(a.totalCalls || 0) : 0,
+      includeCalls ? `${pct(a.totalCalls, totals.calls)}%` : '0%',
+      includeCsat ? Number(a.csatTotal || 0) : 0,
+      includeCsat ? `${csatPercent}%` : '0%',
+      includeCalls ? Math.round((a.talkSeconds / 60) * 10) / 10 : 0,
+      includeCalls ? `${pct(a.talkSeconds, totals.talkSeconds)}%` : '0%',
+      includeCalls ? Math.round(avgTalkMin * 10) / 10 : 0,
+      includeCalls ? Math.round((a.holdSeconds / 60) * 10) / 10 : 0,
+      includeCalls ? `${pct(a.holdSeconds, totals.holdSeconds)}%` : '0%',
+      includeCalls ? Math.round(avgHoldMin * 10) / 10 : 0,
+      Math.round(avgAnswer * 10) / 10,
+      `${Math.round(fastAnswerPct * 10) / 10}%`,
+      includeCalls ? (callRanks[a.agent] || '-') : '-',
+      includeCalls ? (talkRanks[a.agent] || '-') : '-',
+      includeCsat ? (csatRanks[a.agent] || '-') : '-'
+    ];
+  });
+
+  const ss = SpreadsheetApp.create(`CallReport_Matrix_${period.label}`);
+  const matrixSheet = ss.getActiveSheet();
+  matrixSheet.setName('Matrix');
+  matrixSheet.appendRow(detailHeaders);
+  if (detailRows.length) {
+    matrixSheet.getRange(2, 1, detailRows.length, detailHeaders.length).setValues(detailRows);
+  }
+  matrixSheet.getRange(1, 1, 1, detailHeaders.length).setFontWeight('bold');
+  matrixSheet.setFrozenRows(1);
+
+  const summarySheet = ss.insertSheet('Leaders');
+  summarySheet.appendRow(['Metric', 'Agent', 'Value', 'Period']);
+  summarySheet.getRange(1, 1, 1, 4).setFontWeight('bold');
+
+  const callsSorted = includeCalls ? agents.slice().sort((a, b) => Number(b.totalCalls || 0) - Number(a.totalCalls || 0)) : [];
+  const talkSorted = includeCalls ? agents.slice().sort((a, b) => Number(b.talkSeconds || 0) - Number(a.talkSeconds || 0)) : [];
+  const csatSorted = includeCsat ? agents.slice().sort((a, b) => pct(b.csatYes, b.csatTotal) - pct(a.csatYes, a.csatTotal)) : [];
+
+  if (includeCalls && callsSorted.length) {
+    const leastCalls = callsSorted.slice().reverse().find(a => a.totalCalls > 0) || callsSorted[callsSorted.length - 1];
+    summarySheet.appendRow(['Most Calls', callsSorted[0].agent, Number(callsSorted[0].totalCalls || 0), period.label]);
+    summarySheet.appendRow(['Least Calls', leastCalls.agent, Number(leastCalls.totalCalls || 0), period.label]);
+  }
+
+  if (includeCalls && talkSorted.length) {
+    const leastTalk = talkSorted.slice().reverse().find(a => a.talkSeconds > 0) || talkSorted[talkSorted.length - 1];
+    summarySheet.appendRow(['Most Talk Time', talkSorted[0].agent, Math.round((talkSorted[0].talkSeconds / 60) * 10) / 10, period.label]);
+    summarySheet.appendRow(['Least Talk Time', leastTalk.agent, Math.round((leastTalk.talkSeconds / 60) * 10) / 10, period.label]);
+  }
+
+  if (includeCsat && csatSorted.length) {
+    const topCsat = csatSorted[0];
+    const bottomCsat = csatSorted.slice().reverse().find(a => a.csatTotal > 0) || csatSorted[csatSorted.length - 1];
+    summarySheet.appendRow(['Highest CSAT %', topCsat.agent, `${pct(topCsat.csatYes, topCsat.csatTotal)}%`, period.label]);
+    summarySheet.appendRow(['Lowest CSAT %', bottomCsat.agent, `${pct(bottomCsat.csatYes, bottomCsat.csatTotal)}%`, period.label]);
+  }
+
+  summarySheet.appendRow(['Period Start', Utilities.formatDate(period.startDate, __MATRIX_EXPORT_TZ, 'yyyy-MM-dd'), '', period.label]);
+  summarySheet.appendRow(['Period End', Utilities.formatDate(period.endDate, __MATRIX_EXPORT_TZ, 'yyyy-MM-dd'), '', period.label]);
+
+  return {
+    spreadsheetUrl: ss.getUrl(),
+    spreadsheetId: ss.getId(),
+    sheetName: matrixSheet.getName(),
+    periodLabel: period.label
+  };
 }
