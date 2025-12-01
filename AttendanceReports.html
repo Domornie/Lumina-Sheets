@@ -4899,7 +4899,12 @@
           this.showToast('Adherence & compliance exported as CSV.', 'success');
         } catch (error) {
           console.error('Failed to export adherence compliance CSV:', error);
-          this.showToast('Unable to export adherence data as CSV.', 'danger');
+          const fallback = this.exportComplianceSummaryCsv(effectiveFilters);
+          if (!fallback) {
+            this.showToast('Unable to export adherence data as CSV.', 'danger');
+            return;
+          }
+          this.showToast('Using dashboard data for CSV export. Some details may be limited.', 'warning');
         }
         return;
       }
@@ -4922,8 +4927,60 @@
         throw new Error(errorMsg);
       } catch (error) {
         console.error('Failed to export adherence to Google Sheets:', error);
+        if (String(error?.message || '').includes('No adherence data available to export')) {
+          const fallback = this.exportComplianceSummaryCsv(effectiveFilters);
+          if (fallback) {
+            this.showToast('No adherence data found on the server. Exported current dashboard view as CSV.', 'warning');
+            return;
+          }
+        }
         this.showToast('Google Sheets export unavailable. CSV export is still available.', 'warning');
       }
+    }
+
+    exportComplianceSummaryCsv(filters = null) {
+      const complianceRows = this.getFilteredComplianceData(filters);
+      if (!Array.isArray(complianceRows) || complianceRows.length === 0) {
+        return false;
+      }
+
+      const summarizeHours = (seconds) => Number(((Number(seconds) || 0) / 3600).toFixed(2));
+      const lines = [];
+
+      lines.push('Employee,Billable Hours,Break Credit Hours,Lunch Adjustment Hours,Adjusted Billable Hours,Compliance %,Status');
+
+      complianceRows.forEach((row) => {
+        const complianceScore = this.calculateComplianceScore(row);
+        const status = this.getComplianceStatusLabel(complianceScore);
+        lines.push([
+          escapeCsv(row.user || row.employee || 'Unknown'),
+          summarizeHours(row.baseBillableSecs || row.adjustedBillableSecs),
+          summarizeHours(row.breakCreditSecs || row.breakSecs),
+          summarizeHours(row.lunchAdjustmentSecs || row.lunchSecs * -1),
+          summarizeHours(row.adjustedBillableSecs),
+          complianceScore,
+          status
+        ].join(','));
+      });
+
+      const overallCompliance = Math.round(
+        complianceRows.reduce((sum, row) => sum + this.calculateComplianceScore(row), 0) / complianceRows.length
+      );
+
+      lines.push('');
+      lines.push(`Overall Compliance,${overallCompliance}%`);
+
+      const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `adherence-compliance-dashboard-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      return true;
     }
 
     async exportAdherenceWorkbook(rows, overallCompliance) {
@@ -5707,6 +5764,13 @@
       if (score >= 80) return '<span class="badge bg-info">Good</span>';
       if (score >= 60) return '<span class="badge bg-warning">Needs Attention</span>';
       return '<span class="badge bg-danger">Critical</span>';
+    }
+
+    getComplianceStatusLabel(score) {
+      if (score >= 90) return 'Excellent';
+      if (score >= 80) return 'Good';
+      if (score >= 60) return 'Needs Attention';
+      return 'Critical';
     }
 
     showIntelligentLoader() {
