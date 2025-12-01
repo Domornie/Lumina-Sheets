@@ -4790,115 +4790,122 @@
     }
 
     async exportAdherenceCompliance(format = 'sheet', filters = null) {
-      if (!this.currentData || !Array.isArray(this.currentData.userCompliance) || this.currentData.userCompliance.length === 0) {
-        this.showToast('No attendance data available to export.', 'warning');
-        return;
-      }
-
       const effectiveFilters = filters || this.summaryFilters;
-      const filteredCompliance = this.getFilteredComplianceData(effectiveFilters);
-      if (!filteredCompliance.length) {
-        this.showToast('No records match the selected adherence filters.', 'warning');
+      const { dateFrom, dateTo, userMode, selectedUsers } = effectiveFilters;
+
+      if (!dateFrom || !dateTo) {
+        this.showToast('Please select a start and end date for the adherence export.', 'warning');
         return;
       }
 
-      const rows = filteredCompliance.map((entry) => {
-        const complianceScore = this.calculateComplianceScore(entry);
-        return {
-          employee: entry?.user || 'Unknown',
-          cappedBillable: convertSecondsToDecimalHours(entry?.baseBillableSecs || 0),
-          breakCredit: convertSecondsToDecimalHours(entry?.breakCreditSecs || 0),
-          lunchAdjustment: convertSecondsToDecimalHours(entry?.lunchAdjustmentSecs || 0),
-          adjustedBillable: convertSecondsToDecimalHours(entry?.adjustedBillableSecs || 0),
-          compliancePercent: complianceScore,
-          status: this.getComplianceStatusLabel(complianceScore)
-        };
-      });
+      const resolvedUsers = (() => {
+        if (userMode === 'single' && Array.isArray(selectedUsers) && selectedUsers.length) {
+          return [selectedUsers[0]];
+        }
+        if (userMode === 'multiple' && Array.isArray(selectedUsers)) {
+          return selectedUsers.slice();
+        }
+        return [];
+      })();
 
-      const overallCompliance = rows.length
-        ? Math.round(rows.reduce((sum, row) => sum + (Number(row.compliancePercent) || 0), 0) / rows.length)
-        : 0;
-
-      const header = [
-        'Employee',
-        'Capped Billable Hours',
-        'Break Credit Hours',
-        'Lunch Adjustment Hours',
-        'Adjusted Billable Hours',
-        'Compliance %',
-        'Status'
-      ];
+      const payload = {
+        startDateIso: dateFrom,
+        endDateIso: dateTo,
+        users: resolvedUsers
+      };
 
       if (format === 'csv') {
-        const escapeCsv = (value) => {
-          const stringValue = value === undefined || value === null ? '' : String(value);
-          if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
-            return '"' + stringValue.replace(/"/g, '""') + '"';
+        try {
+          const result = await safeServerCall('getAdherenceComplianceExportData', [payload], { timeoutMs: 20000 });
+          if (!result?.success || !result.exportData) {
+            throw new Error(result?.error || 'Unable to prepare adherence data.');
           }
-          return stringValue;
-        };
 
-        const csvLines = [header.join(',')];
-        rows.forEach((row) => {
-          csvLines.push([
-            escapeCsv(row.employee),
-            escapeCsv(row.cappedBillable.toFixed(2)),
-            escapeCsv(row.breakCredit.toFixed(2)),
-            escapeCsv(row.lunchAdjustment.toFixed(2)),
-            escapeCsv(row.adjustedBillable.toFixed(2)),
-            escapeCsv(row.compliancePercent),
-            escapeCsv(row.status)
+          const { exportData } = result;
+          const formatDateValue = (value) => {
+            if (!value) return '';
+            try {
+              return (new Date(value)).toISOString().slice(0, 10);
+            } catch (e) {
+              return String(value).slice(0, 10);
+            }
+          };
+
+          const dailyHeader = ['Date', 'Week Start', 'Agent Name', 'Agent ID', 'Adherence %', 'Compliance %', 'Scheduled Minutes', 'Worked Minutes', 'Compliant Events', 'Non-Compliant Events'];
+          const weeklyHeader = ['Week Start', 'Agent Name', 'Agent ID', 'Adherence %', 'Compliance %', 'Days With Data', 'Total Scheduled Minutes', 'Total Worked Minutes', 'Compliant Events', 'Non-Compliant Events'];
+          const overallHeader = ['Start Date', 'End Date', 'Overall Adherence %', 'Overall Compliance %', 'Total Agent-Days', 'Total Scheduled Minutes', 'Total Worked Minutes', 'Compliant Events', 'Non-Compliant Events'];
+
+          const lines = [];
+          lines.push('DAILY DETAIL');
+          lines.push(dailyHeader.join(','));
+          exportData.dailyRows.forEach((row) => {
+            lines.push([
+              row.dateKey,
+              row.weekStartKey,
+              row.agentName,
+              row.agentId || '',
+              row.adherencePercent,
+              row.compliancePercent,
+              row.scheduledMinutes,
+              row.workedMinutes,
+              row.compliantEvents,
+              row.nonCompliantEvents
+            ].join(','));
+          });
+
+          lines.push('');
+          lines.push('WEEKLY SUMMARY');
+          lines.push(weeklyHeader.join(','));
+          exportData.weeklyRows.forEach((row) => {
+            lines.push([
+              row.weekStartKey,
+              row.agentName,
+              row.agentId || '',
+              row.adherencePercent,
+              row.compliancePercent,
+              row.daysWithData,
+              row.scheduledMinutes,
+              row.workedMinutes,
+              row.compliantEvents,
+              row.nonCompliantEvents
+            ].join(','));
+          });
+
+          lines.push('');
+          lines.push('OVERALL SUMMARY');
+          lines.push(overallHeader.join(','));
+          lines.push([
+            formatDateValue(exportData.startDate),
+            formatDateValue(exportData.endDate),
+            exportData.overall.adherencePercent,
+            exportData.overall.compliancePercent,
+            exportData.overall.agentDays,
+            exportData.overall.scheduledMinutes,
+            exportData.overall.workedMinutes,
+            exportData.overall.compliantEvents,
+            exportData.overall.nonCompliantEvents
           ].join(','));
-        });
-        csvLines.push('');
-        csvLines.push(`Overall Compliance,${overallCompliance}%`);
 
-        const blob = new Blob([csvLines.join('\n')], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `adherence-compliance-${new Date().toISOString().slice(0, 10)}.csv`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
+          const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `adherence-compliance-${new Date().toISOString().slice(0, 10)}.csv`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
 
-        this.showToast('Adherence & compliance exported as CSV.', 'success');
+          this.showToast('Adherence & compliance exported as CSV.', 'success');
+        } catch (error) {
+          console.error('Failed to export adherence compliance CSV:', error);
+          this.showToast('Unable to export adherence data as CSV.', 'danger');
+        }
         return;
       }
 
-      const userScopeLabel = (() => {
-        const { userMode, selectedUsers } = effectiveFilters;
-        if (userMode === 'single' && selectedUsers[0]) return `User: ${selectedUsers[0]}`;
-        if (userMode === 'multiple' && Array.isArray(selectedUsers) && selectedUsers.length) {
-          return `Selected Users (${selectedUsers.length})`;
-        }
-        return 'All Users';
-      })();
-
-      const periodLabel = (() => {
-        const { dateFrom, dateTo } = effectiveFilters;
-        if (dateFrom || dateTo) {
-          const fromLabel = dateFrom || 'Start';
-          const toLabel = dateTo || 'End';
-          return `Adherence & Compliance • ${fromLabel} to ${toLabel} • ${userScopeLabel}`;
-        }
-        return `Adherence & Compliance • Dashboard Filters • ${userScopeLabel}`;
-      })();
-
       try {
-        const result = await safeServerCall('exportAdherenceComplianceSheet', [
-          {
-            rows,
-            overallCompliance,
-            periodLabel,
-            userScope: userScopeLabel,
-            customRange: {
-              startIso: effectiveFilters.dateFrom || '',
-              endIso: effectiveFilters.dateTo || ''
-            }
-          }
-        ], { timeoutMs: 20000 });
+        const result = await safeServerCall('exportAdherenceComplianceSheet', [payload], { timeoutMs: 20000 });
 
         if (result?.success && (result.spreadsheetUrl || result.url)) {
           this.openSpreadsheet(result.spreadsheetUrl || result.url);
