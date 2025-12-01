@@ -2278,6 +2278,9 @@
       };
 
       this.hourPolicy = { overtimeEnabled: false, overtimeAllowanceHours: 0 };
+
+      // Ensure helper methods retain the dashboard context when used in callbacks
+      this.openSpreadsheet = this.openSpreadsheet.bind(this);
       this.periodCache = {};
 
       this.manualTimingOverrides = new Map();
