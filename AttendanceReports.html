@@ -2280,7 +2280,25 @@
       this.hourPolicy = { overtimeEnabled: false, overtimeAllowanceHours: 0 };
 
       // Ensure helper methods retain the dashboard context when used in callbacks
-      this.openSpreadsheet = this.openSpreadsheet.bind(this);
+      const spreadsheetOpener = typeof this.openSpreadsheet === 'function'
+        ? this.openSpreadsheet
+        : function (url) {
+            if (!url) {
+              this.showErrorMessage('Google Sheets link unavailable for this export.');
+              return;
+            }
+
+            const anchor = document.createElement('a');
+            anchor.href = url;
+            anchor.target = '_blank';
+            anchor.rel = 'noopener';
+            anchor.style.display = 'none';
+            document.body.appendChild(anchor);
+            anchor.click();
+            document.body.removeChild(anchor);
+          };
+
+      this.openSpreadsheet = spreadsheetOpener.bind(this);
       this.periodCache = {};
 
       this.manualTimingOverrides = new Map();
