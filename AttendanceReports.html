@@ -2278,6 +2278,27 @@
       };
 
       this.hourPolicy = { overtimeEnabled: false, overtimeAllowanceHours: 0 };
+
+      // Ensure helper methods retain the dashboard context when used in callbacks
+      const spreadsheetOpener = typeof this.openSpreadsheet === 'function'
+        ? this.openSpreadsheet
+        : function (url) {
+            if (!url) {
+              this.showErrorMessage('Google Sheets link unavailable for this export.');
+              return;
+            }
+
+            const anchor = document.createElement('a');
+            anchor.href = url;
+            anchor.target = '_blank';
+            anchor.rel = 'noopener';
+            anchor.style.display = 'none';
+            document.body.appendChild(anchor);
+            anchor.click();
+            document.body.removeChild(anchor);
+          };
+
+      this.openSpreadsheet = spreadsheetOpener.bind(this);
       this.periodCache = {};
 
       this.manualTimingOverrides = new Map();
@@ -4846,7 +4867,56 @@
         return;
       }
 
-      await this.exportAdherenceWorkbook(rows, overallCompliance);
+      const userScopeLabel = (() => {
+        const { userMode, selectedUsers } = effectiveFilters;
+        if (userMode === 'single' && selectedUsers[0]) return `User: ${selectedUsers[0]}`;
+        if (userMode === 'multiple' && Array.isArray(selectedUsers) && selectedUsers.length) {
+          return `Selected Users (${selectedUsers.length})`;
+        }
+        return 'All Users';
+      })();
+
+      const periodLabel = (() => {
+        const { dateFrom, dateTo } = effectiveFilters;
+        if (dateFrom || dateTo) {
+          const fromLabel = dateFrom || 'Start';
+          const toLabel = dateTo || 'End';
+          return `Adherence & Compliance • ${fromLabel} to ${toLabel} • ${userScopeLabel}`;
+        }
+        return `Adherence & Compliance • Dashboard Filters • ${userScopeLabel}`;
+      })();
+
+      try {
+        const result = await safeServerCall('exportAdherenceComplianceSheet', [
+          {
+            rows,
+            overallCompliance,
+            periodLabel,
+            userScope: userScopeLabel,
+            customRange: {
+              startIso: effectiveFilters.dateFrom || '',
+              endIso: effectiveFilters.dateTo || ''
+            }
+          }
+        ], { timeoutMs: 20000 });
+
+        if (result?.success && (result.spreadsheetUrl || result.url)) {
+          this.openSpreadsheet(result.spreadsheetUrl || result.url);
+          this.showToast('Adherence & compliance saved to Google Drive.', 'success');
+          if (window.exportHistoryManager && typeof window.exportHistoryManager.handleExportSuccess === 'function') {
+            window.exportHistoryManager.handleExportSuccess(result);
+          }
+          return;
+        }
+
+        const errorMsg = typeof result?.error === 'string' && result.error.trim()
+          ? result.error.trim()
+          : 'Unable to save adherence export to Google Sheets.';
+        throw new Error(errorMsg);
+      } catch (error) {
+        console.error('Failed to export adherence to Google Sheets:', error);
+        this.showToast('Google Sheets export unavailable. CSV export is still available.', 'warning');
+      }
     }
 
     async exportAdherenceWorkbook(rows, overallCompliance) {
