@@ -3596,6 +3596,161 @@ function buildDailyPivotFileBase(granularity, periodValue) {
   return `daily_matrix_${safeGranularity}_${safePeriod}`;
 }
 
+function exportAdherenceComplianceSheet(payload) {
+  return rpc('exportAdherenceComplianceSheet', () => {
+    if (typeof SpreadsheetApp === 'undefined' || typeof DriveApp === 'undefined') {
+      return { success: false, error: 'Google Drive is unavailable for exports.' };
+    }
+
+    const rows = Array.isArray(payload?.rows) ? payload.rows : [];
+    if (!rows.length) {
+      return { success: false, error: 'No adherence data available to export.' };
+    }
+
+    const timezone = ATTENDANCE_TIMEZONE
+      || ((typeof Session !== 'undefined' && typeof Session.getScriptTimeZone === 'function')
+        ? Session.getScriptTimeZone()
+        : 'America/Jamaica');
+
+    const now = new Date();
+    const overallCompliance = Number(payload?.overallCompliance) || 0;
+    const periodLabel = (payload?.periodLabel && payload.periodLabel.trim())
+      ? payload.periodLabel.trim()
+      : 'Adherence & Compliance Export';
+    const userScope = (payload?.userScope && payload.userScope.trim())
+      ? payload.userScope.trim()
+      : 'All Users';
+    const spreadsheetName = (payload?.spreadsheetName && payload.spreadsheetName.trim())
+      ? payload.spreadsheetName.trim()
+      : `Adherence & Compliance ${Utilities.formatDate(now, timezone, 'yyyy-MM-dd')}`;
+    const sheetTitle = 'Adherence & Compliance';
+
+    const spreadsheet = SpreadsheetApp.create(spreadsheetName);
+    const sheet = spreadsheet.getActiveSheet();
+    sheet.setName(sheetTitle);
+
+    const headers = [
+      'Employee',
+      'Capped Billable Hours',
+      'Break Credit Hours',
+      'Lunch Adjustment Hours',
+      'Adjusted Billable Hours',
+      'Compliance %',
+      'Status'
+    ];
+
+    const values = rows.map(row => [
+      row?.employee || 'Unknown',
+      Number(row?.cappedBillable) || 0,
+      Number(row?.breakCredit) || 0,
+      Number(row?.lunchAdjustment) || 0,
+      Number(row?.adjustedBillable) || 0,
+      Number(row?.compliancePercent) || 0,
+      row?.status || ''
+    ]);
+
+    sheet.getRange(1, 1, 1, headers.length)
+      .setValues([headers])
+      .setFontWeight('bold')
+      .setBackground('#1f2937')
+      .setFontColor('#ffffff')
+      .setHorizontalAlignment('center');
+
+    if (values.length) {
+      sheet.getRange(2, 1, values.length, headers.length)
+        .setValues(values)
+        .setNumberFormats([
+          ['@', '0.00', '0.00', '0.00', '0.00', '0.0', '@']
+        ].concat(new Array(values.length - 1).fill(['@', '0.00', '0.00', '0.00', '0.00', '0.0', '@'])));
+    }
+
+    const summaryRow = values.length + 2;
+    sheet.getRange(summaryRow, 1, 1, headers.length)
+      .setValues([['Overall Compliance', '', '', '', '', overallCompliance, '']])
+      .setFontWeight('bold')
+      .setFontColor('#0f172a');
+    sheet.getRange(summaryRow, 6).setNumberFormat('0.0');
+
+    const noteRow = summaryRow + 2;
+    sheet.getRange(noteRow, 1, 1, headers.length)
+      .merge()
+      .setValue(`${periodLabel} • ${userScope}`)
+      .setFontColor('#475569')
+      .setFontStyle('italic');
+
+    sheet.autoResizeColumns(1, headers.length);
+    sheet.setFrozenRows(1);
+
+    const fileId = spreadsheet.getId();
+    const spreadsheetUrl = spreadsheet.getUrl();
+    let folderId = '';
+    let folderName = '';
+    let folderUrl = '';
+
+    try {
+      const file = DriveApp.getFileById(fileId);
+      try {
+        file.setDescription(`${periodLabel} • ${Utilities.formatDate(now, timezone, 'MMM d, yyyy h:mm a')}`);
+      } catch (descriptionError) {
+        console.warn('Unable to set adherence export description:', descriptionError);
+      }
+
+      const activeUserEmail = getActiveUserEmailSafe();
+      try {
+        const folder = ensureAttendanceExportFolderForActiveUser();
+        if (folder) {
+          folderId = folder.getId();
+          folderName = folder.getName();
+          folderUrl = folder.getUrl();
+
+          folder.addFile(file);
+          try {
+            DriveApp.getRootFolder().removeFile(file);
+          } catch (removeError) {
+            console.warn('Unable to detach adherence export from root folder:', removeError);
+          }
+        }
+      } catch (folderError) {
+        console.warn('Unable to place adherence export in attendance folder:', folderError);
+      }
+
+      if (activeUserEmail) {
+        try {
+          ensureDriveEntityAccessForUser(file, activeUserEmail);
+        } catch (shareError) {
+          console.warn('Unable to confirm sharing adherence export with active user:', shareError);
+        }
+      }
+      ensureDriveEntityLinkViewAccess(file);
+
+      return {
+        success: true,
+        fileId,
+        spreadsheetUrl,
+        fileType: 'google_sheet',
+        spreadsheetName,
+        sheetTitle,
+        periodLabel,
+        userScope,
+        customRange: payload?.customRange || null,
+        folderId,
+        folderName,
+        folderUrl,
+        mimeType: 'application/vnd.google-apps.spreadsheet',
+        createdAtIso: now.toISOString(),
+        updatedAtIso: now.toISOString()
+      };
+    } catch (error) {
+      try {
+        DriveApp.getFileById(fileId).setTrashed(true);
+      } catch (cleanupError) {
+        console.warn('Unable to clean up adherence export after failure:', cleanupError);
+      }
+      return { success: false, error: 'Failed to create Google Sheet for adherence export: ' + error.message };
+    }
+  }, { success: false, error: 'Unable to export adherence data.' }, MAX_PROCESSING_TIME);
+}
+
 // ────────────────────────────────────────────────────────────────────────────
 // STANDARD EXPORT FUNCTIONS
 // ────────────────────────────────────────────────────────────────────────────
