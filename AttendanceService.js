@@ -3902,57 +3902,86 @@ function loadAdherenceComplianceDaily_(startDate, endDate, userSet, timezone) {
   }
 
   const headers = values[0].map(h => String(h || '').trim());
-  const headerIndex = (name) => headers.findIndex(h => h.toLowerCase() === name.toLowerCase());
-  const dateIdx = headerIndex('Date');
-  const userIdIdx = headerIndex('UserID');
-  const userNameIdx = headerIndex('UserName');
-  const adherenceIdx = headerIndex('AdherenceScore');
-  const complianceIdx = headerIndex('CompliancePercent') !== -1 ? headerIndex('CompliancePercent') : headerIndex('ComplianceScore');
-  const compliantEventsIdx = headerIndex('CompliantEvents');
-  const nonCompliantEventsIdx = headerIndex('NonCompliantEvents');
-  const scheduledStartIdx = headerIndex('ScheduledStart');
-  const scheduledEndIdx = headerIndex('ScheduledEnd');
-  const actualStartIdx = headerIndex('ActualStart');
-  const actualEndIdx = headerIndex('ActualEnd');
-  const workedMinutesIdx = headerIndex('WorkedMinutes');
-  const scheduledMinutesIdx = headerIndex('ScheduledMinutes');
+  const findIndex = (candidates) => {
+    const lookups = Array.isArray(candidates) ? candidates : [candidates];
+    const lowerHeaders = headers.map(h => h.toLowerCase());
+    for (let i = 0; i < lookups.length; i++) {
+      const target = String(lookups[i] || '').trim().toLowerCase();
+      const idx = lowerHeaders.indexOf(target);
+      if (idx !== -1) return idx;
+    }
+    return -1;
+  };
+
+  const dateIdx = findIndex(['Date', 'Day']);
+  const userIdIdx = findIndex(['UserID', 'User Id', 'User', 'AgentID', 'Agent Id', 'Agent', 'EmployeeID']);
+  const userNameIdx = findIndex(['UserName', 'User Name', 'AgentName', 'Agent Name', 'EmployeeName', 'Employee']);
+  const adherenceIdx = findIndex(['AdherenceScore', 'Adherence', 'Adherence %', 'AdherencePercent', 'AdherencePercentage']);
+  const complianceIdx = findIndex(['CompliancePercent', 'CompliancePercentage', 'ComplianceScore', 'Compliance %', 'Compliance']);
+  const compliantEventsIdx = findIndex(['CompliantEvents', 'Compliant']);
+  const nonCompliantEventsIdx = findIndex(['NonCompliantEvents', 'Non-Compliant', 'NonCompliant']);
+  const scheduledStartIdx = findIndex(['ScheduledStart', 'SchedStart']);
+  const scheduledEndIdx = findIndex(['ScheduledEnd', 'SchedEnd']);
+  const actualStartIdx = findIndex(['ActualStart', 'ClockIn', 'Login']);
+  const actualEndIdx = findIndex(['ActualEnd', 'ClockOut', 'Logout']);
+  const workedMinutesIdx = findIndex(['WorkedMinutes', 'Worked', 'ActualMinutes']);
+  const scheduledMinutesIdx = findIndex(['ScheduledMinutes', 'Scheduled', 'PlannedMinutes']);
 
   const rows = [];
   for (let i = 1; i < values.length; i++) {
     const row = values[i];
     const dateVal = row[dateIdx];
-    const date = (dateVal instanceof Date) ? dateVal : new Date(dateVal);
-    if (!(date instanceof Date) || isNaN(date.getTime())) {
+    const normalizedDate = normalizeDateValue(dateVal);
+    if (!(normalizedDate instanceof Date) || isNaN(normalizedDate.getTime())) {
       continue;
     }
 
-    if (date < startDate || date > endDate) {
+    const localDateOnly = createDateInLocalTime(
+      normalizedDate.getFullYear(),
+      normalizedDate.getMonth() + 1,
+      normalizedDate.getDate(),
+      0,
+      0,
+      0
+    );
+
+    if (!localDateOnly || localDateOnly < startDate || localDateOnly > endDate) {
       continue;
     }
 
-    const agentName = userNameIdx !== -1 ? (row[userNameIdx] || '') : (row[userIdIdx] || '');
-    const agentId = userIdIdx !== -1 ? row[userIdIdx] : '';
-    const normalizedAgent = String(agentName || agentId || '').trim().toLowerCase();
-    if (userSet.size > 0 && !userSet.has(normalizedAgent)) {
-      continue;
+    const agentNameRaw = userNameIdx !== -1 ? (row[userNameIdx] || '') : '';
+    const agentIdRaw = userIdIdx !== -1 ? (row[userIdIdx] || '') : '';
+    const agentName = agentNameRaw || agentIdRaw || 'Unknown';
+    const agentId = agentIdRaw || '';
+
+    if (userSet.size > 0) {
+      const candidateIdentifiers = new Set([
+        String(agentNameRaw || '').trim().toLowerCase(),
+        String(agentIdRaw || '').trim().toLowerCase(),
+        String(agentName || '').trim().toLowerCase()
+      ].filter(Boolean));
+      const hasMatch = Array.from(candidateIdentifiers).some(id => userSet.has(id));
+      if (!hasMatch) {
+        continue;
+      }
     }
 
     const scheduledMinutes = resolveMinutesFromRow_(row, scheduledMinutesIdx, scheduledStartIdx, scheduledEndIdx, timezone);
     const workedMinutes = resolveMinutesFromRow_(row, workedMinutesIdx, actualStartIdx, actualEndIdx, timezone);
 
-    const adherencePercent = resolveNumericValue_(row[adherenceIdx]);
+    const adherencePercent = adherenceIdx !== -1 ? resolveNumericValue_(row[adherenceIdx]) : 0;
     const compliancePercent = complianceIdx !== -1 ? resolveNumericValue_(row[complianceIdx]) : adherencePercent;
     const compliantEvents = resolveNumericValue_(row[compliantEventsIdx]);
     const nonCompliantEvents = resolveNumericValue_(row[nonCompliantEventsIdx]);
 
-    const dateKey = Utilities.formatDate(date, timezone, 'yyyy-MM-dd');
-    const weekStartKey = resolveWeekStartKey_(date, timezone);
+    const dateKey = Utilities.formatDate(localDateOnly, timezone, 'yyyy-MM-dd');
+    const weekStartKey = resolveWeekStartKey_(localDateOnly, timezone);
 
     rows.push({
       dateKey,
       weekStartKey,
-      agentName: agentName || 'Unknown',
-      agentId: agentId || '',
+      agentName,
+      agentId,
       adherencePercent,
       compliancePercent,
       scheduledMinutes,
