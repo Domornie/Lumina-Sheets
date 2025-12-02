@@ -6241,37 +6241,28 @@
 
       const fragment = document.createDocumentFragment();
 
-      switch (type) {
-        case 'Week': {
-          const totalWeeks = this.getISOWeeksInYear(year);
-          for (let week = 1; week <= totalWeeks; week++) {
-            const option = document.createElement('option');
-            option.value = `${year}-W${week.toString().padStart(2, '0')}`;
-            option.textContent = `Week ${week}, ${year}`;
-            fragment.appendChild(option);
-          }
-          break;
+      if (type === 'Week') {
+        const totalWeeks = this.getISOWeeksInYear(year);
+        for (let week = 1; week <= totalWeeks; week++) {
+          const option = document.createElement('option');
+          option.value = `${year}-W${week.toString().padStart(2, '0')}`;
+          option.textContent = `Week ${week}, ${year}`;
+          fragment.appendChild(option);
         }
-
-        case 'Month': {
-          const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-          for (let month = 1; month <= 12; month++) {
-            const option = document.createElement('option');
-            option.value = `${year}-${month.toString().padStart(2, '0')}`;
-            option.textContent = `${months[month - 1]} ${year}`;
-            fragment.appendChild(option);
-          }
-          break;
+      } else if (type === 'Month') {
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        for (let month = 1; month <= 12; month++) {
+          const option = document.createElement('option');
+          option.value = `${year}-${month.toString().padStart(2, '0')}`;
+          option.textContent = `${months[month - 1]} ${year}`;
+          fragment.appendChild(option);
         }
-
-        case 'Quarter': {
-          for (let quarter = 1; quarter <= 4; quarter++) {
-            const option = document.createElement('option');
-            option.value = `Q${quarter}-${year}`;
-            option.textContent = `Q${quarter} ${year}`;
-            fragment.appendChild(option);
-          }
-          break;
+      } else if (type === 'Quarter') {
+        for (let quarter = 1; quarter <= 4; quarter++) {
+          const option = document.createElement('option');
+          option.value = `Q${quarter}-${year}`;
+          option.textContent = `Q${quarter} ${year}`;
+          fragment.appendChild(option);
         }
       }
 
