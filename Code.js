@@ -2706,6 +2706,10 @@ function routeToPage(page, e, baseUrl, user, campaignIdFromCaller) {
       return serveAdminPage('CampaignManagement', e, baseUrl, user);
     }
 
+    if (page === 'payroll' || page === 'payrollmanagement' || page === 'payroll-management') {
+      return serveAdminPage('PayrollManagement', e, baseUrl, user);
+    }
+
     // Schedule Management (Default Page)
     if (page === 'schedule' || page === 'schedulemanagement') {
       return serveGlobalPage('ScheduleManagement', e, baseUrl, user);
