@@ -1008,7 +1008,7 @@
 
       state.periodType = selectDefaultPeriodType(state.payrollPeriods, state.periodType);
       const periods = state.payrollPeriods[state.periodType] || [];
-      state.periodId = periods.length ? periods[0].id : null;
+      state.periodId = findFirstPeriodWithData(periods, state.payrollData) || (periods.length ? periods[0].id : null);
     }
 
     function normalizePeriods(periods) {
@@ -1017,6 +1017,19 @@
         biweekly: Array.isArray(periods.biweekly) ? periods.biweekly : [],
         monthly: Array.isArray(periods.monthly) ? periods.monthly : []
       };
+    }
+
+    function findFirstPeriodWithData(periods, payrollData) {
+      if (!Array.isArray(periods) || !periods.length || !Array.isArray(payrollData)) return null;
+      for (const period of periods) {
+        const weekIds = getWeekIdsForPeriod(period);
+        if (!weekIds.length) continue;
+        const hasMatch = payrollData.some(record =>
+          Array.isArray(record.weeklyRecords) && record.weeklyRecords.some(week => weekIds.includes(week.weekId))
+        );
+        if (hasMatch) return period.id;
+      }
+      return null;
     }
 
     function selectDefaultPeriodType(periods, preferred) {
@@ -1077,7 +1090,10 @@
     function populateCampaignFilter() {
       const select = document.getElementById('campaignFilter');
       select.innerHTML = '<option value="all">All Campaigns</option>';
-      const campaigns = [...new Set(state.payrollData.map(record => record.campaign))];
+      const campaigns = [...new Set(state.payrollData
+        .map(record => record.campaign || 'Unassigned')
+        .filter(campaign => typeof campaign === 'string' && campaign.trim() !== '')
+      )].sort((a, b) => a.localeCompare(b));
       campaigns.forEach(campaign => {
         const option = document.createElement('option');
         option.value = campaign;

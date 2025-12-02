@@ -53,17 +53,15 @@ function readSheetAsObjects_(sheet) {
 function buildWeeklyPeriods_(rows) {
   var unique = {};
   rows.forEach(function (row) {
-    var weekId = pickFirstValue_(row, ['WeekId', 'Week ID', 'Week', 'PeriodId', 'Period ID']);
-    var start = normalizeDate_(pickFirstValue_(row, ['Start', 'StartDate', 'Start Date']));
-    var end = normalizeDate_(pickFirstValue_(row, ['End', 'EndDate', 'End Date']));
-    if (!weekId) return;
+    var period = extractPeriodFromRow_(row);
+    if (!period.id) return;
 
-    if (!unique[weekId]) {
-      unique[weekId] = {
-        id: String(weekId),
-        start: start ? formatDate_(start) : null,
-        end: end ? formatDate_(end) : null,
-        label: buildPeriodLabel_(weekId, start, end)
+    if (!unique[period.id]) {
+      unique[period.id] = {
+        id: period.id,
+        start: period.start ? formatDate_(period.start) : null,
+        end: period.end ? formatDate_(period.end) : null,
+        label: buildPeriodLabel_(period.id, period.start, period.end)
       };
     }
   });
@@ -119,22 +117,22 @@ function buildPayrollRecords_(rows, periodIndex) {
   var grouped = {};
 
   rows.forEach(function (row) {
-    var agentId = pickFirstValue_(row, ['AgentId', 'Agent ID', 'UserID', 'User Id', 'ID']);
-    var agentName = pickFirstValue_(row, ['AgentName', 'Agent Name', 'User', 'Name']);
-    var campaign = pickFirstValue_(row, ['Campaign', 'Program', 'Client']);
-    var weekId = pickFirstValue_(row, ['WeekId', 'Week ID', 'Week', 'PeriodId', 'Period ID']);
-    if (!agentId || !weekId) return;
+    var agentId = pickFirstValue_(row, ['AgentId', 'Agent ID', 'UserID', 'User Id', 'ID', 'Employee ID', 'EmployeeID']);
+    var agentName = pickFirstValue_(row, ['AgentName', 'Agent Name', 'User', 'Name', 'Full Name', 'Employee Name']);
+    var campaign = pickFirstValue_(row, ['Campaign', 'Campaign Name', 'Program', 'Client', 'Account', 'Line of Business']);
+    var period = extractPeriodFromRow_(row);
+    if (!agentId || !period.id) return;
 
     var record = grouped[agentId] || (grouped[agentId] = {
       agentId: String(agentId),
       agentName: agentName ? String(agentName) : '',
       campaign: campaign ? String(campaign) : '',
-      hourlyRate: toNumber_(pickFirstValue_(row, ['HourlyRate', 'Hourly Rate', 'Rate'])) || 0,
+      hourlyRate: toNumber_(pickFirstValue_(row, ['HourlyRate', 'Hourly Rate', 'Rate', 'Pay Rate', 'Base Rate'])) || 0,
       weeklyRecords: []
     });
 
     record.weeklyRecords.push({
-      weekId: String(weekId),
+      weekId: period.id,
       regularHours: toNumber_(pickFirstValue_(row, ['RegularHours', 'Regular Hours', 'Regular'])) || 0,
       overtimeHours: toNumber_(pickFirstValue_(row, ['OvertimeHours', 'Overtime Hours', 'OT'])) || 0,
       sickHours: toNumber_(pickFirstValue_(row, ['SickHours', 'Sick Hours', 'Sick'])) || 0,
@@ -144,16 +142,64 @@ function buildPayrollRecords_(rows, periodIndex) {
       lateOccurrences: toNumber_(pickFirstValue_(row, ['LateOccurrences', 'Late Occurrences', 'Late'])) || 0,
       holidayName: pickFirstValue_(row, ['HolidayName', 'Holiday Name']) || null,
       holidayMultiplier: toNumber_(pickFirstValue_(row, ['HolidayMultiplier', 'Holiday Multiplier', 'Multiplier'])) || 0,
-      start: periodIndex[String(weekId)] ? periodIndex[String(weekId)].start : null,
-      end: periodIndex[String(weekId)] ? periodIndex[String(weekId)].end : null
+      start: periodIndex[period.id] ? periodIndex[period.id].start : (period.start ? formatDate_(period.start) : null),
+      end: periodIndex[period.id] ? periodIndex[period.id].end : (period.end ? formatDate_(period.end) : null)
     });
   });
 
   return Object.keys(grouped).map(function (key) {
     var record = grouped[key];
     record.weeklyRecords.sort(function (a, b) { return comparePeriodId_(a.weekId, b.weekId); });
+    if (!record.campaign) {
+      record.campaign = 'Unassigned';
+    }
     return record;
   });
+}
+
+function extractPeriodFromRow_(row) {
+  var rawId = pickFirstValue_(row, ['WeekId', 'Week ID', 'Week', 'PeriodId', 'Period ID', 'PayPeriod', 'Pay Period', 'Pay Period ID']);
+  var start = normalizeDate_(pickFirstValue_(row, ['Start', 'StartDate', 'Start Date', 'Week Start', 'Period Start', 'Pay Period Start']));
+  var end = normalizeDate_(pickFirstValue_(row, ['End', 'EndDate', 'End Date', 'Week End', 'Period End', 'Pay Period End']));
+
+  if (!rawId) {
+    var parsed = parsePeriodLabel_(pickFirstValue_(row, ['Period', 'Payroll Period', 'Pay Period Label']));
+    if (parsed) {
+      rawId = parsed.id;
+      start = start || parsed.start;
+      end = end || parsed.end;
+    }
+  }
+
+  var id = rawId ? String(rawId) : null;
+  if (!id && (start || end)) {
+    var anchor = start || end;
+    id = formatDate_(anchor);
+  }
+
+  return { id: id, start: start, end: end };
+}
+
+function parsePeriodLabel_(value) {
+  if (!value) return null;
+  var text = String(value);
+
+  var rangeMatch = text.match(/(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}).*?(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/);
+  if (rangeMatch) {
+    var start = normalizeDate_(rangeMatch[1]);
+    var end = normalizeDate_(rangeMatch[2]);
+    var id = start ? formatDate_(start) : text;
+    return { id: id, start: start, end: end };
+  }
+
+  var isoRange = text.match(/(\d{4}-\d{2}-\d{2}).*?(\d{4}-\d{2}-\d{2})/);
+  if (isoRange) {
+    var startIso = normalizeDate_(isoRange[1]);
+    var endIso = normalizeDate_(isoRange[2]);
+    return { id: isoRange[1], start: startIso, end: endIso };
+  }
+
+  return { id: text, start: null, end: null };
 }
 
 function buildDiscrepancyLog_(rows) {
