@@ -6239,45 +6239,41 @@
       const year = isNaN(parsedYear) ? fallbackYear : parsedYear;
       const previousValue = select.value;
 
-      select.innerHTML = '<option value="">Select a period...</option>';
+      const optionEntries = [];
+      const addEntry = (value, label) => {
+        optionEntries.push('<option value="' + value + '">' + label + '</option>');
+      };
 
-      const fragment = document.createDocumentFragment();
+      addEntry('', 'Select a period...');
 
       if (type === 'Week') {
         const totalWeeks = this.getISOWeeksInYear(year);
         for (let week = 1; week <= totalWeeks; week++) {
-          const option = document.createElement('option');
-          const paddedWeek = week.toString().padStart(2, '0');
-          option.value = year + '-W' + paddedWeek;
-          option.textContent = 'Week ' + week + ', ' + year;
-          fragment.appendChild(option);
+          const paddedWeek = week < 10 ? '0' + week : String(week);
+          addEntry(year + '-W' + paddedWeek, 'Week ' + week + ', ' + year);
         }
       } else if (type === 'Month') {
         const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
         for (let month = 1; month <= 12; month++) {
-          const option = document.createElement('option');
-          const paddedMonth = month.toString().padStart(2, '0');
-          option.value = year + '-' + paddedMonth;
-          option.textContent = months[month - 1] + ' ' + year;
-          fragment.appendChild(option);
+          const paddedMonth = month < 10 ? '0' + month : String(month);
+          addEntry(year + '-' + paddedMonth, months[month - 1] + ' ' + year);
         }
       } else if (type === 'Quarter') {
         for (let quarter = 1; quarter <= 4; quarter++) {
-          const option = document.createElement('option');
-          option.value = 'Q' + quarter + '-' + year;
-          option.textContent = 'Q' + quarter + ' ' + year;
-          fragment.appendChild(option);
+          addEntry('Q' + quarter + '-' + year, 'Q' + quarter + ' ' + year);
         }
       }
 
-      select.appendChild(fragment);
+      select.innerHTML = optionEntries.join('');
 
+      const hasOption = value => select.querySelector('[value="' + value + '"]');
       let newValue = '';
-      if (!resetSelection && previousValue && select.querySelector('[value="' + previousValue + '"]')) {
+
+      if (!resetSelection && previousValue && hasOption(previousValue)) {
         newValue = previousValue;
       } else {
         newValue = this.getDefaultPeriodForType(type, year);
-        if (newValue && !select.querySelector('[value="' + newValue + '"]')) {
+        if (!newValue || !hasOption(newValue)) {
           newValue = '';
         }
       }
