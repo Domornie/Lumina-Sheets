@@ -920,240 +920,21 @@
       currency: 'USD'
     });
 
-    const payrollPeriods = {
-      weekly: [
-        { id: '2024-W20', label: 'May 13 - May 19, 2024', start: '2024-05-13', end: '2024-05-19' },
-        { id: '2024-W21', label: 'May 20 - May 26, 2024', start: '2024-05-20', end: '2024-05-26' },
-        { id: '2024-W22', label: 'May 27 - Jun 2, 2024', start: '2024-05-27', end: '2024-06-02' },
-        { id: '2024-W23', label: 'Jun 3 - Jun 9, 2024', start: '2024-06-03', end: '2024-06-09' }
-      ],
-      biweekly: [
-        { id: '2024-B10', label: 'May 13 - May 26, 2024', weekIds: ['2024-W20', '2024-W21'], start: '2024-05-13', end: '2024-05-26' },
-        { id: '2024-B11', label: 'May 27 - Jun 9, 2024', weekIds: ['2024-W22', '2024-W23'], start: '2024-05-27', end: '2024-06-09' }
-      ],
-      monthly: [
-        { id: '2024-05', label: 'May 2024', weekIds: ['2024-W18', '2024-W19', '2024-W20', '2024-W21', '2024-W22'] },
-        { id: '2024-06', label: 'June 2024', weekIds: ['2024-W23', '2024-W24', '2024-W25', '2024-W26'] }
-      ]
-    };
-
-    const payrollData = [
-      {
-        agentId: 'AG-101',
-        agentName: 'Avery Johnson',
-        campaign: 'Customer Care North',
-        hourlyRate: 18.5,
-        weeklyRecords: [
-          {
-            weekId: '2024-W20',
-            regularHours: 38,
-            overtimeHours: 4,
-            sickHours: 4,
-            vacationHours: 0,
-            holidayHours: 0,
-            leaveHours: 0,
-            lateOccurrences: 1,
-            holidayName: null,
-            holidayMultiplier: 2
-          },
-          {
-            weekId: '2024-W21',
-            regularHours: 41,
-            overtimeHours: 3,
-            sickHours: 0,
-            vacationHours: 0,
-            holidayHours: 8,
-            leaveHours: 0,
-            lateOccurrences: 0,
-            holidayName: 'Memorial Day',
-            holidayMultiplier: 2
-          },
-          {
-            weekId: '2024-W22',
-            regularHours: 39,
-            overtimeHours: 1,
-            sickHours: 0,
-            vacationHours: 8,
-            holidayHours: 0,
-            leaveHours: 0,
-            lateOccurrences: 0,
-            holidayName: null,
-            holidayMultiplier: 2
-          },
-          {
-            weekId: '2024-W23',
-            regularHours: 40,
-            overtimeHours: 0,
-            sickHours: 0,
-            vacationHours: 4,
-            holidayHours: 0,
-            leaveHours: 0,
-            lateOccurrences: 0,
-            holidayName: null,
-            holidayMultiplier: 2
-          }
-        ]
-      },
-      {
-        agentId: 'AG-118',
-        agentName: 'Bianca Patel',
-        campaign: 'Healthcare Renewals',
-        hourlyRate: 21,
-        weeklyRecords: [
-          {
-            weekId: '2024-W20',
-            regularHours: 40,
-            overtimeHours: 2,
-            sickHours: 0,
-            vacationHours: 0,
-            holidayHours: 0,
-            leaveHours: 0,
-            lateOccurrences: 0,
-            holidayName: null,
-            holidayMultiplier: 2
-          },
-          {
-            weekId: '2024-W21',
-            regularHours: 42,
-            overtimeHours: 5,
-            sickHours: 0,
-            vacationHours: 0,
-            holidayHours: 4,
-            leaveHours: 0,
-            lateOccurrences: 1,
-            holidayName: 'Client Founders Day',
-            holidayMultiplier: 2
-          },
-          {
-            weekId: '2024-W22',
-            regularHours: 37,
-            overtimeHours: 0,
-            sickHours: 0,
-            vacationHours: 0,
-            holidayHours: 0,
-            leaveHours: 6,
-            lateOccurrences: 0,
-            holidayName: null,
-            holidayMultiplier: 2
-          },
-          {
-            weekId: '2024-W23',
-            regularHours: 45,
-            overtimeHours: 6,
-            sickHours: 0,
-            vacationHours: 0,
-            holidayHours: 0,
-            leaveHours: 0,
-            lateOccurrences: 1,
-            holidayName: null,
-            holidayMultiplier: 2
-          }
-        ]
-      },
-      {
-        agentId: 'AG-202',
-        agentName: 'Carlos Méndez',
-        campaign: 'eCommerce Upsell',
-        hourlyRate: 19.75,
-        weeklyRecords: [
-          {
-            weekId: '2024-W20',
-            regularHours: 36,
-            overtimeHours: 0,
-            sickHours: 8,
-            vacationHours: 0,
-            holidayHours: 0,
-            leaveHours: 0,
-            lateOccurrences: 0,
-            holidayName: null,
-            holidayMultiplier: 2
-          },
-          {
-            weekId: '2024-W21',
-            regularHours: 44,
-            overtimeHours: 6,
-            sickHours: 0,
-            vacationHours: 0,
-            holidayHours: 0,
-            leaveHours: 0,
-            lateOccurrences: 2,
-            holidayName: null,
-            holidayMultiplier: 2
-          },
-          {
-            weekId: '2024-W22',
-            regularHours: 40,
-            overtimeHours: 4,
-            sickHours: 0,
-            vacationHours: 0,
-            holidayHours: 8,
-            leaveHours: 0,
-            lateOccurrences: 0,
-            holidayName: 'Liberation Day (Client)',
-            holidayMultiplier: 2
-          },
-          {
-            weekId: '2024-W23',
-            regularHours: 38,
-            overtimeHours: 2,
-            sickHours: 0,
-            vacationHours: 0,
-            holidayHours: 0,
-            leaveHours: 4,
-            lateOccurrences: 1,
-            holidayName: null,
-            holidayMultiplier: 2
-          }
-        ]
-      }
-    ];
-
-    const discrepancyLog = [
-      {
-        id: 'DISC-001',
-        createdAt: '2024-05-27T14:30:00Z',
-        agentId: 'AG-101',
-        issue: 'Holiday hours missing',
-        type: 'Holiday Not Paid',
-        hours: 8,
-        status: 'Pending Payroll',
-        clientApproved: false,
-        notes: 'Memorial Day premium to be double paid.'
-      },
-      {
-        id: 'DISC-002',
-        createdAt: '2024-05-28T09:00:00Z',
-        agentId: 'AG-118',
-        issue: 'Late log explanation received',
-        type: 'Attendance Adjustment',
-        hours: 1.5,
-        status: 'Ready for Client Review',
-        clientApproved: true,
-        notes: 'Grace period approved for May 22.'
-      },
-      {
-        id: 'DISC-003',
-        createdAt: '2024-05-29T16:10:00Z',
-        agentId: 'AG-202',
-        issue: 'Overtime to be reclassified',
-        type: 'Overtime Dispute',
-        hours: 2,
-        status: 'Escalated',
-        clientApproved: false,
-        notes: 'Awaiting supervisor acknowledgement.'
-      }
-    ];
-
     const state = {
+      payrollPeriods: { weekly: [], biweekly: [], monthly: [] },
+      payrollData: [],
+      discrepancies: [],
       periodType: 'biweekly',
-      periodId: payrollPeriods.biweekly[0].id,
+      periodId: null,
       campaignFilter: 'all',
       attendanceFilter: 'all',
       selectedAgentId: null,
-      discrepancies: [...discrepancyLog]
+      loading: true,
+      error: null
     };
 
-    function init() {
+    async function init() {
+      await loadPayrollDataFromServer();
       populatePeriodSelect();
       populateCampaignFilter();
       populateDiscrepancyFormAgentOptions();
@@ -1161,15 +942,136 @@
       renderAll();
     }
 
+    function callServer(fnName, args, timeoutMs) {
+      return new Promise((resolve, reject) => {
+        let settled = false;
+        const timeout = setTimeout(() => {
+          if (settled) return;
+          settled = true;
+          reject(new Error(`${fnName} timed out after ${timeoutMs || 20000}ms`));
+        }, timeoutMs || 20000);
+
+        const onSuccess = (res) => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timeout);
+          resolve(res);
+        };
+
+        const onFailure = (err) => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timeout);
+          reject(err);
+        };
+
+        try {
+          if (typeof google !== 'undefined' && google.script && google.script.run) {
+            google.script.run.withSuccessHandler(onSuccess).withFailureHandler(onFailure)[fnName](...(args || []));
+          } else {
+            // Fallback for local testing
+            setTimeout(() => onSuccess(null), 500);
+          }
+        } catch (error) {
+          onFailure(error);
+        }
+      });
+    }
+
+    async function loadPayrollDataFromServer() {
+      state.loading = true;
+      state.error = null;
+      renderLoadingState();
+      try {
+        const response = await callServer('getPayrollManagementData', [], 20000);
+        applyServerPayload(response);
+      } catch (error) {
+        console.error('Failed to load payroll data', error);
+        state.error = (error && error.message) ? error.message : 'Unable to load payroll data';
+      } finally {
+        state.loading = false;
+      }
+    }
+
+    function applyServerPayload(payload) {
+      if (!payload) {
+        state.payrollPeriods = { weekly: [], biweekly: [], monthly: [] };
+        state.payrollData = [];
+        state.discrepancies = [];
+        state.periodId = null;
+        return;
+      }
+
+      state.payrollPeriods = normalizePeriods(payload.periods || {});
+      state.payrollData = Array.isArray(payload.payroll) ? payload.payroll : [];
+      state.discrepancies = Array.isArray(payload.discrepancies) ? payload.discrepancies : [];
+
+      state.periodType = selectDefaultPeriodType(state.payrollPeriods, state.periodType);
+      const periods = state.payrollPeriods[state.periodType] || [];
+      state.periodId = findFirstPeriodWithData(periods, state.payrollData) || (periods.length ? periods[0].id : null);
+    }
+
+    function normalizePeriods(periods) {
+      return {
+        weekly: Array.isArray(periods.weekly) ? periods.weekly : [],
+        biweekly: Array.isArray(periods.biweekly) ? periods.biweekly : [],
+        monthly: Array.isArray(periods.monthly) ? periods.monthly : []
+      };
+    }
+
+    function findFirstPeriodWithData(periods, payrollData) {
+      if (!Array.isArray(periods) || !periods.length || !Array.isArray(payrollData)) return null;
+      for (const period of periods) {
+        const weekIds = getWeekIdsForPeriod(period);
+        if (!weekIds.length) continue;
+        const hasMatch = payrollData.some(record =>
+          Array.isArray(record.weeklyRecords) && record.weeklyRecords.some(week => weekIds.includes(week.weekId))
+        );
+        if (hasMatch) return period.id;
+      }
+      return null;
+    }
+
+    function selectDefaultPeriodType(periods, preferred) {
+      if (preferred && (periods[preferred] || []).length) return preferred;
+      if ((periods.biweekly || []).length) return 'biweekly';
+      if ((periods.weekly || []).length) return 'weekly';
+      if ((periods.monthly || []).length) return 'monthly';
+      return preferred || 'biweekly';
+    }
+
+    function renderLoadingState() {
+      const tbody = document.getElementById('payrollTableBody');
+      if (tbody) {
+        tbody.innerHTML = '';
+        const row = document.createElement('tr');
+        const cell = document.createElement('td');
+        cell.colSpan = 12;
+        cell.className = 'empty-state';
+        cell.textContent = 'Loading payroll data...';
+        row.appendChild(cell);
+        tbody.appendChild(row);
+      }
+
+      const summary = document.getElementById('summaryGrid');
+      if (summary) {
+        summary.innerHTML = '<div class="empty-state">Loading payroll data...</div>';
+      }
+    }
+
     function getSelectedPeriodDefinition() {
       const { periodType, periodId } = state;
-      const collection = payrollPeriods[periodType] || [];
+      const collection = state.payrollPeriods[periodType] || [];
       return collection.find(period => period.id === periodId) || collection[0];
     }
 
     function populatePeriodSelect() {
       const periodSelect = document.getElementById('periodSelect');
-      const periods = payrollPeriods[state.periodType] || [];
+      const periods = state.payrollPeriods[state.periodType] || [];
+      const periodTypeSelect = document.getElementById('periodTypeSelect');
+      if (periodTypeSelect) {
+        periodTypeSelect.value = state.periodType;
+      }
       periodSelect.innerHTML = '';
       periods.forEach(period => {
         const option = document.createElement('option');
@@ -1187,7 +1089,11 @@
 
     function populateCampaignFilter() {
       const select = document.getElementById('campaignFilter');
-      const campaigns = [...new Set(payrollData.map(record => record.campaign))];
+      select.innerHTML = '<option value="all">All Campaigns</option>';
+      const campaigns = [...new Set(state.payrollData
+        .map(record => record.campaign || 'Unassigned')
+        .filter(campaign => typeof campaign === 'string' && campaign.trim() !== '')
+      )].sort((a, b) => a.localeCompare(b));
       campaigns.forEach(campaign => {
         const option = document.createElement('option');
         option.value = campaign;
@@ -1199,7 +1105,7 @@
     function populateDiscrepancyFormAgentOptions() {
       const agentSelect = document.querySelector('#discrepancyForm select[name="agentId"]');
       agentSelect.innerHTML = '<option value="" disabled selected>Select agent</option>';
-      payrollData.forEach(agent => {
+      state.payrollData.forEach(agent => {
         const option = document.createElement('option');
         option.value = agent.agentId;
         option.textContent = agent.agentName;
@@ -1210,7 +1116,7 @@
     function bindEvents() {
       document.getElementById('periodTypeSelect').addEventListener('change', (event) => {
         state.periodType = event.target.value;
-        const periods = payrollPeriods[state.periodType] || [];
+        const periods = state.payrollPeriods[state.periodType] || [];
         state.periodId = periods.length ? periods[0].id : null;
         populatePeriodSelect();
         renderAll();
@@ -1232,6 +1138,11 @@
       });
 
       document.getElementById('exportButton').addEventListener('click', () => {
+        if (state.loading) return;
+        if (state.error) {
+          alert(`Unable to export payroll snapshot: ${state.error}`);
+          return;
+        }
         const period = getSelectedPeriodDefinition();
         const summary = buildSummaryMetrics();
         const exportPayload = {
@@ -1261,7 +1172,7 @@
         event.preventDefault();
         const formData = new FormData(event.target);
         const agentId = formData.get('agentId');
-        const agent = payrollData.find(item => item.agentId === agentId);
+        const agent = state.payrollData.find(item => item.agentId === agentId);
         const hours = Number(formData.get('hours')) || 0;
         const discrepancy = {
           id: `DISC-${String(state.discrepancies.length + 1).padStart(3, '0')}`,
@@ -1283,7 +1194,7 @@
       });
 
       document.querySelector('#discrepancyForm select[name="agentId"]').addEventListener('change', (event) => {
-        const agent = payrollData.find(item => item.agentId === event.target.value);
+        const agent = state.payrollData.find(item => item.agentId === event.target.value);
         document.querySelector('#discrepancyForm input[name="campaign"]').value = agent ? agent.campaign : '';
       });
     }
@@ -1296,7 +1207,7 @@
 
       const relevantWeekIds = getWeekIdsForPeriod(period);
 
-      return payrollData
+      return state.payrollData
         .filter(record => state.campaignFilter === 'all' || record.campaign === state.campaignFilter)
         .map(record => {
           const weeklyRecords = record.weeklyRecords.filter(week => relevantWeekIds.includes(week.weekId));
@@ -1316,6 +1227,7 @@
     }
 
     function getWeekIdsForPeriod(period) {
+      if (!period) return [];
       if (state.periodType === 'weekly') {
         return [period.id];
       }
@@ -1398,8 +1310,28 @@
 
     function renderPayrollTable() {
       const tbody = document.getElementById('payrollTableBody');
-      const records = buildTableData();
       tbody.innerHTML = '';
+      if (state.loading) {
+        const row = document.createElement('tr');
+        const cell = document.createElement('td');
+        cell.colSpan = 12;
+        cell.className = 'empty-state';
+        cell.textContent = 'Loading payroll data...';
+        row.appendChild(cell);
+        tbody.appendChild(row);
+        return;
+      }
+      if (state.error) {
+        const row = document.createElement('tr');
+        const cell = document.createElement('td');
+        cell.colSpan = 12;
+        cell.className = 'empty-state';
+        cell.textContent = `Unable to render payroll table: ${state.error}`;
+        row.appendChild(cell);
+        tbody.appendChild(row);
+        return;
+      }
+      const records = buildTableData();
       if (!records.length) {
         const emptyRow = document.createElement('tr');
         const cell = document.createElement('td');
@@ -1482,6 +1414,18 @@
 
     function renderSummary() {
       const container = document.getElementById('summaryGrid');
+      if (state.loading) {
+        container.innerHTML = '<div class="empty-state">Loading payroll data...</div>';
+        return;
+      }
+      if (state.error) {
+        container.innerHTML = `<div class="empty-state">Failed to load payroll data: ${state.error}</div>`;
+        return;
+      }
+      if (!state.payrollData.length) {
+        container.innerHTML = '<div class="empty-state">No payroll data available for this period.</div>';
+        return;
+      }
       const summary = buildSummaryMetrics();
       container.innerHTML = `
         <div class="summary-card">
@@ -1514,6 +1458,18 @@
 
     function renderLeaveSummary() {
       const container = document.getElementById('leaveSummaryGrid');
+      if (state.loading) {
+        container.innerHTML = '<div class="empty-state">Loading leave and attendance...</div>';
+        return;
+      }
+      if (state.error) {
+        container.innerHTML = `<div class="empty-state">Unable to load leave metrics: ${state.error}</div>`;
+        return;
+      }
+      if (!state.payrollData.length) {
+        container.innerHTML = '<div class="empty-state">No leave data available.</div>';
+        return;
+      }
       const summary = buildSummaryMetrics();
       container.innerHTML = `
         <div class="leave-summary">
@@ -1541,6 +1497,14 @@
 
     function renderHolidayLog() {
       const container = document.getElementById('holidayLog');
+      if (state.loading) {
+        container.innerHTML = '<div class="empty-state">Loading holiday premium data...</div>';
+        return;
+      }
+      if (state.error) {
+        container.innerHTML = `<div class="empty-state">Unable to load holiday details: ${state.error}</div>`;
+        return;
+      }
       const records = buildTableData();
       const holidays = [];
       records.forEach(record => {
@@ -1579,6 +1543,26 @@
     function renderDiscrepancies() {
       const tbody = document.getElementById('discrepancyTableBody');
       tbody.innerHTML = '';
+      if (state.loading) {
+        const row = document.createElement('tr');
+        const cell = document.createElement('td');
+        cell.colSpan = 7;
+        cell.className = 'empty-state';
+        cell.textContent = 'Loading discrepancies...';
+        row.appendChild(cell);
+        tbody.appendChild(row);
+        return;
+      }
+      if (state.error) {
+        const row = document.createElement('tr');
+        const cell = document.createElement('td');
+        cell.colSpan = 7;
+        cell.className = 'empty-state';
+        cell.textContent = `Unable to load discrepancies: ${state.error}`;
+        row.appendChild(cell);
+        tbody.appendChild(row);
+        return;
+      }
       if (!state.discrepancies.length) {
         const row = document.createElement('tr');
         const cell = document.createElement('td');
@@ -1591,7 +1575,7 @@
       }
 
       state.discrepancies.forEach(entry => {
-        const agent = payrollData.find(record => record.agentId === entry.agentId);
+        const agent = state.payrollData.find(record => record.agentId === entry.agentId);
         const row = document.createElement('tr');
         row.innerHTML = `
           <td class="text-muted small">${formatDate(entry.createdAt)}</td>
@@ -1630,13 +1614,15 @@
     }
 
     function formatDate(isoString) {
+      if (!isoString) return '—';
       const date = new Date(isoString);
+      if (isNaN(date.getTime())) return '—';
       return date.toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
     }
 
     function openEditModal(agentId) {
       const period = getSelectedPeriodDefinition();
-      const agent = payrollData.find(record => record.agentId === agentId);
+      const agent = state.payrollData.find(record => record.agentId === agentId);
       if (!agent || !period) return;
       const weekIds = getWeekIdsForPeriod(period);
       const weeks = agent.weeklyRecords.filter(week => weekIds.includes(week.weekId));
@@ -1669,7 +1655,7 @@
     }
 
     function resolveWeekLabel(weekId) {
-      const weekly = payrollPeriods.weekly.find(week => week.id === weekId);
+      const weekly = state.payrollPeriods.weekly.find(week => week.id === weekId);
       return weekly ? weekly.label : weekId;
     }
 
@@ -1718,7 +1704,7 @@
       }
 
       const period = getSelectedPeriodDefinition();
-      const agent = payrollData.find(record => record.agentId === state.selectedAgentId);
+      const agent = state.payrollData.find(record => record.agentId === state.selectedAgentId);
       if (!agent || !period) {
         closeEditModal();
         return;
