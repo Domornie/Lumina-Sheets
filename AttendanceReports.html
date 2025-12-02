@@ -4637,14 +4637,6 @@
       const BREAK_ALLOWANCE_SECS = 30 * 60;
       const LUNCH_ALLOWANCE_SECS = 30 * 60;
 
-      const escapeCsv = (value) => {
-        const stringValue = value === undefined || value === null ? '' : String(value);
-        if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
-          return '"' + stringValue.replace(/"/g, '""') + '"';
-        }
-        return stringValue;
-      };
-
       const formatMinutes = (seconds, allowance) => {
         const minutes = Math.max(0, (Math.max(0, seconds) - allowance) / 60);
         return Math.round(minutes * 100) / 100;
@@ -4690,15 +4682,15 @@
       const csvLines = [header.join(',')];
       rows.forEach((row) => {
         csvLines.push([
-          escapeCsv(row.employee),
-          escapeCsv(row.breakHours.toFixed(2)),
-          escapeCsv(row.breakOverMinutes.toFixed(2)),
-          escapeCsv(row.breakViolationDays),
-          escapeCsv(row.lunchHours.toFixed(2)),
-          escapeCsv(row.lunchOverMinutes.toFixed(2)),
-          escapeCsv(row.lunchViolationDays),
-          escapeCsv(row.weeklyOverages),
-          escapeCsv(row.adherencePercent)
+          this.escapeCsv(row.employee),
+          this.escapeCsv(row.breakHours.toFixed(2)),
+          this.escapeCsv(row.breakOverMinutes.toFixed(2)),
+          this.escapeCsv(row.breakViolationDays),
+          this.escapeCsv(row.lunchHours.toFixed(2)),
+          this.escapeCsv(row.lunchOverMinutes.toFixed(2)),
+          this.escapeCsv(row.lunchViolationDays),
+          this.escapeCsv(row.weeklyOverages),
+          this.escapeCsv(row.adherencePercent)
         ].join(','));
       });
 
@@ -4953,7 +4945,7 @@
         const complianceScore = this.calculateComplianceScore(row);
         const status = this.getComplianceStatusLabel(complianceScore);
         lines.push([
-          escapeCsv(row.user || row.employee || 'Unknown'),
+          this.escapeCsv(row.user || row.employee || 'Unknown'),
           summarizeHours(row.baseBillableSecs || row.adjustedBillableSecs),
           summarizeHours(row.breakCreditSecs || row.breakSecs),
           summarizeHours(row.lunchAdjustmentSecs || row.lunchSecs * -1),
@@ -5742,6 +5734,14 @@
           }
         }
       } catch (error) { console.error('Error rendering intelligent insights:', error); }
+    }
+
+    escapeCsv(value) {
+      const stringValue = value === undefined || value === null ? '' : String(value);
+      if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
+        return '"' + stringValue.replace(/"/g, '""') + '"';
+      }
+      return stringValue;
     }
 
     calculateComplianceScore(user) {
