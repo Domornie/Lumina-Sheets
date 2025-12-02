@@ -316,7 +316,19 @@ function writeLargeCache(cache, baseKey, value, ttlSeconds) {
   }
 }
 
-function resolveAttendanceSpreadsheet() {
+function resolveAttendanceSpreadsheet(campaignId) {
+  // Prefer campaign-specific schedule spreadsheets when available
+  try {
+    if (typeof getCampaignScheduleSpreadsheet === 'function' && campaignId) {
+      const campaignSpreadsheet = getCampaignScheduleSpreadsheet(campaignId);
+      if (campaignSpreadsheet) {
+        return campaignSpreadsheet;
+      }
+    }
+  } catch (err) {
+    try { console.warn('Campaign-aware attendance lookup failed', err); } catch (_) {}
+  }
+
   if (typeof getIBTRSpreadsheet === 'function') {
     try {
       const ss = getIBTRSpreadsheet();
