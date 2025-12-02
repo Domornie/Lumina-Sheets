@@ -3913,19 +3913,53 @@ function loadAdherenceComplianceDaily_(startDate, endDate, userSet, timezone) {
     return -1;
   };
 
-  const dateIdx = findIndex(['Date', 'Day']);
-  const userIdIdx = findIndex(['UserID', 'User Id', 'User', 'AgentID', 'Agent Id', 'Agent', 'EmployeeID']);
-  const userNameIdx = findIndex(['UserName', 'User Name', 'AgentName', 'Agent Name', 'EmployeeName', 'Employee']);
-  const adherenceIdx = findIndex(['AdherenceScore', 'Adherence', 'Adherence %', 'AdherencePercent', 'AdherencePercentage']);
+  let dateIdx = findIndex(['Date', 'Day', 'DateKey', 'Date ISO', 'DateIso']);
+  let userIdIdx = findIndex(['UserID', 'User Id', 'User', 'AgentID', 'Agent Id', 'Agent', 'EmployeeID', 'Employee Id']);
+  let userNameIdx = findIndex(['UserName', 'User Name', 'AgentName', 'Agent Name', 'EmployeeName', 'Employee', 'Agent Full Name', 'Full Name', 'Name']);
+  const adherenceIdx = findIndex(['AdherenceScore', 'Adherence', 'Adherence %', 'AdherencePercent', 'AdherencePercentage', 'Adherence Score (%)']);
   const complianceIdx = findIndex(['CompliancePercent', 'CompliancePercentage', 'ComplianceScore', 'Compliance %', 'Compliance']);
-  const compliantEventsIdx = findIndex(['CompliantEvents', 'Compliant']);
-  const nonCompliantEventsIdx = findIndex(['NonCompliantEvents', 'Non-Compliant', 'NonCompliant']);
-  const scheduledStartIdx = findIndex(['ScheduledStart', 'SchedStart']);
-  const scheduledEndIdx = findIndex(['ScheduledEnd', 'SchedEnd']);
-  const actualStartIdx = findIndex(['ActualStart', 'ClockIn', 'Login']);
-  const actualEndIdx = findIndex(['ActualEnd', 'ClockOut', 'Logout']);
-  const workedMinutesIdx = findIndex(['WorkedMinutes', 'Worked', 'ActualMinutes']);
-  const scheduledMinutesIdx = findIndex(['ScheduledMinutes', 'Scheduled', 'PlannedMinutes']);
+  const compliantEventsIdx = findIndex(['CompliantEvents', 'Compliant', 'Compliant Events']);
+  const nonCompliantEventsIdx = findIndex(['NonCompliantEvents', 'Non-Compliant', 'NonCompliant', 'Non-Compliant Events']);
+  const scheduledStartIdx = findIndex(['ScheduledStart', 'SchedStart', 'Scheduled Start']);
+  const scheduledEndIdx = findIndex(['ScheduledEnd', 'SchedEnd', 'Scheduled End']);
+  const actualStartIdx = findIndex(['ActualStart', 'ClockIn', 'Login', 'Actual Start']);
+  const actualEndIdx = findIndex(['ActualEnd', 'ClockOut', 'Logout', 'Actual End']);
+  const workedMinutesIdx = findIndex(['WorkedMinutes', 'Worked', 'ActualMinutes', 'Worked Minutes']);
+  const scheduledMinutesIdx = findIndex(['ScheduledMinutes', 'Scheduled', 'PlannedMinutes', 'Scheduled Minutes', 'Planned Minutes']);
+
+  if (dateIdx === -1) {
+    // Try any header that mentions "date" even if not an exact match
+    dateIdx = headers.findIndex(h => h && h.toLowerCase().includes('date'));
+  }
+
+  if (userIdIdx === -1 && userNameIdx === -1) {
+    const fuzzyIdx = headers.findIndex(h => {
+      const lower = (h || '').toLowerCase();
+      return lower.includes('user') || lower.includes('agent') || lower.includes('employee');
+    });
+    if (fuzzyIdx !== -1) {
+      userNameIdx = fuzzyIdx;
+    }
+  }
+
+  if (dateIdx === -1) {
+    // As a last resort, scan the first few rows for a parsable date value
+    const maxSampleRows = Math.min(values.length, 6);
+    outer: for (let r = 1; r < maxSampleRows; r++) {
+      const candidateRow = values[r];
+      for (let c = 0; c < candidateRow.length; c++) {
+        const candidateDate = normalizeDateValue(candidateRow[c]);
+        if (candidateDate instanceof Date && !isNaN(candidateDate.getTime())) {
+          dateIdx = c;
+          break outer;
+        }
+      }
+    }
+  }
+
+  if (dateIdx === -1) {
+    throw new Error('Unable to locate a date column in the adherence data.');
+  }
 
   const rows = [];
   for (let i = 1; i < values.length; i++) {
