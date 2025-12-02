@@ -9371,8 +9371,8 @@
                     const response = await this.callServerFunction(
                         'exportAttendanceDashboard',
                         selection.granularity,
-                        selection.start?.toISOString(),
-                        selection.end?.toISOString()
+                        selection.start,
+                        selection.end
                     );
 
                     if (!response || response.success !== true || !response.fileUrl) {
