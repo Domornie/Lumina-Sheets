@@ -32,9 +32,45 @@
  * Returns all escalations in a form your client-side expects:
  *   { id, user, category, issueType, impact, status, timestamp, notes }
  */
-function fetchAllEscalations() {
+function resolveEscalationsSheet(campaignId) {
+  // Prefer campaign-aware utilities
+  try {
+    if (typeof CampaignResourceRegistry !== 'undefined' && CampaignResourceRegistry.getCampaignUtilitySheets) {
+      var resources = CampaignResourceRegistry.getCampaignUtilitySheets(campaignId);
+      if (resources && resources.sheets && resources.sheets.escalations) {
+        return resources.sheets.escalations;
+      }
+    }
+  } catch (error) {
+    try { console.warn('Campaign escalations resolution failed', error); } catch (_) {}
+  }
+
+  var ss = null;
+  try { ss = getIBTRSpreadsheet(); } catch (_) { ss = null; }
+  return ss ? ss.getSheetByName(ESCALATIONS_SHEET) : null;
+}
+
+function readEscalationsFromSheet(sheet) {
+  if (!sheet) return [];
+  const values = sheet.getDataRange().getValues();
+  if (!values || values.length < 2) return [];
+
+  const headers = values[0].map(function (value) { return String(value || '').trim(); });
+  return values.slice(1).map(function (row) {
+    const record = {};
+    headers.forEach(function (header, idx) { record[header] = row[idx]; });
+    return record;
+  });
+}
+
+function fetchAllEscalations(options) {
+  var campaignId = (options && options.campaignId) || options || '';
+  var sheet = resolveEscalationsSheet(campaignId);
+  if (!sheet) {
+    throw new Error('Escalations sheet not found for campaign: ' + (campaignId || 'default'));
+  }
   const tz = Session.getScriptTimeZone();
-  const rows = readSheet(ESCALATIONS_SHEET);   // from Utilities.gs
+  const rows = readEscalationsFromSheet(sheet);
   return rows.map(r => ({
     id: r.ID,
     user: r.User,
@@ -62,9 +98,11 @@ function fetchAllEscalations() {
  * }} rec
  * @return {string} the generated ID
  */
-function addEscalation(rec) {
-  const sheet = getIBTRSpreadsheet()
-    .getSheetByName(ESCALATIONS_SHEET);
+function addEscalation(rec, campaignId) {
+  var sheet = resolveEscalationsSheet(campaignId);
+  if (!sheet) {
+    throw new Error('Escalations sheet not found for campaign: ' + (campaignId || 'default'));
+  }
   const id = Utilities.getUuid();
   const now = new Date();
   const tsDate = rec.timestamp
@@ -102,9 +140,8 @@ function addEscalation(rec) {
  *   notes:string
  * }} rec
  */
-function updateEscalation(id, rec) {
-  const sheet = getIBTRSpreadsheet()
-    .getSheetByName(ESCALATIONS_SHEET);
+function updateEscalation(id, rec, campaignId) {
+  var sheet = resolveEscalationsSheet(campaignId);
   if (!sheet) {
     throw new Error('Escalations sheet not found.');
   }
@@ -140,9 +177,8 @@ function updateEscalation(id, rec) {
  * Deletes an escalation row by ID.
  * @param {string} id
  */
-function removeEscalation(id) {
-  const sheet = getIBTRSpreadsheet()
-    .getSheetByName(ESCALATIONS_SHEET);
+function removeEscalation(id, campaignId) {
+  var sheet = resolveEscalationsSheet(campaignId);
   if (!sheet) {
     throw new Error('Escalations sheet not found.');
   }

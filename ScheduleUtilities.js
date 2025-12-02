@@ -18,7 +18,7 @@ const DAY_NAME_ORDER = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 // SCHEDULE SPREADSHEET CONFIGURATION
 // ────────────────────────────────────────────────────────────────────────────
 
-// Schedule Management Spreadsheet ID - UPDATE THIS WITH YOUR ACTUAL SCHEDULE SPREADSHEET ID
+// Schedule Management Spreadsheet ID - legacy fallback if campaign-specific IDs are not configured
 const SCHEDULE_SPREADSHEET_ID = '1owlD-RdNBYgpnccOPp6zP4ndzg0W4IWtoQeWC3NIUL0'; // TODO: Set your dedicated schedule management spreadsheet ID here
 
 // If no dedicated schedule spreadsheet ID is set, these functions will fall back to the main spreadsheet
@@ -41,8 +41,20 @@ function isPlaceholderSpreadsheetId(spreadsheetId) {
   return normalized.includes('todo') || normalized.includes('replace') || normalized.includes('your');
 }
 
-function getScheduleSpreadsheetIdCandidates() {
+function getScheduleSpreadsheetIdCandidates(campaignId) {
   const candidates = [];
+
+  // Campaign-specific configuration via CampaignResourceRegistry
+  try {
+    if (typeof getCampaignConfig === 'function' && campaignId) {
+      const config = getCampaignConfig(campaignId);
+      if (config && config.scheduleFileId) {
+        candidates.push(normalizeSpreadsheetId(config.scheduleFileId));
+      }
+    }
+  } catch (error) {
+    console.warn('Unable to read schedule spreadsheet ID from campaign config:', error && error.message ? error.message : error);
+  }
 
   const normalizedConstantId = normalizeSpreadsheetId(SCHEDULE_SPREADSHEET_ID);
   if (normalizedConstantId && !isPlaceholderSpreadsheetId(normalizedConstantId)) {
@@ -73,8 +85,21 @@ function getScheduleSpreadsheetIdCandidates() {
   return Array.from(new Set(candidates.filter(Boolean)));
 }
 
-function getScheduleSpreadsheet() {
-  const candidates = getScheduleSpreadsheetIdCandidates();
+function getScheduleSpreadsheet(campaignId) {
+  // If campaign-specific registry is available, prefer it
+  try {
+    if (typeof getCampaignScheduleSpreadsheet === 'function' && campaignId) {
+      const ss = getCampaignScheduleSpreadsheet(campaignId);
+      if (ss) {
+        console.log('Using campaign schedule spreadsheet for', campaignId);
+        return ss;
+      }
+    }
+  } catch (error) {
+    console.warn('Campaign schedule spreadsheet lookup failed:', error && error.message ? error.message : error);
+  }
+
+  const candidates = getScheduleSpreadsheetIdCandidates(campaignId);
 
   for (let index = 0; index < candidates.length; index++) {
     const candidateId = candidates[index];
@@ -105,9 +130,9 @@ function getScheduleSpreadsheet() {
  * Validate schedule spreadsheet configuration
  * Returns information about the current spreadsheet configuration
  */
-function validateScheduleSpreadsheetConfig() {
+function validateScheduleSpreadsheetConfig(campaignId) {
   try {
-    const candidates = getScheduleSpreadsheetIdCandidates();
+    const candidates = getScheduleSpreadsheetIdCandidates(campaignId);
     const config = {
       hasScheduleSpreadsheetId: candidates.length > 0,
       scheduleSpreadsheetId: SCHEDULE_SPREADSHEET_ID,
@@ -119,7 +144,7 @@ function validateScheduleSpreadsheetConfig() {
     };
 
     try {
-      const ss = getScheduleSpreadsheet();
+      const ss = getScheduleSpreadsheet(campaignId);
       config.currentSpreadsheet = ss.getId();
       config.spreadsheetName = ss.getName();
       config.canAccess = true;

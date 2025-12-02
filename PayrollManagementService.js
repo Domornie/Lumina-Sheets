@@ -11,13 +11,89 @@
 
 /** @OnlyCurrentDoc */
 
-function getPayrollManagementData() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var payrollSheet = ss.getSheetByName('PayrollData');
-  var discrepancySheet = ss.getSheetByName('PayrollDiscrepancies');
+function getPayrollManagementData(options) {
+  options = options || {};
+  var targetCampaigns = [];
 
-  var payrollRows = payrollSheet ? readSheetAsObjects_(payrollSheet) : [];
-  var discrepancyRows = discrepancySheet ? readSheetAsObjects_(discrepancySheet) : [];
+  try {
+    if (typeof getCampaignConfigs === 'function') {
+      var configuredCampaigns = getCampaignConfigs();
+      if (Array.isArray(configuredCampaigns) && configuredCampaigns.length) {
+        targetCampaigns = configuredCampaigns.filter(function (cfg) {
+          if (!cfg) return false;
+          if (cfg.isCatalogOnly && !cfg.utilitiesFileId && !cfg.scheduleFileId) {
+            return false; // skip catalog placeholders until configured
+          }
+          return true;
+        });
+
+        if (!targetCampaigns.length) {
+          targetCampaigns = configuredCampaigns;
+        }
+      }
+    }
+  } catch (err) {
+    try { console.warn('Unable to load campaign configs for payroll:', err); } catch (_) {}
+  }
+
+  // Filter by requested campaign(s) when provided
+  if (targetCampaigns.length && (options.campaignId || options.campaignIds)) {
+    var requested = options.campaignIds || [options.campaignId];
+    var requestedSet = {};
+    (requested || []).forEach(function (cid) { if (cid) requestedSet[String(cid).trim().toLowerCase()] = true; });
+    targetCampaigns = targetCampaigns.filter(function (cfg) {
+      return requestedSet[String((cfg && cfg.id) || '').trim().toLowerCase()];
+    });
+  }
+
+  var payrollRows = [];
+  var discrepancyRows = [];
+
+  function appendFromSpreadsheet(ss, campaignId) {
+    if (!ss) return;
+    try {
+      var payrollSheet = ss.getSheetByName('PayrollData');
+      var discrepancySheet = ss.getSheetByName('PayrollDiscrepancies');
+      var payroll = payrollSheet ? readSheetAsObjects_(payrollSheet) : [];
+      var discrepancies = discrepancySheet ? readSheetAsObjects_(discrepancySheet) : [];
+
+      if (campaignId) {
+        payroll = payroll.map(function (row) { row.CampaignID = row.CampaignID || campaignId; return row; });
+        discrepancies = discrepancies.map(function (row) { row.CampaignID = row.CampaignID || campaignId; return row; });
+      }
+
+      payrollRows = payrollRows.concat(payroll);
+      discrepancyRows = discrepancyRows.concat(discrepancies);
+    } catch (error) {
+      try { console.warn('Payroll spreadsheet read failed for', campaignId || 'default', error); } catch (_) {}
+      if (typeof safeWriteError === 'function') {
+        try { safeWriteError('getPayrollManagementData.read', error); } catch (_) {}
+      }
+    }
+  }
+
+  if (targetCampaigns.length) {
+    targetCampaigns.forEach(function (campaign) {
+      var ss = null;
+      try {
+        if (typeof getCampaignScheduleSpreadsheet === 'function') {
+          ss = getCampaignScheduleSpreadsheet(campaign.id || campaign.ID || campaign.key);
+        }
+      } catch (err) {
+        try { console.warn('Campaign schedule lookup failed for payroll', campaign && campaign.id, err); } catch (_) {}
+      }
+
+      if (!ss) {
+        try { ss = SpreadsheetApp.getActiveSpreadsheet(); } catch (_) {}
+      }
+
+      appendFromSpreadsheet(ss, campaign.id || campaign.ID || campaign.key || '');
+    });
+  } else {
+    // Legacy single-spreadsheet behavior
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    appendFromSpreadsheet(ss, '');
+  }
 
   var weeklyPeriods = buildWeeklyPeriods_(payrollRows);
   var periodIndex = indexPeriodsById_(weeklyPeriods);
