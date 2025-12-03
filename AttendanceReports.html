@@ -4818,7 +4818,12 @@
         try {
           const result = await safeServerCall('getAdherenceComplianceExportData', [payload], { timeoutMs: 20000 });
           if (!result?.success || !result.exportData) {
-            throw new Error(result?.error || 'Unable to prepare adherence data.');
+            const errorMsg = result?.error && typeof result.error === 'string'
+              ? result.error
+              : 'Unable to prepare adherence data.';
+            const level = errorMsg.toLowerCase().includes('no adherence data') ? 'warning' : 'danger';
+            this.showToast(errorMsg, level);
+            return;
           }
 
           const { exportData } = result;
@@ -4919,7 +4924,9 @@
         const errorMsg = typeof result?.error === 'string' && result.error.trim()
           ? result.error.trim()
           : 'Unable to save adherence export to Google Sheets.';
-        throw new Error(errorMsg);
+
+        const level = errorMsg.toLowerCase().includes('no adherence data') ? 'warning' : 'danger';
+        this.showToast(errorMsg, level);
       } catch (error) {
         console.error('Failed to export adherence to Google Sheets:', error);
         this.showToast('Google Sheets export unavailable. CSV export is still available.', 'warning');
