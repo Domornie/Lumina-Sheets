@@ -133,6 +133,30 @@ function readSheetAsObjects_(ss, name) {
   }
   return rows;
 }
+
+function readTableRecordsForOKR_(tableName, spreadsheet) {
+  const manager = (typeof DatabaseManager !== 'undefined' && DatabaseManager && typeof DatabaseManager.table === 'function')
+    ? DatabaseManager
+    : null;
+  const context = { allowAllTenants: true, allowAllCampaigns: true, globalTenantAccess: true };
+
+  if (manager) {
+    try {
+      const table = manager.table(tableName, context);
+      if (table && typeof table.read === 'function') {
+        const rows = table.read({ allowAllTenants: true, allowAllCampaigns: true });
+        if (Array.isArray(rows)) {
+          return rows;
+        }
+      }
+    } catch (tableError) {
+      console.warn('readTableRecordsForOKR_ table read failed for', tableName, tableError);
+    }
+  }
+
+  const ss = spreadsheet || getMainSpreadsheet();
+  return readSheetAsObjects_(ss, tableName);
+}
 function getVal_(row, names) {
   for (const n of names) {
     if (row[n] !== undefined && row[n] !== '') return row[n];
@@ -155,13 +179,13 @@ function buildAggregatedRawOKRData(granularity, period, agent, campaign, departm
   const inRange = (d) => !!d && d >= dateRange.startDate && d <= dateRange.endDate;
 
   // Load all relevant sheets
-  const calls = readSheetAsObjects_(ss, CONFIG.SHEETS.CALLS);
-  const attendance = readSheetAsObjects_(ss, CONFIG.SHEETS.ATTENDANCE);
-  const qa = readSheetAsObjects_(ss, CONFIG.SHEETS.QA);
-  const tasks = readSheetAsObjects_(ss, CONFIG.SHEETS.TASKS);
-  const coaching = readSheetAsObjects_(ss, CONFIG.SHEETS.COACHING);
-  const goals = readSheetAsObjects_(ss, CONFIG.SHEETS.GOALS);
-  const campaignRows = readSheetAsObjects_(ss, CONFIG.SHEETS.CAMPAIGNS);
+  const calls = readTableRecordsForOKR_(CONFIG.SHEETS.CALLS, ss);
+  const attendance = readTableRecordsForOKR_(CONFIG.SHEETS.ATTENDANCE, ss);
+  const qa = readTableRecordsForOKR_(CONFIG.SHEETS.QA, ss);
+  const tasks = readTableRecordsForOKR_(CONFIG.SHEETS.TASKS, ss);
+  const coaching = readTableRecordsForOKR_(CONFIG.SHEETS.COACHING, ss);
+  const goals = readTableRecordsForOKR_(CONFIG.SHEETS.GOALS, ss);
+  const campaignRows = readTableRecordsForOKR_(CONFIG.SHEETS.CAMPAIGNS, ss);
 
   // Campaign → Department map
   const deptMap = {};
@@ -501,6 +525,20 @@ function getAllUsers() {
       }
     }
 
+    if (typeof DatabaseManager !== 'undefined' && DatabaseManager && typeof DatabaseManager.table === 'function') {
+      try {
+        const table = DatabaseManager.table(USERS_SHEET || 'Users', { allowAllTenants: true, allowAllCampaigns: true });
+        if (table && typeof table.read === 'function') {
+          const rows = table.read({ allowAllTenants: true, allowAllCampaigns: true });
+          if (Array.isArray(rows)) {
+            return rows;
+          }
+        }
+      } catch (dbError) {
+        console.warn('DashboardOKRService.getAllUsers: DatabaseManager read failed', dbError);
+      }
+    }
+
     console.warn('DashboardOKRService.getAllUsers: falling back to empty list because getUsers is unavailable');
     return [];
   } catch (error) {
@@ -534,35 +572,43 @@ function getAllCampaigns() {
   try {
     let campaigns = [];
 
-    // Method 1: Try to get from Campaigns sheet
+    // Method 1: Try to get from DatabaseManager or Campaigns sheet
     try {
       const spreadsheet = getMainSpreadsheet();
-      const campaignsSheet = spreadsheet.getSheetByName('Campaigns');
+      const registry = readTableRecordsForOKR_(CONFIG.SHEETS.CAMPAIGNS, spreadsheet);
 
-      if (campaignsSheet) {
-        const data = campaignsSheet.getDataRange().getValues();
-        const headers = data[0];
-
-        for (let i = 1; i < data.length; i++) {
-          const campaign = {};
-          headers.forEach((header, index) => {
-            campaign[header] = data[i][index];
-          });
-
-          // Ensure required fields
-          campaign.ID = campaign.ID || campaign.CampaignID || `campaign_${i}`;
-          campaign.Name = campaign.Name || campaign.CampaignName || `Campaign ${i}`;
-          campaign.Description = campaign.Description || `Campaign ${campaign.Name} description`;
-          campaign.Active = campaign.Active !== false; // Default to true
-
-          campaigns.push(campaign);
-        }
+      if (Array.isArray(registry) && registry.length) {
+        campaigns = registry.map((row, i) => {
+          const clone = Object.assign({}, row);
+          clone.ID = clone.ID || clone.CampaignID || clone.Id || `campaign_${i + 1}`;
+          clone.Name = clone.Name || clone.CampaignName || clone.ID || `Campaign ${i + 1}`;
+          clone.Description = clone.Description || `Campaign ${clone.Name} description`;
+          clone.Active = clone.Active !== false && String(clone.Active).toLowerCase() !== 'false';
+          return clone;
+        });
       }
     } catch (error) {
       console.warn('Could not load campaigns from sheet:', error);
     }
 
-    // Method 2: Fallback to sample campaigns if no data found
+    // Method 2: Try campaign service helpers
+    if (campaigns.length === 0) {
+      try {
+        if (typeof getCampaignsTable === 'function') {
+          const table = getCampaignsTable();
+          if (table && typeof table.read === 'function') {
+            const rows = table.read({ allowAllTenants: true, allowAllCampaigns: true });
+            if (Array.isArray(rows) && rows.length) {
+              campaigns = rows;
+            }
+          }
+        }
+      } catch (svcError) {
+        console.warn('Campaign service lookup failed:', svcError);
+      }
+    }
+
+    // Method 3: Fallback to sample campaigns if no data found
     if (campaigns.length === 0) {
       campaigns = getSampleCampaigns();
     }
