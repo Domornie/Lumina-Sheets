@@ -1,0 +1,313 @@
+<?!= includeOnce('ResponsiveStyles') ?>
+<?!= include("layout", {
+  baseUrl: baseUrl,
+  scriptUrl: scriptUrl,
+  user: user,
+  currentPage: 'data-export-hub'
+}) ?>
+
+<style>
+  .export-hub {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 1.5rem;
+  }
+
+  .export-card {
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+    border: 1px solid #e2e8f0;
+    padding: 1.5rem;
+  }
+
+  .export-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1rem;
+    margin-top: 1rem;
+  }
+
+  .export-section-title {
+    font-weight: 700;
+    color: #0f172a;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .export-section-title i {
+    color: #2563eb;
+  }
+
+  .helper-text {
+    color: #475569;
+    font-size: 0.9rem;
+  }
+
+  .chip-group button {
+    margin-right: 0.35rem;
+    margin-bottom: 0.35rem;
+  }
+
+  .status-banner {
+    border-radius: 12px;
+    padding: 0.85rem 1rem;
+    background: linear-gradient(135deg, rgba(37, 99, 235, 0.08), rgba(14, 165, 233, 0.12));
+    border: 1px solid rgba(37, 99, 235, 0.25);
+    color: #0f172a;
+    margin-bottom: 1rem;
+  }
+
+  .export-results {
+    margin-top: 1.25rem;
+  }
+</style>
+
+<div class="export-hub">
+  <div class="status-banner">
+    <strong>Centralized exports</strong> — Choose the dataset, campaign, user, and date window to generate CSV or sheet exports in one place.
+  </div>
+
+  <div class="export-card">
+    <h3 class="export-section-title"><i class="fas fa-file-export"></i>Data Export Hub</h3>
+    <p class="helper-text">Download attendance, QA, adherence, schedule, and call report data by campaign, user, and date filters.</p>
+
+    <div class="export-grid">
+      <div>
+        <label class="form-label fw-semibold">Export type</label>
+        <select id="exportType" class="form-select">
+          <!-- Options injected via script -->
+        </select>
+        <small class="helper-text" id="exportDescription"></small>
+      </div>
+
+      <div>
+        <label class="form-label fw-semibold">Campaign</label>
+        <select id="campaign" class="form-select"></select>
+        <small class="helper-text">Pick a campaign to scope the export.</small>
+      </div>
+
+      <div>
+        <label class="form-label fw-semibold">User (optional)</label>
+        <select id="user" class="form-select">
+          <option value="">All users</option>
+        </select>
+        <small class="helper-text">Filter results to a single user when supported.</small>
+      </div>
+
+      <div>
+        <label class="form-label fw-semibold">Granularity</label>
+        <select id="granularity" class="form-select">
+          <option value="Day">Daily</option>
+          <option value="Week" selected>Weekly</option>
+          <option value="Bi-Week">Bi-weekly</option>
+          <option value="Month">Monthly</option>
+          <option value="Quarter">Quarterly</option>
+          <option value="Year">Yearly</option>
+          <option value="Custom">Custom range</option>
+        </select>
+        <small class="helper-text">Used for period-based exports.</small>
+      </div>
+    </div>
+
+    <div class="export-grid" style="margin-top: 1rem;">
+      <div>
+        <label class="form-label fw-semibold">Start date</label>
+        <input type="date" id="startDate" class="form-control" />
+      </div>
+      <div>
+        <label class="form-label fw-semibold">End date</label>
+        <input type="date" id="endDate" class="form-control" />
+      </div>
+      <div>
+        <label class="form-label fw-semibold">Period key (optional)</label>
+        <input type="text" id="periodKey" class="form-control" placeholder="e.g., 2024-W12" />
+        <small class="helper-text">Use week strings or IDs required by specific exports.</small>
+      </div>
+    </div>
+
+    <div class="chip-group" style="margin-top: 1rem;">
+      <label class="form-label fw-semibold d-block">Quick ranges</label>
+      <button class="btn btn-sm btn-outline-primary" data-range="week">This week</button>
+      <button class="btn btn-sm btn-outline-primary" data-range="last-week">Last week</button>
+      <button class="btn btn-sm btn-outline-primary" data-range="month">This month</button>
+      <button class="btn btn-sm btn-outline-primary" data-range="quarter">This quarter</button>
+      <button class="btn btn-sm btn-outline-primary" data-range="year">This year</button>
+    </div>
+
+    <div class="d-flex justify-content-between align-items-center" style="margin-top: 1.25rem;">
+      <div id="exportStatus" class="helper-text"></div>
+      <button id="exportButton" class="btn btn-primary">
+        <i class="fas fa-download me-1"></i> Export data
+      </button>
+    </div>
+
+    <div class="export-results" id="exportResults" style="display:none;">
+      <div class="alert alert-success mb-2" id="successBox" style="display:none;"></div>
+      <div class="alert alert-danger mb-2" id="errorBox" style="display:none;"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const exportOptions = JSON.parse('<?= exportOptions ?>' || '[]');
+  const campaigns = JSON.parse('<?= campaigns ?>' || '[]');
+  const users = JSON.parse('<?= users ?>' || '[]');
+  const defaultCampaignId = '<?= defaultCampaignId ?>';
+  const defaultUserId = '<?= defaultUserId ?>';
+
+  function setQuickRange(range) {
+    const today = new Date();
+    let start = new Date();
+    let end = new Date();
+
+    switch (range) {
+      case 'week':
+        start.setDate(today.getDate() - today.getDay());
+        end = new Date(start);
+        end.setDate(start.getDate() + 6);
+        break;
+      case 'last-week':
+        end.setDate(today.getDate() - today.getDay() - 1);
+        start = new Date(end);
+        start.setDate(end.getDate() - 6);
+        break;
+      case 'month':
+        start = new Date(today.getFullYear(), today.getMonth(), 1);
+        end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+        break;
+      case 'quarter': {
+        const quarterStartMonth = Math.floor(today.getMonth() / 3) * 3;
+        start = new Date(today.getFullYear(), quarterStartMonth, 1);
+        end = new Date(today.getFullYear(), quarterStartMonth + 3, 0);
+        break;
+      }
+      case 'year':
+        start = new Date(today.getFullYear(), 0, 1);
+        end = new Date(today.getFullYear(), 11, 31);
+        break;
+      default:
+        return;
+    }
+
+    document.getElementById('startDate').value = start.toISOString().slice(0, 10);
+    document.getElementById('endDate').value = end.toISOString().slice(0, 10);
+  }
+
+  function populateSelect(selectId, options, valueKey, labelKey, defaultValue) {
+    const select = document.getElementById(selectId);
+    select.innerHTML = '';
+    options.forEach(function (option) {
+      const opt = document.createElement('option');
+      opt.value = option[valueKey];
+      opt.textContent = option[labelKey];
+      select.appendChild(opt);
+    });
+    if (defaultValue) {
+      select.value = defaultValue;
+    }
+  }
+
+  function initSelectors() {
+    if (exportOptions.length) {
+      populateSelect('exportType', exportOptions, 'key', 'title', exportOptions[0].key);
+      document.getElementById('exportDescription').textContent = exportOptions[0].description || '';
+    } else {
+      populateSelect('exportType', [{ key: '', title: 'No exports available' }], 'key', 'title', '');
+      document.getElementById('exportDescription').textContent = 'No export services are currently available.';
+      document.getElementById('exportButton').disabled = true;
+    }
+
+    const campaignOptions = [{ id: '', name: 'All campaigns' }].concat((campaigns || []).map(function (c) {
+      return { id: c.id || c.ID || c.CampaignID || '', name: c.name || c.Name || c.CampaignName || 'Campaign' };
+    }));
+    populateSelect('campaign', campaignOptions, 'id', 'name', defaultCampaignId);
+
+    const userOptions = [{ id: '', name: 'All users' }].concat((users || []).map(function (u) {
+      return { id: u.id || u.ID || '', name: u.name || u.UserName || u.FullName || u.email || 'User' };
+    }));
+    populateSelect('user', userOptions, 'id', 'name', defaultUserId);
+  }
+
+  function wireEvents() {
+    document.getElementById('exportType').addEventListener('change', function (evt) {
+      const selected = exportOptions.find(opt => opt.key === evt.target.value);
+      document.getElementById('exportDescription').textContent = selected ? selected.description : '';
+    });
+
+    Array.from(document.querySelectorAll('.chip-group button')).forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        const range = this.getAttribute('data-range');
+        setQuickRange(range);
+      });
+    });
+
+    document.getElementById('exportButton').addEventListener('click', function () {
+      runExport();
+    });
+  }
+
+  function setStatus(message, isError) {
+    const status = document.getElementById('exportStatus');
+    status.textContent = message;
+    status.style.color = isError ? '#dc2626' : '#0f172a';
+  }
+
+  function showResult({ success, message, url, name }) {
+    const results = document.getElementById('exportResults');
+    const successBox = document.getElementById('successBox');
+    const errorBox = document.getElementById('errorBox');
+    results.style.display = 'block';
+    successBox.style.display = 'none';
+    errorBox.style.display = 'none';
+
+    if (success) {
+      successBox.style.display = 'block';
+      successBox.innerHTML = message + (url ? ` <a href="${url}" target="_blank">Open export</a>` : '') + (name ? ` <span class="badge bg-light text-dark">${name}</span>` : '');
+    } else {
+      errorBox.style.display = 'block';
+      errorBox.textContent = message || 'Export failed.';
+    }
+  }
+
+  function runExport() {
+    const payload = {
+      type: document.getElementById('exportType').value,
+      campaignId: document.getElementById('campaign').value,
+      userId: document.getElementById('user').value,
+      granularity: document.getElementById('granularity').value,
+      period: document.getElementById('periodKey').value,
+      startDate: document.getElementById('startDate').value,
+      endDate: document.getElementById('endDate').value
+    };
+
+    setStatus('Preparing export...', false);
+    document.getElementById('exportButton').disabled = true;
+
+    google.script.run
+      .withSuccessHandler(function (result) {
+        document.getElementById('exportButton').disabled = false;
+        if (result && result.success) {
+          setStatus('Export completed.', false);
+          showResult({ success: true, message: result.message || 'File created successfully.', url: result.url, name: result.name });
+        } else {
+          setStatus(result && result.error ? result.error : 'Export failed.', true);
+          showResult({ success: false, message: result && result.error ? result.error : 'Export failed.' });
+        }
+      })
+      .withFailureHandler(function (error) {
+        document.getElementById('exportButton').disabled = false;
+        setStatus(error && error.message ? error.message : 'Export failed.', true);
+        showResult({ success: false, message: error && error.message ? error.message : 'Export failed.' });
+      })
+      .clientRunDataExport(payload);
+  }
+
+  (function init() {
+    initSelectors();
+    wireEvents();
+    setQuickRange('week');
+  })();
+</script>

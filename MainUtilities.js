@@ -1329,6 +1329,7 @@ function getAllPagesFromActualRouting() {
     // REPORTING
     { key: 'callreports', title: 'Call Reports', icon: 'fas fa-phone-volume', description: 'Call analytics and reporting dashboard with CSV export', isSystem: true, requiresAdmin: false, category: 'Reporting & Analytics' },
     { key: 'attendancereports', title: 'Attendance Reports', icon: 'fas fa-chart-bar', description: 'Attendance analytics and reports with CSV export', isSystem: true, requiresAdmin: false, category: 'Reporting & Analytics' },
+    { key: 'data-export-hub', title: 'Data Export Hub', icon: 'fas fa-file-export', description: 'Centralized exports by campaign, user, and date filters', isSystem: true, requiresAdmin: false, category: 'Reporting & Analytics' },
     { key: 'collaboration-reporting', title: 'Collaboration Reporting', icon: 'fas fa-people-arrows', description: 'Collaboration analytics, sentiment tracking, and engagement insights', isSystem: true, requiresAdmin: false, category: 'Reporting & Analytics' },
 
     // COACHING
