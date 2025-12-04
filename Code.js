@@ -2808,6 +2808,15 @@ function routeToPage(page, e, baseUrl, user, campaignIdFromCaller) {
       case "attendancereports":
         return serveCampaignPage('AttendanceReports', e, baseUrl, user, campaignIdFromCaller);
 
+      case "data-export-hub":
+      case "dataexporthub":
+      case "export-center":
+        return serveAdminPage('DataExportHub', e, baseUrl, user, {
+          allowManagers: true,
+          allowSupervisors: true,
+          accessDeniedMessage: 'You need manager, supervisor, or admin privileges to export data.'
+        });
+
       case "coachingdashboard":
         return serveCampaignPage('CoachingDashboard', e, baseUrl, user, campaignIdFromCaller);
 
@@ -3547,6 +3556,10 @@ function handleTemplateSpecificData(tpl, templateName, e, user, campaignId) {
 
       case 'Notifications':
         handleNotificationsData(tpl, e, user);
+        break;
+
+      case 'DataExportHub':
+        handleDataExportHubData(tpl, e, user, campaignId);
         break;
 
       default:
@@ -4520,6 +4533,44 @@ function handleNotificationsData(tpl, e, user) {
   } catch (error) {
     console.error('Error handling notifications data:', error);
     tpl.tasksJson = JSON.stringify([]);
+  }
+}
+
+function handleDataExportHubData(tpl, e, user, campaignId) {
+  try {
+    const selectedCampaignId = (e && e.parameter && e.parameter.campaign) || campaignId || (user && user.CampaignID) || '';
+    const exportOptions = typeof listDataExportOptions === 'function'
+      ? listDataExportOptions({ campaignId: selectedCampaignId, userId: user && user.ID })
+      : [];
+
+    let campaigns = [];
+    if (typeof clientGetAllCampaigns === 'function') {
+      campaigns = clientGetAllCampaigns();
+    }
+
+    let users = [];
+    if (typeof getUsers === 'function') {
+      users = (getUsers() || []).map(function (entry) {
+        return {
+          id: entry.ID || entry.id || '',
+          name: entry.FullName || entry.UserName || entry.name || '',
+          email: entry.Email || entry.email || ''
+        };
+      });
+    }
+
+    tpl.exportOptions = JSON.stringify(exportOptions).replace(/<\/script>/g, '<\\/script>');
+    tpl.campaigns = JSON.stringify(campaigns).replace(/<\/script>/g, '<\\/script>');
+    tpl.users = JSON.stringify(users).replace(/<\/script>/g, '<\\/script>');
+    tpl.defaultCampaignId = selectedCampaignId;
+    tpl.defaultUserId = user && user.ID ? user.ID : '';
+  } catch (error) {
+    console.error('Error preparing data export hub data:', error);
+    tpl.exportOptions = JSON.stringify([]);
+    tpl.campaigns = JSON.stringify([]);
+    tpl.users = JSON.stringify([]);
+    tpl.defaultCampaignId = '';
+    tpl.defaultUserId = user && user.ID ? user.ID : '';
   }
 }
 
