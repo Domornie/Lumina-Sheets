@@ -3972,13 +3972,17 @@ function loadBreakLunchAdherenceDaily_(startDate, endDate, userSet, timezone) {
       continue;
     }
 
-    const durationSec = Number.isFinite(row.durationSec)
-      ? row.durationSec
-      : Number(row.DurationMin) && !Number.isNaN(Number(row.DurationMin))
-        ? Number(row.DurationMin)
-        : Number(row.duration) || 0;
+    const durationMinutes = Number.isFinite(row.durationMin)
+      ? row.durationMin
+      : Number.isFinite(row.durationSec)
+        ? row.durationSec / 60
+        : Number(row.DurationMin) && !Number.isNaN(Number(row.DurationMin))
+          ? Number(row.DurationMin)
+          : Number.isFinite(row.duration)
+            ? Number(row.duration)
+            : 0;
 
-    if (!Number.isFinite(durationSec) || durationSec <= 0) {
+    if (!Number.isFinite(durationMinutes) || durationMinutes <= 0) {
       continue;
     }
 
@@ -4002,9 +4006,9 @@ function loadBreakLunchAdherenceDaily_(startDate, endDate, userSet, timezone) {
 
     const target = entries.get(entryKey);
     if (state === 'Break') {
-      target.breakMinutes += (durationSec / 60);
+      target.breakMinutes += durationMinutes;
     } else {
-      target.lunchMinutes += (durationSec / 60);
+      target.lunchMinutes += durationMinutes;
     }
   }
 
