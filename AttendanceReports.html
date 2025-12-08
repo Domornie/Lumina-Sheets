@@ -4720,9 +4720,10 @@
             }
           };
 
-          const dailyHeader = ['Date', 'Week Start', 'Agent Name', 'Agent ID', 'Adherence %', 'Compliance %', 'Scheduled Minutes', 'Worked Minutes', 'Compliant Events', 'Non-Compliant Events'];
-          const weeklyHeader = ['Week Start', 'Agent Name', 'Agent ID', 'Adherence %', 'Compliance %', 'Days With Data', 'Total Scheduled Minutes', 'Total Worked Minutes', 'Compliant Events', 'Non-Compliant Events'];
-          const overallHeader = ['Start Date', 'End Date', 'Overall Adherence %', 'Overall Compliance %', 'Total Agent-Days', 'Total Scheduled Minutes', 'Total Worked Minutes', 'Compliant Events', 'Non-Compliant Events'];
+          const dailyHeader = ['Date', 'Week Start', 'Agent Name', 'Agent ID', 'Lunch Minutes', 'Break Minutes', 'Over Lunch Minutes', 'Over Break Minutes', 'Daily Adherence'];
+          const weeklyHeader = ['Week Start', 'Agent Name', 'Agent ID', 'Adherent Days', 'Non-Adherent Days', 'Weekly Adherence %', 'Total Over Minutes'];
+          const agentHeader = ['Agent Name', 'Agent ID', 'Eligible Days', 'Adherent Days', 'Non-Adherent Days', 'Total Over Minutes', 'Adherence %'];
+          const overallHeader = ['Start Date', 'End Date', 'Total Eligible Agent-Days', 'Adherent Agent-Days', 'Non-Adherent Agent-Days', 'Overall Adherence %', 'Total Over Minutes'];
 
           const lines = [];
           lines.push('DAILY DETAIL');
@@ -4733,12 +4734,11 @@
               row.weekStartKey,
               row.agentName,
               row.agentId || '',
-              row.adherencePercent,
-              row.compliancePercent,
-              row.scheduledMinutes,
-              row.workedMinutes,
-              row.compliantEvents,
-              row.nonCompliantEvents
+              row.lunchMinutes,
+              row.breakMinutes,
+              row.overLunchMinutes,
+              row.overBreakMinutes,
+              row.adherenceFlag
             ].join(','));
           });
 
@@ -4750,13 +4750,25 @@
               row.weekStartKey,
               row.agentName,
               row.agentId || '',
+              row.adherentDays,
+              row.nonAdherentDays,
               row.adherencePercent,
-              row.compliancePercent,
-              row.daysWithData,
-              row.scheduledMinutes,
-              row.workedMinutes,
-              row.compliantEvents,
-              row.nonCompliantEvents
+              Math.round(row.totalOverMinutes || 0)
+            ].join(','));
+          });
+
+          lines.push('');
+          lines.push('AGENT SUMMARY');
+          lines.push(agentHeader.join(','));
+          exportData.agentSummaries.forEach((row) => {
+            lines.push([
+              row.agentName,
+              row.agentId || '',
+              row.eligibleDays,
+              row.adherentDays,
+              row.nonAdherentDays,
+              Math.round(row.totalOverMinutes || 0),
+              row.adherencePercent
             ].join(','));
           });
 
@@ -4766,13 +4778,11 @@
           lines.push([
             formatDateValue(exportData.startDate),
             formatDateValue(exportData.endDate),
-            exportData.overall.adherencePercent,
-            exportData.overall.compliancePercent,
-            exportData.overall.agentDays,
-            exportData.overall.scheduledMinutes,
-            exportData.overall.workedMinutes,
-            exportData.overall.compliantEvents,
-            exportData.overall.nonCompliantEvents
+            exportData.overall.totalEligibleDays,
+            exportData.overall.totalAdherentDays,
+            exportData.overall.totalNonAdherentDays,
+            exportData.overall.overallAdherencePercent,
+            Math.round(exportData.overall.totalOverMinutes || 0)
           ].join(','));
 
           const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
