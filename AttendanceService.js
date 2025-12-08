@@ -3670,6 +3670,115 @@ function exportAdherenceComplianceSheet(payload) {
     sheet.setName(sheetTitle);
 
     let currentRow = 1;
+    const weeklyMatrices = Array.isArray(exportData.weeklyMatrices) ? exportData.weeklyMatrices : [];
+
+    const adherenceColorForPercent = (percent) => {
+      if (!Number.isFinite(percent)) return '#f8fafc';
+      if (percent > 110) return '#0ea5e9';
+      if (percent >= 100) return '#22c55e';
+      if (percent >= 90) return '#f59e0b';
+      return '#ef4444';
+    };
+
+    const adherenceFontForPercent = (percent) => {
+      if (!Number.isFinite(percent)) return '#0f172a';
+      if (percent >= 90 && percent < 100) return '#0f172a';
+      if (percent > 110) return '#ffffff';
+      if (percent >= 100) return '#ffffff';
+      if (percent >= 80) return '#0f172a';
+      return '#ffffff';
+    };
+
+    weeklyMatrices.forEach((matrix, index) => {
+      sheet.getRange(currentRow, 1, 1, 1).setValue(`Daily Adherence Matrix • Week of ${matrix.weekStartKey}`);
+      sheet.getRange(currentRow, 1).setFontWeight('bold');
+      currentRow += 1;
+
+      const matrixHeaders = ['Agent', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday', 'Weekly %'];
+      sheet.getRange(currentRow, 1, 1, matrixHeaders.length)
+        .setValues([matrixHeaders])
+        .setFontWeight('bold')
+        .setBackground('#111827')
+        .setFontColor('#ffffff');
+      currentRow += 1;
+
+      const dateLabels = [''].concat(matrix.dayLabels || []).concat(['']);
+      sheet.getRange(currentRow, 1, 1, matrixHeaders.length)
+        .setValues([dateLabels])
+        .setFontWeight('bold')
+        .setBackground('#e2e8f0')
+        .setFontColor('#0f172a');
+      currentRow += 1;
+
+      const dataValues = (matrix.rows || []).map(row => {
+        const dayStrings = (row.dayDetails || []).map(detail => {
+          if (!detail) return '';
+          const value = Number(detail.percent) || 0;
+          const lunch = Number(detail.lunchMinutes) || 0;
+          const brk = Number(detail.breakMinutes) || 0;
+          return `${Math.round(value * 10) / 10}% (L:${lunch}m/B:${brk}m)`;
+        });
+        const weeklyPercentValue = Number(row.weeklyPercent) || 0;
+        return [row.agentName || 'Unknown', ...dayStrings, `${weeklyPercentValue}%`];
+      });
+
+      if (dataValues.length > 0) {
+        const dataRange = sheet.getRange(currentRow, 1, dataValues.length, matrixHeaders.length);
+        dataRange.setValues(dataValues);
+
+        const backgrounds = [];
+        const fontColors = [];
+        dataValues.forEach((row, rowIdx) => {
+          const bgRow = [];
+          const fontRow = [];
+          bgRow.push('#ffffff');
+          fontRow.push('#0f172a');
+
+          const matrixRow = matrix.rows[rowIdx];
+          (matrixRow.dayDetails || []).forEach((detail) => {
+            const percent = detail ? Number(detail.percent) || 0 : null;
+            const bg = adherenceColorForPercent(percent);
+            bgRow.push(bg);
+            fontRow.push(percent !== null ? adherenceFontForPercent(percent) : '#0f172a');
+          });
+
+          const weeklyPercentValue = Number(matrixRow.weeklyPercent) || 0;
+          bgRow.push(adherenceColorForPercent(weeklyPercentValue));
+          fontRow.push(adherenceFontForPercent(weeklyPercentValue));
+          backgrounds.push(bgRow);
+          fontColors.push(fontRow);
+        });
+
+        sheet.getRange(currentRow, 1, backgrounds.length, matrixHeaders.length).setBackgrounds(backgrounds).setFontColors(fontColors);
+
+        (matrix.rows || []).forEach((row, rowIdx) => {
+          (row.dayDetails || []).forEach((detail, detailIdx) => {
+            if (!detail) return;
+            const noteLines = [
+              `Lunch: ${detail.lunchMinutes || 0} minutes`,
+              `Break: ${detail.breakMinutes || 0} minutes`,
+              `Overage: ${detail.overMinutes || 0} minutes`
+            ];
+            sheet.getRange(currentRow + rowIdx, 2 + detailIdx).setNote(noteLines.join('\n'));
+          });
+        });
+      }
+
+      const tableHeight = Math.max(1, dataValues.length);
+      const noteRow = currentRow + tableHeight;
+      sheet.getRange(noteRow, 1, 1, 3)
+        .setValues([[
+          'Weekly % uses Monday–Friday as the 100% baseline; compliant weekend days can push the rate above 100%.'
+        ]])
+        .setFontStyle('italic')
+        .setFontColor('#475569');
+
+      currentRow = noteRow + 2;
+      if (index === weeklyMatrices.length - 1) {
+        currentRow += 1;
+      }
+    });
+
     // Daily Detail Section
     sheet.getRange(currentRow, 1, 1, 1).setValue('Daily Detail (Per Agent, Per Day)');
     sheet.getRange(currentRow, 1).setFontWeight('bold');
@@ -3931,13 +4040,14 @@ function buildAdherenceComplianceDataset_(startDateIso, endDateIso, filterUsers,
   const adherenceDaily = loadBreakLunchAdherenceDaily_(normalizedStart, normalizedEnd, userSet, timezone);
   const agentSummaries = summarizeAgentAdherence_(adherenceDaily);
   const weeklyRows = summarizeWeeklyBreakLunch_(adherenceDaily);
+  const weeklyMatrices = buildWeeklyAdherenceMatrix_(adherenceDaily, timezone);
   const overall = summarizeOverallBreakLunch_(agentSummaries);
 
   const userScopeLabel = userSet.size > 0
     ? `Selected Users (${userSet.size})`
     : 'All Users';
 
-  return { startDate: normalizedStart, endDate: normalizedEnd, dailyRows: adherenceDaily, weeklyRows, agentSummaries, overall, userScopeLabel };
+  return { startDate: normalizedStart, endDate: normalizedEnd, dailyRows: adherenceDaily, weeklyRows, weeklyMatrices, agentSummaries, overall, userScopeLabel };
 }
 
 function loadBreakLunchAdherenceDaily_(startDate, endDate, userSet, timezone) {
@@ -4152,6 +4262,108 @@ function summarizeWeeklyBreakLunch_(dailyRows) {
   })).sort((a, b) => a.weekStartKey.localeCompare(b.weekStartKey)
     || (a.agentName || '').localeCompare(b.agentName || '')
     || (a.agentId || '').localeCompare(b.agentId || ''));
+}
+
+function buildWeeklyAdherenceMatrix_(dailyRows, timezone) {
+  if (!Array.isArray(dailyRows) || dailyRows.length === 0) {
+    return [];
+  }
+
+  const weeks = new Map();
+
+  dailyRows.forEach(row => {
+    const weekStartKey = row.weekStartKey;
+    if (!weekStartKey) {
+      return;
+    }
+
+    if (!weeks.has(weekStartKey)) {
+      const [year, month, day] = weekStartKey.split('-').map(Number);
+      const baseDate = createDateInLocalTime(year, month, day, 0, 0, 0) || new Date(`${weekStartKey}T00:00:00.000Z`);
+      const dayKeys = [];
+      const dayLabels = [];
+      for (let i = 0; i < 7; i++) {
+        const dayDate = new Date(baseDate);
+        dayDate.setDate(baseDate.getDate() + i);
+        dayKeys.push(Utilities.formatDate(dayDate, timezone, 'yyyy-MM-dd'));
+        dayLabels.push(Utilities.formatDate(dayDate, timezone, 'MMM d'));
+      }
+
+      weeks.set(weekStartKey, {
+        weekStartKey,
+        dayKeys,
+        dayLabels,
+        agents: new Map()
+      });
+    }
+
+    const week = weeks.get(weekStartKey);
+    const agentId = String(row.agentId || '').trim();
+    const agentName = row.agentName || 'Unknown';
+    const agentKey = agentId || agentName;
+
+    if (!week.agents.has(agentKey)) {
+      week.agents.set(agentKey, {
+        agentName,
+        agentId,
+        dayMap: new Map(),
+        adherentDays: 0,
+        totalOverMinutes: 0
+      });
+    }
+
+    const agent = week.agents.get(agentKey);
+    agent.dayMap.set(row.dateKey, row);
+  });
+
+  const WORK_WEEK_DAYS = 5;
+
+  return Array.from(weeks.values()).map(week => {
+    const rows = Array.from(week.agents.values()).map(agent => {
+      const dayDetails = week.dayKeys.map((dateKey, idx) => {
+        const entry = agent.dayMap.get(dateKey);
+        if (!entry) {
+          return null;
+        }
+
+        const percent = Number(entry.adherencePercent) || 0;
+        const overMinutes = (Number(entry.overBreakMinutes) || 0) + (Number(entry.overLunchMinutes) || 0);
+        agent.totalOverMinutes += overMinutes;
+        if (percent === 100) {
+          agent.adherentDays += 1;
+        }
+
+        return {
+          percent,
+          breakMinutes: Math.round((Number(entry.breakMinutes) || 0) * 100) / 100,
+          lunchMinutes: Math.round((Number(entry.lunchMinutes) || 0) * 100) / 100,
+          overMinutes: Math.round(overMinutes * 100) / 100,
+          weekday: idx >= 0 && idx <= 4
+        };
+      });
+
+      const weeklyPercent = agent.adherentDays > 0
+        ? Math.round(((agent.adherentDays / WORK_WEEK_DAYS) * 100) * 10) / 10
+        : 0;
+
+      return {
+        agentName: agent.agentName,
+        agentId: agent.agentId,
+        dayDetails,
+        weeklyPercent,
+        adherentDays: agent.adherentDays,
+        totalOverMinutes: Math.round(agent.totalOverMinutes * 100) / 100
+      };
+    }).sort((a, b) => (a.agentName || '').localeCompare(b.agentName || '')
+      || (a.agentId || '').localeCompare(b.agentId || ''));
+
+    return {
+      weekStartKey: week.weekStartKey,
+      dayKeys: week.dayKeys,
+      dayLabels: week.dayLabels,
+      rows
+    };
+  }).sort((a, b) => a.weekStartKey.localeCompare(b.weekStartKey));
 }
 
 function summarizeOverallBreakLunch_(agentSummaries) {

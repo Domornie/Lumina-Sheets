@@ -4724,8 +4724,27 @@
           const weeklyHeader = ['Week Start', 'Agent Name', 'Agent ID', 'Adherent Days', 'Non-Adherent Days', 'Weekly Adherence %', 'Total Over Minutes'];
           const agentHeader = ['Agent Name', 'Agent ID', 'Eligible Days', 'Adherent Days', 'Non-Adherent Days', 'Total Over Minutes', 'Adherence %'];
           const overallHeader = ['Start Date', 'End Date', 'Total Eligible Agent-Days', 'Adherent Agent-Days', 'Non-Adherent Agent-Days', 'Overall Adherence %', 'Total Over Minutes'];
+          const weeklyMatrixHeader = ['Agent', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday', 'Weekly %'];
 
           const lines = [];
+          lines.push('WEEKLY DAILY MATRIX');
+          (exportData.weeklyMatrices || []).forEach((matrix) => {
+            lines.push(`Week of ${matrix.weekStartKey}`);
+            lines.push(weeklyMatrixHeader.join(','));
+            const dateRow = [''].concat(matrix.dayLabels || []).concat(['']);
+            lines.push(dateRow.join(','));
+            (matrix.rows || []).forEach((row) => {
+              const dayValues = (row.dayDetails || []).map((detail) => {
+                if (!detail) return '';
+                const percent = Number(detail.percent) || 0;
+                return `${percent}% (L:${detail.lunchMinutes || 0}m,B:${detail.breakMinutes || 0}m)`;
+              });
+              const weeklyPercentValue = Number(row.weeklyPercent) || 0;
+              lines.push([row.agentName || 'Unknown', ...dayValues, `${weeklyPercentValue}%`].join(','));
+            });
+            lines.push('');
+          });
+
           lines.push('DAILY DETAIL');
           lines.push(dailyHeader.join(','));
           exportData.dailyRows.forEach((row) => {
