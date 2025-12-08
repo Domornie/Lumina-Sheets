@@ -4084,11 +4084,13 @@ function summarizeAgentAdherence_(dailyRows) {
   const agents = new Map();
 
   dailyRows.forEach(row => {
-    const key = row.agentName || row.agentId || 'Unknown';
+    const agentId = String(row.agentId || '').trim();
+    const agentName = row.agentName || 'Unknown';
+    const key = agentId || agentName;
     if (!agents.has(key)) {
       agents.set(key, {
-        agentName: row.agentName,
-        agentId: row.agentId || '',
+        agentName,
+        agentId,
         eligibleDays: 0,
         adherentDays: 0,
         nonAdherentDays: 0,
@@ -4111,19 +4113,22 @@ function summarizeAgentAdherence_(dailyRows) {
     adherencePercent: entry.eligibleDays > 0
       ? Math.round((entry.adherentDays / entry.eligibleDays) * 1000) / 10
       : 0
-  })).sort((a, b) => a.agentName.localeCompare(b.agentName));
+  })).sort((a, b) => (a.agentName || '').localeCompare(b.agentName || '')
+    || (a.agentId || '').localeCompare(b.agentId || ''));
 }
 
 function summarizeWeeklyBreakLunch_(dailyRows) {
   const weekly = new Map();
 
   dailyRows.forEach(row => {
-    const key = `${row.weekStartKey}|${row.agentName}`;
+    const agentId = String(row.agentId || '').trim();
+    const agentName = row.agentName || 'Unknown';
+    const key = `${row.weekStartKey}|${agentId || agentName}`;
     if (!weekly.has(key)) {
       weekly.set(key, {
         weekStartKey: row.weekStartKey,
-        agentName: row.agentName,
-        agentId: row.agentId || '',
+        agentName,
+        agentId,
         adherentDays: 0,
         nonAdherentDays: 0,
         totalOverMinutes: 0
@@ -4144,7 +4149,9 @@ function summarizeWeeklyBreakLunch_(dailyRows) {
     adherencePercent: (entry.adherentDays + entry.nonAdherentDays) > 0
       ? Math.round((entry.adherentDays / (entry.adherentDays + entry.nonAdherentDays)) * 1000) / 10
       : 0
-  })).sort((a, b) => a.weekStartKey.localeCompare(b.weekStartKey) || a.agentName.localeCompare(b.agentName));
+  })).sort((a, b) => a.weekStartKey.localeCompare(b.weekStartKey)
+    || (a.agentName || '').localeCompare(b.agentName || '')
+    || (a.agentId || '').localeCompare(b.agentId || ''));
 }
 
 function summarizeOverallBreakLunch_(agentSummaries) {
