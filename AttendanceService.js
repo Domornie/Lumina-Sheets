@@ -1488,6 +1488,12 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter, poli
       const lunchAdjustmentTotalSecs = lunchAdjustmentWeekday + lunchAdjustmentWeekend;
       const adjustedBillableSecs = Math.max(0, adjustedWeekday + adjustedWeekend);
 
+      const adherencePercent = computeAdherencePercent_({
+        exceededBreakDays: stats.breakOverageDays,
+        exceededLunchDays: stats.lunchOverageDays,
+        exceededWeeklyCount: stats.weeklyOverages
+      });
+
       return {
         user,
         availableSecsWeekday: adjustedWeekday,
@@ -1504,7 +1510,8 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter, poli
         lunchLabel: formatSecsAsHhMm(stats.lunchSecs),
         exceededLunchDays: stats.lunchOverageDays || 0,
         exceededBreakDays: stats.breakOverageDays || 0,
-        exceededWeeklyCount: stats.weeklyOverages || 0
+        exceededWeeklyCount: stats.weeklyOverages || 0,
+        adherencePercent
       };
     });
 
@@ -1517,29 +1524,22 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter, poli
         || (agentDirectory.normalizedEmails && agentDirectory.normalizedEmails.size))
     );
 
-    const top5Candidates = Array.from(userTotalAdjustedSecs.entries())
-      .map(([user, secs]) => {
-        const adherencePercent = expectedCapacitySecs > 0
-          ? (secs / expectedCapacitySecs) * 100
-          : 0;
-        const normalizedPercent = expectedCapacitySecs > 0
-          ? Math.min(Math.round(adherencePercent * 10) / 10, 100)
-          : 0;
-        return {
-          user,
-          percentage: Number.isFinite(normalizedPercent) ? normalizedPercent : 0
-        };
-      })
+    const adherenceScores = userCompliance
+      .map(entry => ({
+        user: entry.user,
+        percentage: computeAdherencePercent_(entry)
+      }))
+      .filter(entry => Number.isFinite(entry.percentage))
       .filter(entry => !isManagerPerson_(entry.user, managerDirectory))
       .sort((a, b) => b.percentage - a.percentage);
 
     const agentFilteredTop5 = agentDirectoryHasEntries
-      ? top5Candidates.filter(entry => isAgentPerson_(entry.user, agentDirectory))
-      : top5Candidates;
+      ? adherenceScores.filter(entry => isAgentPerson_(entry.user, agentDirectory))
+      : adherenceScores;
 
     const effectiveTop5 = agentFilteredTop5.length > 0
       ? agentFilteredTop5
-      : top5Candidates;
+      : adherenceScores;
 
     const top5Attendance = effectiveTop5.slice(0, 5);
 
@@ -1993,6 +1993,31 @@ function calculateBreakLunchDeductions(breakSeconds, lunchSeconds) {
   const deduction = Math.max(breakOver + lunchOver, combinedOver);
 
   return { breakOver, lunchOver, combinedOver, deduction };
+}
+
+function computeAdherencePercent_(stats) {
+  if (!stats) return 0;
+
+  const breakDays = Number.isFinite(stats.exceededBreakDays)
+    ? stats.exceededBreakDays
+    : Number(stats.breakOverageDays) || 0;
+  const lunchDays = Number.isFinite(stats.exceededLunchDays)
+    ? stats.exceededLunchDays
+    : Number(stats.lunchOverageDays) || 0;
+  const weeklyOverages = Number.isFinite(stats.exceededWeeklyCount)
+    ? stats.exceededWeeklyCount
+    : Number(stats.weeklyOverages) || 0;
+
+  let score = 100;
+  score -= breakDays * 5;
+  score -= lunchDays * 5;
+  score -= weeklyOverages * 10;
+
+  if (!Number.isFinite(score)) {
+    return 0;
+  }
+
+  return Math.max(0, Math.min(100, Math.round(score)));
 }
 
 function applyCappedAdjustment(baseValue, adjustment, capSeconds) {
