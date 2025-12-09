@@ -837,14 +837,25 @@ function fetchAllAttendanceRows() {
     if (values.length < 2) return [];
 
     const headers = values[0].map(h => h.toString().trim());
-    const timestampIdx = headers.indexOf('Timestamp');
-    const userIdx = headers.indexOf('User');
-    const stateIdx = headers.indexOf('State');
-    const durationIdx = headers.indexOf('DurationMin');
-    const dateIdx = headers.indexOf('Date');
+    const normalizedHeaders = headers.map(h => h.toLowerCase().replace(/[^a-z0-9]/g, ''));
+
+    const findColumnIndex = (candidates) => {
+      for (let i = 0; i < candidates.length; i++) {
+        const target = candidates[i].toLowerCase().replace(/[^a-z0-9]/g, '');
+        const idx = normalizedHeaders.indexOf(target);
+        if (idx >= 0) return idx;
+      }
+      return -1;
+    };
+
+    const timestampIdx = findColumnIndex(['Timestamp', 'DateTime', 'Time']);
+    const userIdx = findColumnIndex(['User', 'Agent', 'Employee']);
+    const stateIdx = findColumnIndex(['State', 'Status']);
+    const durationIdx = findColumnIndex(['DurationMin', 'Duration', 'DurationMinutes', 'DurationMins', 'DurationSec', 'DurationSeconds']);
+    const dateIdx = findColumnIndex(['Date', 'Day']);
 
     if (timestampIdx < 0 || userIdx < 0 || stateIdx < 0 || durationIdx < 0) {
-      throw new Error('Required columns not found');
+      throw new Error('Required columns not found: Timestamp, User, State, and Duration are required for adherence export.');
     }
 
     const out = [];
@@ -3698,7 +3709,10 @@ function exportAdherenceComplianceSheet(payload) {
         sheet.getRange(currentRow, 1).setFontWeight('bold');
         currentRow += 1;
 
-        const matrixHeaders = ['Agent', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday', 'Weekly Adherence %', 'Compliance Status', 'Eligible Days'];
+        const dayHeaders = (Array.isArray(matrix.dayNames) && matrix.dayNames.length)
+          ? matrix.dayNames
+          : ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+        const matrixHeaders = ['Agent', ...dayHeaders, 'Weekly Adherence %', 'Compliance Status', 'Eligible Days'];
         sheet.getRange(currentRow, 1, 1, matrixHeaders.length)
           .setValues([matrixHeaders])
           .setFontWeight('bold')
@@ -3821,7 +3835,7 @@ function exportAdherenceComplianceSheet(payload) {
         const noteRow = currentRow + tableHeight;
         sheet.getRange(noteRow, 1, 1, 3)
           .setValues([[
-            'Weekly % is calculated from Monday–Sunday using recorded break and lunch entries for each agent.',
+            'Weekly % is calculated from the selected date range using recorded break and lunch entries for each agent.',
             '',
             ''
           ]])
@@ -4112,7 +4126,7 @@ function buildAdherenceComplianceDataset_(periodType, startDateIso, endDateIso, 
   const adherenceDaily = loadBreakLunchAdherenceDaily_(normalizedStart, normalizedEnd, userSet, timezone);
   const agentSummaries = summarizeAgentAdherence_(adherenceDaily);
   const weeklyRows = summarizeWeeklyBreakLunch_(adherenceDaily);
-  const weeklyMatrices = buildWeeklyAdherenceMatrix_(adherenceDaily, timezone);
+  const weeklyMatrices = buildWeeklyAdherenceMatrix_(adherenceDaily, timezone, normalizedStart, normalizedEnd);
   const overall = summarizeOverallBreakLunch_(agentSummaries);
 
   const userScopeLabel = userSet.size > 0
@@ -4561,10 +4575,10 @@ function summarizeAgentAdherence_(dailyRows) {
     return zonedDate.toISOString();
   }
 
-  function buildWeeklyAdherenceMatrix_(dailyRows, timezone) {
-    if (!Array.isArray(dailyRows) || dailyRows.length === 0) {
-      return [];
-    }
+function buildWeeklyAdherenceMatrix_(dailyRows, timezone, rangeStart, rangeEnd) {
+  if (!Array.isArray(dailyRows) || dailyRows.length === 0) {
+    return [];
+  }
 
     const formatDate = (date, fmt) => {
       if (typeof Utilities !== 'undefined' && Utilities.formatDate) {
@@ -4574,6 +4588,12 @@ function summarizeAgentAdherence_(dailyRows) {
     };
 
     const weeks = new Map();
+    const rangeStartMs = rangeStart instanceof Date && !isNaN(rangeStart.getTime())
+      ? rangeStart.getTime()
+      : null;
+    const rangeEndMs = rangeEnd instanceof Date && !isNaN(rangeEnd.getTime())
+      ? rangeEnd.getTime()
+      : null;
 
     dailyRows.forEach(row => {
       const weekStartKey = row.weekStartKey;
@@ -4587,17 +4607,24 @@ function summarizeAgentAdherence_(dailyRows) {
 
         const dayKeys = [];
         const dayLabels = [];
+        const dayNames = [];
         for (let i = 0; i < 7; i++) {
           const dayDate = new Date(baseDate);
           dayDate.setDate(baseDate.getDate() + i);
+          const dayMs = dayDate.getTime();
+          if ((rangeStartMs !== null && dayMs < rangeStartMs) || (rangeEndMs !== null && dayMs > rangeEndMs)) {
+            continue;
+          }
           dayKeys.push(formatDate(dayDate, 'yyyy-MM-dd'));
           dayLabels.push(formatDate(dayDate, 'MMM d'));
+          dayNames.push(dayDate.toLocaleDateString('en-US', { weekday: 'long' }));
         }
 
         weeks.set(weekStartKey, {
           weekStartKey,
           dayKeys,
           dayLabels,
+          dayNames,
           agents: new Map()
         });
       }
@@ -4694,6 +4721,7 @@ function summarizeAgentAdherence_(dailyRows) {
         weekStartKey: week.weekStartKey,
         dayKeys: week.dayKeys,
         dayLabels: week.dayLabels,
+        dayNames: week.dayNames,
         rows,
         averages: {
           dayAverages,
