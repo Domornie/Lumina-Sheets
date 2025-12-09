@@ -4334,6 +4334,17 @@ function buildWeeklyAdherenceMatrix_(dailyRows, timezone) {
     if (!weekStartKey) {
       return;
     }
+  });
+
+  return Array.from(weekly.values()).map(entry => ({
+    ...entry,
+    adherencePercent: (entry.adherentDays + entry.nonAdherentDays) > 0
+      ? Math.round((entry.adherentDays / (entry.adherentDays + entry.nonAdherentDays)) * 1000) / 10
+      : 0
+  })).sort((a, b) => a.weekStartKey.localeCompare(b.weekStartKey)
+    || (a.agentName || '').localeCompare(b.agentName || '')
+    || (a.agentId || '').localeCompare(b.agentId || ''));
+}
 
     if (!weeks.has(weekStartKey)) {
       const [year, month, day] = weekStartKey.split('-').map(Number);
