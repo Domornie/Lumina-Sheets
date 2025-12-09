@@ -4285,8 +4285,8 @@ function summarizeAgentAdherence_(dailyRows) {
     || (a.agentId || '').localeCompare(b.agentId || ''));
 }
 
-function summarizeWeeklyBreakLunch_(dailyRows) {
-  const weekly = new Map();
+  function summarizeWeeklyBreakLunch_(dailyRows) {
+    const weekly = new Map();
 
   dailyRows.forEach(row => {
     const agentId = String(row.agentId || '').trim();
@@ -4312,128 +4312,162 @@ function summarizeWeeklyBreakLunch_(dailyRows) {
     }
   });
 
-  return Array.from(weekly.values()).map(entry => ({
-    ...entry,
-    adherencePercent: (entry.adherentDays + entry.nonAdherentDays) > 0
-      ? Math.round((entry.adherentDays / (entry.adherentDays + entry.nonAdherentDays)) * 1000) / 10
-      : 0
-  })).sort((a, b) => a.weekStartKey.localeCompare(b.weekStartKey)
-    || (a.agentName || '').localeCompare(b.agentName || '')
-    || (a.agentId || '').localeCompare(b.agentId || ''));
-}
-
-function buildWeeklyAdherenceMatrix_(dailyRows, timezone) {
-  if (!Array.isArray(dailyRows) || dailyRows.length === 0) {
-    return [];
+    return Array.from(weekly.values()).map(entry => ({
+      ...entry,
+      adherencePercent: (entry.adherentDays + entry.nonAdherentDays) > 0
+        ? Math.round((entry.adherentDays / (entry.adherentDays + entry.nonAdherentDays)) * 1000) / 10
+        : 0
+    })).sort((a, b) => a.weekStartKey.localeCompare(b.weekStartKey)
+      || (a.agentName || '').localeCompare(b.agentName || '')
+      || (a.agentId || '').localeCompare(b.agentId || ''));
   }
 
-  const weeks = new Map();
-
-  dailyRows.forEach(row => {
-    const weekStartKey = row.weekStartKey;
-    if (!weekStartKey) {
-      return;
+  function formatDateWithFallback_(date, timezone, format) {
+    if (!(date instanceof Date) || isNaN(date.getTime())) {
+      return '';
     }
-  });
 
-  return Array.from(weekly.values()).map(entry => ({
-    ...entry,
-    adherencePercent: (entry.adherentDays + entry.nonAdherentDays) > 0
-      ? Math.round((entry.adherentDays / (entry.adherentDays + entry.nonAdherentDays)) * 1000) / 10
-      : 0
-  })).sort((a, b) => a.weekStartKey.localeCompare(b.weekStartKey)
-    || (a.agentName || '').localeCompare(b.agentName || '')
-    || (a.agentId || '').localeCompare(b.agentId || ''));
-}
+    if (typeof Utilities !== 'undefined' && Utilities.formatDate) {
+      try {
+        return Utilities.formatDate(date, timezone, format);
+      } catch (err) {
+        console.warn('Utilities.formatDate failed, using local fallback', err);
+      }
+    }
 
-    if (!weeks.has(weekStartKey)) {
-      const [year, month, day] = weekStartKey.split('-').map(Number);
-      const baseDate = createDateInLocalTime(year, month, day, 0, 0, 0) || new Date(`${weekStartKey}T00:00:00.000Z`);
-      const dayKeys = [];
-      const dayLabels = [];
-      for (let i = 0; i < 7; i++) {
-        const dayDate = new Date(baseDate);
-        dayDate.setDate(baseDate.getDate() + i);
-        dayKeys.push(Utilities.formatDate(dayDate, timezone, 'yyyy-MM-dd'));
-        dayLabels.push(Utilities.formatDate(dayDate, timezone, 'MMM d'));
+    const tz = timezone || 'UTC';
+    const zonedDate = new Date(date.toLocaleString('en-US', { timeZone: tz }));
+    const year = zonedDate.getFullYear();
+    const month = zonedDate.getMonth();
+    const day = zonedDate.getDate();
+
+    if (format === 'yyyy-MM-dd') {
+      const mm = String(month + 1).padStart(2, '0');
+      const dd = String(day).padStart(2, '0');
+      return `${year}-${mm}-${dd}`;
+    }
+
+    if (format === 'MMM d') {
+      return zonedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: tz });
+    }
+
+    return zonedDate.toISOString();
+  }
+
+  function buildWeeklyAdherenceMatrix_(dailyRows, timezone) {
+    if (!Array.isArray(dailyRows) || dailyRows.length === 0) {
+      return [];
+    }
+
+    const formatDate = (date, fmt) => {
+      if (typeof Utilities !== 'undefined' && Utilities.formatDate) {
+        return Utilities.formatDate(date, timezone, fmt);
+      }
+      return formatDateWithFallback_(date, timezone, fmt);
+    };
+
+    const weeks = new Map();
+
+    dailyRows.forEach(row => {
+      const weekStartKey = row.weekStartKey;
+      if (!weekStartKey) {
+        return;
       }
 
-      weeks.set(weekStartKey, {
-        weekStartKey,
-        dayKeys,
-        dayLabels,
-        agents: new Map()
-      });
-    }
+      if (!weeks.has(weekStartKey)) {
+        const [year, month, day] = weekStartKey.split('-').map(Number);
+        const baseDate = createDateInLocalTime(year, month, day, 0, 0, 0) || new Date(`${weekStartKey}T00:00:00.000Z`);
 
-    const week = weeks.get(weekStartKey);
-    const agentId = String(row.agentId || '').trim();
-    const agentName = row.agentName || 'Unknown';
-    const agentKey = agentId || agentName;
-
-    if (!week.agents.has(agentKey)) {
-      week.agents.set(agentKey, {
-        agentName,
-        agentId,
-        dayMap: new Map(),
-        adherentDays: 0,
-        totalOverMinutes: 0
-      });
-    }
-
-    const agent = week.agents.get(agentKey);
-    agent.dayMap.set(row.dateKey, row);
-  });
-
-  const WORK_WEEK_DAYS = 5;
-
-  return Array.from(weeks.values()).map(week => {
-    const rows = Array.from(week.agents.values()).map(agent => {
-      const dayDetails = week.dayKeys.map((dateKey, idx) => {
-        const entry = agent.dayMap.get(dateKey);
-        if (!entry) {
-          return null;
+        const dayKeys = [];
+        const dayLabels = [];
+        for (let i = 0; i < 7; i++) {
+          const dayDate = new Date(baseDate);
+          dayDate.setDate(baseDate.getDate() + i);
+          dayKeys.push(formatDate(dayDate, 'yyyy-MM-dd'));
+          dayLabels.push(formatDate(dayDate, 'MMM d'));
         }
 
-        const percent = Number(entry.adherencePercent) || 0;
-        const overMinutes = (Number(entry.overBreakMinutes) || 0) + (Number(entry.overLunchMinutes) || 0);
-        agent.totalOverMinutes += overMinutes;
-        if (percent === 100) {
-          agent.adherentDays += 1;
-        }
+        weeks.set(weekStartKey, {
+          weekStartKey,
+          dayKeys,
+          dayLabels,
+          agents: new Map()
+        });
+      }
+
+      const week = weeks.get(weekStartKey);
+      const agentId = String(row.agentId || '').trim();
+      const agentName = row.agentName || 'Unknown';
+      const agentKey = agentId || agentName;
+
+      if (!week.agents.has(agentKey)) {
+        week.agents.set(agentKey, {
+          agentName,
+          agentId,
+          dayMap: new Map(),
+          adherentDays: 0,
+          totalOverMinutes: 0
+        });
+      }
+
+      week.agents.get(agentKey).dayMap.set(row.dateKey, row);
+    });
+
+    const WORK_WEEK_DAYS = 5;
+
+    const weeksArray = Array.from(weeks.values()).map(week => {
+      const rows = Array.from(week.agents.values()).map(agent => {
+        let adherentDays = 0;
+        let totalOverMinutes = 0;
+
+        const dayDetails = week.dayKeys.map((dateKey, idx) => {
+          const entry = agent.dayMap.get(dateKey);
+          if (!entry) {
+            return null;
+          }
+
+          const percent = Number(entry.adherencePercent) || 0;
+          const overMinutes = (Number(entry.overBreakMinutes) || 0) + (Number(entry.overLunchMinutes) || 0);
+
+          totalOverMinutes += overMinutes;
+          if (percent === 100) {
+            adherentDays += 1;
+          }
+
+          return {
+            percent,
+            breakMinutes: Math.round((Number(entry.breakMinutes) || 0) * 100) / 100,
+            lunchMinutes: Math.round((Number(entry.lunchMinutes) || 0) * 100) / 100,
+            overMinutes: Math.round(overMinutes * 100) / 100,
+            weekday: idx >= 0 && idx <= 4
+          };
+        });
+
+        const weeklyPercent = adherentDays > 0
+          ? Math.round(((adherentDays / WORK_WEEK_DAYS) * 100) * 10) / 10
+          : 0;
 
         return {
-          percent,
-          breakMinutes: Math.round((Number(entry.breakMinutes) || 0) * 100) / 100,
-          lunchMinutes: Math.round((Number(entry.lunchMinutes) || 0) * 100) / 100,
-          overMinutes: Math.round(overMinutes * 100) / 100,
-          weekday: idx >= 0 && idx <= 4
+          agentName: agent.agentName,
+          agentId: agent.agentId,
+          dayDetails,
+          weeklyPercent,
+          adherentDays,
+          totalOverMinutes: Math.round(totalOverMinutes * 100) / 100
         };
-      });
-
-      const weeklyPercent = agent.adherentDays > 0
-        ? Math.round(((agent.adherentDays / WORK_WEEK_DAYS) * 100) * 10) / 10
-        : 0;
+      }).sort((a, b) => (a.agentName || '').localeCompare(b.agentName || '')
+        || (a.agentId || '').localeCompare(b.agentId || ''));
 
       return {
-        agentName: agent.agentName,
-        agentId: agent.agentId,
-        dayDetails,
-        weeklyPercent,
-        adherentDays: agent.adherentDays,
-        totalOverMinutes: Math.round(agent.totalOverMinutes * 100) / 100
+        weekStartKey: week.weekStartKey,
+        dayKeys: week.dayKeys,
+        dayLabels: week.dayLabels,
+        rows
       };
-    }).sort((a, b) => (a.agentName || '').localeCompare(b.agentName || '')
-      || (a.agentId || '').localeCompare(b.agentId || ''));
+    });
 
-    return {
-      weekStartKey: week.weekStartKey,
-      dayKeys: week.dayKeys,
-      dayLabels: week.dayLabels,
-      rows
-    };
-  }).sort((a, b) => a.weekStartKey.localeCompare(b.weekStartKey));
-}
+    return weeksArray.sort((a, b) => a.weekStartKey.localeCompare(b.weekStartKey));
+  }
 
 function summarizeOverallBreakLunch_(agentSummaries) {
   if (!Array.isArray(agentSummaries) || agentSummaries.length === 0) {
