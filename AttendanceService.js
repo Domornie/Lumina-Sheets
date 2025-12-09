@@ -4060,8 +4060,16 @@ function exportAdherenceComplianceSheet(payload) {
       }
       return { success: false, error: 'Failed to create Google Sheet for adherence export: ' + error.message };
     }
-  }, { success: false, error: 'Unable to export adherence data.' }, MAX_PROCESSING_TIME);
-}
+    }, (err) => {
+      try {
+        console.error('exportAdherenceComplianceSheet failed:', err);
+      } catch (_) {}
+      return {
+        success: false,
+        error: 'Unable to export adherence data: ' + (err && err.message ? err.message : 'Unknown error')
+      };
+    }, MAX_PROCESSING_TIME);
+  }
 
 function getAdherenceComplianceExportData(payload) {
   return rpc('getAdherenceComplianceExportData', () => {
