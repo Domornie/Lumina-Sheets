@@ -4076,21 +4076,28 @@ function loadBreakLunchAdherenceDaily_(startDate, endDate, userSet, timezone) {
     const timestampMs = ensureTimestampMs(row);
     if (!Number.isFinite(timestampMs)) continue;
 
-    const dateKey = Utilities.formatDate(new Date(timestampMs), timezone, 'yyyy-MM-dd');
-    const state = String(row.state || row.State || '').trim();
-    if (state !== 'Break' && state !== 'Lunch') {
+    const dateKey = formatDateKeyInZone_(new Date(timestampMs), timezone);
+    if (!dateKey) continue;
+
+    const rawState = String(row.state || row.State || '').trim();
+    const stateNormalized = rawState.toLowerCase();
+    const isBreak = stateNormalized.includes('break');
+    const isLunch = stateNormalized.includes('lunch');
+    if (!isBreak && !isLunch) {
       continue;
     }
 
-    const durationMinutes = Number.isFinite(row.durationMin)
-      ? row.durationMin
-      : Number.isFinite(row.durationSec)
-        ? row.durationSec / 60
-        : Number(row.DurationMin) && !Number.isNaN(Number(row.DurationMin))
-          ? Number(row.DurationMin)
-          : Number.isFinite(row.duration)
-            ? Number(row.duration)
-            : 0;
+    const durationMinutes = normalizeDurationMinutes_(
+      Number.isFinite(row.durationMin)
+        ? row.durationMin
+        : Number.isFinite(row.durationSec)
+          ? row.durationSec / 60
+          : (row.DurationMin != null && !Number.isNaN(Number(row.DurationMin)))
+            ? row.DurationMin
+            : Number.isFinite(row.duration)
+              ? row.duration
+              : 0
+    );
 
     if (!Number.isFinite(durationMinutes) || durationMinutes <= 0) {
       continue;
@@ -4098,11 +4105,7 @@ function loadBreakLunchAdherenceDaily_(startDate, endDate, userSet, timezone) {
 
     const entryKey = `${user}|${dateKey}`;
     if (!entries.has(entryKey)) {
-      const dayDate = new Date(`${dateKey}T00:00:00`);
-      const jsDay = dayDate.getUTCDay();
-      const offset = jsDay === 0 ? -6 : 1 - jsDay;
-      dayDate.setUTCDate(dayDate.getUTCDate() + offset);
-      const weekStartKey = Utilities.formatDate(dayDate, timezone, 'yyyy-MM-dd');
+      const weekStartKey = resolveWeekStartKey_(new Date(`${dateKey}T00:00:00Z`), timezone);
 
       entries.set(entryKey, {
         dateKey,
@@ -4115,10 +4118,14 @@ function loadBreakLunchAdherenceDaily_(startDate, endDate, userSet, timezone) {
     }
 
     const target = entries.get(entryKey);
-    if (state === 'Break') {
+    if (isBreak && !isLunch) {
       target.breakMinutes += durationMinutes;
-    } else {
+    } else if (isLunch && !isBreak) {
       target.lunchMinutes += durationMinutes;
+    } else {
+      // Ambiguous state text; split evenly to avoid losing minutes
+      target.breakMinutes += durationMinutes / 2;
+      target.lunchMinutes += durationMinutes / 2;
     }
   }
 
@@ -4167,9 +4174,17 @@ function resolveMinutesFromRow_(row, explicitMinutesIdx, startIdx, endIdx, timez
 }
 
 function parseDateWithTimezone_(date, timezone) {
-  const iso = Utilities.formatDate(date, timezone, "yyyy-MM-dd'T'HH:mm:ss'Z'");
-  const normalized = new Date(iso);
-  return normalized.getTime();
+  if (!(date instanceof Date) || isNaN(date.getTime())) {
+    return NaN;
+  }
+
+  if (typeof Utilities !== 'undefined' && Utilities.formatDate) {
+    const iso = Utilities.formatDate(date, timezone, "yyyy-MM-dd'T'HH:mm:ss'Z'");
+    const normalized = new Date(iso);
+    return normalized.getTime();
+  }
+
+  return date.getTime();
 }
 
 function resolveNumericValue_(value) {
@@ -4180,14 +4195,57 @@ function resolveNumericValue_(value) {
   return 0;
 }
 
+function formatDateKeyInZone_(date, timezone) {
+  if (!(date instanceof Date) || isNaN(date.getTime())) {
+    return '';
+  }
+
+  if (typeof Utilities !== 'undefined' && Utilities.formatDate) {
+    return Utilities.formatDate(date, timezone, 'yyyy-MM-dd');
+  }
+
+  return date.toISOString().slice(0, 10);
+}
+
 function resolveWeekStartKey_(date, timezone) {
-  const localized = Utilities.formatDate(date, timezone, 'yyyy-MM-dd');
+  const localized = formatDateKeyInZone_(date, timezone);
+  if (!localized) {
+    return '';
+  }
+
   const base = new Date(localized + 'T00:00:00.000Z');
   const day = base.getUTCDay();
   const diff = (day === 0 ? -6 : 1 - day);
   const weekStart = new Date(base);
   weekStart.setUTCDate(base.getUTCDate() + diff);
-  return Utilities.formatDate(weekStart, timezone, 'yyyy-MM-dd');
+
+  return formatDateKeyInZone_(weekStart, timezone);
+}
+
+function normalizeDurationMinutes_(rawValue) {
+  if (rawValue == null) {
+    return 0;
+  }
+
+  if (typeof rawValue === 'string') {
+    const trimmed = rawValue.trim();
+    const hhmmssMatch = trimmed.match(/^([0-9]{1,2}):([0-9]{1,2})(?::([0-9]{1,2}))?$/);
+    if (hhmmssMatch) {
+      const hours = Number(hhmmssMatch[1]);
+      const minutes = Number(hhmmssMatch[2]);
+      const seconds = hhmmssMatch[3] ? Number(hhmmssMatch[3]) : 0;
+      const totalMinutes = (hours * 60) + minutes + (seconds / 60);
+      return Math.round(totalMinutes * 100) / 100;
+    }
+  }
+
+  const value = Number(rawValue);
+  if (!Number.isFinite(value) || value <= 0) {
+    return 0;
+  }
+
+  const asMinutes = value > 300 ? value / 60 : value;
+  return Math.round(asMinutes * 100) / 100;
 }
 
 function summarizeAgentAdherence_(dailyRows) {
@@ -4276,6 +4334,17 @@ function buildWeeklyAdherenceMatrix_(dailyRows, timezone) {
     if (!weekStartKey) {
       return;
     }
+  });
+
+  return Array.from(weekly.values()).map(entry => ({
+    ...entry,
+    adherencePercent: (entry.adherentDays + entry.nonAdherentDays) > 0
+      ? Math.round((entry.adherentDays / (entry.adherentDays + entry.nonAdherentDays)) * 1000) / 10
+      : 0
+  })).sort((a, b) => a.weekStartKey.localeCompare(b.weekStartKey)
+    || (a.agentName || '').localeCompare(b.agentName || '')
+    || (a.agentId || '').localeCompare(b.agentId || ''));
+}
 
     if (!weeks.has(weekStartKey)) {
       const [year, month, day] = weekStartKey.split('-').map(Number);
