@@ -837,14 +837,25 @@ function fetchAllAttendanceRows() {
     if (values.length < 2) return [];
 
     const headers = values[0].map(h => h.toString().trim());
-    const timestampIdx = headers.indexOf('Timestamp');
-    const userIdx = headers.indexOf('User');
-    const stateIdx = headers.indexOf('State');
-    const durationIdx = headers.indexOf('DurationMin');
-    const dateIdx = headers.indexOf('Date');
+    const normalizedHeaders = headers.map(h => h.toLowerCase().replace(/[^a-z0-9]/g, ''));
+
+    const findColumnIndex = (candidates) => {
+      for (let i = 0; i < candidates.length; i++) {
+        const target = candidates[i].toLowerCase().replace(/[^a-z0-9]/g, '');
+        const idx = normalizedHeaders.indexOf(target);
+        if (idx >= 0) return idx;
+      }
+      return -1;
+    };
+
+    const timestampIdx = findColumnIndex(['Timestamp', 'DateTime', 'Time']);
+    const userIdx = findColumnIndex(['User', 'Agent', 'Employee']);
+    const stateIdx = findColumnIndex(['State', 'Status']);
+    const durationIdx = findColumnIndex(['DurationMin', 'Duration', 'DurationMinutes', 'DurationMins', 'DurationSec', 'DurationSeconds']);
+    const dateIdx = findColumnIndex(['Date', 'Day']);
 
     if (timestampIdx < 0 || userIdx < 0 || stateIdx < 0 || durationIdx < 0) {
-      throw new Error('Required columns not found');
+      throw new Error('Required columns not found: Timestamp, User, State, and Duration are required for adherence export.');
     }
 
     const out = [];
