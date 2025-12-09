@@ -3821,7 +3821,9 @@ function exportAdherenceComplianceSheet(payload) {
         const noteRow = currentRow + tableHeight;
         sheet.getRange(noteRow, 1, 1, 3)
           .setValues([[
-            'Weekly % is calculated from Monday–Sunday using recorded break and lunch entries for each agent.'
+            'Weekly % is calculated from Monday–Sunday using recorded break and lunch entries for each agent.',
+            '',
+            ''
           ]])
           .setFontStyle('italic')
           .setFontColor('#475569');
