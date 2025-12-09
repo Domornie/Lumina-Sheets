@@ -1800,7 +1800,7 @@
             <select class="form-select" id="adherenceExportMultiSelect" style="min-width: 260px;" multiple disabled></select>
           </div>
         </div>
-        <div class="alert alert-info small mb-0"><i class="fas fa-info-circle me-2"></i>Exports include Capped Billable Hours, Break Credit Hours, Lunch Adjustment Hours, Adjusted Billable Hours, Compliance %, Status, and adherence % rollups.</div>
+        <div class="alert alert-info small mb-0"><i class="fas fa-info-circle me-2"></i>Exports include break and lunch minutes, overage totals, per-agent daily adherence flags, weekly adherence %, and overall adherence for the selected period.</div>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -3361,8 +3361,9 @@
         }
 
         if (!Array.isArray(data.userCompliance) || data.userCompliance.length === 0) {
-          console.warn('Attendance data returned without compliance rows — hydrating sample metrics for display.');
-          data = this.createSampleAttendanceData();
+          console.warn('Attendance data returned without compliance rows — rendering empty dashboard.');
+          this.showToast('No attendance compliance data available for the selected filters.', 'warning');
+          data = this.createEmptyAttendanceData();
         }
         
         this.currentData = data;
@@ -3431,8 +3432,8 @@
         if (!ChannelClosedRegex.test(msg)) {
           console.error('Error loading data:', error);
           this.performanceMetrics.errors++;
-          this.showToast('Failed to load attendance data: ' + msg + ' — showing sample metrics.', 'warning');
-          this.currentData = this.createSampleAttendanceData();
+          this.showToast('Failed to load attendance data: ' + msg, 'warning');
+          this.currentData = this.createEmptyAttendanceData();
           this.originalTotalsSnapshot = null;
           this.originalTotalsSnapshotKey = null;
           this.originalUserComplianceMap.clear();
@@ -3446,146 +3447,29 @@
     }
 
     createEmptyAttendanceData() {
-      return this.createSampleAttendanceData();
-    }
-
-    createSampleAttendanceData() {
-      const getWeekDates = () => {
-        const today = new Date();
-        const weekday = today.getUTCDay();
-        const diffToMonday = weekday === 0 ? -6 : 1 - weekday;
-        const monday = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate() + diffToMonday));
-        return Array.from({ length: 7 }, (_, idx) => {
-          const current = new Date(monday);
-          current.setUTCDate(monday.getUTCDate() + idx);
-          return current;
-        });
-      };
-
-      const weekDates = getWeekDates();
-      const buildTimestamp = (dateObj, hours, minutes) => {
-        const copy = new Date(dateObj);
-        copy.setUTCHours(hours, minutes, 0, 0);
-        return copy.getTime();
-      };
-
-      const filteredRows = [];
-      const dailyBreakdown = [];
-      const attendanceStats = [];
-
-      weekDates.forEach((day) => {
-        const dateKey = day.toISOString().slice(0, 10);
-        const loginTs = buildTimestamp(day, 13, 0);
-        const logoutTs = buildTimestamp(day, 21, 0);
-
-        filteredRows.push(
-          { user: 'Jane Doe', state: 'available', timestampMs: loginTs, dateString: dateKey },
-          { user: 'Jane Doe', state: 'end of shift', timestampMs: logoutTs, dateString: dateKey },
-          { user: 'Alex Smith', state: 'available', timestampMs: loginTs + 15 * 60 * 1000, dateString: dateKey },
-          { user: 'Alex Smith', state: 'end of shift', timestampMs: logoutTs - 10 * 60 * 1000, dateString: dateKey }
-        );
-
-        const availableSecs = 8 * 3600;
-        const breakSecs = 15 * 60;
-        const lunchSecs = 45 * 60;
-        const baseBillableSecs = availableSecs - breakSecs - lunchSecs;
-        const adjustedBillableSecs = baseBillableSecs + breakSecs;
-
-        dailyBreakdown.push({
-          dateKey,
-          availableSecs,
-          breakSecs,
-          lunchSecs,
-          weekendSecs: 0,
-          baseBillableSecs,
-          adjustedBillableSecs,
-          exceededBreakDays: 0,
-          exceededLunchDays: 0,
-          exceededWeeklyCount: 0
-        });
-
-        attendanceStats.push({
-          label: dateKey,
-          hours: Number((adjustedBillableSecs / 3600).toFixed(2)),
-          status: 'On Track'
-        });
-      });
-
-      const totalAdjusted = dailyBreakdown.reduce((sum, day) => sum + (day.adjustedBillableSecs || 0), 0);
-      const summary = {
-        Available: dailyBreakdown.reduce((sum, day) => sum + (day.availableSecs || 0), 0),
-        'Administrative Work': 2 * 3600,
-        Training: 1 * 3600,
-        Meeting: 1.5 * 3600,
-        Break: dailyBreakdown.reduce((sum, day) => sum + (day.breakSecs || 0), 0),
-        Lunch: dailyBreakdown.reduce((sum, day) => sum + (day.lunchSecs || 0), 0)
-      };
-
+      const timezone = window.COMPANY_TIMEZONE || COMPANY_TIMEZONE;
+      const timezoneLabel = window.COMPANY_TIMEZONE_LABEL || COMPANY_TIMEZONE_LABEL || timezone;
       return {
-        summary,
-        stateDuration: summary,
-        totalProductiveHours: Number((totalAdjusted / 3600).toFixed(2)),
-        totalNonProductiveHours: Number(((summary.Break + summary.Lunch) / 3600).toFixed(2)),
-        top5Attendance: [
-          { user: 'Jane Doe', hours: 40, compliance: 98 },
-          { user: 'Alex Smith', hours: 39.5, compliance: 96 }
-        ],
-        attendanceStats,
-        attendanceFeed: [
-          { user: 'Jane Doe', action: 'Logged in on time', timestamp: weekDates[0].toISOString() },
-          { user: 'Alex Smith', action: 'Completed week without violations', timestamp: weekDates[6].toISOString() }
-        ],
-        filteredRows,
-        userCompliance: [
-          {
-            user: 'Jane Doe',
-            baseBillableSecs: dailyBreakdown.reduce((sum, d) => sum + (d.baseBillableSecs || 0), 0),
-            breakCreditSecs: dailyBreakdown.reduce((sum, d) => sum + (d.breakSecs || 0), 0),
-            lunchAdjustmentSecs: -1 * 45 * 60,
-            adjustedBillableSecs: totalAdjusted,
-            availableSecsWeekday: summary.Available,
-            weekendSecs: 0,
-            breakSecs: summary.Break,
-            lunchSecs: summary.Lunch,
-            exceededBreakDays: 0,
-            exceededLunchDays: 0,
-            exceededWeeklyCount: 0,
-            dailyBreakdown
-          },
-          {
-            user: 'Alex Smith',
-            baseBillableSecs: dailyBreakdown.reduce((sum, d) => sum + (d.baseBillableSecs || 0), 0) - 30 * 60,
-            breakCreditSecs: dailyBreakdown.reduce((sum, d) => sum + (d.breakSecs || 0), 0),
-            lunchAdjustmentSecs: -1 * 50 * 60,
-            adjustedBillableSecs: totalAdjusted - 20 * 60,
-            availableSecsWeekday: summary.Available,
-            weekendSecs: 0,
-            breakSecs: summary.Break,
-            lunchSecs: summary.Lunch,
-            exceededBreakDays: 1,
-            exceededLunchDays: 0,
-            exceededWeeklyCount: 0,
-            dailyBreakdown
-          }
-        ],
-        shiftMetrics: {
-          avgLoginTime: '09:00',
-          avgLogoutTime: '17:00',
-          avgBreakMinutes: 15
-        },
-        dailyMetrics: dailyBreakdown.map((day) => ({
-          dateKey: day.dateKey,
-          availableHours: Number((day.availableSecs / 3600).toFixed(2)),
-          productiveHours: Number((day.adjustedBillableSecs / 3600).toFixed(2))
-        })),
+        summary: {},
+        stateDuration: {},
+        totalProductiveHours: 0,
+        totalNonProductiveHours: 0,
+        top5Attendance: [],
+        attendanceStats: [],
+        attendanceFeed: [],
+        filteredRows: [],
+        filteredRowCount: 0,
+        userCompliance: [],
+        shiftMetrics: {},
+        dailyMetrics: [],
         periodInfo: {
           granularity: this.currentGranularity,
           periodId: this.currentPeriod,
-          startDateIso: weekDates[0].toISOString(),
-          endDateIso: weekDates[weekDates.length - 1].toISOString(),
-          workingDays: 5,
-          timezone: window.COMPANY_TIMEZONE || COMPANY_TIMEZONE,
-          timezoneLabel: window.COMPANY_TIMEZONE_LABEL || COMPANY_TIMEZONE_LABEL || COMPANY_TIMEZONE
+          startDateIso: this.summaryFilters?.dateFrom || '',
+          endDateIso: this.summaryFilters?.dateTo || '',
+          workingDays: 0,
+          timezone,
+          timezoneLabel
         },
         manualTimingOverrides: [],
         manualSecondsDelta: 0,
@@ -3809,7 +3693,7 @@
           data: {
             labels: topPerformers.map(p => p.user || 'User'),
             datasets: [{
-              label: 'Attendance %',
+              label: 'Adherence %',
               data: topPerformers.map(p => p.percentage || 0),
               backgroundColor: topPerformers.map(p => (p.percentage || 0) >= 95 ? '#10b981' : (p.percentage || 0) >= 85 ? '#00BFFF' : (p.percentage || 0) >= 75 ? '#FFB800' : '#FF4000'),
               borderRadius: 8
@@ -4836,11 +4720,31 @@
             }
           };
 
-          const dailyHeader = ['Date', 'Week Start', 'Agent Name', 'Agent ID', 'Adherence %', 'Compliance %', 'Scheduled Minutes', 'Worked Minutes', 'Compliant Events', 'Non-Compliant Events'];
-          const weeklyHeader = ['Week Start', 'Agent Name', 'Agent ID', 'Adherence %', 'Compliance %', 'Days With Data', 'Total Scheduled Minutes', 'Total Worked Minutes', 'Compliant Events', 'Non-Compliant Events'];
-          const overallHeader = ['Start Date', 'End Date', 'Overall Adherence %', 'Overall Compliance %', 'Total Agent-Days', 'Total Scheduled Minutes', 'Total Worked Minutes', 'Compliant Events', 'Non-Compliant Events'];
+          const dailyHeader = ['Date', 'Week Start', 'Agent Name', 'Agent ID', 'Lunch Minutes', 'Break Minutes', 'Over Lunch Minutes', 'Over Break Minutes', 'Daily Adherence'];
+          const weeklyHeader = ['Week Start', 'Agent Name', 'Agent ID', 'Adherent Days', 'Non-Adherent Days', 'Weekly Adherence %', 'Total Over Minutes'];
+          const agentHeader = ['Agent Name', 'Agent ID', 'Eligible Days', 'Adherent Days', 'Non-Adherent Days', 'Total Over Minutes', 'Adherence %'];
+          const overallHeader = ['Start Date', 'End Date', 'Total Eligible Agent-Days', 'Adherent Agent-Days', 'Non-Adherent Agent-Days', 'Overall Adherence %', 'Total Over Minutes'];
+          const weeklyMatrixHeader = ['Agent', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday', 'Weekly %'];
 
           const lines = [];
+          lines.push('WEEKLY DAILY MATRIX');
+          (exportData.weeklyMatrices || []).forEach((matrix) => {
+            lines.push(`Week of ${matrix.weekStartKey}`);
+            lines.push(weeklyMatrixHeader.join(','));
+            const dateRow = [''].concat(matrix.dayLabels || []).concat(['']);
+            lines.push(dateRow.join(','));
+            (matrix.rows || []).forEach((row) => {
+              const dayValues = (row.dayDetails || []).map((detail) => {
+                if (!detail) return '';
+                const percent = Number(detail.percent) || 0;
+                return `${percent}% (L:${detail.lunchMinutes || 0}m,B:${detail.breakMinutes || 0}m)`;
+              });
+              const weeklyPercentValue = Number(row.weeklyPercent) || 0;
+              lines.push([row.agentName || 'Unknown', ...dayValues, `${weeklyPercentValue}%`].join(','));
+            });
+            lines.push('');
+          });
+
           lines.push('DAILY DETAIL');
           lines.push(dailyHeader.join(','));
           exportData.dailyRows.forEach((row) => {
@@ -4849,12 +4753,11 @@
               row.weekStartKey,
               row.agentName,
               row.agentId || '',
-              row.adherencePercent,
-              row.compliancePercent,
-              row.scheduledMinutes,
-              row.workedMinutes,
-              row.compliantEvents,
-              row.nonCompliantEvents
+              row.lunchMinutes,
+              row.breakMinutes,
+              row.overLunchMinutes,
+              row.overBreakMinutes,
+              row.adherenceFlag
             ].join(','));
           });
 
@@ -4866,13 +4769,25 @@
               row.weekStartKey,
               row.agentName,
               row.agentId || '',
+              row.adherentDays,
+              row.nonAdherentDays,
               row.adherencePercent,
-              row.compliancePercent,
-              row.daysWithData,
-              row.scheduledMinutes,
-              row.workedMinutes,
-              row.compliantEvents,
-              row.nonCompliantEvents
+              Math.round(row.totalOverMinutes || 0)
+            ].join(','));
+          });
+
+          lines.push('');
+          lines.push('AGENT SUMMARY');
+          lines.push(agentHeader.join(','));
+          exportData.agentSummaries.forEach((row) => {
+            lines.push([
+              row.agentName,
+              row.agentId || '',
+              row.eligibleDays,
+              row.adherentDays,
+              row.nonAdherentDays,
+              Math.round(row.totalOverMinutes || 0),
+              row.adherencePercent
             ].join(','));
           });
 
@@ -4882,13 +4797,11 @@
           lines.push([
             formatDateValue(exportData.startDate),
             formatDateValue(exportData.endDate),
-            exportData.overall.adherencePercent,
-            exportData.overall.compliancePercent,
-            exportData.overall.agentDays,
-            exportData.overall.scheduledMinutes,
-            exportData.overall.workedMinutes,
-            exportData.overall.compliantEvents,
-            exportData.overall.nonCompliantEvents
+            exportData.overall.totalEligibleDays,
+            exportData.overall.totalAdherentDays,
+            exportData.overall.totalNonAdherentDays,
+            exportData.overall.overallAdherencePercent,
+            Math.round(exportData.overall.totalOverMinutes || 0)
           ].join(','));
 
           const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
@@ -5695,6 +5608,11 @@
     }
 
     calculateComplianceScore(user) {
+      const precomputed = Number(user?.adherencePercent);
+      if (Number.isFinite(precomputed)) {
+        return Math.max(0, Math.round(precomputed));
+      }
+
       const breakDays = Number.isFinite(user?.exceededBreakDays) ? user.exceededBreakDays : 0;
       const lunchDays = Number.isFinite(user?.exceededLunchDays) ? user.exceededLunchDays : 0;
       const weeklyOverages = Number.isFinite(user?.exceededWeeklyCount) ? user.exceededWeeklyCount : 0;
