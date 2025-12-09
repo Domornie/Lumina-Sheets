@@ -1769,13 +1769,33 @@
       </div>
       <div class="modal-body">
         <p class="text-muted small">Choose filters to export adherence and compliance with a Google Sheets-ready header. Defaults follow the dashboard filters so you can export what you see.</p>
+        <div class="row g-3 mb-3 align-items-end">
+          <div class="col-md-6">
+            <label class="form-label fw-bold">Period</label>
+            <select class="form-select" id="adherenceExportPeriodType">
+              <option value="weekly">Weekly (Mon–Sun)</option>
+              <option value="biweekly">Bi-weekly (two weeks)</option>
+              <option value="monthly">Monthly</option>
+              <option value="quarterly">Quarterly</option>
+              <option value="yearly">Yearly</option>
+              <option value="custom" selected>Custom Range</option>
+            </select>
+            <div class="form-text">Weeks start on Monday for adherence calculations.</div>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-bold">Selected Range</label>
+            <div class="form-control" id="adherenceExportRangeLabel" style="height: auto; min-height: 38px;">
+              —
+            </div>
+          </div>
+        </div>
         <div class="row g-3 mb-3">
           <div class="col-md-6">
-            <label class="form-label fw-bold">Start Date</label>
+            <label class="form-label fw-bold">Start / Anchor Date</label>
             <input type="date" class="form-control" id="adherenceExportStart" />
           </div>
           <div class="col-md-6">
-            <label class="form-label fw-bold">End Date</label>
+            <label class="form-label fw-bold">End Date (Custom only)</label>
             <input type="date" class="form-control" id="adherenceExportEnd" />
           </div>
         </div>
@@ -2316,6 +2336,7 @@
       this.summaryFilters = {
         dateFrom: '',
         dateTo: '',
+        periodType: 'custom',
         userMode: 'all',
         selectedUsers: []
       };
@@ -2756,6 +2777,8 @@
 
       const startInput = document.getElementById('adherenceExportStart');
       const endInput = document.getElementById('adherenceExportEnd');
+      const periodSelect = document.getElementById('adherenceExportPeriodType');
+      const rangePreview = document.getElementById('adherenceExportRangeLabel');
       const singleSelect = document.getElementById('adherenceExportSingleSelect');
       const multiSelect = document.getElementById('adherenceExportMultiSelect');
       const modeRadios = document.querySelectorAll('input[name="adherenceExportUserMode"]');
@@ -2782,15 +2805,31 @@
         }
       };
 
+      const updateRangePreview = () => {
+        try {
+          const filters = this.adherenceExportFilters || this.summaryFilters;
+          const resolved = this.resolveAdherenceRange(filters.periodType || 'custom', filters.dateFrom, filters.dateTo);
+          if (rangePreview) {
+            rangePreview.textContent = resolved?.label || '—';
+          }
+        } catch (err) {
+          if (rangePreview) rangePreview.textContent = '—';
+        }
+      };
+
       const syncFromFilters = () => {
         const filters = this.adherenceExportFilters || this.summaryFilters;
         if (startInput) startInput.value = filters.dateFrom || this.summaryFilters.dateFrom || '';
         if (endInput) endInput.value = filters.dateTo || this.summaryFilters.dateTo || '';
+        if (periodSelect) periodSelect.value = filters.periodType || 'custom';
 
         const mode = filters.userMode || 'all';
         modeRadios.forEach((radio) => {
           radio.checked = radio.value === mode;
         });
+
+        const isCustom = (filters.periodType || 'custom') === 'custom';
+        if (endInput) endInput.disabled = !isCustom;
 
         const enableSingle = mode === 'single';
         const enableMulti = mode === 'multiple';
@@ -2805,12 +2844,15 @@
             opt.selected = Array.isArray(filters.selectedUsers) && filters.selectedUsers.includes(opt.value);
           });
         }
+
+        updateRangePreview();
       };
 
       const syncFilters = () => {
         this.adherenceExportFilters = {
           dateFrom: startInput?.value || this.summaryFilters.dateFrom || '',
           dateTo: endInput?.value || this.summaryFilters.dateTo || '',
+          periodType: periodSelect?.value || 'custom',
           userMode: document.querySelector('input[name="adherenceExportUserMode"]:checked')?.value || 'all',
           selectedUsers: []
         };
@@ -2821,10 +2863,16 @@
         if (this.adherenceExportFilters.userMode === 'multiple' && multiSelect) {
           this.adherenceExportFilters.selectedUsers = Array.from(multiSelect.selectedOptions).map((opt) => opt.value);
         }
+
+        updateRangePreview();
       };
 
       if (startInput) startInput.addEventListener('change', syncFilters);
       if (endInput) endInput.addEventListener('change', syncFilters);
+      if (periodSelect) periodSelect.addEventListener('change', () => {
+        syncFilters();
+        syncFromFilters();
+      });
       modeRadios.forEach((radio) => {
         radio.addEventListener('change', () => {
           syncFilters();
@@ -4673,14 +4721,89 @@
       return compliance;
     }
 
+    resolveAdherenceRange(periodType = 'custom', startDate, endDate) {
+      const normalizeDate = (value, isEnd = false) => {
+        if (!value) return null;
+        const date = value instanceof Date ? value : new Date(value);
+        if (Number.isNaN(date.getTime())) return null;
+        if (isEnd) {
+          date.setHours(23, 59, 59, 999);
+        } else {
+          date.setHours(0, 0, 0, 0);
+        }
+        return date;
+      };
+
+      const formatIso = (date) => (date instanceof Date && !Number.isNaN(date.getTime()))
+        ? date.toISOString().slice(0, 10)
+        : '';
+
+      const resolveWeekStart = (anchor) => {
+        const weekDate = new Date(anchor);
+        const day = weekDate.getDay();
+        const diff = day === 0 ? -6 : 1 - day;
+        weekDate.setDate(weekDate.getDate() + diff);
+        weekDate.setHours(0, 0, 0, 0);
+        return weekDate;
+      };
+
+      const type = (periodType || 'custom').toLowerCase().replace(/[^a-z]/g, '');
+      const anchor = normalizeDate(startDate || endDate || new Date());
+      if (!anchor) return null;
+
+      switch (type) {
+        case 'week':
+        case 'weekly': {
+          const start = resolveWeekStart(anchor);
+          const end = new Date(start);
+          end.setDate(start.getDate() + 6);
+          end.setHours(23, 59, 59, 999);
+          return { startIso: formatIso(start), endIso: formatIso(end), label: `Week of ${formatIso(start)}` };
+        }
+        case 'biweek':
+        case 'biweekly': {
+          const start = resolveWeekStart(anchor);
+          const end = new Date(start);
+          end.setDate(start.getDate() + 13);
+          end.setHours(23, 59, 59, 999);
+          return { startIso: formatIso(start), endIso: formatIso(end), label: `Bi-week of ${formatIso(start)}` };
+        }
+        case 'month':
+        case 'monthly': {
+          const start = new Date(anchor.getFullYear(), anchor.getMonth(), 1, 0, 0, 0, 0);
+          const end = new Date(anchor.getFullYear(), anchor.getMonth() + 1, 0, 23, 59, 59, 999);
+          return {
+            startIso: formatIso(start),
+            endIso: formatIso(end),
+            label: `${start.toLocaleString('default', { month: 'long' })} ${start.getFullYear()}`
+          };
+        }
+        case 'quarter':
+        case 'quarterly': {
+          const quarter = Math.floor(anchor.getMonth() / 3);
+          const start = new Date(anchor.getFullYear(), quarter * 3, 1, 0, 0, 0, 0);
+          const end = new Date(anchor.getFullYear(), (quarter * 3) + 3, 0, 23, 59, 59, 999);
+          return { startIso: formatIso(start), endIso: formatIso(end), label: `Q${quarter + 1} ${start.getFullYear()}` };
+        }
+        case 'year':
+        case 'yearly': {
+          const start = new Date(anchor.getFullYear(), 0, 1, 0, 0, 0, 0);
+          const end = new Date(anchor.getFullYear(), 11, 31, 23, 59, 59, 999);
+          return { startIso: formatIso(start), endIso: formatIso(end), label: `${start.getFullYear()}` };
+        }
+        case 'custom':
+        default: {
+          const start = normalizeDate(startDate, false);
+          const end = normalizeDate(endDate, true);
+          if (!start || !end) return null;
+          return { startIso: formatIso(start), endIso: formatIso(end), label: `${formatIso(start)} to ${formatIso(end)}` };
+        }
+      }
+    }
+
     async exportAdherenceCompliance(format = 'sheet', filters = null) {
       const effectiveFilters = filters || this.summaryFilters;
-      const { dateFrom, dateTo, userMode, selectedUsers } = effectiveFilters;
-
-      if (!dateFrom || !dateTo) {
-        this.showToast('Please select a start and end date for the adherence export.', 'warning');
-        return;
-      }
+      const { dateFrom, dateTo, userMode, selectedUsers, periodType } = effectiveFilters;
 
       const resolvedUsers = (() => {
         if (userMode === 'single' && Array.isArray(selectedUsers) && selectedUsers.length) {
@@ -4692,9 +4815,16 @@
         return [];
       })();
 
+      const resolvedRange = this.resolveAdherenceRange(periodType || 'custom', dateFrom, dateTo);
+      if (!resolvedRange) {
+        this.showToast('Please select a valid period for the adherence export.', 'warning');
+        return;
+      }
+
       const payload = {
-        startDateIso: dateFrom,
-        endDateIso: dateTo,
+        startDateIso: resolvedRange.startIso,
+        endDateIso: resolvedRange.endIso,
+        periodType: periodType || 'custom',
         users: resolvedUsers
       };
 
@@ -4722,7 +4852,7 @@
 
           const dailyHeader = ['Date', 'Week Start', 'Agent Name', 'Agent ID', 'Lunch Minutes', 'Break Minutes', 'Over Lunch Minutes', 'Over Break Minutes', 'Daily Adherence'];
           const weeklyHeader = ['Week Start', 'Agent Name', 'Agent ID', 'Adherent Days', 'Non-Adherent Days', 'Weekly Adherence %', 'Total Over Minutes'];
-          const agentHeader = ['Agent Name', 'Agent ID', 'Eligible Days', 'Adherent Days', 'Non-Adherent Days', 'Total Over Minutes', 'Adherence %'];
+          const agentHeader = ['Agent Name', 'Agent ID', 'Period', 'Eligible Days', 'Adherent Days', 'Non-Adherent Days', 'Total Over Minutes', 'Adherence %'];
           const overallHeader = ['Start Date', 'End Date', 'Total Eligible Agent-Days', 'Adherent Agent-Days', 'Non-Adherent Agent-Days', 'Overall Adherence %', 'Total Over Minutes'];
           const weeklyMatrixHeader = ['Agent', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday', 'Weekly %'];
 
@@ -4783,6 +4913,7 @@
             lines.push([
               row.agentName,
               row.agentId || '',
+              exportData.periodLabel || '',
               row.eligibleDays,
               row.adherentDays,
               row.nonAdherentDays,

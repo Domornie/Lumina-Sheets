@@ -90,7 +90,13 @@ function runDataExport(payload) {
     case 'attendance-adherence-sheet':
       return exportAdherenceComplianceSheet(normalized);
     case 'adherence-data':
-      return getAdherenceComplianceExportData(normalized.startDateIso, normalized.endDateIso, normalized.userId ? [normalized.userId] : [], normalized.timezone);
+      return getAdherenceComplianceExportData({
+        startDateIso: normalized.startDateIso,
+        endDateIso: normalized.endDateIso,
+        periodType: normalized.periodType || normalized.granularity || 'custom',
+        users: normalized.userId ? [normalized.userId] : [],
+        timezone: normalized.timezone
+      });
     case 'qa-agent-matrix':
       return clientExportAgentMatrix({
         granularity: normalized.granularity,
