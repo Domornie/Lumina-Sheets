@@ -1488,6 +1488,12 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter, poli
       const lunchAdjustmentTotalSecs = lunchAdjustmentWeekday + lunchAdjustmentWeekend;
       const adjustedBillableSecs = Math.max(0, adjustedWeekday + adjustedWeekend);
 
+      const adherencePercent = computeAdherencePercent_({
+        exceededBreakDays: stats.breakOverageDays,
+        exceededLunchDays: stats.lunchOverageDays,
+        exceededWeeklyCount: stats.weeklyOverages
+      });
+
       return {
         user,
         availableSecsWeekday: adjustedWeekday,
@@ -1504,7 +1510,8 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter, poli
         lunchLabel: formatSecsAsHhMm(stats.lunchSecs),
         exceededLunchDays: stats.lunchOverageDays || 0,
         exceededBreakDays: stats.breakOverageDays || 0,
-        exceededWeeklyCount: stats.weeklyOverages || 0
+        exceededWeeklyCount: stats.weeklyOverages || 0,
+        adherencePercent
       };
     });
 
@@ -1517,29 +1524,22 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter, poli
         || (agentDirectory.normalizedEmails && agentDirectory.normalizedEmails.size))
     );
 
-    const top5Candidates = Array.from(userTotalAdjustedSecs.entries())
-      .map(([user, secs]) => {
-        const adherencePercent = expectedCapacitySecs > 0
-          ? (secs / expectedCapacitySecs) * 100
-          : 0;
-        const normalizedPercent = expectedCapacitySecs > 0
-          ? Math.min(Math.round(adherencePercent * 10) / 10, 100)
-          : 0;
-        return {
-          user,
-          percentage: Number.isFinite(normalizedPercent) ? normalizedPercent : 0
-        };
-      })
+    const adherenceScores = userCompliance
+      .map(entry => ({
+        user: entry.user,
+        percentage: computeAdherencePercent_(entry)
+      }))
+      .filter(entry => Number.isFinite(entry.percentage))
       .filter(entry => !isManagerPerson_(entry.user, managerDirectory))
       .sort((a, b) => b.percentage - a.percentage);
 
     const agentFilteredTop5 = agentDirectoryHasEntries
-      ? top5Candidates.filter(entry => isAgentPerson_(entry.user, agentDirectory))
-      : top5Candidates;
+      ? adherenceScores.filter(entry => isAgentPerson_(entry.user, agentDirectory))
+      : adherenceScores;
 
     const effectiveTop5 = agentFilteredTop5.length > 0
       ? agentFilteredTop5
-      : top5Candidates;
+      : adherenceScores;
 
     const top5Attendance = effectiveTop5.slice(0, 5);
 
@@ -1993,6 +1993,31 @@ function calculateBreakLunchDeductions(breakSeconds, lunchSeconds) {
   const deduction = Math.max(breakOver + lunchOver, combinedOver);
 
   return { breakOver, lunchOver, combinedOver, deduction };
+}
+
+function computeAdherencePercent_(stats) {
+  if (!stats) return 0;
+
+  const breakDays = Number.isFinite(stats.exceededBreakDays)
+    ? stats.exceededBreakDays
+    : Number(stats.breakOverageDays) || 0;
+  const lunchDays = Number.isFinite(stats.exceededLunchDays)
+    ? stats.exceededLunchDays
+    : Number(stats.lunchOverageDays) || 0;
+  const weeklyOverages = Number.isFinite(stats.exceededWeeklyCount)
+    ? stats.exceededWeeklyCount
+    : Number(stats.weeklyOverages) || 0;
+
+  let score = 100;
+  score -= breakDays * 5;
+  score -= lunchDays * 5;
+  score -= weeklyOverages * 10;
+
+  if (!Number.isFinite(score)) {
+    return 0;
+  }
+
+  return Math.max(0, Math.min(100, Math.round(score)));
 }
 
 function applyCappedAdjustment(baseValue, adjustment, capSeconds) {
@@ -3645,6 +3670,115 @@ function exportAdherenceComplianceSheet(payload) {
     sheet.setName(sheetTitle);
 
     let currentRow = 1;
+    const weeklyMatrices = Array.isArray(exportData.weeklyMatrices) ? exportData.weeklyMatrices : [];
+
+    const adherenceColorForPercent = (percent) => {
+      if (!Number.isFinite(percent)) return '#f8fafc';
+      if (percent > 110) return '#0ea5e9';
+      if (percent >= 100) return '#22c55e';
+      if (percent >= 90) return '#f59e0b';
+      return '#ef4444';
+    };
+
+    const adherenceFontForPercent = (percent) => {
+      if (!Number.isFinite(percent)) return '#0f172a';
+      if (percent >= 90 && percent < 100) return '#0f172a';
+      if (percent > 110) return '#ffffff';
+      if (percent >= 100) return '#ffffff';
+      if (percent >= 80) return '#0f172a';
+      return '#ffffff';
+    };
+
+    weeklyMatrices.forEach((matrix, index) => {
+      sheet.getRange(currentRow, 1, 1, 1).setValue(`Daily Adherence Matrix • Week of ${matrix.weekStartKey}`);
+      sheet.getRange(currentRow, 1).setFontWeight('bold');
+      currentRow += 1;
+
+      const matrixHeaders = ['Agent', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday', 'Weekly %'];
+      sheet.getRange(currentRow, 1, 1, matrixHeaders.length)
+        .setValues([matrixHeaders])
+        .setFontWeight('bold')
+        .setBackground('#111827')
+        .setFontColor('#ffffff');
+      currentRow += 1;
+
+      const dateLabels = [''].concat(matrix.dayLabels || []).concat(['']);
+      sheet.getRange(currentRow, 1, 1, matrixHeaders.length)
+        .setValues([dateLabels])
+        .setFontWeight('bold')
+        .setBackground('#e2e8f0')
+        .setFontColor('#0f172a');
+      currentRow += 1;
+
+      const dataValues = (matrix.rows || []).map(row => {
+        const dayStrings = (row.dayDetails || []).map(detail => {
+          if (!detail) return '';
+          const value = Number(detail.percent) || 0;
+          const lunch = Number(detail.lunchMinutes) || 0;
+          const brk = Number(detail.breakMinutes) || 0;
+          return `${Math.round(value * 10) / 10}% (L:${lunch}m/B:${brk}m)`;
+        });
+        const weeklyPercentValue = Number(row.weeklyPercent) || 0;
+        return [row.agentName || 'Unknown', ...dayStrings, `${weeklyPercentValue}%`];
+      });
+
+      if (dataValues.length > 0) {
+        const dataRange = sheet.getRange(currentRow, 1, dataValues.length, matrixHeaders.length);
+        dataRange.setValues(dataValues);
+
+        const backgrounds = [];
+        const fontColors = [];
+        dataValues.forEach((row, rowIdx) => {
+          const bgRow = [];
+          const fontRow = [];
+          bgRow.push('#ffffff');
+          fontRow.push('#0f172a');
+
+          const matrixRow = matrix.rows[rowIdx];
+          (matrixRow.dayDetails || []).forEach((detail) => {
+            const percent = detail ? Number(detail.percent) || 0 : null;
+            const bg = adherenceColorForPercent(percent);
+            bgRow.push(bg);
+            fontRow.push(percent !== null ? adherenceFontForPercent(percent) : '#0f172a');
+          });
+
+          const weeklyPercentValue = Number(matrixRow.weeklyPercent) || 0;
+          bgRow.push(adherenceColorForPercent(weeklyPercentValue));
+          fontRow.push(adherenceFontForPercent(weeklyPercentValue));
+          backgrounds.push(bgRow);
+          fontColors.push(fontRow);
+        });
+
+        sheet.getRange(currentRow, 1, backgrounds.length, matrixHeaders.length).setBackgrounds(backgrounds).setFontColors(fontColors);
+
+        (matrix.rows || []).forEach((row, rowIdx) => {
+          (row.dayDetails || []).forEach((detail, detailIdx) => {
+            if (!detail) return;
+            const noteLines = [
+              `Lunch: ${detail.lunchMinutes || 0} minutes`,
+              `Break: ${detail.breakMinutes || 0} minutes`,
+              `Overage: ${detail.overMinutes || 0} minutes`
+            ];
+            sheet.getRange(currentRow + rowIdx, 2 + detailIdx).setNote(noteLines.join('\n'));
+          });
+        });
+      }
+
+      const tableHeight = Math.max(1, dataValues.length);
+      const noteRow = currentRow + tableHeight;
+      sheet.getRange(noteRow, 1, 1, 3)
+        .setValues([[
+          'Weekly % uses Monday–Friday as the 100% baseline; compliant weekend days can push the rate above 100%.'
+        ]])
+        .setFontStyle('italic')
+        .setFontColor('#475569');
+
+      currentRow = noteRow + 2;
+      if (index === weeklyMatrices.length - 1) {
+        currentRow += 1;
+      }
+    });
+
     // Daily Detail Section
     sheet.getRange(currentRow, 1, 1, 1).setValue('Daily Detail (Per Agent, Per Day)');
     sheet.getRange(currentRow, 1).setFontWeight('bold');
@@ -3654,12 +3788,11 @@ function exportAdherenceComplianceSheet(payload) {
       'Week Start',
       'Agent Name',
       'Agent ID',
-      'Adherence %',
-      'Compliance %',
-      'Scheduled Minutes',
-      'Worked Minutes',
-      'Compliant Events',
-      'Non-Compliant Events'
+      'Lunch Minutes',
+      'Break Minutes',
+      'Over Lunch Minutes',
+      'Over Break Minutes',
+      'Daily Adherence'
     ];
     sheet.getRange(currentRow, 1, 1, dailyHeaders.length)
       .setValues([dailyHeaders])
@@ -3673,17 +3806,15 @@ function exportAdherenceComplianceSheet(payload) {
       row.weekStartKey,
       row.agentName,
       row.agentId || '',
-      row.adherencePercent,
-      row.compliancePercent,
-      row.scheduledMinutes,
-      row.workedMinutes,
-      row.compliantEvents,
-      row.nonCompliantEvents
+      row.lunchMinutes,
+      row.breakMinutes,
+      row.overLunchMinutes,
+      row.overBreakMinutes,
+      row.adherenceFlag
     ]);
 
     sheet.getRange(currentRow, 1, dailyValues.length, dailyHeaders.length).setValues(dailyValues);
-    sheet.getRange(currentRow, 5, dailyValues.length, 2).setNumberFormat('0.0');
-    sheet.getRange(currentRow, 7, dailyValues.length, 4).setNumberFormat('0');
+    sheet.getRange(currentRow, 5, dailyValues.length, 4).setNumberFormat('0.00');
     currentRow += dailyValues.length + 2;
 
     // Weekly Summary Section
@@ -3694,13 +3825,10 @@ function exportAdherenceComplianceSheet(payload) {
       'Week Start',
       'Agent Name',
       'Agent ID',
-      'Adherence %',
-      'Compliance %',
-      'Days With Data',
-      'Total Scheduled Minutes',
-      'Total Worked Minutes',
-      'Compliant Events',
-      'Non-Compliant Events'
+      'Adherent Days',
+      'Non-Adherent Days',
+      'Weekly Adherence %',
+      'Total Over Minutes'
     ];
     sheet.getRange(currentRow, 1, 1, weeklyHeaders.length)
       .setValues([weeklyHeaders])
@@ -3713,22 +3841,55 @@ function exportAdherenceComplianceSheet(payload) {
       row.weekStartKey,
       row.agentName,
       row.agentId || '',
+      row.adherentDays,
+      row.nonAdherentDays,
       row.adherencePercent,
-      row.compliancePercent,
-      row.daysWithData,
-      row.scheduledMinutes,
-      row.workedMinutes,
-      row.compliantEvents,
-      row.nonCompliantEvents
+      Math.round(row.totalOverMinutes || 0)
     ]);
 
     if (weeklyValues.length) {
       sheet.getRange(currentRow, 1, weeklyValues.length, weeklyHeaders.length)
         .setValues(weeklyValues);
-      sheet.getRange(currentRow, 4, weeklyValues.length, 2).setNumberFormat('0.0');
-      sheet.getRange(currentRow, 6, weeklyValues.length, 5).setNumberFormat('0');
+      sheet.getRange(currentRow, 6, weeklyValues.length, 2).setNumberFormat('0.0');
     }
     currentRow += weeklyValues.length + 2;
+
+    // Per-Agent Summary Section
+    sheet.getRange(currentRow, 1, 1, 1).setValue('Per-Agent Summary (Selected Period)');
+    sheet.getRange(currentRow, 1).setFontWeight('bold');
+    currentRow += 1;
+    const agentHeaders = [
+      'Agent Name',
+      'Agent ID',
+      'Eligible Days',
+      'Adherent Days',
+      'Non-Adherent Days',
+      'Total Over Minutes',
+      'Adherence %'
+    ];
+    sheet.getRange(currentRow, 1, 1, agentHeaders.length)
+      .setValues([agentHeaders])
+      .setFontWeight('bold')
+      .setBackground('#0b2538')
+      .setFontColor('#ffffff');
+    currentRow += 1;
+
+    const agentValues = exportData.agentSummaries.map(row => [
+      row.agentName,
+      row.agentId || '',
+      row.eligibleDays,
+      row.adherentDays,
+      row.nonAdherentDays,
+      Math.round(row.totalOverMinutes || 0),
+      row.adherencePercent
+    ]);
+
+    if (agentValues.length) {
+      sheet.getRange(currentRow, 1, agentValues.length, agentHeaders.length)
+        .setValues(agentValues);
+      sheet.getRange(currentRow, 7, agentValues.length, 1).setNumberFormat('0.0');
+    }
+    currentRow += agentValues.length + 2;
 
     // Overall Summary Section
     sheet.getRange(currentRow, 1, 1, 1).setValue('Overall Summary (All Agents Combined)');
@@ -3737,13 +3898,11 @@ function exportAdherenceComplianceSheet(payload) {
     const overallHeaders = [
       'Start Date',
       'End Date',
+      'Total Eligible Agent-Days',
+      'Adherent Agent-Days',
+      'Non-Adherent Agent-Days',
       'Overall Adherence %',
-      'Overall Compliance %',
-      'Total Agent-Days',
-      'Total Scheduled Minutes',
-      'Total Worked Minutes',
-      'Compliant Events',
-      'Non-Compliant Events'
+      'Total Over Minutes'
     ];
     sheet.getRange(currentRow, 1, 1, overallHeaders.length)
       .setValues([overallHeaders])
@@ -3756,16 +3915,13 @@ function exportAdherenceComplianceSheet(payload) {
       .setValues([[
         Utilities.formatDate(exportData.startDate, timezone, 'yyyy-MM-dd'),
         Utilities.formatDate(exportData.endDate, timezone, 'yyyy-MM-dd'),
-        exportData.overall.adherencePercent,
-        exportData.overall.compliancePercent,
-        exportData.overall.agentDays,
-        exportData.overall.scheduledMinutes,
-        exportData.overall.workedMinutes,
-        exportData.overall.compliantEvents,
-        exportData.overall.nonCompliantEvents
+        exportData.overall.totalEligibleDays,
+        exportData.overall.totalAdherentDays,
+        exportData.overall.totalNonAdherentDays,
+        exportData.overall.overallAdherencePercent,
+        Math.round(exportData.overall.totalOverMinutes || 0)
       ]]);
-    sheet.getRange(currentRow, 3, 1, 2).setNumberFormat('0.0');
-    sheet.getRange(currentRow, 5, 1, 5).setNumberFormat('0');
+    sheet.getRange(currentRow, 6, 1, 1).setNumberFormat('0.0');
 
     sheet.autoResizeColumns(1, Math.max(dailyHeaders.length, weeklyHeaders.length, overallHeaders.length));
     sheet.setFrozenRows(2);
@@ -3881,163 +4037,114 @@ function buildAdherenceComplianceDataset_(startDateIso, endDateIso, filterUsers,
     ? new Set(filterUsers.map(u => String(u || '').trim().toLowerCase()).filter(Boolean))
     : new Set();
 
-  const dailyRows = loadAdherenceComplianceDaily_(normalizedStart, normalizedEnd, userSet, timezone);
-  const weeklyRows = summarizeWeeklyAdherence_(dailyRows, timezone);
-  const overall = summarizeOverallAdherence_(dailyRows);
+  const adherenceDaily = loadBreakLunchAdherenceDaily_(normalizedStart, normalizedEnd, userSet, timezone);
+  const agentSummaries = summarizeAgentAdherence_(adherenceDaily);
+  const weeklyRows = summarizeWeeklyBreakLunch_(adherenceDaily);
+  const weeklyMatrices = buildWeeklyAdherenceMatrix_(adherenceDaily, timezone);
+  const overall = summarizeOverallBreakLunch_(agentSummaries);
 
   const userScopeLabel = userSet.size > 0
     ? `Selected Users (${userSet.size})`
     : 'All Users';
 
-  return { startDate: normalizedStart, endDate: normalizedEnd, dailyRows, weeklyRows, overall, userScopeLabel };
+  return { startDate: normalizedStart, endDate: normalizedEnd, dailyRows: adherenceDaily, weeklyRows, weeklyMatrices, agentSummaries, overall, userScopeLabel };
 }
 
-function loadAdherenceComplianceDaily_(startDate, endDate, userSet, timezone) {
-  if (typeof getScheduleSpreadsheet !== 'function') {
+function loadBreakLunchAdherenceDaily_(startDate, endDate, userSet, timezone) {
+  const allRows = fetchAllAttendanceRows();
+  if (!Array.isArray(allRows) || allRows.length === 0) {
     return [];
   }
 
-  const ss = getScheduleSpreadsheet();
-  if (!ss) {
-    return [];
-  }
+  const startMs = startDate.getTime();
+  const endMs = endDate.getTime();
+  const entries = new Map();
 
-  const sheetName = typeof SCHEDULE_ADHERENCE_SHEET === 'string' ? SCHEDULE_ADHERENCE_SHEET : 'ScheduleAdherence';
-  const sheet = ss.getSheetByName(sheetName);
-  if (!sheet) {
-    return [];
-  }
+  for (let i = 0; i < allRows.length; i++) {
+    const row = allRows[i];
+    if (!row) continue;
 
-  const values = sheet.getDataRange().getValues();
-  if (values.length < 2) {
-    return [];
-  }
+    const comparableMs = ensureComparableMs(row);
+    if (!Number.isFinite(comparableMs)) continue;
+    if (comparableMs < startMs || comparableMs > endMs) continue;
 
-  const headers = values[0].map(h => String(h || '').trim());
-  const findIndex = (candidates) => {
-    const lookups = Array.isArray(candidates) ? candidates : [candidates];
-    const lowerHeaders = headers.map(h => h.toLowerCase());
-    for (let i = 0; i < lookups.length; i++) {
-      const target = String(lookups[i] || '').trim().toLowerCase();
-      const idx = lowerHeaders.indexOf(target);
-      if (idx !== -1) return idx;
-    }
-    return -1;
-  };
+    const user = String(row.user || row.User || row.employee || '').trim();
+    if (!user) continue;
+    const userKey = user.toLowerCase();
+    if (userSet.size > 0 && !userSet.has(userKey)) continue;
 
-  let dateIdx = findIndex(['Date', 'Day', 'DateKey', 'Date ISO', 'DateIso']);
-  let userIdIdx = findIndex(['UserID', 'User Id', 'User', 'AgentID', 'Agent Id', 'Agent', 'EmployeeID', 'Employee Id']);
-  let userNameIdx = findIndex(['UserName', 'User Name', 'AgentName', 'Agent Name', 'EmployeeName', 'Employee', 'Agent Full Name', 'Full Name', 'Name']);
-  const adherenceIdx = findIndex(['AdherenceScore', 'Adherence', 'Adherence %', 'AdherencePercent', 'AdherencePercentage', 'Adherence Score (%)']);
-  const complianceIdx = findIndex(['CompliancePercent', 'CompliancePercentage', 'ComplianceScore', 'Compliance %', 'Compliance']);
-  const compliantEventsIdx = findIndex(['CompliantEvents', 'Compliant', 'Compliant Events']);
-  const nonCompliantEventsIdx = findIndex(['NonCompliantEvents', 'Non-Compliant', 'NonCompliant', 'Non-Compliant Events']);
-  const scheduledStartIdx = findIndex(['ScheduledStart', 'SchedStart', 'Scheduled Start']);
-  const scheduledEndIdx = findIndex(['ScheduledEnd', 'SchedEnd', 'Scheduled End']);
-  const actualStartIdx = findIndex(['ActualStart', 'ClockIn', 'Login', 'Actual Start']);
-  const actualEndIdx = findIndex(['ActualEnd', 'ClockOut', 'Logout', 'Actual End']);
-  const workedMinutesIdx = findIndex(['WorkedMinutes', 'Worked', 'ActualMinutes', 'Worked Minutes']);
-  const scheduledMinutesIdx = findIndex(['ScheduledMinutes', 'Scheduled', 'PlannedMinutes', 'Scheduled Minutes', 'Planned Minutes']);
+    const timestampMs = ensureTimestampMs(row);
+    if (!Number.isFinite(timestampMs)) continue;
 
-  if (dateIdx === -1) {
-    // Try any header that mentions "date" even if not an exact match
-    dateIdx = headers.findIndex(h => h && h.toLowerCase().includes('date'));
-  }
+    const dateKey = formatDateKeyInZone_(new Date(timestampMs), timezone);
+    if (!dateKey) continue;
 
-  if (userIdIdx === -1 && userNameIdx === -1) {
-    const fuzzyIdx = headers.findIndex(h => {
-      const lower = (h || '').toLowerCase();
-      return lower.includes('user') || lower.includes('agent') || lower.includes('employee');
-    });
-    if (fuzzyIdx !== -1) {
-      userNameIdx = fuzzyIdx;
-    }
-  }
-
-  if (dateIdx === -1) {
-    // As a last resort, scan the first few rows for a parsable date value
-    const maxSampleRows = Math.min(values.length, 6);
-    outer: for (let r = 1; r < maxSampleRows; r++) {
-      const candidateRow = values[r];
-      for (let c = 0; c < candidateRow.length; c++) {
-        const candidateDate = normalizeDateValue(candidateRow[c]);
-        if (candidateDate instanceof Date && !isNaN(candidateDate.getTime())) {
-          dateIdx = c;
-          break outer;
-        }
-      }
-    }
-  }
-
-  if (dateIdx === -1) {
-    throw new Error('Unable to locate a date column in the adherence data.');
-  }
-
-  const rows = [];
-  for (let i = 1; i < values.length; i++) {
-    const row = values[i];
-    const dateVal = row[dateIdx];
-    const normalizedDate = normalizeDateValue(dateVal);
-    if (!(normalizedDate instanceof Date) || isNaN(normalizedDate.getTime())) {
+    const rawState = String(row.state || row.State || '').trim();
+    const stateNormalized = rawState.toLowerCase();
+    const isBreak = stateNormalized.includes('break');
+    const isLunch = stateNormalized.includes('lunch');
+    if (!isBreak && !isLunch) {
       continue;
     }
 
-    const localDateOnly = createDateInLocalTime(
-      normalizedDate.getFullYear(),
-      normalizedDate.getMonth() + 1,
-      normalizedDate.getDate(),
-      0,
-      0,
-      0
+    const durationMinutes = normalizeDurationMinutes_(
+      Number.isFinite(row.durationMin)
+        ? row.durationMin
+        : Number.isFinite(row.durationSec)
+          ? row.durationSec / 60
+          : (row.DurationMin != null && !Number.isNaN(Number(row.DurationMin)))
+            ? row.DurationMin
+            : Number.isFinite(row.duration)
+              ? row.duration
+              : 0
     );
 
-    if (!localDateOnly || localDateOnly < startDate || localDateOnly > endDate) {
+    if (!Number.isFinite(durationMinutes) || durationMinutes <= 0) {
       continue;
     }
 
-    const agentNameRaw = userNameIdx !== -1 ? (row[userNameIdx] || '') : '';
-    const agentIdRaw = userIdIdx !== -1 ? (row[userIdIdx] || '') : '';
-    const agentName = agentNameRaw || agentIdRaw || 'Unknown';
-    const agentId = agentIdRaw || '';
+    const entryKey = `${user}|${dateKey}`;
+    if (!entries.has(entryKey)) {
+      const weekStartKey = resolveWeekStartKey_(new Date(`${dateKey}T00:00:00Z`), timezone);
 
-    if (userSet.size > 0) {
-      const candidateIdentifiers = new Set([
-        String(agentNameRaw || '').trim().toLowerCase(),
-        String(agentIdRaw || '').trim().toLowerCase(),
-        String(agentName || '').trim().toLowerCase()
-      ].filter(Boolean));
-      const hasMatch = Array.from(candidateIdentifiers).some(id => userSet.has(id));
-      if (!hasMatch) {
-        continue;
-      }
+      entries.set(entryKey, {
+        dateKey,
+        weekStartKey,
+        agentName: user,
+        agentId: row.userId || row.UserId || row.UserID || '',
+        breakMinutes: 0,
+        lunchMinutes: 0
+      });
     }
 
-    const scheduledMinutes = resolveMinutesFromRow_(row, scheduledMinutesIdx, scheduledStartIdx, scheduledEndIdx, timezone);
-    const workedMinutes = resolveMinutesFromRow_(row, workedMinutesIdx, actualStartIdx, actualEndIdx, timezone);
-
-    const adherencePercent = adherenceIdx !== -1 ? resolveNumericValue_(row[adherenceIdx]) : 0;
-    const compliancePercent = complianceIdx !== -1 ? resolveNumericValue_(row[complianceIdx]) : adherencePercent;
-    const compliantEvents = resolveNumericValue_(row[compliantEventsIdx]);
-    const nonCompliantEvents = resolveNumericValue_(row[nonCompliantEventsIdx]);
-
-    const dateKey = Utilities.formatDate(localDateOnly, timezone, 'yyyy-MM-dd');
-    const weekStartKey = resolveWeekStartKey_(localDateOnly, timezone);
-
-    rows.push({
-      dateKey,
-      weekStartKey,
-      agentName,
-      agentId,
-      adherencePercent,
-      compliancePercent,
-      scheduledMinutes,
-      workedMinutes,
-      compliantEvents,
-      nonCompliantEvents
-    });
+    const target = entries.get(entryKey);
+    if (isBreak && !isLunch) {
+      target.breakMinutes += durationMinutes;
+    } else if (isLunch && !isBreak) {
+      target.lunchMinutes += durationMinutes;
+    } else {
+      // Ambiguous state text; split evenly to avoid losing minutes
+      target.breakMinutes += durationMinutes / 2;
+      target.lunchMinutes += durationMinutes / 2;
+    }
   }
 
-  return rows;
+  return Array.from(entries.values()).map(entry => {
+    const overBreakMinutes = Math.max(0, Math.round((entry.breakMinutes - 30) * 100) / 100);
+    const overLunchMinutes = Math.max(0, Math.round((entry.lunchMinutes - 30) * 100) / 100);
+    const adherent = overBreakMinutes <= 0 && overLunchMinutes <= 0;
+
+    return {
+      ...entry,
+      breakMinutes: Math.round(entry.breakMinutes * 100) / 100,
+      lunchMinutes: Math.round(entry.lunchMinutes * 100) / 100,
+      overBreakMinutes,
+      overLunchMinutes,
+      adherencePercent: adherent ? 100 : 0,
+      compliancePercent: adherent ? 100 : 0,
+      adherenceFlag: adherent ? 'Adherent' : 'Non-adherent'
+    };
+  }).sort((a, b) => a.dateKey.localeCompare(b.dateKey) || a.agentName.localeCompare(b.agentName));
 }
 
 function resolveMinutesFromRow_(row, explicitMinutesIdx, startIdx, endIdx, timezone) {
@@ -4067,9 +4174,17 @@ function resolveMinutesFromRow_(row, explicitMinutesIdx, startIdx, endIdx, timez
 }
 
 function parseDateWithTimezone_(date, timezone) {
-  const iso = Utilities.formatDate(date, timezone, "yyyy-MM-dd'T'HH:mm:ss'Z'");
-  const normalized = new Date(iso);
-  return normalized.getTime();
+  if (!(date instanceof Date) || isNaN(date.getTime())) {
+    return NaN;
+  }
+
+  if (typeof Utilities !== 'undefined' && Utilities.formatDate) {
+    const iso = Utilities.formatDate(date, timezone, "yyyy-MM-dd'T'HH:mm:ss'Z'");
+    const normalized = new Date(iso);
+    return normalized.getTime();
+  }
+
+  return date.getTime();
 }
 
 function resolveNumericValue_(value) {
@@ -4080,121 +4195,310 @@ function resolveNumericValue_(value) {
   return 0;
 }
 
+function formatDateKeyInZone_(date, timezone) {
+  if (!(date instanceof Date) || isNaN(date.getTime())) {
+    return '';
+  }
+
+  if (typeof Utilities !== 'undefined' && Utilities.formatDate) {
+    return Utilities.formatDate(date, timezone, 'yyyy-MM-dd');
+  }
+
+  return date.toISOString().slice(0, 10);
+}
+
 function resolveWeekStartKey_(date, timezone) {
-  const localized = Utilities.formatDate(date, timezone, 'yyyy-MM-dd');
+  const localized = formatDateKeyInZone_(date, timezone);
+  if (!localized) {
+    return '';
+  }
+
   const base = new Date(localized + 'T00:00:00.000Z');
   const day = base.getUTCDay();
   const diff = (day === 0 ? -6 : 1 - day);
   const weekStart = new Date(base);
   weekStart.setUTCDate(base.getUTCDate() + diff);
-  return Utilities.formatDate(weekStart, timezone, 'yyyy-MM-dd');
+
+  return formatDateKeyInZone_(weekStart, timezone);
 }
 
-function summarizeWeeklyAdherence_(dailyRows, timezone) {
-  const weeklyMap = new Map();
+function normalizeDurationMinutes_(rawValue) {
+  if (rawValue == null) {
+    return 0;
+  }
+
+  if (typeof rawValue === 'string') {
+    const trimmed = rawValue.trim();
+    const hhmmssMatch = trimmed.match(/^([0-9]{1,2}):([0-9]{1,2})(?::([0-9]{1,2}))?$/);
+    if (hhmmssMatch) {
+      const hours = Number(hhmmssMatch[1]);
+      const minutes = Number(hhmmssMatch[2]);
+      const seconds = hhmmssMatch[3] ? Number(hhmmssMatch[3]) : 0;
+      const totalMinutes = (hours * 60) + minutes + (seconds / 60);
+      return Math.round(totalMinutes * 100) / 100;
+    }
+  }
+
+  const value = Number(rawValue);
+  if (!Number.isFinite(value) || value <= 0) {
+    return 0;
+  }
+
+  const asMinutes = value > 300 ? value / 60 : value;
+  return Math.round(asMinutes * 100) / 100;
+}
+
+function summarizeAgentAdherence_(dailyRows) {
+  const agents = new Map();
 
   dailyRows.forEach(row => {
-    const key = `${row.agentName}|${row.agentId || ''}|${row.weekStartKey}`;
-    if (!weeklyMap.has(key)) {
-      weeklyMap.set(key, {
-        weekStartKey: row.weekStartKey,
-        agentName: row.agentName,
-        agentId: row.agentId || '',
-        adherenceWeighted: 0,
-        complianceWeighted: 0,
-        weight: 0,
-        daysWithData: 0,
-        scheduledMinutes: 0,
-        workedMinutes: 0,
-        compliantEvents: 0,
-        nonCompliantEvents: 0
+    const agentId = String(row.agentId || '').trim();
+    const agentName = row.agentName || 'Unknown';
+    const key = agentId || agentName;
+    if (!agents.has(key)) {
+      agents.set(key, {
+        agentName,
+        agentId,
+        eligibleDays: 0,
+        adherentDays: 0,
+        nonAdherentDays: 0,
+        totalOverMinutes: 0
       });
     }
 
-    const entry = weeklyMap.get(key);
-    const weight = Number(row.scheduledMinutes) || 0;
-    const adherence = Number(row.adherencePercent) || 0;
-    const compliance = Number(row.compliancePercent) || 0;
-    if (weight > 0) {
-      entry.adherenceWeighted += adherence * weight;
-      entry.complianceWeighted += compliance * weight;
-      entry.weight += weight;
+    const summary = agents.get(key);
+    summary.eligibleDays += 1;
+    summary.totalOverMinutes += (row.overBreakMinutes || 0) + (row.overLunchMinutes || 0);
+    if (row.adherencePercent === 100) {
+      summary.adherentDays += 1;
     } else {
-      entry.adherenceWeighted += adherence;
-      entry.complianceWeighted += compliance;
-      entry.weight += 1;
+      summary.nonAdherentDays += 1;
     }
-
-    entry.daysWithData += 1;
-    entry.scheduledMinutes += Number(row.scheduledMinutes) || 0;
-    entry.workedMinutes += Number(row.workedMinutes) || 0;
-    entry.compliantEvents += Number(row.compliantEvents) || 0;
-    entry.nonCompliantEvents += Number(row.nonCompliantEvents) || 0;
   });
 
-  return Array.from(weeklyMap.values()).map(entry => ({
-    weekStartKey: entry.weekStartKey,
-    agentName: entry.agentName,
-    agentId: entry.agentId,
-    adherencePercent: entry.weight > 0 ? Math.round((entry.adherenceWeighted / entry.weight) * 10) / 10 : 0,
-    compliancePercent: entry.weight > 0 ? Math.round((entry.complianceWeighted / entry.weight) * 10) / 10 : 0,
-    daysWithData: entry.daysWithData,
-    scheduledMinutes: entry.scheduledMinutes,
-    workedMinutes: entry.workedMinutes,
-    compliantEvents: entry.compliantEvents,
-    nonCompliantEvents: entry.nonCompliantEvents
-  }));
+  return Array.from(agents.values()).map(entry => ({
+    ...entry,
+    adherencePercent: entry.eligibleDays > 0
+      ? Math.round((entry.adherentDays / entry.eligibleDays) * 1000) / 10
+      : 0
+  })).sort((a, b) => (a.agentName || '').localeCompare(b.agentName || '')
+    || (a.agentId || '').localeCompare(b.agentId || ''));
 }
 
-function summarizeOverallAdherence_(dailyRows) {
-  if (!Array.isArray(dailyRows) || !dailyRows.length) {
+  function summarizeWeeklyBreakLunch_(dailyRows) {
+    const weekly = new Map();
+
+  dailyRows.forEach(row => {
+    const agentId = String(row.agentId || '').trim();
+    const agentName = row.agentName || 'Unknown';
+    const key = `${row.weekStartKey}|${agentId || agentName}`;
+    if (!weekly.has(key)) {
+      weekly.set(key, {
+        weekStartKey: row.weekStartKey,
+        agentName,
+        agentId,
+        adherentDays: 0,
+        nonAdherentDays: 0,
+        totalOverMinutes: 0
+      });
+    }
+
+    const summary = weekly.get(key);
+    summary.totalOverMinutes += (row.overBreakMinutes || 0) + (row.overLunchMinutes || 0);
+    if (row.adherencePercent === 100) {
+      summary.adherentDays += 1;
+    } else {
+      summary.nonAdherentDays += 1;
+    }
+  });
+
+    return Array.from(weekly.values()).map(entry => ({
+      ...entry,
+      adherencePercent: (entry.adherentDays + entry.nonAdherentDays) > 0
+        ? Math.round((entry.adherentDays / (entry.adherentDays + entry.nonAdherentDays)) * 1000) / 10
+        : 0
+    })).sort((a, b) => a.weekStartKey.localeCompare(b.weekStartKey)
+      || (a.agentName || '').localeCompare(b.agentName || '')
+      || (a.agentId || '').localeCompare(b.agentId || ''));
+  }
+
+  function formatDateWithFallback_(date, timezone, format) {
+    if (!(date instanceof Date) || isNaN(date.getTime())) {
+      return '';
+    }
+
+    if (typeof Utilities !== 'undefined' && Utilities.formatDate) {
+      try {
+        return Utilities.formatDate(date, timezone, format);
+      } catch (err) {
+        console.warn('Utilities.formatDate failed, using local fallback', err);
+      }
+    }
+
+    const tz = timezone || 'UTC';
+    const zonedDate = new Date(date.toLocaleString('en-US', { timeZone: tz }));
+    const year = zonedDate.getFullYear();
+    const month = zonedDate.getMonth();
+    const day = zonedDate.getDate();
+
+    if (format === 'yyyy-MM-dd') {
+      const mm = String(month + 1).padStart(2, '0');
+      const dd = String(day).padStart(2, '0');
+      return `${year}-${mm}-${dd}`;
+    }
+
+    if (format === 'MMM d') {
+      return zonedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: tz });
+    }
+
+    return zonedDate.toISOString();
+  }
+
+  function buildWeeklyAdherenceMatrix_(dailyRows, timezone) {
+    if (!Array.isArray(dailyRows) || dailyRows.length === 0) {
+      return [];
+    }
+
+    const formatDate = (date, fmt) => {
+      if (typeof Utilities !== 'undefined' && Utilities.formatDate) {
+        return Utilities.formatDate(date, timezone, fmt);
+      }
+      return formatDateWithFallback_(date, timezone, fmt);
+    };
+
+    const weeks = new Map();
+
+    dailyRows.forEach(row => {
+      const weekStartKey = row.weekStartKey;
+      if (!weekStartKey) {
+        return;
+      }
+
+      if (!weeks.has(weekStartKey)) {
+        const [year, month, day] = weekStartKey.split('-').map(Number);
+        const baseDate = createDateInLocalTime(year, month, day, 0, 0, 0) || new Date(`${weekStartKey}T00:00:00.000Z`);
+
+        const dayKeys = [];
+        const dayLabels = [];
+        for (let i = 0; i < 7; i++) {
+          const dayDate = new Date(baseDate);
+          dayDate.setDate(baseDate.getDate() + i);
+          dayKeys.push(formatDate(dayDate, 'yyyy-MM-dd'));
+          dayLabels.push(formatDate(dayDate, 'MMM d'));
+        }
+
+        weeks.set(weekStartKey, {
+          weekStartKey,
+          dayKeys,
+          dayLabels,
+          agents: new Map()
+        });
+      }
+
+      const week = weeks.get(weekStartKey);
+      const agentId = String(row.agentId || '').trim();
+      const agentName = row.agentName || 'Unknown';
+      const agentKey = agentId || agentName;
+
+      if (!week.agents.has(agentKey)) {
+        week.agents.set(agentKey, {
+          agentName,
+          agentId,
+          dayMap: new Map(),
+          adherentDays: 0,
+          totalOverMinutes: 0
+        });
+      }
+
+      week.agents.get(agentKey).dayMap.set(row.dateKey, row);
+    });
+
+    const WORK_WEEK_DAYS = 5;
+
+    const weeksArray = Array.from(weeks.values()).map(week => {
+      const rows = Array.from(week.agents.values()).map(agent => {
+        let adherentDays = 0;
+        let totalOverMinutes = 0;
+
+        const dayDetails = week.dayKeys.map((dateKey, idx) => {
+          const entry = agent.dayMap.get(dateKey);
+          if (!entry) {
+            return null;
+          }
+
+          const percent = Number(entry.adherencePercent) || 0;
+          const overMinutes = (Number(entry.overBreakMinutes) || 0) + (Number(entry.overLunchMinutes) || 0);
+
+          totalOverMinutes += overMinutes;
+          if (percent === 100) {
+            adherentDays += 1;
+          }
+
+          return {
+            percent,
+            breakMinutes: Math.round((Number(entry.breakMinutes) || 0) * 100) / 100,
+            lunchMinutes: Math.round((Number(entry.lunchMinutes) || 0) * 100) / 100,
+            overMinutes: Math.round(overMinutes * 100) / 100,
+            weekday: idx >= 0 && idx <= 4
+          };
+        });
+
+        const weeklyPercent = adherentDays > 0
+          ? Math.round(((adherentDays / WORK_WEEK_DAYS) * 100) * 10) / 10
+          : 0;
+
+        return {
+          agentName: agent.agentName,
+          agentId: agent.agentId,
+          dayDetails,
+          weeklyPercent,
+          adherentDays,
+          totalOverMinutes: Math.round(totalOverMinutes * 100) / 100
+        };
+      }).sort((a, b) => (a.agentName || '').localeCompare(b.agentName || '')
+        || (a.agentId || '').localeCompare(b.agentId || ''));
+
+      return {
+        weekStartKey: week.weekStartKey,
+        dayKeys: week.dayKeys,
+        dayLabels: week.dayLabels,
+        rows
+      };
+    });
+
+    return weeksArray.sort((a, b) => a.weekStartKey.localeCompare(b.weekStartKey));
+  }
+
+function summarizeOverallBreakLunch_(agentSummaries) {
+  if (!Array.isArray(agentSummaries) || agentSummaries.length === 0) {
     return {
-      adherencePercent: 0,
-      compliancePercent: 0,
-      agentDays: 0,
-      scheduledMinutes: 0,
-      workedMinutes: 0,
-      compliantEvents: 0,
-      nonCompliantEvents: 0
+      overallAdherencePercent: 0,
+      totalEligibleDays: 0,
+      totalAdherentDays: 0,
+      totalNonAdherentDays: 0,
+      totalOverMinutes: 0
     };
   }
 
-  let adherenceWeighted = 0;
-  let complianceWeighted = 0;
-  let weight = 0;
-  let scheduledMinutes = 0;
-  let workedMinutes = 0;
-  let compliantEvents = 0;
-  let nonCompliantEvents = 0;
-
-  dailyRows.forEach(row => {
-    const rowWeight = Number(row.scheduledMinutes) || 0;
-    const adherence = Number(row.adherencePercent) || 0;
-    const compliance = Number(row.compliancePercent) || 0;
-    if (rowWeight > 0) {
-      adherenceWeighted += adherence * rowWeight;
-      complianceWeighted += compliance * rowWeight;
-      weight += rowWeight;
-    } else {
-      adherenceWeighted += adherence;
-      complianceWeighted += compliance;
-      weight += 1;
-    }
-    scheduledMinutes += Number(row.scheduledMinutes) || 0;
-    workedMinutes += Number(row.workedMinutes) || 0;
-    compliantEvents += Number(row.compliantEvents) || 0;
-    nonCompliantEvents += Number(row.nonCompliantEvents) || 0;
+  const totals = agentSummaries.reduce((acc, entry) => {
+    acc.totalEligibleDays += entry.eligibleDays;
+    acc.totalAdherentDays += entry.adherentDays;
+    acc.totalNonAdherentDays += entry.nonAdherentDays;
+    acc.totalOverMinutes += entry.totalOverMinutes;
+    return acc;
+  }, {
+    overallAdherencePercent: 0,
+    totalEligibleDays: 0,
+    totalAdherentDays: 0,
+    totalNonAdherentDays: 0,
+    totalOverMinutes: 0
   });
 
-  return {
-    adherencePercent: weight > 0 ? Math.round((adherenceWeighted / weight) * 10) / 10 : 0,
-    compliancePercent: weight > 0 ? Math.round((complianceWeighted / weight) * 10) / 10 : 0,
-    agentDays: dailyRows.length,
-    scheduledMinutes,
-    workedMinutes,
-    compliantEvents,
-    nonCompliantEvents
-  };
+  totals.overallAdherencePercent = totals.totalEligibleDays > 0
+    ? Math.round((totals.totalAdherentDays / totals.totalEligibleDays) * 1000) / 10
+    : 0;
+
+  return totals;
 }
 
 // ────────────────────────────────────────────────────────────────────────────
