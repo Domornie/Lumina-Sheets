@@ -3635,154 +3635,202 @@ function buildDailyPivotFileBase(granularity, periodValue) {
 
 function exportAdherenceComplianceSheet(payload) {
   return rpc('exportAdherenceComplianceSheet', () => {
-    if (typeof SpreadsheetApp === 'undefined' || typeof DriveApp === 'undefined') {
-      return { success: false, error: 'Google Drive is unavailable for exports.' };
-    }
-
-    const timezone = ATTENDANCE_TIMEZONE
-      || ((typeof Session !== 'undefined' && typeof Session.getScriptTimeZone === 'function')
-        ? Session.getScriptTimeZone()
-        : 'America/Jamaica');
-
-    const periodType = (payload && payload.periodType) ? String(payload.periodType).trim() : 'custom';
-    const startDateIso = (payload && payload.startDateIso) ? String(payload.startDateIso).trim() : '';
-    const endDateIso = (payload && payload.endDateIso) ? String(payload.endDateIso).trim() : '';
-
-    const filterUsers = Array.isArray(payload?.users) ? payload.users : [];
-    let exportData;
+    let fileId = '';
     try {
-      exportData = buildAdherenceComplianceDataset_(periodType, startDateIso, endDateIso, filterUsers, timezone);
-    } catch (rangeError) {
-      return { success: false, error: rangeError.message || 'Unable to prepare adherence range.' };
-    }
-    if (!exportData || !Array.isArray(exportData.dailyRows) || exportData.dailyRows.length === 0) {
-      return { success: false, error: 'No adherence data available to export.' };
-    }
-
-    const now = new Date();
-    const exportStartIso = Utilities.formatDate(exportData.startDate, timezone, 'yyyy-MM-dd');
-    const exportEndIso = Utilities.formatDate(exportData.endDate, timezone, 'yyyy-MM-dd');
-    const periodLabel = exportData.periodLabel
-      || `${exportStartIso} to ${exportEndIso}`;
-    const userScope = exportData.userScopeLabel || 'All Users';
-    const spreadsheetName = (payload?.spreadsheetName && payload.spreadsheetName.trim())
-      ? payload.spreadsheetName.trim()
-      : `Adherence & Compliance ${Utilities.formatDate(now, timezone, 'yyyy-MM-dd')}`;
-    const sheetTitle = 'Adherence & Compliance';
-
-    const spreadsheet = SpreadsheetApp.create(spreadsheetName);
-    const sheet = spreadsheet.getActiveSheet();
-    sheet.setName(sheetTitle);
-
-    let currentRow = 1;
-    const weeklyMatrices = Array.isArray(exportData.weeklyMatrices) ? exportData.weeklyMatrices : [];
-
-    const adherenceColorForPercent = (percent) => {
-      if (!Number.isFinite(percent)) return '#f8fafc';
-      if (percent > 110) return '#0ea5e9';
-      if (percent >= 100) return '#22c55e';
-      if (percent >= 90) return '#f59e0b';
-      return '#ef4444';
-    };
-
-    const adherenceFontForPercent = (percent) => {
-      if (!Number.isFinite(percent)) return '#0f172a';
-      if (percent >= 90 && percent < 100) return '#0f172a';
-      if (percent > 110) return '#ffffff';
-      if (percent >= 100) return '#ffffff';
-      if (percent >= 80) return '#0f172a';
-      return '#ffffff';
-    };
-
-    weeklyMatrices.forEach((matrix, index) => {
-      sheet.getRange(currentRow, 1, 1, 1).setValue(`Daily Adherence Matrix • Week of ${matrix.weekStartKey}`);
-      sheet.getRange(currentRow, 1).setFontWeight('bold');
-      currentRow += 1;
-
-      const matrixHeaders = ['Agent', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday', 'Weekly %'];
-      sheet.getRange(currentRow, 1, 1, matrixHeaders.length)
-        .setValues([matrixHeaders])
-        .setFontWeight('bold')
-        .setBackground('#111827')
-        .setFontColor('#ffffff');
-      currentRow += 1;
-
-      const dateLabels = [''].concat(matrix.dayLabels || []).concat(['']);
-      sheet.getRange(currentRow, 1, 1, matrixHeaders.length)
-        .setValues([dateLabels])
-        .setFontWeight('bold')
-        .setBackground('#e2e8f0')
-        .setFontColor('#0f172a');
-      currentRow += 1;
-
-      const dataValues = (matrix.rows || []).map(row => {
-        const dayStrings = (row.dayDetails || []).map(detail => {
-          if (!detail) return '';
-          const value = Number(detail.percent) || 0;
-          const lunch = Number(detail.lunchMinutes) || 0;
-          const brk = Number(detail.breakMinutes) || 0;
-          return `${Math.round(value * 10) / 10}% (L:${lunch}m/B:${brk}m)`;
-        });
-        const weeklyPercentValue = Number(row.weeklyPercent) || 0;
-        return [row.agentName || 'Unknown', ...dayStrings, `${weeklyPercentValue}%`];
-      });
-
-      if (dataValues.length > 0) {
-        const dataRange = sheet.getRange(currentRow, 1, dataValues.length, matrixHeaders.length);
-        dataRange.setValues(dataValues);
-
-        const backgrounds = [];
-        const fontColors = [];
-        dataValues.forEach((row, rowIdx) => {
-          const bgRow = [];
-          const fontRow = [];
-          bgRow.push('#ffffff');
-          fontRow.push('#0f172a');
-
-          const matrixRow = matrix.rows[rowIdx];
-          (matrixRow.dayDetails || []).forEach((detail) => {
-            const percent = detail ? Number(detail.percent) || 0 : null;
-            const bg = adherenceColorForPercent(percent);
-            bgRow.push(bg);
-            fontRow.push(percent !== null ? adherenceFontForPercent(percent) : '#0f172a');
-          });
-
-          const weeklyPercentValue = Number(matrixRow.weeklyPercent) || 0;
-          bgRow.push(adherenceColorForPercent(weeklyPercentValue));
-          fontRow.push(adherenceFontForPercent(weeklyPercentValue));
-          backgrounds.push(bgRow);
-          fontColors.push(fontRow);
-        });
-
-        sheet.getRange(currentRow, 1, backgrounds.length, matrixHeaders.length).setBackgrounds(backgrounds).setFontColors(fontColors);
-
-        (matrix.rows || []).forEach((row, rowIdx) => {
-          (row.dayDetails || []).forEach((detail, detailIdx) => {
-            if (!detail) return;
-            const noteLines = [
-              `Lunch: ${detail.lunchMinutes || 0} minutes`,
-              `Break: ${detail.breakMinutes || 0} minutes`,
-              `Overage: ${detail.overMinutes || 0} minutes`
-            ];
-            sheet.getRange(currentRow + rowIdx, 2 + detailIdx).setNote(noteLines.join('\n'));
-          });
-        });
+      if (typeof SpreadsheetApp === 'undefined' || typeof DriveApp === 'undefined') {
+        return { success: false, error: 'Google Drive is unavailable for exports.' };
       }
 
-      const tableHeight = Math.max(1, dataValues.length);
-      const noteRow = currentRow + tableHeight;
-      sheet.getRange(noteRow, 1, 1, 3)
-        .setValues([[
-          'Weekly % is calculated from Monday–Sunday using recorded break and lunch entries for each agent.'
-        ]])
-        .setFontStyle('italic')
-        .setFontColor('#475569');
+      const timezone = ATTENDANCE_TIMEZONE
+        || ((typeof Session !== 'undefined' && typeof Session.getScriptTimeZone === 'function')
+          ? Session.getScriptTimeZone()
+          : 'America/Jamaica');
 
-      currentRow = noteRow + 2;
-      if (index === weeklyMatrices.length - 1) {
+      const periodType = (payload && payload.periodType) ? String(payload.periodType).trim() : 'custom';
+      const startDateIso = (payload && payload.startDateIso) ? String(payload.startDateIso).trim() : '';
+      const endDateIso = (payload && payload.endDateIso) ? String(payload.endDateIso).trim() : '';
+
+      const filterUsers = Array.isArray(payload?.users) ? payload.users : [];
+      let exportData;
+      try {
+        exportData = buildAdherenceComplianceDataset_(periodType, startDateIso, endDateIso, filterUsers, timezone);
+      } catch (rangeError) {
+        return { success: false, error: rangeError.message || 'Unable to prepare adherence range.' };
+      }
+      if (!exportData || !Array.isArray(exportData.dailyRows) || exportData.dailyRows.length === 0) {
+        return { success: false, error: 'No adherence data available to export.' };
+      }
+
+      const now = new Date();
+      const exportStartIso = Utilities.formatDate(exportData.startDate, timezone, 'yyyy-MM-dd');
+      const exportEndIso = Utilities.formatDate(exportData.endDate, timezone, 'yyyy-MM-dd');
+      const periodLabel = exportData.periodLabel
+        || `${exportStartIso} to ${exportEndIso}`;
+      const userScope = exportData.userScopeLabel || 'All Users';
+      const spreadsheetName = (payload?.spreadsheetName && payload.spreadsheetName.trim())
+        ? payload.spreadsheetName.trim()
+        : `Adherence & Compliance ${Utilities.formatDate(now, timezone, 'yyyy-MM-dd')}`;
+      const sheetTitle = 'Adherence & Compliance';
+
+      const spreadsheet = SpreadsheetApp.create(spreadsheetName);
+      const sheet = spreadsheet.getActiveSheet();
+      sheet.setName(sheetTitle);
+
+      let currentRow = 1;
+      const weeklyMatrices = Array.isArray(exportData.weeklyMatrices) ? exportData.weeklyMatrices : [];
+
+      const adherenceColorForPercent = (percent) => {
+        if (!Number.isFinite(percent)) return '#f8fafc';
+        if (percent >= 95) return '#22c55e';
+        if (percent >= 85) return '#f59e0b';
+        return '#ef4444';
+      };
+
+      const adherenceFontForPercent = (percent) => {
+        if (!Number.isFinite(percent)) return '#0f172a';
+        if (percent >= 95) return '#ffffff';
+        if (percent >= 85) return '#0f172a';
+        return '#ffffff';
+      };
+
+      weeklyMatrices.forEach((matrix, index) => {
+        sheet.getRange(currentRow, 1, 1, 1).setValue(`Daily Adherence Matrix • Week of ${matrix.weekStartKey}`);
+        sheet.getRange(currentRow, 1).setFontWeight('bold');
         currentRow += 1;
-      }
-    });
+
+        const matrixHeaders = ['Agent', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday', 'Weekly Adherence %', 'Compliance Status', 'Eligible Days'];
+        sheet.getRange(currentRow, 1, 1, matrixHeaders.length)
+          .setValues([matrixHeaders])
+          .setFontWeight('bold')
+          .setBackground('#111827')
+          .setFontColor('#ffffff');
+        currentRow += 1;
+
+        const dateLabels = [''].concat(matrix.dayLabels || []).concat(['', '', '']);
+        sheet.getRange(currentRow, 1, 1, matrixHeaders.length)
+          .setValues([dateLabels])
+          .setFontWeight('bold')
+          .setBackground('#e2e8f0')
+          .setFontColor('#0f172a');
+        currentRow += 1;
+
+        const dataValues = (matrix.rows || []).map(row => {
+          const dayStrings = (row.dayDetails || []).map(detail => {
+            if (!detail) return '';
+            const value = Number(detail.percent) || 0;
+            const lunch = Number(detail.lunchMinutes) || 0;
+            const brk = Number(detail.breakMinutes) || 0;
+            return `${Math.round(value * 10) / 10}% (L:${lunch}m/B:${brk}m)`;
+          });
+          const weeklyPercentValue = Number(row.weeklyPercent) || 0;
+          return [
+            row.agentName || 'Unknown',
+            ...dayStrings,
+            `${weeklyPercentValue}%`,
+            row.complianceStatus || '',
+            row.eligibleDays || 0
+          ];
+        });
+
+        if (dataValues.length > 0) {
+          const dataRange = sheet.getRange(currentRow, 1, dataValues.length, matrixHeaders.length);
+          dataRange.setValues(dataValues);
+
+          const backgrounds = [];
+          const fontColors = [];
+          dataValues.forEach((row, rowIdx) => {
+            const bgRow = [];
+            const fontRow = [];
+            bgRow.push('#ffffff');
+            fontRow.push('#0f172a');
+
+            const matrixRow = matrix.rows[rowIdx];
+            (matrixRow.dayDetails || []).forEach((detail) => {
+              const percent = detail ? Number(detail.percent) || 0 : null;
+              const bg = adherenceColorForPercent(percent);
+              bgRow.push(bg);
+              fontRow.push(percent !== null ? adherenceFontForPercent(percent) : '#0f172a');
+            });
+
+            const weeklyPercentValue = Number(matrixRow.weeklyPercent) || 0;
+            bgRow.push(adherenceColorForPercent(weeklyPercentValue));
+            fontRow.push(adherenceFontForPercent(weeklyPercentValue));
+            bgRow.push(matrixRow.complianceStatus === 'Pass' ? '#22c55e' : '#ef4444');
+            fontRow.push('#ffffff');
+            bgRow.push('#e2e8f0');
+            fontRow.push('#0f172a');
+            backgrounds.push(bgRow);
+            fontColors.push(fontRow);
+          });
+
+          sheet.getRange(currentRow, 1, backgrounds.length, matrixHeaders.length).setBackgrounds(backgrounds).setFontColors(fontColors);
+
+          (matrix.rows || []).forEach((row, rowIdx) => {
+            (row.dayDetails || []).forEach((detail, detailIdx) => {
+              if (!detail) return;
+              const noteLines = [
+                `Lunch: ${detail.lunchMinutes || 0} minutes`,
+                `Break: ${detail.breakMinutes || 0} minutes`,
+                `Overage: ${detail.overMinutes || 0} minutes`
+              ];
+              sheet.getRange(currentRow + rowIdx, 2 + detailIdx).setNote(noteLines.join('\n'));
+            });
+          });
+        }
+
+        const totalsStartRow = currentRow + (dataValues.length || 1);
+        const averageLabelRow = totalsStartRow;
+        const averageRowValues = ['Averages'];
+        const avgDayPercents = matrix.averages?.dayAverages || [];
+        avgDayPercents.forEach(val => {
+          if (val == null) {
+            averageRowValues.push('');
+          } else {
+            averageRowValues.push(`${val}%`);
+          }
+        });
+        averageRowValues.push(`${matrix.averages?.weeklyAverage || 0}%`);
+        averageRowValues.push(`Pass Rate ${matrix.averages?.complianceRate || 0}%`);
+        averageRowValues.push('');
+
+        sheet.getRange(averageLabelRow, 1, 1, matrixHeaders.length)
+          .setValues([averageRowValues])
+          .setFontWeight('bold')
+          .setBackground('#f1f5f9');
+
+        const avgBackgrounds = [[]];
+        const avgFonts = [[]];
+        averageRowValues.forEach((value, idx) => {
+          if (idx === 0 || idx === matrixHeaders.length - 1 || idx === matrixHeaders.length - 2) {
+            avgBackgrounds[0].push('#f1f5f9');
+            avgFonts[0].push('#0f172a');
+            return;
+          }
+          const numeric = typeof value === 'string' && value.includes('%')
+            ? Number(value.replace(/%/g, ''))
+            : null;
+          const bg = adherenceColorForPercent(numeric);
+          avgBackgrounds[0].push(bg);
+          avgFonts[0].push(adherenceFontForPercent(numeric));
+        });
+        sheet.getRange(averageLabelRow, 1, 1, matrixHeaders.length)
+          .setBackgrounds(avgBackgrounds)
+          .setFontColors(avgFonts);
+
+        const tableHeight = Math.max(1, dataValues.length + 1);
+        const noteRow = currentRow + tableHeight;
+        sheet.getRange(noteRow, 1, 1, 3)
+          .setValues([[
+            'Weekly % is calculated from Monday–Sunday using recorded break and lunch entries for each agent.'
+          ]])
+          .setFontStyle('italic')
+          .setFontColor('#475569');
+
+        currentRow = noteRow + 2;
+        if (index === weeklyMatrices.length - 1) {
+          currentRow += 1;
+        }
+      });
 
     // Daily Detail Section
     sheet.getRange(currentRow, 1, 1, 1).setValue('Daily Detail (Per Agent, Per Day)');
@@ -3815,11 +3863,12 @@ function exportAdherenceComplianceSheet(payload) {
       row.breakMinutes,
       row.overLunchMinutes,
       row.overBreakMinutes,
-      row.adherenceFlag
+      row.adherencePercent
     ]);
 
     sheet.getRange(currentRow, 1, dailyValues.length, dailyHeaders.length).setValues(dailyValues);
     sheet.getRange(currentRow, 5, dailyValues.length, 4).setNumberFormat('0.00');
+    sheet.getRange(currentRow, 9, dailyValues.length, 1).setNumberFormat('0.0');
     currentRow += dailyValues.length + 2;
 
     // Weekly Summary Section
@@ -3830,9 +3879,11 @@ function exportAdherenceComplianceSheet(payload) {
       'Week Start',
       'Agent Name',
       'Agent ID',
+      'Eligible Days',
       'Adherent Days',
       'Non-Adherent Days',
       'Weekly Adherence %',
+      'Compliance Status',
       'Total Over Minutes'
     ];
     sheet.getRange(currentRow, 1, 1, weeklyHeaders.length)
@@ -3846,16 +3897,20 @@ function exportAdherenceComplianceSheet(payload) {
       row.weekStartKey,
       row.agentName,
       row.agentId || '',
+      row.eligibleDays || (row.adherentDays + row.nonAdherentDays),
       row.adherentDays,
       row.nonAdherentDays,
       row.adherencePercent,
+      row.adherencePercent >= 95 ? 'Pass' : 'Fail',
       Math.round(row.totalOverMinutes || 0)
     ]);
 
     if (weeklyValues.length) {
       sheet.getRange(currentRow, 1, weeklyValues.length, weeklyHeaders.length)
         .setValues(weeklyValues);
-      sheet.getRange(currentRow, 6, weeklyValues.length, 2).setNumberFormat('0.0');
+      sheet.getRange(currentRow, 4, weeklyValues.length, 3).setNumberFormat('0');
+      sheet.getRange(currentRow, 7, weeklyValues.length, 1).setNumberFormat('0.0');
+      sheet.getRange(currentRow, 9, weeklyValues.length, 1).setNumberFormat('0');
     }
     currentRow += weeklyValues.length + 2;
 
@@ -3931,9 +3986,9 @@ function exportAdherenceComplianceSheet(payload) {
     sheet.getRange(currentRow, 6, 1, 1).setNumberFormat('0.0');
 
     sheet.autoResizeColumns(1, Math.max(dailyHeaders.length, weeklyHeaders.length, overallHeaders.length));
-    sheet.setFrozenRows(2);
+    sheet.setFrozenRows(3);
 
-    const fileId = spreadsheet.getId();
+    fileId = spreadsheet.getId();
     const spreadsheetUrl = spreadsheet.getUrl();
     let folderId = '';
     let folderName = '';
@@ -4161,7 +4216,13 @@ function resolveAdherencePeriodRange_(periodType, startDateIso, endDateIso, time
 }
 
 function loadBreakLunchAdherenceDaily_(startDate, endDate, userSet, timezone) {
-  const allRows = fetchAllAttendanceRows();
+  let allRows;
+  try {
+    allRows = fetchAllAttendanceRows();
+  } catch (attendanceError) {
+    console.warn('Unable to load attendance rows for adherence export:', attendanceError);
+    return [];
+  }
   if (!Array.isArray(allRows) || allRows.length === 0) {
     return [];
   }
@@ -4240,9 +4301,21 @@ function loadBreakLunchAdherenceDaily_(startDate, endDate, userSet, timezone) {
   }
 
   return Array.from(entries.values()).map(entry => {
-    const overBreakMinutes = Math.max(0, Math.round((entry.breakMinutes - 30) * 100) / 100);
-    const overLunchMinutes = Math.max(0, Math.round((entry.lunchMinutes - 30) * 100) / 100);
-    const adherent = overBreakMinutes <= 0 && overLunchMinutes <= 0;
+    const allowedBreak = 30;
+    const allowedLunch = 30;
+    const allowedTotal = allowedBreak + allowedLunch;
+
+    const overBreakMinutes = Math.max(0, Math.round((entry.breakMinutes - allowedBreak) * 100) / 100);
+    const overLunchMinutes = Math.max(0, Math.round((entry.lunchMinutes - allowedLunch) * 100) / 100);
+    const totalMinutes = Math.round((entry.breakMinutes + entry.lunchMinutes) * 100) / 100;
+    const overTotalMinutes = Math.max(0, Math.round((totalMinutes - allowedTotal) * 100) / 100);
+
+    let adherencePercent = 0;
+    if (totalMinutes > 0) {
+      adherencePercent = totalMinutes <= allowedTotal
+        ? 100
+        : Math.max(0, Math.round(((allowedTotal / totalMinutes) * 100) * 10) / 10);
+    }
 
     return {
       ...entry,
@@ -4250,9 +4323,10 @@ function loadBreakLunchAdherenceDaily_(startDate, endDate, userSet, timezone) {
       lunchMinutes: Math.round(entry.lunchMinutes * 100) / 100,
       overBreakMinutes,
       overLunchMinutes,
-      adherencePercent: adherent ? 100 : 0,
-      compliancePercent: adherent ? 100 : 0,
-      adherenceFlag: adherent ? 'Adherent' : 'Non-adherent'
+      overTotalMinutes,
+      adherencePercent,
+      compliancePercent: adherencePercent,
+      adherenceFlag: `${adherencePercent}%`
     };
   }).sort((a, b) => a.dateKey.localeCompare(b.dateKey) || a.agentName.localeCompare(b.agentName));
 }
@@ -4372,14 +4446,17 @@ function summarizeAgentAdherence_(dailyRows) {
         eligibleDays: 0,
         adherentDays: 0,
         nonAdherentDays: 0,
-        totalOverMinutes: 0
+        totalOverMinutes: 0,
+        totalPercent: 0
       });
     }
 
     const summary = agents.get(key);
     summary.eligibleDays += 1;
+    const dailyPercent = Number(row.adherencePercent) || 0;
+    summary.totalPercent += dailyPercent;
     summary.totalOverMinutes += (row.overBreakMinutes || 0) + (row.overLunchMinutes || 0);
-    if (row.adherencePercent === 100) {
+    if (dailyPercent >= 95) {
       summary.adherentDays += 1;
     } else {
       summary.nonAdherentDays += 1;
@@ -4389,7 +4466,7 @@ function summarizeAgentAdherence_(dailyRows) {
   return Array.from(agents.values()).map(entry => ({
     ...entry,
     adherencePercent: entry.eligibleDays > 0
-      ? Math.round((entry.adherentDays / entry.eligibleDays) * 1000) / 10
+      ? Math.round((entry.totalPercent / entry.eligibleDays) * 10) / 10
       : 0
   })).sort((a, b) => (a.agentName || '').localeCompare(b.agentName || '')
     || (a.agentId || '').localeCompare(b.agentId || ''));
@@ -4409,13 +4486,18 @@ function summarizeAgentAdherence_(dailyRows) {
         agentId,
         adherentDays: 0,
         nonAdherentDays: 0,
-        totalOverMinutes: 0
+        totalOverMinutes: 0,
+        eligibleDays: 0,
+        totalPercent: 0
       });
     }
 
     const summary = weekly.get(key);
+    summary.eligibleDays += 1;
     summary.totalOverMinutes += (row.overBreakMinutes || 0) + (row.overLunchMinutes || 0);
-    if (row.adherencePercent === 100) {
+    const dailyPercent = Number(row.adherencePercent) || 0;
+    summary.totalPercent += dailyPercent;
+    if (dailyPercent >= 95) {
       summary.adherentDays += 1;
     } else {
       summary.nonAdherentDays += 1;
@@ -4424,9 +4506,10 @@ function summarizeAgentAdherence_(dailyRows) {
 
     return Array.from(weekly.values()).map(entry => ({
       ...entry,
-      adherencePercent: (entry.adherentDays + entry.nonAdherentDays) > 0
-        ? Math.round((entry.adherentDays / (entry.adherentDays + entry.nonAdherentDays)) * 1000) / 10
-        : 0
+      adherencePercent: entry.eligibleDays > 0
+        ? Math.round((entry.totalPercent / entry.eligibleDays) * 10) / 10
+        : 0,
+      eligibleDays: entry.eligibleDays
     })).sort((a, b) => a.weekStartKey.localeCompare(b.weekStartKey)
       || (a.agentName || '').localeCompare(b.agentName || '')
       || (a.agentId || '').localeCompare(b.agentId || ''));
@@ -4528,6 +4611,7 @@ function summarizeAgentAdherence_(dailyRows) {
         let adherentDays = 0;
         let totalOverMinutes = 0;
         let eligibleDays = 0;
+        let totalPercent = 0;
 
         const dayDetails = week.dayKeys.map((dateKey, idx) => {
           const entry = agent.dayMap.get(dateKey);
@@ -4540,7 +4624,8 @@ function summarizeAgentAdherence_(dailyRows) {
 
           totalOverMinutes += overMinutes;
           eligibleDays += 1;
-          if (percent === 100) {
+          totalPercent += percent;
+          if (percent >= 95) {
             adherentDays += 1;
           }
 
@@ -4554,7 +4639,7 @@ function summarizeAgentAdherence_(dailyRows) {
         });
 
         const weeklyPercent = eligibleDays > 0
-          ? Math.round(((adherentDays / eligibleDays) * 100) * 10) / 10
+          ? Math.round(((totalPercent / eligibleDays)) * 10) / 10
           : 0;
 
         return {
@@ -4563,16 +4648,44 @@ function summarizeAgentAdherence_(dailyRows) {
           dayDetails,
           weeklyPercent,
           adherentDays,
-          totalOverMinutes: Math.round(totalOverMinutes * 100) / 100
+          totalOverMinutes: Math.round(totalOverMinutes * 100) / 100,
+          eligibleDays,
+          complianceStatus: weeklyPercent >= 95 ? 'Pass' : 'Fail'
         };
       }).sort((a, b) => (a.agentName || '').localeCompare(b.agentName || '')
         || (a.agentId || '').localeCompare(b.agentId || ''));
+
+      const dayAverages = week.dayKeys.map(dateKey => {
+        const values = [];
+        week.agents.forEach(agent => {
+          const entry = agent.dayMap.get(dateKey);
+          if (entry && Number.isFinite(entry.adherencePercent)) {
+            values.push(Number(entry.adherencePercent));
+          }
+        });
+        if (!values.length) return null;
+        const avg = values.reduce((sum, val) => sum + val, 0) / values.length;
+        return Math.round(avg * 10) / 10;
+      });
+
+      const weeklyPercents = rows.map(r => Number(r.weeklyPercent) || 0).filter(val => Number.isFinite(val));
+      const weeklyAverage = weeklyPercents.length
+        ? Math.round((weeklyPercents.reduce((sum, val) => sum + val, 0) / weeklyPercents.length) * 10) / 10
+        : 0;
+      const complianceRate = rows.length
+        ? Math.round(((rows.filter(r => (Number(r.weeklyPercent) || 0) >= 95).length / rows.length) * 100) * 10) / 10
+        : 0;
 
       return {
         weekStartKey: week.weekStartKey,
         dayKeys: week.dayKeys,
         dayLabels: week.dayLabels,
-        rows
+        rows,
+        averages: {
+          dayAverages,
+          weeklyAverage,
+          complianceRate
+        }
       };
     });
 
