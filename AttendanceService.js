@@ -3994,41 +3994,45 @@ function exportAdherenceComplianceSheet(payload) {
     let folderName = '';
     let folderUrl = '';
 
-    try {
-      const file = DriveApp.getFileById(fileId);
+      let file;
       try {
-        file.setDescription(`Adherence & Compliance • ${periodLabel}`);
-      } catch (descriptionError) {
-        console.warn('Unable to set adherence export description:', descriptionError);
-      }
+        file = DriveApp.getFileById(fileId);
+        try {
+          file.setDescription(`Adherence & Compliance • ${periodLabel}`);
+        } catch (descriptionError) {
+          console.warn('Unable to set adherence export description:', descriptionError);
+        }
 
-      const activeUserEmail = getActiveUserEmailSafe();
-      try {
-        const folder = ensureAttendanceExportFolderForActiveUser();
-        if (folder) {
-          folderId = folder.getId();
-          folderName = folder.getName();
-          folderUrl = folder.getUrl();
+        const activeUserEmail = getActiveUserEmailSafe();
+        try {
+          const folder = ensureAttendanceExportFolderForActiveUser();
+          if (folder) {
+            folderId = folder.getId();
+            folderName = folder.getName();
+            folderUrl = folder.getUrl();
 
-          folder.addFile(file);
+            folder.addFile(file);
+            try {
+              DriveApp.getRootFolder().removeFile(file);
+            } catch (removeError) {
+              console.warn('Unable to detach adherence export from root folder:', removeError);
+            }
+          }
+        } catch (folderError) {
+          console.warn('Unable to place adherence export in attendance folder:', folderError);
+        }
+
+        if (activeUserEmail) {
           try {
-            DriveApp.getRootFolder().removeFile(file);
-          } catch (removeError) {
-            console.warn('Unable to detach adherence export from root folder:', removeError);
+            ensureDriveEntityAccessForUser(file, activeUserEmail);
+          } catch (shareError) {
+            console.warn('Unable to confirm sharing adherence export with active user:', shareError);
           }
         }
-      } catch (folderError) {
-        console.warn('Unable to place adherence export in attendance folder:', folderError);
+        ensureDriveEntityLinkViewAccess(file);
+      } catch (fileAccessError) {
+        console.warn('Unable to finalize adherence export file:', fileAccessError);
       }
-
-      if (activeUserEmail) {
-        try {
-          ensureDriveEntityAccessForUser(file, activeUserEmail);
-        } catch (shareError) {
-          console.warn('Unable to confirm sharing adherence export with active user:', shareError);
-        }
-      }
-      ensureDriveEntityLinkViewAccess(file);
 
       return {
         success: true,
