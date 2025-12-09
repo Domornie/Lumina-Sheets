@@ -3644,21 +3644,26 @@ function exportAdherenceComplianceSheet(payload) {
         ? Session.getScriptTimeZone()
         : 'America/Jamaica');
 
+    const periodType = (payload && payload.periodType) ? String(payload.periodType).trim() : 'custom';
     const startDateIso = (payload && payload.startDateIso) ? String(payload.startDateIso).trim() : '';
     const endDateIso = (payload && payload.endDateIso) ? String(payload.endDateIso).trim() : '';
-    if (!startDateIso || !endDateIso) {
-      return { success: false, error: 'A start date and end date are required for the adherence export.' };
-    }
 
     const filterUsers = Array.isArray(payload?.users) ? payload.users : [];
-
-    const exportData = buildAdherenceComplianceDataset_(startDateIso, endDateIso, filterUsers, timezone);
+    let exportData;
+    try {
+      exportData = buildAdherenceComplianceDataset_(periodType, startDateIso, endDateIso, filterUsers, timezone);
+    } catch (rangeError) {
+      return { success: false, error: rangeError.message || 'Unable to prepare adherence range.' };
+    }
     if (!exportData || !Array.isArray(exportData.dailyRows) || exportData.dailyRows.length === 0) {
       return { success: false, error: 'No adherence data available to export.' };
     }
 
     const now = new Date();
-    const periodLabel = `${Utilities.formatDate(exportData.startDate, timezone, 'yyyy-MM-dd')} to ${Utilities.formatDate(exportData.endDate, timezone, 'yyyy-MM-dd')}`;
+    const exportStartIso = Utilities.formatDate(exportData.startDate, timezone, 'yyyy-MM-dd');
+    const exportEndIso = Utilities.formatDate(exportData.endDate, timezone, 'yyyy-MM-dd');
+    const periodLabel = exportData.periodLabel
+      || `${exportStartIso} to ${exportEndIso}`;
     const userScope = exportData.userScopeLabel || 'All Users';
     const spreadsheetName = (payload?.spreadsheetName && payload.spreadsheetName.trim())
       ? payload.spreadsheetName.trim()
@@ -3768,7 +3773,7 @@ function exportAdherenceComplianceSheet(payload) {
       const noteRow = currentRow + tableHeight;
       sheet.getRange(noteRow, 1, 1, 3)
         .setValues([[
-          'Weekly % uses Monday–Friday as the 100% baseline; compliant weekend days can push the rate above 100%.'
+          'Weekly % is calculated from Monday–Sunday using recorded break and lunch entries for each agent.'
         ]])
         .setFontStyle('italic')
         .setFontColor('#475569');
@@ -3861,6 +3866,7 @@ function exportAdherenceComplianceSheet(payload) {
     const agentHeaders = [
       'Agent Name',
       'Agent ID',
+      'Period',
       'Eligible Days',
       'Adherent Days',
       'Non-Adherent Days',
@@ -3877,6 +3883,7 @@ function exportAdherenceComplianceSheet(payload) {
     const agentValues = exportData.agentSummaries.map(row => [
       row.agentName,
       row.agentId || '',
+      exportData.periodLabel || '',
       row.eligibleDays,
       row.adherentDays,
       row.nonAdherentDays,
@@ -3887,7 +3894,7 @@ function exportAdherenceComplianceSheet(payload) {
     if (agentValues.length) {
       sheet.getRange(currentRow, 1, agentValues.length, agentHeaders.length)
         .setValues(agentValues);
-      sheet.getRange(currentRow, 7, agentValues.length, 1).setNumberFormat('0.0');
+      sheet.getRange(currentRow, 8, agentValues.length, 1).setNumberFormat('0.0');
     }
     currentRow += agentValues.length + 2;
 
@@ -3977,8 +3984,8 @@ function exportAdherenceComplianceSheet(payload) {
         sheetTitle,
         periodLabel,
         userScope,
-        startDateIso: startDateIso,
-        endDateIso: endDateIso,
+        startDateIso: exportStartIso,
+        endDateIso: exportEndIso,
         folderId,
         folderName,
         folderUrl,
@@ -4004,14 +4011,17 @@ function getAdherenceComplianceExportData(payload) {
         ? Session.getScriptTimeZone()
         : 'America/Jamaica');
 
+    const periodType = (payload && payload.periodType) ? String(payload.periodType).trim() : 'custom';
     const startDateIso = (payload && payload.startDateIso) ? String(payload.startDateIso).trim() : '';
     const endDateIso = (payload && payload.endDateIso) ? String(payload.endDateIso).trim() : '';
-    if (!startDateIso || !endDateIso) {
-      return { success: false, error: 'A start date and end date are required for the adherence export.' };
-    }
 
     const filterUsers = Array.isArray(payload?.users) ? payload.users : [];
-    const exportData = buildAdherenceComplianceDataset_(startDateIso, endDateIso, filterUsers, timezone);
+    let exportData;
+    try {
+      exportData = buildAdherenceComplianceDataset_(periodType, startDateIso, endDateIso, filterUsers, timezone);
+    } catch (rangeError) {
+      return { success: false, error: rangeError.message || 'Unable to prepare adherence range.' };
+    }
     if (!exportData || !Array.isArray(exportData.dailyRows) || exportData.dailyRows.length === 0) {
       return { success: false, error: 'No adherence data available to export.' };
     }
@@ -4020,15 +4030,8 @@ function getAdherenceComplianceExportData(payload) {
   }, { success: false, error: 'Unable to prepare adherence export data.' }, MAX_PROCESSING_TIME);
 }
 
-function buildAdherenceComplianceDataset_(startDateIso, endDateIso, filterUsers, timezone) {
-  const startDate = new Date(startDateIso);
-  const endDate = new Date(endDateIso);
-  if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
-    throw new Error('Invalid date range provided.');
-  }
-  if (startDate > endDate) {
-    throw new Error('Start date must be before end date.');
-  }
+function buildAdherenceComplianceDataset_(periodType, startDateIso, endDateIso, filterUsers, timezone) {
+  const { startDate, endDate, periodLabel } = resolveAdherencePeriodRange_(periodType, startDateIso, endDateIso, timezone);
 
   const normalizedStart = createDateInLocalTime(startDate.getFullYear(), startDate.getMonth() + 1, startDate.getDate(), 0, 0, 0);
   const normalizedEnd = createDateInLocalTime(endDate.getFullYear(), endDate.getMonth() + 1, endDate.getDate(), 23, 59, 59);
@@ -4047,7 +4050,114 @@ function buildAdherenceComplianceDataset_(startDateIso, endDateIso, filterUsers,
     ? `Selected Users (${userSet.size})`
     : 'All Users';
 
-  return { startDate: normalizedStart, endDate: normalizedEnd, dailyRows: adherenceDaily, weeklyRows, weeklyMatrices, agentSummaries, overall, userScopeLabel };
+  return {
+    startDate: normalizedStart,
+    endDate: normalizedEnd,
+    periodLabel,
+    dailyRows: adherenceDaily,
+    weeklyRows,
+    weeklyMatrices,
+    agentSummaries,
+    overall,
+    userScopeLabel
+  };
+}
+
+function resolveAdherencePeriodRange_(periodType, startDateIso, endDateIso, timezone) {
+  const normalizeDate = (value, isEnd) => {
+    const date = value instanceof Date ? value : new Date(value);
+    if (isNaN(date.getTime())) return null;
+    const hours = isEnd ? 23 : 0;
+    const minutes = isEnd ? 59 : 0;
+    const seconds = isEnd ? 59 : 0;
+    const millis = isEnd ? 999 : 0;
+    const adjusted = createDateInLocalTime(date.getFullYear(), date.getMonth() + 1, date.getDate(), hours, minutes, seconds);
+    adjusted.setMilliseconds(millis);
+    return adjusted;
+  };
+
+  const typeRaw = String(periodType || 'custom').toLowerCase();
+  const type = typeRaw.replace(/[^a-z]/g, '');
+  const anchor = normalizeDate(startDateIso || endDateIso || new Date());
+
+  if (!anchor) {
+    throw new Error('A valid date is required for adherence export.');
+  }
+
+  const formatWithTimezone = (date, format) => {
+    if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '';
+    if (typeof Utilities !== 'undefined' && Utilities.formatDate) {
+      try {
+        return Utilities.formatDate(date, timezone, format);
+      } catch (err) {
+        // fall through to local formatting
+      }
+    }
+    if (format === 'MMMM yyyy') {
+      return date.toLocaleString('default', { month: 'long', year: 'numeric' });
+    }
+    return date.toISOString().slice(0, 10);
+  };
+
+  const finalize = (start, end, label) => {
+    if (!(start instanceof Date) || !(end instanceof Date) || isNaN(start.getTime()) || isNaN(end.getTime())) {
+      throw new Error('Invalid date range provided.');
+    }
+    if (start.getTime() > end.getTime()) {
+      throw new Error('Start date must be before end date.');
+    }
+    return { startDate: start, endDate: end, periodLabel: label };
+  };
+
+  const weekStartKey = resolveWeekStartKey_(anchor, timezone);
+  const weekStartParts = weekStartKey ? weekStartKey.split('-').map(Number) : [];
+  const weekStartDate = weekStartParts.length === 3
+    ? createDateInLocalTime(weekStartParts[0], weekStartParts[1], weekStartParts[2], 0, 0, 0)
+    : normalizeDate(anchor, false);
+
+  switch (type) {
+    case 'week':
+    case 'weekly': {
+      const start = weekStartDate;
+      const end = createDateInLocalTime(start.getFullYear(), start.getMonth() + 1, start.getDate() + 6, 23, 59, 59);
+      return finalize(start, end, `Week of ${weekStartKey}`);
+    }
+    case 'biweekly':
+    case 'biweek': {
+      const start = weekStartDate;
+      const end = createDateInLocalTime(start.getFullYear(), start.getMonth() + 1, start.getDate() + 13, 23, 59, 59);
+      return finalize(start, end, `Bi-week of ${weekStartKey}`);
+    }
+    case 'month':
+    case 'monthly': {
+      const start = createDateInLocalTime(anchor.getFullYear(), anchor.getMonth() + 1, 1, 0, 0, 0);
+      const end = createDateInLocalTime(anchor.getFullYear(), anchor.getMonth() + 2, 0, 23, 59, 59);
+      return finalize(start, end, `Month of ${formatWithTimezone(start, 'MMMM yyyy')}`);
+    }
+    case 'quarter':
+    case 'quarterly': {
+      const quarterIndex = Math.floor(anchor.getMonth() / 3);
+      const start = createDateInLocalTime(anchor.getFullYear(), (quarterIndex * 3) + 1, 1, 0, 0, 0);
+      const end = createDateInLocalTime(anchor.getFullYear(), (quarterIndex * 3) + 4, 0, 23, 59, 59);
+      return finalize(start, end, `Q${quarterIndex + 1} ${anchor.getFullYear()}`);
+    }
+    case 'year':
+    case 'yearly': {
+      const start = createDateInLocalTime(anchor.getFullYear(), 1, 1, 0, 0, 0);
+      const end = createDateInLocalTime(anchor.getFullYear(), 12, 31, 23, 59, 59);
+      return finalize(start, end, `${anchor.getFullYear()}`);
+    }
+    case 'custom':
+    default: {
+      const customStart = normalizeDate(startDateIso, false);
+      const customEnd = normalizeDate(endDateIso, true);
+      if (!customStart || !customEnd) {
+        throw new Error('A start date and end date are required for the adherence export.');
+      }
+      const label = `${Utilities.formatDate(customStart, timezone, 'yyyy-MM-dd')} to ${Utilities.formatDate(customEnd, timezone, 'yyyy-MM-dd')}`;
+      return finalize(customStart, customEnd, label);
+    }
+  }
 }
 
 function loadBreakLunchAdherenceDaily_(startDate, endDate, userSet, timezone) {
@@ -4413,12 +4523,11 @@ function summarizeAgentAdherence_(dailyRows) {
       week.agents.get(agentKey).dayMap.set(row.dateKey, row);
     });
 
-    const WORK_WEEK_DAYS = 5;
-
     const weeksArray = Array.from(weeks.values()).map(week => {
       const rows = Array.from(week.agents.values()).map(agent => {
         let adherentDays = 0;
         let totalOverMinutes = 0;
+        let eligibleDays = 0;
 
         const dayDetails = week.dayKeys.map((dateKey, idx) => {
           const entry = agent.dayMap.get(dateKey);
@@ -4430,6 +4539,7 @@ function summarizeAgentAdherence_(dailyRows) {
           const overMinutes = (Number(entry.overBreakMinutes) || 0) + (Number(entry.overLunchMinutes) || 0);
 
           totalOverMinutes += overMinutes;
+          eligibleDays += 1;
           if (percent === 100) {
             adherentDays += 1;
           }
@@ -4443,8 +4553,8 @@ function summarizeAgentAdherence_(dailyRows) {
           };
         });
 
-        const weeklyPercent = adherentDays > 0
-          ? Math.round(((adherentDays / WORK_WEEK_DAYS) * 100) * 10) / 10
+        const weeklyPercent = eligibleDays > 0
+          ? Math.round(((adherentDays / eligibleDays) * 100) * 10) / 10
           : 0;
 
         return {
