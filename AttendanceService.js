@@ -3984,30 +3984,35 @@ function exportAdherenceComplianceSheet(payload) {
 }
 
   function getAdherenceComplianceExportData(payload) {
-  return rpc('getAdherenceComplianceExportData', () => {
-    const timezone = ATTENDANCE_TIMEZONE
-      || ((typeof Session !== 'undefined' && typeof Session.getScriptTimeZone === 'function')
-        ? Session.getScriptTimeZone()
-        : 'America/Jamaica');
+    return rpc(
+      'getAdherenceComplianceExportData',
+      () => {
+        const timezone = ATTENDANCE_TIMEZONE
+          || ((typeof Session !== 'undefined' && typeof Session.getScriptTimeZone === 'function')
+            ? Session.getScriptTimeZone()
+            : 'America/Jamaica');
 
-    const periodType = (payload && payload.periodType) ? String(payload.periodType).trim() : 'custom';
-    const startDateIso = (payload && payload.startDateIso) ? String(payload.startDateIso).trim() : '';
-    const endDateIso = (payload && payload.endDateIso) ? String(payload.endDateIso).trim() : '';
+        const periodType = (payload && payload.periodType) ? String(payload.periodType).trim() : 'custom';
+        const startDateIso = (payload && payload.startDateIso) ? String(payload.startDateIso).trim() : '';
+        const endDateIso = (payload && payload.endDateIso) ? String(payload.endDateIso).trim() : '';
 
-    const filterUsers = Array.isArray(payload?.users) ? payload.users : [];
-    let exportData;
-    try {
-      exportData = buildAdherenceComplianceDataset_(periodType, startDateIso, endDateIso, filterUsers, timezone);
-    } catch (rangeError) {
-      return { success: false, error: rangeError.message || 'Unable to prepare adherence range.' };
-    }
-    if (!exportData || !Array.isArray(exportData.dailyRows) || exportData.dailyRows.length === 0) {
-      return { success: false, error: 'No adherence data available to export.' };
-    }
+        const filterUsers = Array.isArray(payload && payload.users) ? payload.users : [];
+        let exportData;
+        try {
+          exportData = buildAdherenceComplianceDataset_(periodType, startDateIso, endDateIso, filterUsers, timezone);
+        } catch (rangeError) {
+          return { success: false, error: rangeError.message || 'Unable to prepare adherence range.' };
+        }
+        if (!exportData || !Array.isArray(exportData.dailyRows) || exportData.dailyRows.length === 0) {
+          return { success: false, error: 'No adherence data available to export.' };
+        }
 
-    return { success: true, exportData };
-  }, { success: false, error: 'Unable to prepare adherence export data.' }, MAX_PROCESSING_TIME);
-}
+        return { success: true, exportData };
+      },
+      { success: false, error: 'Unable to prepare adherence export data.' },
+      MAX_PROCESSING_TIME
+    );
+  }
 
 function buildAdherenceComplianceDataset_(periodType, startDateIso, endDateIso, filterUsers, timezone) {
   const { startDate, endDate, periodLabel } = resolveAdherencePeriodRange_(periodType, startDateIso, endDateIso, timezone);
