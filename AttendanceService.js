@@ -3645,53 +3645,55 @@ function buildDailyPivotFileBase(granularity, periodValue) {
 }
 
 
-function exportAdherenceComplianceSheet(payload) {
-  return rpc('exportAdherenceComplianceSheet', () => {
-    let fileId = '';
-    try {
-      if (typeof SpreadsheetApp === 'undefined' || typeof DriveApp === 'undefined') {
-        return { success: false, error: 'Google Drive is unavailable for exports.' };
-      }
+  function exportAdherenceComplianceSheet(payload) {
+    return rpc(
+      'exportAdherenceComplianceSheet',
+      () => {
+        let fileId = '';
+        try {
+          if (typeof SpreadsheetApp === 'undefined' || typeof DriveApp === 'undefined') {
+            return { success: false, error: 'Google Drive is unavailable for exports.' };
+          }
 
-      const timezone = ATTENDANCE_TIMEZONE
-        || ((typeof Session !== 'undefined' && typeof Session.getScriptTimeZone === 'function')
-          ? Session.getScriptTimeZone()
-          : 'America/Jamaica');
+          const timezone = ATTENDANCE_TIMEZONE
+            || ((typeof Session !== 'undefined' && typeof Session.getScriptTimeZone === 'function')
+              ? Session.getScriptTimeZone()
+              : 'America/Jamaica');
 
-      const periodType = (payload && payload.periodType) ? String(payload.periodType).trim() : 'custom';
-      const startDateIso = (payload && payload.startDateIso) ? String(payload.startDateIso).trim() : '';
-      const endDateIso = (payload && payload.endDateIso) ? String(payload.endDateIso).trim() : '';
+          const periodType = (payload && payload.periodType) ? String(payload.periodType).trim() : 'custom';
+          const startDateIso = (payload && payload.startDateIso) ? String(payload.startDateIso).trim() : '';
+          const endDateIso = (payload && payload.endDateIso) ? String(payload.endDateIso).trim() : '';
 
-      const filterUsers = Array.isArray(payload?.users) ? payload.users : [];
-      let exportData;
-      try {
-        exportData = buildAdherenceComplianceDataset_(periodType, startDateIso, endDateIso, filterUsers, timezone);
-      } catch (rangeError) {
-        return { success: false, error: rangeError.message || 'Unable to prepare adherence range.' };
-      }
-      if (!exportData || !Array.isArray(exportData.dailyRows) || exportData.dailyRows.length === 0) {
-        return { success: false, error: 'No adherence data available to export.' };
-      }
+          const filterUsers = Array.isArray(payload && payload.users) ? payload.users : [];
+          let exportData;
+          try {
+            exportData = buildAdherenceComplianceDataset_(periodType, startDateIso, endDateIso, filterUsers, timezone);
+          } catch (rangeError) {
+            return { success: false, error: rangeError.message || 'Unable to prepare adherence range.' };
+          }
+          if (!exportData || !Array.isArray(exportData.dailyRows) || exportData.dailyRows.length === 0) {
+            return { success: false, error: 'No adherence data available to export.' };
+          }
 
-      const now = new Date();
-      const exportStartIso = Utilities.formatDate(exportData.startDate, timezone, 'yyyy-MM-dd');
-      const exportEndIso = Utilities.formatDate(exportData.endDate, timezone, 'yyyy-MM-dd');
-      const periodLabel = exportData.periodLabel || `${exportStartIso} to ${exportEndIso}`;
-      const spreadsheetName = (payload?.spreadsheetName && payload.spreadsheetName.trim())
-        ? payload.spreadsheetName.trim()
-        : `Daily Adherence Matrix ${Utilities.formatDate(now, timezone, 'yyyy-MM-dd')}`;
-      const sheetTitle = 'Daily Adherence Matrix';
+          const now = new Date();
+          const exportStartIso = Utilities.formatDate(exportData.startDate, timezone, 'yyyy-MM-dd');
+          const exportEndIso = Utilities.formatDate(exportData.endDate, timezone, 'yyyy-MM-dd');
+          const periodLabel = exportData.periodLabel || `${exportStartIso} to ${exportEndIso}`;
+          const spreadsheetName = (payload && payload.spreadsheetName && payload.spreadsheetName.trim())
+            ? payload.spreadsheetName.trim()
+            : `Daily Adherence Matrix ${Utilities.formatDate(now, timezone, 'yyyy-MM-dd')}`;
+          const sheetTitle = 'Daily Adherence Matrix';
 
-      const spreadsheet = SpreadsheetApp.create(spreadsheetName);
-      const sheet = spreadsheet.getActiveSheet();
-      sheet.setName(sheetTitle);
+          const spreadsheet = SpreadsheetApp.create(spreadsheetName);
+          const sheet = spreadsheet.getActiveSheet();
+          sheet.setName(sheetTitle);
 
-      const adherenceColorForPercent = (percent) => {
-        if (!Number.isFinite(percent)) return '#f8fafc';
-        if (percent >= 95) return '#22c55e';
-        if (percent >= 85) return '#f59e0b';
-        return '#ef4444';
-      };
+          const adherenceColorForPercent = (percent) => {
+            if (!Number.isFinite(percent)) return '#f8fafc';
+            if (percent >= 95) return '#22c55e';
+            if (percent >= 85) return '#f59e0b';
+            return '#ef4444';
+          };
 
       const adherenceFontForPercent = (percent) => {
         if (!Number.isFinite(percent)) return '#0f172a';
@@ -3980,8 +3982,7 @@ function exportAdherenceComplianceSheet(payload) {
         error: 'Unable to export adherence data: ' + (err && err.message ? err.message : 'Unknown error')
       };
     }, MAX_PROCESSING_TIME);
-  });
-}
+  }
 
   function getAdherenceComplianceExportData(payload) {
     return rpc(
