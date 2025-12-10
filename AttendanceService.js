@@ -3983,7 +3983,7 @@ function exportAdherenceComplianceSheet(payload) {
   });
 }
 
-function getAdherenceComplianceExportData(payload) {
+  function getAdherenceComplianceExportData(payload) {
   return rpc('getAdherenceComplianceExportData', () => {
     const timezone = ATTENDANCE_TIMEZONE
       || ((typeof Session !== 'undefined' && typeof Session.getScriptTimeZone === 'function')
