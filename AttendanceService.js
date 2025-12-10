@@ -3980,7 +3980,8 @@ function exportAdherenceComplianceSheet(payload) {
         error: 'Unable to export adherence data: ' + (err && err.message ? err.message : 'Unknown error')
       };
     }, MAX_PROCESSING_TIME);
-  }
+  });
+}
 
   function getAdherenceComplianceExportData(payload) {
     return rpc(
