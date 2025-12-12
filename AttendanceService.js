@@ -3754,6 +3754,16 @@ function buildDateRangeList_(startIso, endIso) {
   return days;
 }
 
+function isWeekendKey_(dateKey) {
+  const dt = normalizeDateValue(dateKey);
+  if (!(dt instanceof Date) || isNaN(dt.getTime())) {
+    return false;
+  }
+
+  const day = dt.getDay();
+  return day === 0 || day === 6;
+}
+
 function getAdherenceComplianceExportData(params) {
   return rpc('getAdherenceComplianceExportData', () => {
     const payload = params || {};
@@ -3761,6 +3771,7 @@ function getAdherenceComplianceExportData(params) {
     let periodId = (payload.period || payload.periodId || '').toString();
     const startDateIso = payload.startDateIso || payload.startDate || '';
     const endDateIso = payload.endDateIso || payload.endDate || '';
+    const includeWeekends = payload.includeWeekends !== false;
     const agentFilter = Array.isArray(payload.users) && payload.users.length
       ? payload.users[0]
       : (payload.userId || payload.agent || '');
@@ -3781,11 +3792,14 @@ function getAdherenceComplianceExportData(params) {
       ? Utilities.formatDate(new Date(analytics.periodInfo.endDateIso), ATTENDANCE_TIMEZONE, 'yyyy-MM-dd')
       : endDateIso;
 
-    const dateKeys = buildDateRangeList_(startIso, endIso).filter(Boolean);
+    const dateKeys = buildDateRangeList_(startIso, endIso)
+      .filter(Boolean)
+      .filter(day => includeWeekends || !isWeekendKey_(day));
     const userMap = new Map();
 
     dayMetrics.forEach(entry => {
       if (!entry || !entry.user || !entry.dateKey) return;
+      if (!includeWeekends && isWeekendKey_(entry.dateKey)) return;
       const calc = calculateBreakLunchDeductions(entry.break, entry.lunch);
       const basePercent = computeAdherencePercent_({
         exceededBreakDays: calc.breakOver > 0 ? 1 : 0,
@@ -3870,12 +3884,18 @@ function applyAdherenceComplianceFormatting_(sheet, headers, rowCount, dayColumn
     const rules = sheet.getConditionalFormatRules() || [];
     const addRule = builder => rules.push(builder.build());
 
-    const dayRange = sheet.getRange(2, dayColumnStart, rowCount, headers.length - dayColumnStart - 3);
+    const dayRangeWidth = Math.max(1, headers.length - dayColumnStart - 3);
+    const dayRange = sheet.getRange(2, dayColumnStart, rowCount, dayRangeWidth);
     const pctRange = sheet.getRange(2, headers.length - 2, rowCount, 1);
 
     [dayRange, pctRange].forEach(range => {
       addRule(SpreadsheetApp.newConditionalFormatRule()
-        .whenNumberGreaterThanOrEqualTo(100)
+        .whenNumberGreaterThan(110)
+        .setBackground('#ede9fe')
+        .setFontColor('#5b21b6')
+        .setRanges([range]));
+      addRule(SpreadsheetApp.newConditionalFormatRule()
+        .whenNumberBetween(100, 110)
         .setBackground('#b7e4c7')
         .setFontColor('#114b00')
         .setRanges([range]));
@@ -3924,7 +3944,7 @@ function applyAdherenceComplianceFormatting_(sheet, headers, rowCount, dayColumn
   sheet.setRowHeight(1, 30);
   sheet.setColumnWidths(1, 2, 170);
   if (headers.length >= dayColumnStart) {
-    const dayCols = headers.length - dayColumnStart - 3;
+    const dayCols = Math.max(1, headers.length - dayColumnStart - 3);
     sheet.setColumnWidths(dayColumnStart, dayCols, 80);
   }
   sheet.setColumnWidths(headers.length - 2, 3, 120);
@@ -3968,6 +3988,26 @@ function exportAdherenceComplianceSheet(payload) {
       ];
     });
 
+    const dailyAverages = dayLabels.map((_, index) => {
+      const values = (data.rows || [])
+        .map(r => typeof r.dayPercents?.[index] === 'number' ? r.dayPercents[index] : null)
+        .filter(v => typeof v === 'number');
+      if (!values.length) return '';
+      return Math.round((values.reduce((a, b) => a + b, 0) / values.length) * 100) / 100;
+    });
+
+    const dailyAverageRow = [
+      'Daily Averages',
+      `${data.startDateIso || ''} to ${data.endDateIso || ''}`,
+      ...dailyAverages,
+      '',
+      '',
+      dailyAverages.filter(v => typeof v === 'number').length
+        ? Math.round((dailyAverages.filter(v => typeof v === 'number').reduce((a, b) => a + b, 0) / dailyAverages.filter(v => typeof v === 'number').length) * 100) / 100
+        : '',
+      ''
+    ];
+
     const summaryRow = [
       'Totals / Averages',
       `${data.startDateIso || ''} to ${data.endDateIso || ''}`,
@@ -3983,10 +4023,18 @@ function exportAdherenceComplianceSheet(payload) {
     if (rows.length) {
       sheet.getRange(2, 1, rows.length, headers.length).setValues(rows);
     }
-    sheet.getRange(rows.length + 2, 1, 1, headers.length).setValues([summaryRow]);
+
+    let nextRow = rows.length + 2;
+    if (payload.includeDailyTotals !== false) {
+      sheet.getRange(nextRow, 1, 1, headers.length).setValues([dailyAverageRow]);
+      nextRow += 1;
+    }
+
+    sheet.getRange(nextRow, 1, 1, headers.length).setValues([summaryRow]);
 
     const dayColumnStart = 3;
-    applyAdherenceComplianceFormatting_(sheet, headers, rows.length + 1, dayColumnStart);
+    const formattedRows = rows.length + (payload.includeDailyTotals !== false ? 1 : 0);
+    applyAdherenceComplianceFormatting_(sheet, headers, formattedRows + 1, dayColumnStart);
 
     return {
       success: true,
