@@ -1660,6 +1660,14 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter, poli
         timezone: ATTENDANCE_TIMEZONE,
         timezoneLabel: ATTENDANCE_TIMEZONE_LABEL
       },
+      adherenceDayMetrics: Array.from(userDayMetrics.values()).map(entry => ({
+        user: entry.user,
+        dateKey: entry.dateKey,
+        prod: entry.prod,
+        break: entry.break,
+        lunch: entry.lunch,
+        isWeekend: !!entry.isWeekend
+      })),
       manualSecondsDelta: Number(overridesData.totalDeltaSeconds) || 0,
       manualSecondsDeltaHours: Math.round((((Number(overridesData.totalDeltaSeconds) || 0) / 3600)) * 100) / 100,
       manualTimingOverrides: overrideEntries.map(entry => ({
@@ -3723,6 +3731,273 @@ function exportAttendanceCsv(granularity, periodId, agentFilter, policyOptions) 
 
     return [...summaryLines, '', ...detailLines, ...notes].join('\n') + '\n';
   }, '');
+}
+
+function buildDateRangeList_(startIso, endIso) {
+  const start = normalizeDateValue(startIso);
+  const end = normalizeDateValue(endIso);
+
+  if (!(start instanceof Date) || !(end instanceof Date)) {
+    return [];
+  }
+
+  const cursor = new Date(start.getTime());
+  cursor.setHours(0, 0, 0, 0);
+  const endMs = end.getTime();
+
+  const days = [];
+  while (cursor.getTime() <= endMs) {
+    days.push(Utilities.formatDate(cursor, ATTENDANCE_TIMEZONE, 'yyyy-MM-dd'));
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  return days;
+}
+
+function getAdherenceComplianceExportData(params) {
+  return rpc('getAdherenceComplianceExportData', () => {
+    const payload = params || {};
+    const granularity = (payload.periodType || payload.granularity || 'Week').toString();
+    let periodId = (payload.period || payload.periodId || '').toString();
+    const startDateIso = payload.startDateIso || payload.startDate || '';
+    const endDateIso = payload.endDateIso || payload.endDate || '';
+    const agentFilter = Array.isArray(payload.users) && payload.users.length
+      ? payload.users[0]
+      : (payload.userId || payload.agent || '');
+
+    if (!periodId && granularity.toLowerCase() === 'custom') {
+      const safeStart = startDateIso || Utilities.formatDate(new Date(), ATTENDANCE_TIMEZONE, 'yyyy-MM-dd');
+      const safeEnd = endDateIso || safeStart;
+      periodId = `${safeStart}_${safeEnd}`;
+    }
+
+    const analytics = getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter, payload.policyOptions || {});
+    const dayMetrics = Array.isArray(analytics.adherenceDayMetrics) ? analytics.adherenceDayMetrics : [];
+
+    const startIso = analytics.periodInfo?.startDateIso
+      ? Utilities.formatDate(new Date(analytics.periodInfo.startDateIso), ATTENDANCE_TIMEZONE, 'yyyy-MM-dd')
+      : startDateIso;
+    const endIso = analytics.periodInfo?.endDateIso
+      ? Utilities.formatDate(new Date(analytics.periodInfo.endDateIso), ATTENDANCE_TIMEZONE, 'yyyy-MM-dd')
+      : endDateIso;
+
+    const dateKeys = buildDateRangeList_(startIso, endIso).filter(Boolean);
+    const userMap = new Map();
+
+    dayMetrics.forEach(entry => {
+      if (!entry || !entry.user || !entry.dateKey) return;
+      const calc = calculateBreakLunchDeductions(entry.break, entry.lunch);
+      const basePercent = computeAdherencePercent_({
+        exceededBreakDays: calc.breakOver > 0 ? 1 : 0,
+        exceededLunchDays: calc.lunchOver > 0 ? 1 : 0,
+        exceededWeeklyCount: 0
+      });
+      const weekendBonus = entry.isWeekend ? Math.min(50, Math.round((entry.prod / DAILY_SHIFT_SECS) * 100)) : 0;
+      const percent = Math.min(150, Math.max(0, basePercent + weekendBonus));
+
+      if (!userMap.has(entry.user)) {
+        userMap.set(entry.user, { user: entry.user, days: new Map() });
+      }
+      userMap.get(entry.user).days.set(entry.dateKey, { percent, isWeekend: !!entry.isWeekend });
+    });
+
+    const rows = Array.from(userMap.values()).map(userEntry => {
+      const percents = dateKeys.map(day => {
+        const record = userEntry.days.get(day);
+        return record ? record.percent : '';
+      });
+
+      const numericPercents = percents.filter(v => typeof v === 'number');
+      const avg = numericPercents.length
+        ? Math.round((numericPercents.reduce((a, b) => a + b, 0) / numericPercents.length) * 100) / 100
+        : 0;
+      const compliantDays = numericPercents.filter(v => v >= 95).length;
+      const flaggedDays = numericPercents.filter(v => v > 0 && v < 95).length;
+
+      return {
+        user: userEntry.user,
+        dayPercents: percents,
+        average: avg,
+        compliantDays,
+        flaggedDays
+      };
+    });
+
+    const goal = 95;
+
+    return {
+      success: true,
+      granularity,
+      periodId,
+      startDateIso: startIso,
+      endDateIso: endIso,
+      dateKeys,
+      rows,
+      goal,
+      summary: {
+        totalAgents: rows.length,
+        totalCompliantDays: rows.reduce((sum, r) => sum + r.compliantDays, 0),
+        totalFlaggedDays: rows.reduce((sum, r) => sum + r.flaggedDays, 0),
+        averageScore: rows.length
+          ? Math.round((rows.reduce((sum, r) => sum + r.average, 0) / rows.length) * 100) / 100
+          : 0
+      }
+    };
+  }, { success: false, error: 'Unable to load adherence and compliance data.' }, MAX_PROCESSING_TIME);
+}
+
+function applyAdherenceComplianceFormatting_(sheet, headers, rowCount, dayColumnStart) {
+  const totalRows = Math.max(1, rowCount + 2);
+  sheet.setFrozenRows(1);
+
+  const headerRange = sheet.getRange(1, 1, 1, headers.length);
+  headerRange
+    .setFontWeight('bold')
+    .setFontColor('#ffffff')
+    .setBackground('#1f4e79')
+    .setHorizontalAlignment('center')
+    .setVerticalAlignment('middle')
+    .setWrap(true);
+
+  if (rowCount > 0) {
+    const dataRange = sheet.getRange(2, 1, rowCount, headers.length);
+    dataRange.setHorizontalAlignment('center').setVerticalAlignment('middle');
+
+    sheet.getRange(2, 1, rowCount, 1).setBackground('#f4f5f7'); // Agent
+    sheet.getRange(2, 2, rowCount, 1).setBackground('#e8f4fd'); // Period
+    sheet.getRange(2, dayColumnStart, rowCount, headers.length - dayColumnStart + 1).setBackground('#f7f7f7');
+
+    const rules = sheet.getConditionalFormatRules() || [];
+    const addRule = builder => rules.push(builder.build());
+
+    const dayRange = sheet.getRange(2, dayColumnStart, rowCount, headers.length - dayColumnStart - 3);
+    const pctRange = sheet.getRange(2, headers.length - 2, rowCount, 1);
+
+    [dayRange, pctRange].forEach(range => {
+      addRule(SpreadsheetApp.newConditionalFormatRule()
+        .whenNumberGreaterThanOrEqualTo(100)
+        .setBackground('#b7e4c7')
+        .setFontColor('#114b00')
+        .setRanges([range]));
+      addRule(SpreadsheetApp.newConditionalFormatRule()
+        .whenNumberBetween(95, 99.99)
+        .setBackground('#d9ead3')
+        .setFontColor('#114b00')
+        .setRanges([range]));
+      addRule(SpreadsheetApp.newConditionalFormatRule()
+        .whenNumberBetween(80, 94.99)
+        .setBackground('#fff4ce')
+        .setFontColor('#8a6d00')
+        .setRanges([range]));
+      addRule(SpreadsheetApp.newConditionalFormatRule()
+        .whenNumberLessThan(80)
+        .setBackground('#f8d7da')
+        .setFontColor('#6b0000')
+        .setRanges([range]));
+    });
+
+    const statusRange = sheet.getRange(2, headers.length, rowCount, 1);
+    addRule(SpreadsheetApp.newConditionalFormatRule()
+      .whenTextEqualTo('Excellent')
+      .setBackground('#d9ead3')
+      .setFontColor('#114b00')
+      .setRanges([statusRange]));
+    addRule(SpreadsheetApp.newConditionalFormatRule()
+      .whenTextEqualTo('Pass')
+      .setBackground('#d9ead3')
+      .setFontColor('#114b00')
+      .setRanges([statusRange]));
+    addRule(SpreadsheetApp.newConditionalFormatRule()
+      .whenTextEqualTo('Needs Attention')
+      .setBackground('#fff4ce')
+      .setFontColor('#8a6d00')
+      .setRanges([statusRange]));
+    addRule(SpreadsheetApp.newConditionalFormatRule()
+      .whenTextEqualTo('Non-Compliant')
+      .setBackground('#f8d7da')
+      .setFontColor('#6b0000')
+      .setRanges([statusRange]));
+
+    sheet.setConditionalFormatRules(rules);
+  }
+
+  sheet.setRowHeight(1, 30);
+  sheet.setColumnWidths(1, 2, 170);
+  if (headers.length >= dayColumnStart) {
+    const dayCols = headers.length - dayColumnStart - 3;
+    sheet.setColumnWidths(dayColumnStart, dayCols, 80);
+  }
+  sheet.setColumnWidths(headers.length - 2, 3, 120);
+}
+
+function exportAdherenceComplianceSheet(payload) {
+  return rpc('exportAdherenceComplianceSheet', () => {
+    const data = getAdherenceComplianceExportData(payload || {});
+    if (!data || !data.success) {
+      throw new Error(data && data.error ? data.error : 'Unable to build adherence export');
+    }
+
+    const headers = ['Agent', 'Period'];
+    const dayLabels = data.dateKeys.map(day => {
+      const dt = normalizeDateValue(day);
+      return dt instanceof Date && !isNaN(dt.getTime())
+        ? Utilities.formatDate(dt, ATTENDANCE_TIMEZONE, 'EEE MMM d')
+        : day;
+    });
+    headers.push(...dayLabels);
+    headers.push('Compliant Days', 'Flagged Days', 'Average %', 'Status');
+
+    const rows = (data.rows || []).map(row => {
+      const status = row.average >= 100
+        ? 'Excellent'
+        : row.average >= data.goal
+          ? 'Pass'
+          : row.average >= 80
+            ? 'Needs Attention'
+            : 'Non-Compliant';
+
+      const dayValues = (row.dayPercents || []).map(val => typeof val === 'number' ? val : '');
+      return [
+        row.user,
+        `${data.startDateIso || ''} to ${data.endDateIso || ''}`,
+        ...dayValues,
+        row.compliantDays,
+        row.flaggedDays,
+        row.average,
+        status
+      ];
+    });
+
+    const summaryRow = [
+      'Totals / Averages',
+      `${data.startDateIso || ''} to ${data.endDateIso || ''}`,
+      ...new Array(dayLabels.length).fill(''),
+      data.summary.totalCompliantDays,
+      data.summary.totalFlaggedDays,
+      data.summary.averageScore,
+      data.summary.averageScore >= data.goal ? 'Pass' : 'Needs Attention'
+    ];
+
+    const { spreadsheet, sheet } = ensureAttendanceExportSheet('Adherence & Compliance Export');
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+    if (rows.length) {
+      sheet.getRange(2, 1, rows.length, headers.length).setValues(rows);
+    }
+    sheet.getRange(rows.length + 2, 1, 1, headers.length).setValues([summaryRow]);
+
+    const dayColumnStart = 3;
+    applyAdherenceComplianceFormatting_(sheet, headers, rows.length + 1, dayColumnStart);
+
+    return {
+      success: true,
+      fileId: spreadsheet.getId(),
+      fileUrl: spreadsheet.getUrl(),
+      fileName: spreadsheet.getName(),
+      folderId: '',
+      folderUrl: '',
+      folderName: ''
+    };
+  }, { success: false, error: 'Unable to generate adherence export.' }, MAX_PROCESSING_TIME);
 }
 
 function calculateComplianceScore(user) {
