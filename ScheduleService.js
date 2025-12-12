@@ -4274,10 +4274,32 @@ function applyCalendarExportFormatting(sheet, headers, rowCount, dayColumnStart)
   }
 }
 
+function buildUserDisplayNameMap() {
+  const displayNameMap = new Map();
+
+  try {
+    const users = readSheet(USERS_SHEET) || [];
+    users.forEach(user => {
+      const userName = (user.UserName || user.Username || user.userName || '').toString().trim();
+      if (!userName) {
+        return;
+      }
+
+      const fullName = (user.FullName || user.fullName || '').toString().trim();
+      displayNameMap.set(userName, fullName || userName);
+    });
+  } catch (error) {
+    console.warn('Unable to build user display name map:', error && error.message ? error.message : error);
+  }
+
+  return displayNameMap;
+}
+
 function exportAttendanceDashboard(periodType, startDate, endDate) {
   try {
     const range = normalizeDateRangeForExport(periodType, startDate, endDate);
     const attendanceData = readScheduleSheet(ATTENDANCE_STATUS_SHEET) || [];
+    const displayNameMap = buildUserDisplayNameMap();
 
     const filtered = attendanceData.filter(record => {
       const date = record && record.Date ? new Date(record.Date) : null;
@@ -4288,6 +4310,10 @@ function exportAttendanceDashboard(periodType, startDate, endDate) {
     filtered.forEach(record => {
       const user = record.UserName || record.User || record.userName;
       if (user) {
+        const fullName = (record.FullName || record.fullName || '').toString().trim();
+        if (fullName && !displayNameMap.has(user)) {
+          displayNameMap.set(user, fullName);
+        }
         userMap.set(user, user);
       }
     });
@@ -4342,7 +4368,7 @@ function exportAttendanceDashboard(periodType, startDate, endDate) {
       const attendanceScore = pct(worked);
 
       return [
-        user,
+        displayNameMap.get(user) || user,
         range.label,
         totalDays,
         worked,
@@ -4386,6 +4412,7 @@ function exportAttendanceCalendar(periodType, startDate, endDate) {
   try {
     const range = normalizeDateRangeForExport(periodType, startDate, endDate);
     const attendanceData = readScheduleSheet(ATTENDANCE_STATUS_SHEET) || [];
+    const displayNameMap = buildUserDisplayNameMap();
 
     const filtered = attendanceData.filter(record => {
       const date = record && record.Date ? new Date(record.Date) : null;
@@ -4396,6 +4423,10 @@ function exportAttendanceCalendar(periodType, startDate, endDate) {
     filtered.forEach(record => {
       const user = record.UserName || record.User || record.userName;
       if (user) {
+        const fullName = (record.FullName || record.fullName || '').toString().trim();
+        if (fullName && !displayNameMap.has(user)) {
+          displayNameMap.set(user, fullName);
+        }
         users.add(user);
       }
     });
@@ -4460,7 +4491,7 @@ function exportAttendanceCalendar(periodType, startDate, endDate) {
       const calendarStatuses = dates.map(dateKey => dayStatus.get(dateKey) || '');
 
       return [
-        user,
+        displayNameMap.get(user) || user,
         range.label,
         totalDays,
         totals.present + totals.late,
