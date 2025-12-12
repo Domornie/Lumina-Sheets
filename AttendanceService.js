@@ -1660,6 +1660,14 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter, poli
         timezone: ATTENDANCE_TIMEZONE,
         timezoneLabel: ATTENDANCE_TIMEZONE_LABEL
       },
+      adherenceDayMetrics: Array.from(userDayMetrics.values()).map(entry => ({
+        user: entry.user,
+        dateKey: entry.dateKey,
+        prod: entry.prod,
+        break: entry.break,
+        lunch: entry.lunch,
+        isWeekend: !!entry.isWeekend
+      })),
       manualSecondsDelta: Number(overridesData.totalDeltaSeconds) || 0,
       manualSecondsDeltaHours: Math.round((((Number(overridesData.totalDeltaSeconds) || 0) / 3600)) * 100) / 100,
       manualTimingOverrides: overrideEntries.map(entry => ({
@@ -3723,6 +3731,354 @@ function exportAttendanceCsv(granularity, periodId, agentFilter, policyOptions) 
 
     return [...summaryLines, '', ...detailLines, ...notes].join('\n') + '\n';
   }, '');
+}
+
+function buildDateRangeList_(startIso, endIso) {
+  const start = normalizeDateValue(startIso);
+  const end = normalizeDateValue(endIso);
+
+  if (!(start instanceof Date) || !(end instanceof Date)) {
+    return [];
+  }
+
+  const cursor = new Date(start.getTime());
+  cursor.setHours(0, 0, 0, 0);
+  const endMs = end.getTime();
+
+  const days = [];
+  while (cursor.getTime() <= endMs) {
+    days.push(Utilities.formatDate(cursor, ATTENDANCE_TIMEZONE, 'yyyy-MM-dd'));
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  return days;
+}
+
+function isWeekendKey_(dateKey) {
+  const dt = normalizeDateValue(dateKey);
+  if (!(dt instanceof Date) || isNaN(dt.getTime())) {
+    return false;
+  }
+
+  const day = dt.getDay();
+  return day === 0 || day === 6;
+}
+
+function getAdherenceComplianceExportData(params) {
+  return rpc('getAdherenceComplianceExportData', () => {
+    const payload = params || {};
+    const granularity = (payload.periodType || payload.granularity || 'Week').toString();
+    let periodId = (payload.period || payload.periodId || '').toString();
+    const startDateIso = payload.startDateIso || payload.startDate || '';
+    const endDateIso = payload.endDateIso || payload.endDate || '';
+    const includeWeekends = payload.includeWeekends !== false;
+    const selectedUsers = Array.isArray(payload.users) ? payload.users.filter(Boolean) : [];
+    const agentFilter = selectedUsers.length
+      ? ''
+      : (payload.userId || payload.agent || '');
+
+    if (!periodId && granularity.toLowerCase() === 'custom') {
+      const safeStart = startDateIso || Utilities.formatDate(new Date(), ATTENDANCE_TIMEZONE, 'yyyy-MM-dd');
+      const safeEnd = endDateIso || safeStart;
+      periodId = `${safeStart}_${safeEnd}`;
+    }
+
+    const analytics = getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter, payload.policyOptions || {});
+    const dayMetrics = Array.isArray(analytics.adherenceDayMetrics) ? analytics.adherenceDayMetrics : [];
+
+    const startIso = analytics.periodInfo?.startDateIso
+      ? Utilities.formatDate(new Date(analytics.periodInfo.startDateIso), ATTENDANCE_TIMEZONE, 'yyyy-MM-dd')
+      : startDateIso;
+    const endIso = analytics.periodInfo?.endDateIso
+      ? Utilities.formatDate(new Date(analytics.periodInfo.endDateIso), ATTENDANCE_TIMEZONE, 'yyyy-MM-dd')
+      : endDateIso;
+
+    const dateKeys = buildDateRangeList_(startIso, endIso)
+      .filter(Boolean)
+      .filter(day => includeWeekends || !isWeekendKey_(day));
+    const userMap = new Map();
+
+    dayMetrics.forEach(entry => {
+      if (!entry || !entry.user || !entry.dateKey) return;
+      if (!includeWeekends && isWeekendKey_(entry.dateKey)) return;
+      if (selectedUsers.length && !selectedUsers.includes(entry.user)) return;
+      const calc = calculateBreakLunchDeductions(entry.break, entry.lunch);
+      const basePercent = computeAdherencePercent_({
+        exceededBreakDays: calc.breakOver > 0 ? 1 : 0,
+        exceededLunchDays: calc.lunchOver > 0 ? 1 : 0,
+        exceededWeeklyCount: 0
+      });
+      const weekendBonus = entry.isWeekend ? Math.min(50, Math.round((entry.prod / DAILY_SHIFT_SECS) * 100)) : 0;
+      const percent = Math.min(150, Math.max(0, basePercent + weekendBonus));
+
+      if (!userMap.has(entry.user)) {
+        userMap.set(entry.user, { user: entry.user, days: new Map() });
+      }
+      userMap.get(entry.user).days.set(entry.dateKey, { percent, isWeekend: !!entry.isWeekend });
+    });
+
+    const rows = Array.from(userMap.values()).map(userEntry => {
+      const percents = dateKeys.map(day => {
+        const record = userEntry.days.get(day);
+        return record ? record.percent : '';
+      });
+
+      const numericPercents = percents.filter(v => typeof v === 'number');
+      const avg = numericPercents.length
+        ? Math.round((numericPercents.reduce((a, b) => a + b, 0) / numericPercents.length) * 100) / 100
+        : 0;
+      const totalPercent = numericPercents.length
+        ? Math.round((numericPercents.reduce((a, b) => a + b, 0)) * 100) / 100
+        : 0;
+      const compliantDays = numericPercents.filter(v => v >= 95).length;
+      const flaggedDays = numericPercents.filter(v => v > 0 && v < 95).length;
+      const overtimeDays = numericPercents.filter(v => v > 110).length;
+      const daysWorked = numericPercents.filter(v => v > 0).length;
+
+      return {
+        user: userEntry.user,
+        dayPercents: percents,
+        average: avg,
+        totalPercent,
+        compliantDays,
+        flaggedDays,
+        overtimeDays,
+        daysWorked
+      };
+    });
+
+    const goal = 95;
+
+    return {
+      success: true,
+      granularity,
+      periodId,
+      startDateIso: startIso,
+      endDateIso: endIso,
+      dateKeys,
+      weekendFlags: dateKeys.map(key => isWeekendKey_(key)),
+      rows,
+      goal,
+      summary: {
+        totalAgents: rows.length,
+        totalCompliantDays: rows.reduce((sum, r) => sum + r.compliantDays, 0),
+        totalFlaggedDays: rows.reduce((sum, r) => sum + r.flaggedDays, 0),
+        totalOvertimeDays: rows.reduce((sum, r) => sum + r.overtimeDays, 0),
+        totalWorkedDays: rows.reduce((sum, r) => sum + r.daysWorked, 0),
+        averageScore: rows.length
+          ? Math.round((rows.reduce((sum, r) => sum + r.average, 0) / rows.length) * 100) / 100
+          : 0
+      }
+    };
+  }, { success: false, error: 'Unable to load adherence and compliance data.' }, MAX_PROCESSING_TIME);
+}
+
+function applyAdherenceComplianceFormatting_(sheet, headers, rowCount, dayColumnStart, weekendFlags) {
+  const totalRows = Math.max(1, rowCount + 2);
+  sheet.setFrozenRows(1);
+
+  const headerRange = sheet.getRange(1, 1, 1, headers.length);
+  headerRange
+    .setFontWeight('bold')
+    .setFontColor('#ffffff')
+    .setBackground('#1f4e79')
+    .setHorizontalAlignment('center')
+    .setVerticalAlignment('middle')
+    .setWrap(true);
+
+  if (rowCount > 0) {
+    const dataRange = sheet.getRange(2, 1, rowCount, headers.length);
+    dataRange.setHorizontalAlignment('center').setVerticalAlignment('middle');
+
+    sheet.getRange(2, 1, rowCount, 1).setBackground('#f4f5f7'); // Agent
+    sheet.getRange(2, 2, rowCount, 1).setBackground('#e8f4fd'); // Period
+    sheet.getRange(2, dayColumnStart, rowCount, headers.length - dayColumnStart + 1).setBackground('#f7f7f7');
+
+    if (Array.isArray(weekendFlags) && weekendFlags.length) {
+      weekendFlags.forEach((isWeekend, index) => {
+        if (!isWeekend) return;
+        const col = dayColumnStart + index;
+        sheet.getRange(2, col, rowCount, 1).setBackground('#efefef');
+      });
+    }
+
+    const rules = sheet.getConditionalFormatRules() || [];
+    const addRule = builder => rules.push(builder.build());
+
+    const trailingCols = 6;
+    const dayRangeWidth = Math.max(1, headers.length - dayColumnStart - trailingCols + 1);
+    const dayRange = sheet.getRange(2, dayColumnStart, rowCount, dayRangeWidth);
+    const pctRange = sheet.getRange(2, headers.length - trailingCols + 1, rowCount, 4);
+
+    [dayRange, pctRange].forEach(range => {
+      addRule(SpreadsheetApp.newConditionalFormatRule()
+        .whenNumberGreaterThan(110)
+        .setBackground('#ede9fe')
+        .setFontColor('#5b21b6')
+        .setRanges([range]));
+      addRule(SpreadsheetApp.newConditionalFormatRule()
+        .whenNumberBetween(100, 110)
+        .setBackground('#b7e4c7')
+        .setFontColor('#114b00')
+        .setRanges([range]));
+      addRule(SpreadsheetApp.newConditionalFormatRule()
+        .whenNumberBetween(95, 99.99)
+        .setBackground('#d9ead3')
+        .setFontColor('#114b00')
+        .setRanges([range]));
+      addRule(SpreadsheetApp.newConditionalFormatRule()
+        .whenNumberBetween(80, 94.99)
+        .setBackground('#fff4ce')
+        .setFontColor('#8a6d00')
+        .setRanges([range]));
+      addRule(SpreadsheetApp.newConditionalFormatRule()
+        .whenNumberLessThan(80)
+        .setBackground('#f8d7da')
+        .setFontColor('#6b0000')
+        .setRanges([range]));
+    });
+
+    const statusRange = sheet.getRange(2, headers.length, rowCount, 1);
+    addRule(SpreadsheetApp.newConditionalFormatRule()
+      .whenTextEqualTo('Excellent')
+      .setBackground('#d9ead3')
+      .setFontColor('#114b00')
+      .setRanges([statusRange]));
+    addRule(SpreadsheetApp.newConditionalFormatRule()
+      .whenTextEqualTo('Pass')
+      .setBackground('#d9ead3')
+      .setFontColor('#114b00')
+      .setRanges([statusRange]));
+    addRule(SpreadsheetApp.newConditionalFormatRule()
+      .whenTextEqualTo('Needs Attention')
+      .setBackground('#fff4ce')
+      .setFontColor('#8a6d00')
+      .setRanges([statusRange]));
+    addRule(SpreadsheetApp.newConditionalFormatRule()
+      .whenTextEqualTo('Non-Compliant')
+      .setBackground('#f8d7da')
+      .setFontColor('#6b0000')
+      .setRanges([statusRange]));
+
+    sheet.setConditionalFormatRules(rules);
+  }
+
+  sheet.setRowHeight(1, 30);
+  sheet.setColumnWidths(1, 2, 170);
+  const trailingCols = 6;
+  if (headers.length >= dayColumnStart) {
+    const dayCols = Math.max(1, headers.length - dayColumnStart - trailingCols + 1);
+    sheet.setColumnWidths(dayColumnStart, dayCols, 80);
+  }
+  sheet.setColumnWidths(headers.length - trailingCols + 1, trailingCols, 120);
+}
+
+function exportAdherenceComplianceSheet(payload) {
+  return rpc('exportAdherenceComplianceSheet', () => {
+    const data = getAdherenceComplianceExportData(payload || {});
+    if (!data || !data.success) {
+      throw new Error(data && data.error ? data.error : 'Unable to build adherence export');
+    }
+
+    const headers = ['Agent', 'Period'];
+    const dayLabels = data.dateKeys.map(day => {
+      const dt = normalizeDateValue(day);
+      return dt instanceof Date && !isNaN(dt.getTime())
+        ? Utilities.formatDate(dt, ATTENDANCE_TIMEZONE, 'EEE MMM d')
+        : day;
+    });
+    headers.push(...dayLabels);
+    headers.push('Total %', 'Low Days', 'Overtime Days', 'Average %', 'Days Worked', 'Status');
+
+    const rows = (data.rows || []).map(row => {
+      const status = row.average >= 100
+        ? 'Excellent'
+        : row.average >= data.goal
+          ? 'Pass'
+          : row.average >= 80
+            ? 'Needs Attention'
+            : 'Non-Compliant';
+
+      const dayValues = (row.dayPercents || []).map(val => typeof val === 'number' ? val : '');
+      return [
+        row.user,
+        `${data.startDateIso || ''} to ${data.endDateIso || ''}`,
+        ...dayValues,
+        row.totalPercent,
+        row.flaggedDays,
+        row.overtimeDays,
+        row.average,
+        row.daysWorked,
+        status
+      ];
+    });
+
+    const totalPercentSum = (data.rows || []).reduce((sum, r) => {
+      return sum + (Number.isFinite(r.totalPercent) ? r.totalPercent : 0);
+    }, 0);
+
+    const dailyAverages = dayLabels.map((_, index) => {
+      const values = (data.rows || [])
+        .map(r => typeof r.dayPercents?.[index] === 'number' ? r.dayPercents[index] : null)
+        .filter(v => typeof v === 'number');
+      if (!values.length) return '';
+      return Math.round((values.reduce((a, b) => a + b, 0) / values.length) * 100) / 100;
+    });
+
+    const dailyAverageRow = [
+      'Daily Averages',
+      `${data.startDateIso || ''} to ${data.endDateIso || ''}`,
+      ...dailyAverages,
+      dailyAverages.filter(v => typeof v === 'number').reduce((sum, v) => sum + v, 0) || '',
+      '',
+      '',
+      dailyAverages.filter(v => typeof v === 'number').length
+        ? Math.round((dailyAverages.filter(v => typeof v === 'number').reduce((a, b) => a + b, 0) / dailyAverages.filter(v => typeof v === 'number').length) * 100) / 100
+        : '',
+      '',
+      ''
+    ];
+
+    const summaryRow = [
+      'Totals / Averages',
+      `${data.startDateIso || ''} to ${data.endDateIso || ''}`,
+      ...new Array(dayLabels.length).fill(''),
+      totalPercentSum,
+      data.summary.totalFlaggedDays,
+      data.summary.totalOvertimeDays,
+      data.summary.averageScore,
+      data.summary.totalWorkedDays,
+      data.summary.averageScore >= data.goal ? 'Pass' : 'Needs Attention'
+    ];
+
+    const { spreadsheet, sheet } = ensureAttendanceExportSheet('Adherence & Compliance Export');
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+    if (rows.length) {
+      sheet.getRange(2, 1, rows.length, headers.length).setValues(rows);
+    }
+
+    let nextRow = rows.length + 2;
+    if (payload.includeDailyTotals !== false) {
+      sheet.getRange(nextRow, 1, 1, headers.length).setValues([dailyAverageRow]);
+      nextRow += 1;
+    }
+
+    sheet.getRange(nextRow, 1, 1, headers.length).setValues([summaryRow]);
+
+    const dayColumnStart = 3;
+    const formattedRows = rows.length + (payload.includeDailyTotals !== false ? 1 : 0);
+    applyAdherenceComplianceFormatting_(sheet, headers, formattedRows + 1, dayColumnStart, data.weekendFlags);
+
+    return {
+      success: true,
+      fileId: spreadsheet.getId(),
+      fileUrl: spreadsheet.getUrl(),
+      fileName: spreadsheet.getName(),
+      folderId: '',
+      folderUrl: '',
+      folderName: ''
+    };
+  }, { success: false, error: 'Unable to generate adherence export.' }, MAX_PROCESSING_TIME);
 }
 
 function calculateComplianceScore(user) {

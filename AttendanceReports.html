@@ -886,6 +886,70 @@
       color: #b91c1c;
     }
 
+    /* Adherence export styles */
+    .adherence-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin: 0.25rem 0 0;
+    }
+
+    .adherence-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      padding: 0.35rem 0.8rem;
+      border-radius: 999px;
+      font-weight: 600;
+      font-size: 0.82rem;
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      background: rgba(255, 255, 255, 0.92);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .adherence-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.06);
+    }
+
+    .adherence-chip.low { border-color: rgba(255, 193, 7, 0.45); color: #b76e00; }
+    .adherence-chip.low .adherence-dot { background: #ffc107; }
+
+    .adherence-chip.red { border-color: rgba(248, 113, 113, 0.4); color: #9b1c1c; }
+    .adherence-chip.red .adherence-dot { background: #ef4444; }
+
+    .adherence-chip.good { border-color: rgba(74, 222, 128, 0.45); color: #0f5132; }
+    .adherence-chip.good .adherence-dot { background: #22c55e; }
+
+    .adherence-chip.excellent { border-color: rgba(168, 85, 247, 0.4); color: #5b21b6; }
+    .adherence-chip.excellent .adherence-dot { background: #a855f7; }
+
+    .adherence-preview-card {
+      border: 1px solid rgba(148, 163, 184, 0.3);
+      border-radius: 18px;
+      padding: 1rem;
+      background: linear-gradient(135deg, rgba(226, 232, 240, 0.35) 0%, rgba(255, 255, 255, 0.9) 100%);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .adherence-preview-table th,
+    .adherence-preview-table td {
+      font-size: 0.85rem;
+      vertical-align: middle;
+      text-align: center;
+    }
+
+    .adherence-preview-table .weekend-col {
+      background: #f1f5f9;
+    }
+
+    .adherence-preview-table tfoot tr {
+      background: #f8fafc;
+      font-weight: 600;
+    }
+  
 
     #exportModal .form-label {
       font-weight: 600;
@@ -1220,6 +1284,9 @@
   <div class="d-flex gap-3 mb-4 flex-wrap">
     <button id="exportBtn" class="btn btn-light" onclick="showEnhancedExportModal()">
       <i class="fas fa-table me-2"></i>Export Matrix
+    </button>
+    <button id="adherenceExportBtn" class="btn btn-outline-success" onclick="showAdherenceExportModal()">
+      <i class="fas fa-clipboard-check me-2"></i>Adherence Export
     </button>
     <button id="viewExportsBtn" class="btn btn-outline-primary" onclick="window.exportHistoryManager?.show()">
       <i class="fas fa-folder-open me-2"></i>Saved Exports
@@ -1751,6 +1818,156 @@
         <button type="button" class="btn btn-success" id="executeExport">
           <i class="fas fa-download me-2"></i>Export Matrix
         </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Adherence Export Modal -->
+<div class="modal fade" id="adherenceExportModal" tabindex="-1" aria-labelledby="adherenceExportLabel" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-centered">
+    <div class="modal-content export-modal-content">
+      <div class="modal-header export-modal-header">
+        <h5 class="modal-title" id="adherenceExportLabel">
+          <i class="fas fa-clipboard-check"></i>
+          Adherence & Compliance Matrix
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body export-modal-body">
+        <div class="export-intro-card">
+          <div class="intro-icon">
+            <i class="fas fa-stopwatch"></i>
+          </div>
+          <div>
+            <h6>Adherence Matrix</h6>
+            <p class="mb-1">Export color-coded adherence percentages with weekend visibility, daily totals, and an overall average row.</p>
+            <p class="mb-0"><strong>Goal:</strong> 95% target, weekend work can exceed 100% and will be highlighted.</p>
+          </div>
+        </div>
+
+        <form id="adherenceExportForm">
+          <div class="row mb-4">
+            <div class="col-lg-6">
+              <h6 class="section-heading"><i class="fas fa-calendar-alt"></i>Time Period</h6>
+              <div class="row g-3 align-items-end">
+                <div class="col-md-6">
+                  <label class="form-label fw-bold">Period Type</label>
+                  <div class="btn-group w-100 period-toggle" role="group" aria-label="Adherence period">
+                    <input type="radio" class="btn-check" name="adherencePeriodType" id="adherenceWeek" value="Week" checked>
+                    <label class="btn btn-outline-primary" for="adherenceWeek">Weekly</label>
+                    <input type="radio" class="btn-check" name="adherencePeriodType" id="adherenceBiWeekly" value="BiWeekly">
+                    <label class="btn btn-outline-primary" for="adherenceBiWeekly">Bi-Weekly</label>
+                    <input type="radio" class="btn-check" name="adherencePeriodType" id="adherenceMonth" value="Month">
+                    <label class="btn btn-outline-primary" for="adherenceMonth">Monthly</label>
+                    <input type="radio" class="btn-check" name="adherencePeriodType" id="adherenceQuarter" value="Quarter">
+                    <label class="btn btn-outline-primary" for="adherenceQuarter">Quarterly</label>
+                    <input type="radio" class="btn-check" name="adherencePeriodType" id="adherenceCustom" value="Custom">
+                    <label class="btn btn-outline-primary" for="adherenceCustom">Custom</label>
+                  </div>
+                </div>
+                <div class="col-md-6" id="adherenceStandardPeriod">
+                  <label class="form-label fw-bold">Period</label>
+                  <select class="form-select" id="adherencePeriodSelect"></select>
+                </div>
+                <div class="col-md-6" id="adherenceYearWrapper">
+                  <label class="form-label fw-bold">Year</label>
+                  <select class="form-select" id="adherenceYearSelect"></select>
+                </div>
+                <div class="col-md-3 d-none" id="adherenceStartWrapper">
+                  <label class="form-label fw-bold">Start</label>
+                  <input type="date" class="form-control" id="adherenceStartDate">
+                </div>
+                <div class="col-md-3 d-none" id="adherenceEndWrapper">
+                  <label class="form-label fw-bold">End</label>
+                  <input type="date" class="form-control" id="adherenceEndDate">
+                </div>
+              </div>
+            </div>
+
+            <div class="col-lg-6">
+              <h6 class="section-heading"><i class="fas fa-users"></i>User Selection</h6>
+              <div class="row g-3 align-items-end">
+                <div class="col-md-5">
+                  <div class="form-check">
+                    <input class="form-check-input" type="radio" name="adherenceUserSelection" id="adherenceAllUsers" value="all" checked>
+                    <label class="form-check-label" for="adherenceAllUsers">All Users</label>
+                  </div>
+                  <div class="form-check">
+                    <input class="form-check-input" type="radio" name="adherenceUserSelection" id="adherenceSingleUser" value="single">
+                    <label class="form-check-label" for="adherenceSingleUser">Single User</label>
+                  </div>
+                  <div class="form-check">
+                    <input class="form-check-input" type="radio" name="adherenceUserSelection" id="adherenceMultipleUsers" value="multiple">
+                    <label class="form-check-label" for="adherenceMultipleUsers">Multiple Users</label>
+                  </div>
+                </div>
+                <div class="col-md-7" id="adherenceSingleWrapper" style="display:none;">
+                  <label class="form-label fw-bold">Choose User</label>
+                  <select class="form-select" id="adherenceSingleUserSelect"></select>
+                </div>
+                <div class="col-12" id="adherenceMultiWrapper" style="display:none;">
+                  <label class="form-label fw-bold">Select Users</label>
+                  <div class="border rounded p-2" style="max-height: 200px; overflow-y: auto;" id="adherenceUserCheckboxes"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="row mb-4">
+            <div class="col-lg-6">
+              <h6 class="section-heading"><i class="fas fa-palette"></i>Display Options</h6>
+              <div class="option-grid">
+                <div class="form-check futuristic-option">
+                  <input class="form-check-input" type="checkbox" id="adherenceIncludeWeekends" checked>
+                  <label class="form-check-label" for="adherenceIncludeWeekends">
+                    <i class="fas fa-calendar-weekend text-secondary me-1"></i>Show Weekend Columns
+                  </label>
+                  <small class="text-muted d-block">Include Saturday & Sunday columns with overtime color coding.</small>
+                </div>
+                <div class="form-check futuristic-option">
+                  <input class="form-check-input" type="checkbox" id="adherenceIncludeTotals" checked>
+                  <label class="form-check-label" for="adherenceIncludeTotals">
+                    <i class="fas fa-plus-circle text-info me-1"></i>Daily Average Row
+                  </label>
+                  <small class="text-muted d-block">Adds a daily average adherence row before the summary.</small>
+                </div>
+              </div>
+            </div>
+
+            <div class="col-lg-6">
+              <h6 class="section-heading"><i class="fas fa-eye"></i>Preview</h6>
+              <div class="adherence-preview-card">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                  <div>
+                    <div class="fw-bold" id="adherencePreviewPeriod">Weekly · Current Week</div>
+                    <div class="text-muted small" id="adherencePreviewUsers">All Users</div>
+                  </div>
+                  <div class="adherence-legend">
+                    <div class="adherence-chip low"><span class="adherence-dot"></span><span>&lt;95%</span></div>
+                    <div class="adherence-chip red"><span class="adherence-dot"></span><span>&lt;80%</span></div>
+                    <div class="adherence-chip good"><span class="adherence-dot"></span><span>95-110%</span></div>
+                    <div class="adherence-chip excellent"><span class="adherence-dot"></span><span>&gt;110%</span></div>
+                  </div>
+                </div>
+
+                <div class="table-responsive">
+                  <table class="table table-sm table-bordered adherence-preview-table mb-0">
+                    <thead class="table-light" id="adherencePreviewHead"></thead>
+                    <tbody id="adherencePreviewBody"></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="d-flex justify-content-end gap-2">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="button" class="btn btn-success" id="adherenceExecuteExport">
+              <i class="fas fa-download me-2"></i>Export Adherence Matrix
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   </div>
@@ -6026,6 +6243,579 @@
     }
   }
 
+  class AdherenceExportManager {
+    constructor(primaryManager = null) {
+      this.primaryManager = primaryManager;
+      this.userList = [];
+      this.periodCache = {};
+      this.init();
+    }
+
+    init() {
+      this.initializeYearSelector();
+      this.setupEventListeners();
+      this.loadUserList();
+      this.updatePeriodOptions(true);
+      this.updateUserSelectionVisibility();
+      this.renderPreview();
+    }
+
+    initializeYearSelector() {
+      const select = document.getElementById('adherenceYearSelect');
+      if (!select) return;
+
+      const currentYear = new Date().getFullYear();
+      const years = new Set([currentYear - 1, currentYear, currentYear + 1]);
+      select.innerHTML = '';
+      Array.from(years).sort((a, b) => b - a).forEach(year => {
+        const option = document.createElement('option');
+        option.value = year;
+        option.textContent = year;
+        select.appendChild(option);
+      });
+      select.value = currentYear.toString();
+    }
+
+    setupEventListeners() {
+      const typeRadios = document.querySelectorAll('input[name="adherencePeriodType"]');
+      typeRadios.forEach(r => r.addEventListener('change', () => this.updatePeriodOptions()));
+
+      const yearSelect = document.getElementById('adherenceYearSelect');
+      if (yearSelect) {
+        yearSelect.addEventListener('change', () => this.updatePeriodOptions());
+      }
+
+      const executeBtn = document.getElementById('adherenceExecuteExport');
+      if (executeBtn) {
+        executeBtn.addEventListener('click', () => this.executeExport());
+      }
+
+      document.querySelectorAll('input[name="adherenceUserSelection"]').forEach(radio => {
+        radio.addEventListener('change', () => this.updateUserSelectionVisibility());
+      });
+
+      ['adherenceIncludeWeekends', 'adherenceIncludeTotals'].forEach(id => {
+        document.getElementById(id)?.addEventListener('change', () => this.renderPreview());
+      });
+
+      ['adherencePeriodSelect', 'adherenceStartDate', 'adherenceEndDate'].forEach(id => {
+        document.getElementById(id)?.addEventListener('change', () => this.renderPreview());
+      });
+
+      ['adherenceSingleUserSelect', 'adherenceUserCheckboxes'].forEach(id => {
+        document.getElementById(id)?.addEventListener('change', () => this.renderPreview());
+      });
+    }
+
+    setUserLoadingState(isLoading, message = 'Loading users...') {
+      const singleSelect = document.getElementById('adherenceSingleUserSelect');
+      const checkboxContainer = document.getElementById('adherenceUserCheckboxes');
+
+      if (singleSelect) {
+        singleSelect.disabled = isLoading;
+        if (isLoading) {
+          singleSelect.innerHTML = '';
+          const option = document.createElement('option');
+          option.value = '';
+          option.textContent = message;
+          singleSelect.appendChild(option);
+        }
+      }
+
+      if (checkboxContainer) {
+        checkboxContainer.innerHTML = isLoading
+          ? `<div class="text-muted small">${message}</div>`
+          : checkboxContainer.innerHTML;
+      }
+    }
+
+    showUserLoadError(message) {
+      const singleSelect = document.getElementById('adherenceSingleUserSelect');
+      const checkboxContainer = document.getElementById('adherenceUserCheckboxes');
+
+      if (singleSelect) {
+        singleSelect.innerHTML = '';
+        const option = document.createElement('option');
+        option.value = '';
+        option.textContent = message;
+        singleSelect.appendChild(option);
+        singleSelect.disabled = true;
+      }
+
+      if (checkboxContainer) {
+        checkboxContainer.innerHTML = `<div class="text-danger small">${message}</div>`;
+      }
+    }
+
+    async loadUserList() {
+      this.setUserLoadingState(true);
+      try {
+        let users = [];
+
+        if (window.exportManager && Array.isArray(window.exportManager.userList) && window.exportManager.userList.length) {
+          users = [...window.exportManager.userList];
+        } else if (window.dashboard?.currentData?.userCompliance) {
+          users = window.dashboard.currentData.userCompliance.map(u => u.user).filter(Boolean);
+        }
+
+        const managerId = typeof window.MANAGER_USER_ID === 'string' ? window.MANAGER_USER_ID : '';
+        if ((!Array.isArray(users) || users.length === 0) && managerId) {
+          users = await safeServerCall('clientGetAssignedAgentNames', [managerId], { timeoutMs: 8000 });
+        }
+
+        if (!Array.isArray(users) || users.length === 0) {
+          const fallbackUsers = await safeServerCall('getUsers', [{ excludeGuests: true }], { timeoutMs: 7000 });
+          if (Array.isArray(fallbackUsers)) {
+            users = fallbackUsers.map(u => u.FullName || u.UserName || u.name || u.Email).filter(Boolean);
+          }
+        }
+
+        this.userList = Array.from(new Set(
+          (Array.isArray(users) ? users : [])
+            .filter(name => typeof name === 'string')
+            .map(name => name.trim())
+            .filter(Boolean)
+        )).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+
+        if (this.userList.length === 0) {
+          this.showUserLoadError('No users available.');
+        } else {
+          this.populateUserSelections();
+        }
+      } catch (error) {
+        console.error('Adherence export user load error:', error);
+        this.userList = [];
+        this.showUserLoadError('Unable to load users.');
+      } finally {
+        this.setUserLoadingState(false);
+      }
+    }
+
+    populateUserSelections() {
+      const singleSelect = document.getElementById('adherenceSingleUserSelect');
+      const checkboxContainer = document.getElementById('adherenceUserCheckboxes');
+
+      if (singleSelect) {
+        singleSelect.innerHTML = '<option value="">Select a user</option>';
+        this.userList.forEach(user => {
+          const option = document.createElement('option');
+          option.value = user;
+          option.textContent = user;
+          singleSelect.appendChild(option);
+        });
+      }
+
+      if (checkboxContainer) {
+        checkboxContainer.innerHTML = '';
+        this.userList.forEach(user => {
+          const id = `adherence-user-${user.replace(/[^a-z0-9]/gi, '-')}`;
+          const wrapper = document.createElement('div');
+          wrapper.className = 'form-check';
+          wrapper.innerHTML = `
+            <input class="form-check-input" type="checkbox" value="${escapeHtml(user)}" id="${id}">
+            <label class="form-check-label" for="${id}">${escapeHtml(user)}</label>
+          `;
+          checkboxContainer.appendChild(wrapper);
+        });
+      }
+    }
+
+    updateUserSelectionVisibility() {
+      const selection = document.querySelector('input[name="adherenceUserSelection"]:checked')?.value || 'all';
+      const singleWrapper = document.getElementById('adherenceSingleWrapper');
+      const multiWrapper = document.getElementById('adherenceMultiWrapper');
+
+      if (singleWrapper) singleWrapper.style.display = selection === 'single' ? 'block' : 'none';
+      if (multiWrapper) multiWrapper.style.display = selection === 'multiple' ? 'block' : 'none';
+    }
+
+    updatePeriodOptions(triggerDefault = false) {
+      const type = document.querySelector('input[name="adherencePeriodType"]:checked')?.value || 'Week';
+      const year = parseInt(document.getElementById('adherenceYearSelect')?.value, 10) || new Date().getFullYear();
+      const standardWrapper = document.getElementById('adherenceStandardPeriod');
+      const customStart = document.getElementById('adherenceStartWrapper');
+      const customEnd = document.getElementById('adherenceEndWrapper');
+
+      if (type === 'Custom') {
+        standardWrapper?.classList.add('d-none');
+        customStart?.classList.remove('d-none');
+        customEnd?.classList.remove('d-none');
+      } else {
+        standardWrapper?.classList.remove('d-none');
+        customStart?.classList.add('d-none');
+        customEnd?.classList.add('d-none');
+        this.populatePeriodSelect(type, year, triggerDefault);
+      }
+
+      this.renderPreview();
+    }
+
+    populatePeriodSelect(type, year, triggerDefault = false) {
+      const select = document.getElementById('adherencePeriodSelect');
+      if (!select) return;
+
+      select.innerHTML = '';
+      let options = [];
+
+      if (type === 'Week') {
+        const weeks = this.getISOWeeksInYear(year);
+        options = Array.from({ length: weeks }, (_, i) => ({
+          value: `${year}-W${(i + 1).toString().padStart(2, '0')}`,
+          label: `Week ${i + 1} - ${year}`
+        }));
+      } else if (type === 'BiWeekly') {
+        options = Array.from({ length: 26 }, (_, i) => ({
+          value: `${year}-BW${(i + 1).toString().padStart(2, '0')}`,
+          label: `Bi-Week ${i + 1} - ${year}`
+        }));
+      } else if (type === 'Month') {
+        options = Array.from({ length: 12 }, (_, i) => ({
+          value: `${year}-${(i + 1).toString().padStart(2, '0')}`,
+          label: `${new Date(year, i, 1).toLocaleString(undefined, { month: 'long' })} ${year}`
+        }));
+      } else if (type === 'Quarter') {
+        options = Array.from({ length: 4 }, (_, i) => ({
+          value: `Q${i + 1}-${year}`,
+          label: `Quarter ${i + 1} ${year}`
+        }));
+      }
+
+      options.forEach(opt => {
+        const option = document.createElement('option');
+        option.value = opt.value;
+        option.textContent = opt.label;
+        select.appendChild(option);
+      });
+
+      const cached = this.periodCache[type];
+      const defaultValue = cached || this.getDefaultPeriodForType(type, year) || (options[0]?.value || '');
+      select.value = defaultValue;
+      this.periodCache[type] = select.value;
+
+      if (!select.dataset.adherenceChangeBound) {
+        select.addEventListener('change', () => {
+          this.periodCache[type] = select.value;
+          this.renderPreview();
+        });
+        select.dataset.adherenceChangeBound = '1';
+      }
+    }
+
+    getDefaultPeriodForType(type, year) {
+      const today = new Date();
+      if (today.getFullYear() !== year) return '';
+      if (type === 'Week') return this.getIsoWeekFromDate(today);
+      if (type === 'BiWeekly') return `${year}-BW01`;
+      if (type === 'Month') return `${year}-${(today.getMonth() + 1).toString().padStart(2, '0')}`;
+      if (type === 'Quarter') return `Q${Math.floor(today.getMonth() / 3) + 1}-${year}`;
+      return '';
+    }
+
+    getIsoWeekFromDate(date) {
+      const tempDate = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+      const dayNumber = tempDate.getUTCDay() || 7;
+      tempDate.setUTCDate(tempDate.getUTCDate() + 4 - dayNumber);
+      const yearStart = new Date(Date.UTC(tempDate.getUTCFullYear(), 0, 1));
+      const weekNo = Math.ceil(((tempDate - yearStart) / 86400000 + 1) / 7);
+      return `${tempDate.getUTCFullYear()}-W${weekNo.toString().padStart(2, '0')}`;
+    }
+
+    getISOWeeksInYear(year) {
+      const dec28 = new Date(Date.UTC(year, 11, 28));
+      const isoWeek = this.getIsoWeekFromDate(dec28);
+      const parts = isoWeek.split('-W');
+      const weekNumber = parts.length === 2 ? parseInt(parts[1], 10) : 52;
+      return Number.isFinite(weekNumber) ? weekNumber : 52;
+    }
+
+    collectParameters() {
+      const periodType = document.querySelector('input[name="adherencePeriodType"]:checked')?.value || 'Week';
+      const periodValue = document.getElementById('adherencePeriodSelect')?.value || '';
+      const startDate = document.getElementById('adherenceStartDate')?.value || '';
+      const endDate = document.getElementById('adherenceEndDate')?.value || '';
+      const includeWeekends = document.getElementById('adherenceIncludeWeekends')?.checked !== false;
+      const includeDailyTotals = document.getElementById('adherenceIncludeTotals')?.checked !== false;
+      const userSelection = document.querySelector('input[name="adherenceUserSelection"]:checked')?.value || 'all';
+
+      let users = [];
+      if (userSelection === 'single') {
+        const selected = document.getElementById('adherenceSingleUserSelect')?.value;
+        if (selected) users = [selected];
+      } else if (userSelection === 'multiple') {
+        const checked = document.querySelectorAll('#adherenceUserCheckboxes input[type="checkbox"]:checked');
+        users = Array.from(checked).map(cb => cb.value);
+      }
+
+      return {
+        periodType,
+        period: periodValue,
+        periodId: periodValue,
+        startDateIso: startDate,
+        endDateIso: endDate,
+        includeWeekends,
+        includeDailyTotals,
+        users,
+        userSelection
+      };
+    }
+
+    validateParameters(params) {
+      if (params.periodType === 'Custom') {
+        if (!params.startDateIso || !params.endDateIso) {
+          alert('Please select both start and end dates for custom range.');
+          return false;
+        }
+        if (new Date(params.startDateIso) > new Date(params.endDateIso)) {
+          alert('Start date must be on or before the end date.');
+          return false;
+        }
+      } else if (!params.period) {
+        alert('Please select a period for the export.');
+        return false;
+      }
+
+      if (params.userSelection === 'single' && params.users.length === 0) {
+        alert('Please select a user for the export.');
+        return false;
+      }
+
+      if (params.userSelection === 'multiple' && params.users.length === 0) {
+        alert('Please select at least one user.');
+        return false;
+      }
+
+      return true;
+    }
+
+    renderPreview() {
+      const includeWeekends = document.getElementById('adherenceIncludeWeekends')?.checked !== false;
+      const includeTotals = document.getElementById('adherenceIncludeTotals')?.checked !== false;
+      const periodType = document.querySelector('input[name="adherencePeriodType"]:checked')?.value || 'Week';
+      const periodValue = document.getElementById('adherencePeriodSelect')?.value || 'Current';
+      const startDate = document.getElementById('adherenceStartDate')?.value;
+      const endDate = document.getElementById('adherenceEndDate')?.value;
+      const userSelection = document.querySelector('input[name="adherenceUserSelection"]:checked')?.value || 'all';
+
+      const periodLabel = periodType === 'Custom'
+        ? `Custom · ${startDate || 'Start'} to ${endDate || 'End'}`
+        : `${periodType} · ${periodValue || 'Current'}`;
+      const previewPeriod = document.getElementById('adherencePreviewPeriod');
+      if (previewPeriod) previewPeriod.textContent = periodLabel;
+
+      let usersLabel = 'All Users';
+      if (userSelection === 'single') {
+        usersLabel = document.getElementById('adherenceSingleUserSelect')?.value || 'No user selected';
+      } else if (userSelection === 'multiple') {
+        const checked = document.querySelectorAll('#adherenceUserCheckboxes input[type="checkbox"]:checked');
+        usersLabel = checked.length ? `${checked.length} users selected` : 'No users selected';
+      }
+      const previewUsers = document.getElementById('adherencePreviewUsers');
+      if (previewUsers) previewUsers.textContent = usersLabel;
+
+      const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+      if (includeWeekends) days.push('Sat', 'Sun');
+      const weekendFlags = days.map(d => d === 'Sat' || d === 'Sun');
+
+      const head = document.getElementById('adherencePreviewHead');
+      const body = document.getElementById('adherencePreviewBody');
+      if (!head || !body) return;
+
+      head.innerHTML = `
+        <tr>
+          <th class="text-start">Agent</th>
+          ${days.map(day => `<th class="${day === 'Sat' || day === 'Sun' ? 'weekend-col' : ''}">${day}</th>`).join('')}
+          <th>Total %</th>
+          <th>Low Days</th>
+          <th>OT Days</th>
+          <th>Avg %</th>
+          <th>Days</th>
+        </tr>`;
+
+      const sampleRows = [
+        { name: 'Alex', values: [102, 94, 97, 89, 120, 130, 88] },
+        { name: 'Taylor', values: [91, 76, 99, 104, 96, 0, 0] }
+      ];
+
+      const thresholdClass = val => {
+        if (val > 110) return 'excellent';
+        if (val >= 95) return 'good';
+        if (val >= 80) return 'low';
+        return 'red';
+      };
+
+      body.innerHTML = sampleRows.map(row => {
+        const values = includeWeekends ? row.values : row.values.slice(0, 5);
+        const cleanValues = values.map(v => typeof v === 'number' && v > 0 ? v : '');
+        const numeric = cleanValues.filter(v => typeof v === 'number');
+        const total = numeric.reduce((a, b) => a + b, 0);
+        const avg = numeric.length ? Math.round((total / numeric.length) * 100) / 100 : '';
+        const lowDays = numeric.filter(v => v < 95 && v > 0).length;
+        const otDays = numeric.filter(v => v > 110).length;
+        const daysWorked = numeric.length;
+
+        const cells = cleanValues.map((val, idx) => {
+          const weekendClass = weekendFlags[idx] ? 'weekend-col' : '';
+          if (typeof val !== 'number') return `<td class="text-muted ${weekendClass}">—</td>`;
+          return `<td class="${weekendClass}"><span class="adherence-chip ${thresholdClass(val)}"><span class="adherence-dot"></span>${val}%</span></td>`;
+        }).join('');
+
+        return `<tr><th class="text-start">${row.name}</th>${cells}<td>${total ? `${Math.round(total * 100) / 100}` : ''}</td><td>${lowDays}</td><td>${otDays}</td><td>${avg || ''}</td><td>${daysWorked}</td></tr>`;
+      }).join('');
+
+      if (includeTotals) {
+        const dailyAverages = days.map((_, idx) => {
+          const values = sampleRows
+            .map(r => (includeWeekends ? r.values : r.values.slice(0, 5))[idx])
+            .filter(v => typeof v === 'number' && v > 0);
+          if (!values.length) return '';
+          return Math.round((values.reduce((a, b) => a + b, 0) / values.length) * 100) / 100;
+        });
+
+        const dailyCells = dailyAverages.map((val, idx) => {
+          const weekendClass = weekendFlags[idx] ? 'weekend-col' : '';
+          if (typeof val !== 'number') return `<td class="text-muted ${weekendClass}">—</td>`;
+          return `<td class="${weekendClass}"><span class="adherence-chip ${thresholdClass(val)}"><span class="adherence-dot"></span>${val}%</span></td>`;
+        }).join('');
+
+        const overallAvg = dailyAverages.filter(v => typeof v === 'number');
+        const avgVal = overallAvg.length
+          ? Math.round((overallAvg.reduce((a, b) => a + b, 0) / overallAvg.length) * 100) / 100
+          : '';
+
+        const totalVal = dailyAverages.filter(v => typeof v === 'number').reduce((a, b) => a + b, 0) || '';
+
+        body.innerHTML += `<tr class="table-light"><th class="text-start">Daily Avg</th>${dailyCells}<td>${totalVal}</td><td></td><td></td><td>${avgVal}</td><td></td></tr>`;
+      }
+    }
+
+    updateExportProgress(percent, message) {
+      const progressBar = document.getElementById('exportProgressBar');
+      const messageEl = document.getElementById('exportProgressMessage');
+      if (progressBar) progressBar.style.width = `${percent}%`;
+      if (messageEl) messageEl.textContent = message || '';
+    }
+
+    async executeExport() {
+      try {
+        const params = this.collectParameters();
+        if (!this.validateParameters(params)) return;
+
+        const modal = bootstrap.Modal.getInstance(document.getElementById('adherenceExportModal'));
+        const progressModal = new bootstrap.Modal(document.getElementById('exportProgressModal'));
+        modal?.hide();
+        progressModal?.show();
+
+        this.updateExportProgress(25, 'Preparing adherence matrix...');
+        const result = await safeServerCall('exportAdherenceComplianceSheet', [params], { timeoutMs: 45000 });
+        this.updateExportProgress(75, 'Finalizing export...');
+
+        if (result && result.success !== false) {
+          const openSpreadsheet = (url) => {
+            if (!url) return false;
+            if (this.primaryManager?.openSpreadsheet) {
+              this.primaryManager.openSpreadsheet.call(this.primaryManager, url);
+            } else {
+              const anchor = document.createElement('a');
+              anchor.href = url;
+              anchor.target = '_blank';
+              anchor.rel = 'noopener';
+              anchor.style.display = 'none';
+              document.body.appendChild(anchor);
+              anchor.click();
+              document.body.removeChild(anchor);
+            }
+            return true;
+          };
+
+          const downloadFile = (data, filename, mimeType, isBase64 = false) => {
+            if (this.primaryManager?.downloadFile) {
+              this.primaryManager.downloadFile.call(
+                this.primaryManager,
+                data,
+                filename,
+                mimeType,
+                isBase64
+              );
+              return true;
+            }
+
+            try {
+              let blob;
+              if (isBase64) {
+                const byteCharacters = atob(data);
+                const byteNumbers = new Array(byteCharacters.length);
+                for (let i = 0; i < byteCharacters.length; i++) {
+                  byteNumbers[i] = byteCharacters.charCodeAt(i);
+                }
+                const byteArray = new Uint8Array(byteNumbers);
+                blob = new Blob([byteArray], { type: mimeType || 'application/octet-stream' });
+              } else {
+                blob = new Blob([data], { type: mimeType || 'application/octet-stream' });
+              }
+              const url = window.URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = filename || `adherence_export_${new Date().toISOString().split('T')[0]}.xlsx`;
+              document.body.appendChild(a);
+              a.click();
+              document.body.removeChild(a);
+              window.URL.revokeObjectURL(url);
+              return true;
+            } catch (error) {
+              console.error('Adherence export download failed:', error);
+              return false;
+            }
+          };
+
+          const notifySuccess = (message) => {
+            if (this.primaryManager?.showSuccessMessage) {
+              this.primaryManager.showSuccessMessage.call(this.primaryManager, message);
+            } else {
+              console.log(message);
+            }
+          };
+
+          const isGoogleSheetExport = (result.fileType === 'google_sheet')
+            || (typeof result.filename === 'string' && result.filename.toLowerCase().endsWith('.gsheet'));
+
+          let handled = false;
+          if (isGoogleSheetExport) {
+            this.updateExportProgress(90, 'Opening Google Sheets export...');
+            const targetUrl = result.spreadsheetUrl || result.url;
+            handled = openSpreadsheet(targetUrl);
+          } else if (result.spreadsheetUrl) {
+            handled = openSpreadsheet(result.spreadsheetUrl);
+          }
+
+          if (!handled && result.fileData) {
+            handled = downloadFile(
+              result.fileData,
+              result.filename || `adherence_export_${new Date().toISOString().split('T')[0]}.xlsx`,
+              result.mimeType || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+              (result.encoding || '').toLowerCase() === 'base64'
+            );
+          }
+
+          this.updateExportProgress(100, 'Export completed successfully!');
+          setTimeout(() => progressModal?.hide(), 800);
+          const successMessage = isGoogleSheetExport
+            ? 'Adherence matrix opened in Google Sheets.'
+            : 'Adherence matrix export ready.';
+          notifySuccess(successMessage);
+        } else {
+          throw new Error(result?.error || 'Export failed - no data received');
+        }
+      } catch (error) {
+        console.error('Adherence export failed:', error);
+        const progressModal = bootstrap.Modal.getInstance(document.getElementById('exportProgressModal'));
+        progressModal?.hide();
+        if (this.primaryManager?.showErrorMessage) {
+          this.primaryManager.showErrorMessage.call(this.primaryManager, 'Export failed: ' + error.message);
+        }
+      }
+    }
+  }
+
   // GLOBAL FUNCTIONS
   let dashboard;
   let analyticsModalInstance;
@@ -6240,6 +7030,17 @@
     modal.show();
   }
 
+  function showAdherenceExportModal() {
+    if (!window.adherenceExportManager) {
+      window.adherenceExportManager = new AdherenceExportManager(window.exportManager || null);
+    } else {
+      window.adherenceExportManager.updateUserSelectionVisibility();
+      window.adherenceExportManager.renderPreview();
+    }
+    const modal = new bootstrap.Modal(document.getElementById('adherenceExportModal'));
+    modal.show();
+  }
+
   function exportData() {
     showEnhancedExportModal();
   }
@@ -6316,6 +7117,12 @@
     document.getElementById('exportModal')?.addEventListener('shown.bs.modal', function () {
       if (!window.exportManager) {
         window.exportManager = new EnhancedExportManager();
+      }
+    });
+
+    document.getElementById('adherenceExportModal')?.addEventListener('shown.bs.modal', function () {
+      if (!window.adherenceExportManager) {
+        window.adherenceExportManager = new AdherenceExportManager(window.exportManager || null);
       }
     });
 
