@@ -940,6 +940,15 @@
       vertical-align: middle;
       text-align: center;
     }
+
+    .adherence-preview-table .weekend-col {
+      background: #f1f5f9;
+    }
+
+    .adherence-preview-table tfoot tr {
+      background: #f8fafc;
+      font-weight: 600;
+    }
   
 
     #exportModal .form-label {
@@ -6605,6 +6614,7 @@
 
       const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
       if (includeWeekends) days.push('Sat', 'Sun');
+      const weekendFlags = days.map(d => d === 'Sat' || d === 'Sun');
 
       const head = document.getElementById('adherencePreviewHead');
       const body = document.getElementById('adherencePreviewBody');
@@ -6613,8 +6623,12 @@
       head.innerHTML = `
         <tr>
           <th class="text-start">Agent</th>
-          ${days.map(day => `<th>${day}</th>`).join('')}
+          ${days.map(day => `<th class="${day === 'Sat' || day === 'Sun' ? 'weekend-col' : ''}">${day}</th>`).join('')}
+          <th>Total %</th>
+          <th>Low Days</th>
+          <th>OT Days</th>
           <th>Avg %</th>
+          <th>Days</th>
         </tr>`;
 
       const sampleRows = [
@@ -6633,14 +6647,19 @@
         const values = includeWeekends ? row.values : row.values.slice(0, 5);
         const cleanValues = values.map(v => typeof v === 'number' && v > 0 ? v : '');
         const numeric = cleanValues.filter(v => typeof v === 'number');
-        const avg = numeric.length ? Math.round((numeric.reduce((a, b) => a + b, 0) / numeric.length) * 100) / 100 : '';
+        const total = numeric.reduce((a, b) => a + b, 0);
+        const avg = numeric.length ? Math.round((total / numeric.length) * 100) / 100 : '';
+        const lowDays = numeric.filter(v => v < 95 && v > 0).length;
+        const otDays = numeric.filter(v => v > 110).length;
+        const daysWorked = numeric.length;
 
-        const cells = cleanValues.map(val => {
-          if (typeof val !== 'number') return '<td class="text-muted">—</td>';
-          return `<td><span class="adherence-chip ${thresholdClass(val)}"><span class="adherence-dot"></span>${val}%</span></td>`;
+        const cells = cleanValues.map((val, idx) => {
+          const weekendClass = weekendFlags[idx] ? 'weekend-col' : '';
+          if (typeof val !== 'number') return `<td class="text-muted ${weekendClass}">—</td>`;
+          return `<td class="${weekendClass}"><span class="adherence-chip ${thresholdClass(val)}"><span class="adherence-dot"></span>${val}%</span></td>`;
         }).join('');
 
-        return `<tr><th class="text-start">${row.name}</th>${cells}<td>${avg || ''}</td></tr>`;
+        return `<tr><th class="text-start">${row.name}</th>${cells}<td>${total ? `${Math.round(total * 100) / 100}` : ''}</td><td>${lowDays}</td><td>${otDays}</td><td>${avg || ''}</td><td>${daysWorked}</td></tr>`;
       }).join('');
 
       if (includeTotals) {
@@ -6652,9 +6671,10 @@
           return Math.round((values.reduce((a, b) => a + b, 0) / values.length) * 100) / 100;
         });
 
-        const dailyCells = dailyAverages.map(val => {
-          if (typeof val !== 'number') return '<td class="text-muted">—</td>';
-          return `<td><span class="adherence-chip ${thresholdClass(val)}"><span class="adherence-dot"></span>${val}%</span></td>`;
+        const dailyCells = dailyAverages.map((val, idx) => {
+          const weekendClass = weekendFlags[idx] ? 'weekend-col' : '';
+          if (typeof val !== 'number') return `<td class="text-muted ${weekendClass}">—</td>`;
+          return `<td class="${weekendClass}"><span class="adherence-chip ${thresholdClass(val)}"><span class="adherence-dot"></span>${val}%</span></td>`;
         }).join('');
 
         const overallAvg = dailyAverages.filter(v => typeof v === 'number');
@@ -6662,7 +6682,9 @@
           ? Math.round((overallAvg.reduce((a, b) => a + b, 0) / overallAvg.length) * 100) / 100
           : '';
 
-        body.innerHTML += `<tr class="table-light"><th class="text-start">Daily Avg</th>${dailyCells}<td>${avgVal}</td></tr>`;
+        const totalVal = dailyAverages.filter(v => typeof v === 'number').reduce((a, b) => a + b, 0) || '';
+
+        body.innerHTML += `<tr class="table-light"><th class="text-start">Daily Avg</th>${dailyCells}<td>${totalVal}</td><td></td><td></td><td>${avgVal}</td><td></td></tr>`;
       }
     }
 

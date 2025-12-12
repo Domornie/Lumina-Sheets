@@ -3772,8 +3772,9 @@ function getAdherenceComplianceExportData(params) {
     const startDateIso = payload.startDateIso || payload.startDate || '';
     const endDateIso = payload.endDateIso || payload.endDate || '';
     const includeWeekends = payload.includeWeekends !== false;
-    const agentFilter = Array.isArray(payload.users) && payload.users.length
-      ? payload.users[0]
+    const selectedUsers = Array.isArray(payload.users) ? payload.users.filter(Boolean) : [];
+    const agentFilter = selectedUsers.length
+      ? ''
       : (payload.userId || payload.agent || '');
 
     if (!periodId && granularity.toLowerCase() === 'custom') {
@@ -3800,6 +3801,7 @@ function getAdherenceComplianceExportData(params) {
     dayMetrics.forEach(entry => {
       if (!entry || !entry.user || !entry.dateKey) return;
       if (!includeWeekends && isWeekendKey_(entry.dateKey)) return;
+      if (selectedUsers.length && !selectedUsers.includes(entry.user)) return;
       const calc = calculateBreakLunchDeductions(entry.break, entry.lunch);
       const basePercent = computeAdherencePercent_({
         exceededBreakDays: calc.breakOver > 0 ? 1 : 0,
@@ -3825,15 +3827,23 @@ function getAdherenceComplianceExportData(params) {
       const avg = numericPercents.length
         ? Math.round((numericPercents.reduce((a, b) => a + b, 0) / numericPercents.length) * 100) / 100
         : 0;
+      const totalPercent = numericPercents.length
+        ? Math.round((numericPercents.reduce((a, b) => a + b, 0)) * 100) / 100
+        : 0;
       const compliantDays = numericPercents.filter(v => v >= 95).length;
       const flaggedDays = numericPercents.filter(v => v > 0 && v < 95).length;
+      const overtimeDays = numericPercents.filter(v => v > 110).length;
+      const daysWorked = numericPercents.filter(v => v > 0).length;
 
       return {
         user: userEntry.user,
         dayPercents: percents,
         average: avg,
+        totalPercent,
         compliantDays,
-        flaggedDays
+        flaggedDays,
+        overtimeDays,
+        daysWorked
       };
     });
 
@@ -3846,12 +3856,15 @@ function getAdherenceComplianceExportData(params) {
       startDateIso: startIso,
       endDateIso: endIso,
       dateKeys,
+      weekendFlags: dateKeys.map(key => isWeekendKey_(key)),
       rows,
       goal,
       summary: {
         totalAgents: rows.length,
         totalCompliantDays: rows.reduce((sum, r) => sum + r.compliantDays, 0),
         totalFlaggedDays: rows.reduce((sum, r) => sum + r.flaggedDays, 0),
+        totalOvertimeDays: rows.reduce((sum, r) => sum + r.overtimeDays, 0),
+        totalWorkedDays: rows.reduce((sum, r) => sum + r.daysWorked, 0),
         averageScore: rows.length
           ? Math.round((rows.reduce((sum, r) => sum + r.average, 0) / rows.length) * 100) / 100
           : 0
@@ -3860,7 +3873,7 @@ function getAdherenceComplianceExportData(params) {
   }, { success: false, error: 'Unable to load adherence and compliance data.' }, MAX_PROCESSING_TIME);
 }
 
-function applyAdherenceComplianceFormatting_(sheet, headers, rowCount, dayColumnStart) {
+function applyAdherenceComplianceFormatting_(sheet, headers, rowCount, dayColumnStart, weekendFlags) {
   const totalRows = Math.max(1, rowCount + 2);
   sheet.setFrozenRows(1);
 
@@ -3881,12 +3894,21 @@ function applyAdherenceComplianceFormatting_(sheet, headers, rowCount, dayColumn
     sheet.getRange(2, 2, rowCount, 1).setBackground('#e8f4fd'); // Period
     sheet.getRange(2, dayColumnStart, rowCount, headers.length - dayColumnStart + 1).setBackground('#f7f7f7');
 
+    if (Array.isArray(weekendFlags) && weekendFlags.length) {
+      weekendFlags.forEach((isWeekend, index) => {
+        if (!isWeekend) return;
+        const col = dayColumnStart + index;
+        sheet.getRange(2, col, rowCount, 1).setBackground('#efefef');
+      });
+    }
+
     const rules = sheet.getConditionalFormatRules() || [];
     const addRule = builder => rules.push(builder.build());
 
-    const dayRangeWidth = Math.max(1, headers.length - dayColumnStart - 3);
+    const trailingCols = 6;
+    const dayRangeWidth = Math.max(1, headers.length - dayColumnStart - trailingCols + 1);
     const dayRange = sheet.getRange(2, dayColumnStart, rowCount, dayRangeWidth);
-    const pctRange = sheet.getRange(2, headers.length - 2, rowCount, 1);
+    const pctRange = sheet.getRange(2, headers.length - trailingCols + 1, rowCount, 4);
 
     [dayRange, pctRange].forEach(range => {
       addRule(SpreadsheetApp.newConditionalFormatRule()
@@ -3943,11 +3965,12 @@ function applyAdherenceComplianceFormatting_(sheet, headers, rowCount, dayColumn
 
   sheet.setRowHeight(1, 30);
   sheet.setColumnWidths(1, 2, 170);
+  const trailingCols = 6;
   if (headers.length >= dayColumnStart) {
-    const dayCols = Math.max(1, headers.length - dayColumnStart - 3);
+    const dayCols = Math.max(1, headers.length - dayColumnStart - trailingCols + 1);
     sheet.setColumnWidths(dayColumnStart, dayCols, 80);
   }
-  sheet.setColumnWidths(headers.length - 2, 3, 120);
+  sheet.setColumnWidths(headers.length - trailingCols + 1, trailingCols, 120);
 }
 
 function exportAdherenceComplianceSheet(payload) {
@@ -3965,7 +3988,7 @@ function exportAdherenceComplianceSheet(payload) {
         : day;
     });
     headers.push(...dayLabels);
-    headers.push('Compliant Days', 'Flagged Days', 'Average %', 'Status');
+    headers.push('Total %', 'Low Days', 'Overtime Days', 'Average %', 'Days Worked', 'Status');
 
     const rows = (data.rows || []).map(row => {
       const status = row.average >= 100
@@ -3981,12 +4004,18 @@ function exportAdherenceComplianceSheet(payload) {
         row.user,
         `${data.startDateIso || ''} to ${data.endDateIso || ''}`,
         ...dayValues,
-        row.compliantDays,
+        row.totalPercent,
         row.flaggedDays,
+        row.overtimeDays,
         row.average,
+        row.daysWorked,
         status
       ];
     });
+
+    const totalPercentSum = (data.rows || []).reduce((sum, r) => {
+      return sum + (Number.isFinite(r.totalPercent) ? r.totalPercent : 0);
+    }, 0);
 
     const dailyAverages = dayLabels.map((_, index) => {
       const values = (data.rows || [])
@@ -4000,11 +4029,13 @@ function exportAdherenceComplianceSheet(payload) {
       'Daily Averages',
       `${data.startDateIso || ''} to ${data.endDateIso || ''}`,
       ...dailyAverages,
+      dailyAverages.filter(v => typeof v === 'number').reduce((sum, v) => sum + v, 0) || '',
       '',
       '',
       dailyAverages.filter(v => typeof v === 'number').length
         ? Math.round((dailyAverages.filter(v => typeof v === 'number').reduce((a, b) => a + b, 0) / dailyAverages.filter(v => typeof v === 'number').length) * 100) / 100
         : '',
+      '',
       ''
     ];
 
@@ -4012,9 +4043,11 @@ function exportAdherenceComplianceSheet(payload) {
       'Totals / Averages',
       `${data.startDateIso || ''} to ${data.endDateIso || ''}`,
       ...new Array(dayLabels.length).fill(''),
-      data.summary.totalCompliantDays,
+      totalPercentSum,
       data.summary.totalFlaggedDays,
+      data.summary.totalOvertimeDays,
       data.summary.averageScore,
+      data.summary.totalWorkedDays,
       data.summary.averageScore >= data.goal ? 'Pass' : 'Needs Attention'
     ];
 
@@ -4034,7 +4067,7 @@ function exportAdherenceComplianceSheet(payload) {
 
     const dayColumnStart = 3;
     const formattedRows = rows.length + (payload.includeDailyTotals !== false ? 1 : 0);
-    applyAdherenceComplianceFormatting_(sheet, headers, formattedRows + 1, dayColumnStart);
+    applyAdherenceComplianceFormatting_(sheet, headers, formattedRows + 1, dayColumnStart, data.weekendFlags);
 
     return {
       success: true,
