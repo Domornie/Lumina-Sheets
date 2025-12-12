@@ -1940,23 +1940,26 @@ function exportCallReportMatrix(config) {
     const avgAnswer = (a.answeredCount > 0 && a.totalAnswerSeconds > 0) ? (a.totalAnswerSeconds / a.answeredCount) : 0;
     const fastAnswerPct = (a.answeredCount > 0) ? pct(a.fastAnswerCount, a.answeredCount) : 0;
     const csatPercent = includeCsat ? pct(a.csatYes, a.csatTotal) : 0;
+    const callShare = includeCalls ? pct(a.totalCalls, totals.calls) / 100 : 0;
+    const talkShare = includeCalls ? pct(a.talkSeconds, totals.talkSeconds) / 100 : 0;
+    const holdShare = includeCalls ? pct(a.holdSeconds, totals.holdSeconds) / 100 : 0;
 
     return [
       a.agent,
       a.userId,
       a.team,
       includeCalls ? Number(a.totalCalls || 0) : 0,
-      includeCalls ? `${pct(a.totalCalls, totals.calls)}%` : '0%',
+      callShare,
       includeCsat ? Number(a.csatTotal || 0) : 0,
-      includeCsat ? `${csatPercent}%` : '0%',
+      includeCsat ? (csatPercent / 100) : 0,
       includeCalls ? Math.round((a.talkSeconds / 60) * 10) / 10 : 0,
-      includeCalls ? `${pct(a.talkSeconds, totals.talkSeconds)}%` : '0%',
+      talkShare,
       includeCalls ? Math.round(avgTalkMin * 10) / 10 : 0,
       includeCalls ? Math.round((a.holdSeconds / 60) * 10) / 10 : 0,
-      includeCalls ? `${pct(a.holdSeconds, totals.holdSeconds)}%` : '0%',
+      holdShare,
       includeCalls ? Math.round(avgHoldMin * 10) / 10 : 0,
       Math.round(avgAnswer * 10) / 10,
-      `${Math.round(fastAnswerPct * 10) / 10}%`,
+      (fastAnswerPct / 100),
       includeCalls ? (callRanks[a.agent] || '-') : '-',
       includeCalls ? (talkRanks[a.agent] || '-') : '-',
       includeCsat ? (csatRanks[a.agent] || '-') : '-'
@@ -1970,12 +1973,57 @@ function exportCallReportMatrix(config) {
   if (detailRows.length) {
     matrixSheet.getRange(2, 1, detailRows.length, detailHeaders.length).setValues(detailRows);
   }
-  matrixSheet.getRange(1, 1, 1, detailHeaders.length).setFontWeight('bold');
+  matrixSheet.getRange(1, 1, 1, detailHeaders.length)
+    .setFontWeight('bold')
+    .setBackground('#1d4ed8')
+    .setFontColor('#ffffff');
   matrixSheet.setFrozenRows(1);
+
+  if (detailRows.length) {
+    const dataRange = matrixSheet.getRange(2, 1, detailRows.length, detailHeaders.length);
+    const formats = [
+      '@', '@', '@', '0', '0.0%', '0', '0.0%', '0.0', '0.0%', '0.0', '0.0', '0.0%', '0.0', '0.0', '0.0%', '@', '@', '@'
+    ];
+    const formatRows = Array(detailRows.length).fill(formats);
+    dataRange.setNumberFormats(formatRows);
+  }
+
+  matrixSheet.getBandings().forEach(b => b.remove());
+  matrixSheet.getRange(1, 1, Math.max(detailRows.length + 1, 2), detailHeaders.length)
+    .applyRowBanding(SpreadsheetApp.BandingTheme.BLUE, true, false);
+
+  if (detailRows.length) {
+    const rules = [];
+    const buildScale = (col, max) => SpreadsheetApp.newConditionalFormatRule()
+      .setRanges([matrixSheet.getRange(2, col, detailRows.length, 1)])
+      .setGradientMinpointWithValue('#fef2f2', SpreadsheetApp.InterpolationType.NUMBER, '0')
+      .setGradientMidpointWithValue('#fef9c3', SpreadsheetApp.InterpolationType.NUMBER, String((max || 1) / 2))
+      .setGradientMaxpointWithValue('#dcfce7', SpreadsheetApp.InterpolationType.NUMBER, String(max || 1))
+      .build();
+
+    rules.push(buildScale(5, 1)); // Call %
+    rules.push(buildScale(7, 1)); // CSAT %
+    rules.push(buildScale(9, 1)); // Talk %
+    rules.push(buildScale(12, 1)); // Hold %
+    rules.push(buildScale(15, 1)); // ≤30s Answer %
+
+    matrixSheet.setConditionalFormatRules(rules);
+  }
+
+  matrixSheet.setColumnWidths(1, detailHeaders.length, 130);
+  matrixSheet.autoResizeColumns(1, 3);
 
   const summarySheet = ss.insertSheet('Leaders');
   summarySheet.appendRow(['Metric', 'Agent', 'Value', 'Period']);
-  summarySheet.getRange(1, 1, 1, 4).setFontWeight('bold');
+  summarySheet.getRange(1, 1, 1, 4)
+    .setFontWeight('bold')
+    .setBackground('#0f172a')
+    .setFontColor('#ffffff');
+
+  summarySheet.getBandings().forEach(b => b.remove());
+  summarySheet.getRange(1, 1, Math.max(summarySheet.getLastRow(), 2), 4)
+    .applyRowBanding(SpreadsheetApp.BandingTheme.CYAN, true, false);
+  summarySheet.autoResizeColumns(1, 4);
 
   const callsSorted = includeCalls ? agents.slice().sort((a, b) => Number(b.totalCalls || 0) - Number(a.totalCalls || 0)) : [];
   const talkSorted = includeCalls ? agents.slice().sort((a, b) => Number(b.talkSeconds || 0) - Number(a.talkSeconds || 0)) : [];
