@@ -4295,6 +4295,10 @@ function buildUserDisplayNameMap() {
   return displayNameMap;
 }
 
+function pad2(num) {
+  return String(num).padStart(2, '0');
+}
+
 function isWeekdayDate(date) {
   if (!(date instanceof Date) || isNaN(date.getTime())) {
     return false;
@@ -4304,18 +4308,41 @@ function isWeekdayDate(date) {
   return day !== 0 && day !== 6;
 }
 
+function isWeekdayIsoDate(iso) {
+  if (!iso) return false;
+  const date = new Date(`${iso}T00:00:00Z`);
+  if (isNaN(date.getTime())) return false;
+  const day = date.getUTCDay();
+  return day !== 0 && day !== 6;
+}
+
+function toIsoDateString(value) {
+  const date = value instanceof Date ? value : new Date(value);
+  if (!(date instanceof Date) || isNaN(date.getTime())) {
+    return null;
+  }
+
+  const y = date.getUTCFullYear();
+  const m = pad2(date.getUTCMonth() + 1);
+  const d = pad2(date.getUTCDate());
+  return `${y}-${m}-${d}`;
+}
+
 function getWeekdayIsoDatesInRange(start, end) {
   const dates = [];
   if (!(start instanceof Date) || !(end instanceof Date)) {
     return dates;
   }
 
-  const cursor = new Date(start.getTime());
-  while (cursor <= end) {
-    if (isWeekdayDate(cursor)) {
-      dates.push(cursor.toISOString().split('T')[0]);
+  const startUtc = Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate());
+  const endUtc = Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), end.getUTCDate());
+
+  for (let ts = startUtc; ts <= endUtc; ts += 24 * 60 * 60 * 1000) {
+    const cursor = new Date(ts);
+    const iso = toIsoDateString(cursor);
+    if (iso && isWeekdayIsoDate(iso)) {
+      dates.push(iso);
     }
-    cursor.setDate(cursor.getDate() + 1);
   }
 
   return dates;
@@ -4347,8 +4374,8 @@ function exportAttendanceDashboard(periodType, startDate, endDate) {
     const normalizeStatus = (status) => (status || '').toString().trim().toLowerCase();
 
     const filtered = attendanceData.filter(record => {
-      const date = record && record.Date ? new Date(record.Date) : null;
-      return date && !isNaN(date.getTime()) && isWeekdayDate(date) && date >= range.start && date <= range.end;
+      const iso = record && record.Date ? toIsoDateString(record.Date) : null;
+      return iso && isWeekdayIsoDate(iso) && iso >= range.startIso && iso <= range.endIso;
     });
 
     const userMap = new Map();
@@ -4370,16 +4397,25 @@ function exportAttendanceDashboard(periodType, startDate, endDate) {
 
     const rows = Array.from(userMap.keys()).sort().map(user => {
       const stats = filtered.filter(r => (r.UserName || r.User || r.userName) === user);
+      const dailyStatuses = new Map();
+
+      stats.forEach(record => {
+        const iso = record && record.Date ? toIsoDateString(record.Date) : null;
+        if (!iso || !workingDates.includes(iso)) return;
+        dailyStatuses.set(iso, record);
+      });
+
+      const missingDays = Math.max(0, totalWorkingDays - dailyStatuses.size);
       const totals = {
         present: 0,
         late: 0,
-        absent: 0,
+        absent: missingDays,
         sick: 0,
         vacation: 0,
         holiday: 0
       };
 
-      stats.forEach(record => {
+      Array.from(dailyStatuses.values()).forEach(record => {
         const rawStatus = record.Status || record.status || '';
         const status = normalizeStatus(rawStatus);
 
@@ -4472,8 +4508,8 @@ function exportAttendanceCalendar(periodType, startDate, endDate) {
     const normalizeStatus = (status) => (status || '').toString().trim().toLowerCase();
 
     const filtered = attendanceData.filter(record => {
-      const date = record && record.Date ? new Date(record.Date) : null;
-      return date && !isNaN(date.getTime()) && isWeekdayDate(date) && date >= range.start && date <= range.end;
+      const iso = record && record.Date ? toIsoDateString(record.Date) : null;
+      return iso && isWeekdayIsoDate(iso) && iso >= range.startIso && iso <= range.endIso;
     });
 
     const users = new Set();
@@ -4497,16 +4533,20 @@ function exportAttendanceCalendar(periodType, startDate, endDate) {
     const rows = Array.from(users).sort().map(user => {
       const userRecords = filtered.filter(r => (r.UserName || r.User || r.userName) === user);
       const dayStatus = new Map();
-      const totals = { present: 0, absent: 0, sick: 0, vacation: 0, holiday: 0, late: 0 };
+      dates.forEach(dateKey => dayStatus.set(dateKey, 'Absent'));
 
-      userRecords.forEach(record => {
-        const iso = (() => {
-          const d = record.Date ? new Date(record.Date) : null;
-          if (!d || isNaN(d.getTime())) return null;
-          return d.toISOString().split('T')[0];
-        })();
-        if (!iso) return;
+      const normalizedRecords = userRecords
+        .map(record => ({
+          record,
+          iso: record && record.Date ? toIsoDateString(record.Date) : null
+        }))
+        .filter(entry => entry.iso && dates.includes(entry.iso));
 
+      const uniqueIsos = new Set(normalizedRecords.map(entry => entry.iso));
+      const missingDays = Math.max(0, dates.length - uniqueIsos.size);
+      const totals = { present: 0, absent: missingDays, sick: 0, vacation: 0, holiday: 0, late: 0 };
+
+      normalizedRecords.forEach(({ record, iso }) => {
         const rawStatus = record.Status || record.status || '';
         const status = normalizeStatus(rawStatus);
         dayStatus.set(iso, rawStatus);
@@ -4531,7 +4571,7 @@ function exportAttendanceCalendar(periodType, startDate, endDate) {
       const totalDays = dates.length || 1;
       const negativeImpactDays = totals.late + totals.absent + totals.sick + totals.vacation;
       const pct = (count) => totalDays > 0 ? Math.round((count / totalDays) * 10000) / 100 : 0;
-      const calendarStatuses = dates.map(dateKey => dayStatus.get(dateKey) || '');
+      const calendarStatuses = dates.map(dateKey => dayStatus.get(dateKey) || 'Absent');
 
       return [
         displayNameMap.get(user) || user,
