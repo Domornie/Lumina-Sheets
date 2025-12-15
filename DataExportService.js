@@ -222,7 +222,7 @@ function exportUnifiedWorkbook(normalized) {
 
 function writeUnifiedHeader_(sheet, startRow, normalized, periodLabel) {
   var headerValues = [
-    ['Unified Data Export'],
+    ['Unified Data Export', ''],
     ['Period', periodLabel],
     ['Granularity', normalized.granularity],
     ['Campaign', normalized.campaignId || 'All campaigns'],
@@ -350,7 +350,11 @@ function writeUnifiedSection_(sheet, startRow, title, headers, rows, subtitle) {
   if (rows.length) {
     dataRange.setValues(rows);
   } else {
-    dataRange.setValues([['No data available for this period']]);
+    var emptyRow = ['No data available for this period'];
+    while (emptyRow.length < headers.length) {
+      emptyRow.push('');
+    }
+    dataRange.setValues([emptyRow]);
   }
 
   dataRange.setHorizontalAlignment('center');
