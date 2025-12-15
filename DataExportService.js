@@ -287,8 +287,7 @@ function buildAttendanceDashboardTable_(periodType, startDate, endDate) {
     'sick leave',
     'leave of absent',
     'leave of absence',
-    'maternity leave',
-    'personal leave'
+    'maternity leave'
   ]);
   var normalizeStatus = function (status) { return (status || '').toString().trim().toLowerCase(); };
 

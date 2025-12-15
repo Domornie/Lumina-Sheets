@@ -4368,8 +4368,7 @@ function exportAttendanceDashboard(periodType, startDate, endDate) {
       'sick leave',
       'leave of absent',
       'leave of absence',
-      'maternity leave',
-      'personal leave'
+      'maternity leave'
     ]);
     const normalizeStatus = (status) => (status || '').toString().trim().toLowerCase();
 
@@ -4502,8 +4501,7 @@ function exportAttendanceCalendar(periodType, startDate, endDate) {
       'sick leave',
       'leave of absent',
       'leave of absence',
-      'maternity leave',
-      'personal leave'
+      'maternity leave'
     ]);
     const normalizeStatus = (status) => (status || '').toString().trim().toLowerCase();
 
