@@ -3787,36 +3787,63 @@ function calculateAttendanceMetrics(attendanceData) {
     Present: 0,
     Absent: 0,
     Late: 0,
+    Training: 0,
     'Sick Leave': 0,
     'Bereavement': 0,
     'Vacation': 0,
     'Leave Of Absence': 0,
+    'Maternity Leave': 0,
     'No Call No Show': 0,
     Other: 0
   };
 
+  const statusKeyMap = {
+    present: 'Present',
+    punctual: 'Present',
+    late: 'Late',
+    training: 'Training',
+    'sick leave': 'Sick Leave',
+    sick: 'Sick Leave',
+    bereavement: 'Bereavement',
+    vacation: 'Vacation',
+    'leave of absence': 'Leave Of Absence',
+    'leave of absent': 'Leave Of Absence',
+    'maternity leave': 'Maternity Leave',
+    'no call no show': 'No Call No Show',
+    'no call/no show': 'No Call No Show',
+    'no call/no-show': 'No Call No Show'
+  };
+
   attendanceData.forEach(record => {
-    const status = record.Status || 'Other';
-    if (statusCounts.hasOwnProperty(status)) {
-      statusCounts[status]++;
+    const normalized = (record.Status || 'Other').toString().trim().toLowerCase();
+    const key = statusKeyMap[normalized] || (statusCounts.hasOwnProperty(record.Status) ? record.Status : 'Other');
+    if (statusCounts.hasOwnProperty(key)) {
+      statusCounts[key]++;
     } else {
       statusCounts.Other++;
     }
   });
 
   const total = Object.values(statusCounts).reduce((sum, count) => sum + count, 0);
+  const totalAbsences = statusCounts.Absent
+    + statusCounts['Sick Leave']
+    + statusCounts['Leave Of Absence']
+    + statusCounts['No Call No Show'];
 
   const percentages = {};
   Object.keys(statusCounts).forEach(status => {
     percentages[status] = total > 0 ? Math.round((statusCounts[status] / total) * 100) : 0;
   });
 
+  const attendanceRate = total > 0 ? Math.round(((total - totalAbsences) / total) * 100) : 0;
+  const absenceRate = total > 0 ? Math.round((totalAbsences / total) * 100) : 0;
+
   return {
     counts: statusCounts,
     percentages: percentages,
     total: total,
-    attendanceRate: percentages.Present,
-    absenceRate: percentages.Absent + percentages['No Call No Show']
+    attendanceRate,
+    absenceRate
   };
 }
 
@@ -3847,12 +3874,37 @@ function calculateUserAttendanceStats(attendanceData, userMap) {
     const stats = userStats[userName];
     stats.totalRecords++;
 
-    switch (record.Status) {
-      case 'Present': stats.present++; break;
-      case 'Absent': stats.absent++; break;
-      case 'Late': stats.late++; break;
-      case 'Sick Leave': stats.sick++; break;
-      default: stats.other++; break;
+    const normalized = (record.Status || '').toString().trim().toLowerCase();
+    const isNoCall = normalized === 'no call no show' || normalized === 'no call/no show' || normalized === 'no call/no-show';
+    const isSick = normalized === 'sick' || normalized === 'sick leave';
+    const isLeaveOfAbsence = normalized === 'leave of absence' || normalized === 'leave of absent';
+
+    switch (normalized) {
+      case 'present':
+      case 'punctual':
+        stats.present++;
+        break;
+      case 'late':
+        stats.present++;
+        stats.late++;
+        break;
+      case 'training':
+        stats.present++;
+        stats.other++;
+        break;
+      case 'absent':
+        stats.absent++;
+        break;
+      default:
+        if (isSick) {
+          stats.sick++;
+          stats.absent++;
+        } else if (isNoCall || isLeaveOfAbsence) {
+          stats.absent++;
+        } else {
+          stats.other++;
+        }
+        break;
     }
   });
 
@@ -4048,17 +4100,44 @@ function normalizeDateRangeForExport(periodType, startDate, endDate) {
     throw new Error('A valid start and end date are required for export.');
   }
 
+  const getMondayStart = (date) => {
+    const base = new Date(date.getTime());
+    const day = (base.getDay() + 6) % 7; // Sunday -> 6, Monday -> 0
+    base.setDate(base.getDate() - day);
+    base.setHours(0, 0, 0, 0);
+    return base;
+  };
+
   const normalizedStart = new Date(safeStart.getTime());
   const normalizedEnd = new Date(safeEnd.getTime());
   normalizedStart.setHours(0, 0, 0, 0);
   normalizedEnd.setHours(23, 59, 59, 999);
 
   const type = typeof periodType === 'string' && periodType.trim() ? periodType.trim() : 'Custom';
+  const normalizedType = type.toLowerCase();
+
+  // Enforce Monday-Sunday alignment for weekly exports
+  if (normalizedType === 'week' || normalizedType === 'weekly') {
+    const weekStart = getMondayStart(normalizedStart);
+    normalizedStart.setTime(weekStart.getTime());
+    normalizedEnd.setTime(weekStart.getTime());
+    normalizedEnd.setDate(normalizedEnd.getDate() + 6);
+    normalizedEnd.setHours(23, 59, 59, 999);
+  }
+
+  if (normalizedType === 'biweekly' || normalizedType === 'bi-weekly') {
+    const weekStart = getMondayStart(normalizedStart);
+    normalizedStart.setTime(weekStart.getTime());
+    normalizedEnd.setTime(weekStart.getTime());
+    normalizedEnd.setDate(normalizedEnd.getDate() + 13);
+    normalizedEnd.setHours(23, 59, 59, 999);
+  }
+
   const pad = (num) => String(num).padStart(2, '0');
   const startIso = `${normalizedStart.getFullYear()}-${pad(normalizedStart.getMonth() + 1)}-${pad(normalizedStart.getDate())}`;
   const endIso = `${normalizedEnd.getFullYear()}-${pad(normalizedEnd.getMonth() + 1)}-${pad(normalizedEnd.getDate())}`;
   const label = (() => {
-    switch (type.toLowerCase()) {
+    switch (normalizedType) {
       case 'week':
       case 'weekly':
         return `Week of ${startIso}`;
@@ -4202,8 +4281,17 @@ function applyCalendarExportFormatting(sheet, headers, rowCount, dayColumnStart)
     dataRange.setHorizontalAlignment('center').setVerticalAlignment('middle');
 
     sheet.getRange(2, 1, rowCount, 2).setBackground('#f4f5f7'); // Agent + Period
-    sheet.getRange(2, 3, rowCount, 7).setBackground('#e8f4fd'); // Summary counts
-    sheet.getRange(2, 10, rowCount, 6).setBackground('#fdf7e3'); // Percentage section
+    const percentStartIndex = headers.findIndex(h => h.includes('%')) + 1;
+    const summaryCountStart = 3;
+    const summaryCountCols = Math.max(0, (percentStartIndex || headers.length) - summaryCountStart);
+    const percentageCols = Math.max(0, dayColumnStart - percentStartIndex);
+
+    if (summaryCountCols > 0) {
+      sheet.getRange(2, summaryCountStart, rowCount, summaryCountCols).setBackground('#e8f4fd');
+    }
+    if (percentStartIndex > 0 && percentageCols > 0) {
+      sheet.getRange(2, percentStartIndex, rowCount, percentageCols).setBackground('#fdf7e3');
+    }
     if (headers.length >= dayColumnStart) {
       const dayCols = headers.length - dayColumnStart + 1;
       sheet.getRange(2, dayColumnStart, rowCount, dayCols).setBackground('#f7f7f7');
@@ -4489,19 +4577,15 @@ function exportAttendanceCalendar(periodType, startDate, endDate) {
     const displayNameMap = buildUserDisplayNameMap();
     const dates = getWeekdayIsoDatesInRange(range.start, range.end);
     const positiveStatuses = new Set(['present', 'punctual', 'training']);
-    const negativeStatuses = new Set([
+    const absentStatuses = new Set([
       'absent',
-      'bereavement',
-      'late',
       'no call no show',
       'no call/no show',
       'no call/no-show',
-      'vacation',
       'sick',
       'sick leave',
       'leave of absent',
-      'leave of absence',
-      'maternity leave'
+      'leave of absence'
     ]);
     const normalizeStatus = (status) => (status || '').toString().trim().toLowerCase();
 
@@ -4524,7 +4608,8 @@ function exportAttendanceCalendar(periodType, startDate, endDate) {
 
     const headers = [
       'Agent', 'Period', 'Total Days', 'Present', 'Absent', 'Sick', 'Vacation', 'Holiday', 'Late',
-      'Present %', 'Absent %', 'Sick %', 'Vacation %', 'Holiday %', 'Late %',
+      'Bereavement', 'Maternity Leave', 'Training',
+      'Present %', 'Absent %', 'Sick %', 'Vacation %', 'Holiday %', 'Late %', 'Bereavement %', 'Maternity Leave %', 'Training %',
       ...dates
     ];
 
@@ -4542,7 +4627,17 @@ function exportAttendanceCalendar(periodType, startDate, endDate) {
 
       const uniqueIsos = new Set(normalizedRecords.map(entry => entry.iso));
       const missingDays = Math.max(0, dates.length - uniqueIsos.size);
-      const totals = { present: 0, absent: missingDays, sick: 0, vacation: 0, holiday: 0, late: 0 };
+      const totals = {
+        present: 0,
+        absent: missingDays,
+        sick: 0,
+        vacation: 0,
+        holiday: 0,
+        late: 0,
+        bereavement: 0,
+        maternity: 0,
+        training: 0
+      };
 
       normalizedRecords.forEach(({ record, iso }) => {
         const rawStatus = record.Status || record.status || '';
@@ -4551,42 +4646,56 @@ function exportAttendanceCalendar(periodType, startDate, endDate) {
 
         if (positiveStatuses.has(status)) {
           totals.present += 1;
-        } else if (negativeStatuses.has(status)) {
-          if (status === 'late') {
-            totals.late += 1;
-          } else if (status === 'vacation') {
-            totals.vacation += 1;
-          } else if (status === 'sick' || status === 'sick leave') {
-            totals.sick += 1;
-          } else {
-            totals.absent += 1;
+          if (status === 'training') {
+            totals.training += 1;
           }
+        } else if (absentStatuses.has(status)) {
+          totals.absent += 1;
+          if (status === 'sick' || status === 'sick leave') {
+            totals.sick += 1;
+          }
+        } else if (status === 'late') {
+          totals.present += 1;
+          totals.late += 1;
+        } else if (status === 'vacation') {
+          totals.vacation += 1;
         } else if (status === 'holiday') {
           totals.holiday += 1;
+        } else if (status === 'bereavement') {
+          totals.bereavement += 1;
+        } else if (status === 'maternity leave') {
+          totals.maternity += 1;
         }
       });
 
       const totalDays = dates.length || 1;
-      const negativeImpactDays = totals.late + totals.absent + totals.sick + totals.vacation;
+      const absentDays = totals.absent;
       const pct = (count) => totalDays > 0 ? Math.round((count / totalDays) * 10000) / 100 : 0;
       const calendarStatuses = dates.map(dateKey => dayStatus.get(dateKey) || 'Absent');
+      const presentDays = Math.max(0, totalDays - absentDays);
 
       return [
         displayNameMap.get(user) || user,
         range.label,
         totalDays,
-        totals.present,
+        presentDays,
         totals.absent,
         totals.sick,
         totals.vacation,
         totals.holiday,
         totals.late,
-        pct(Math.max(0, totalDays - negativeImpactDays)),
+        totals.bereavement,
+        totals.maternity,
+        totals.training,
+        pct(presentDays),
         pct(totals.absent),
         pct(totals.sick),
         pct(totals.vacation),
         pct(totals.holiday),
         pct(totals.late),
+        pct(totals.bereavement),
+        pct(totals.maternity),
+        pct(totals.training),
         ...calendarStatuses
       ];
     });
@@ -4597,7 +4706,7 @@ function exportAttendanceCalendar(periodType, startDate, endDate) {
       sheet.getRange(2, 1, rows.length, headers.length).setValues(rows);
     }
 
-    const dayColumnStart = 16;
+    const dayColumnStart = headers.length - dates.length + 1;
     applyCalendarExportFormatting(sheet, headers, rows.length, dayColumnStart);
 
     return {
