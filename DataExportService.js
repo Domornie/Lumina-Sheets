@@ -326,39 +326,45 @@ function appendExportCatalogSection_(sheet, startRow) {
 }
 
 function writeUnifiedSection_(sheet, startRow, title, headers, rows, subtitle) {
-  var titleRow = [[title]];
-  var titleRange = sheet.getRange(startRow, 1, 1, Math.max(1, headers.length));
+  var columnCount = Math.max(1, headers.length);
+  var titleRow = [padRowToColumns_(title, columnCount)];
+  var titleRange = sheet.getRange(startRow, 1, 1, columnCount);
   titleRange.setValues(titleRow);
   titleRange.mergeAcross();
   titleRange.setFontSize(12).setFontWeight('bold').setBackground('#e0f2fe');
 
   if (subtitle) {
-    var subtitleRange = sheet.getRange(startRow + 1, 1, 1, Math.max(1, headers.length));
-    subtitleRange.setValues([[subtitle]]);
+    var subtitleRange = sheet.getRange(startRow + 1, 1, 1, columnCount);
+    subtitleRange.setValues([padRowToColumns_(subtitle, columnCount)]);
     subtitleRange.mergeAcross();
     subtitleRange.setFontColor('#475569');
   }
 
-  var headerRange = sheet.getRange(startRow + 2, 1, 1, headers.length);
-  headerRange.setValues([headers]);
+  var headerRange = sheet.getRange(startRow + 2, 1, 1, columnCount);
+  headerRange.setValues([padRowToColumns_(headers, columnCount)]);
   headerRange.setFontWeight('bold');
   headerRange.setBackground('#1f4e79');
   headerRange.setFontColor('#ffffff');
 
   var dataRowCount = Math.max(1, rows.length);
-  var dataRange = sheet.getRange(startRow + 3, 1, dataRowCount, headers.length);
+  var dataRange = sheet.getRange(startRow + 3, 1, dataRowCount, columnCount);
   if (rows.length) {
-    dataRange.setValues(rows);
+    var normalizedRows = rows.map(function (row) { return padRowToColumns_(row, columnCount); });
+    dataRange.setValues(normalizedRows);
   } else {
-    var emptyRow = ['No data available for this period'];
-    while (emptyRow.length < headers.length) {
-      emptyRow.push('');
-    }
-    dataRange.setValues([emptyRow]);
+    dataRange.setValues([padRowToColumns_('No data available for this period', columnCount)]);
   }
 
   dataRange.setHorizontalAlignment('center');
   dataRange.setBorder(true, true, true, true, true, true);
 
   return startRow + 3 + dataRowCount + 2;
+}
+
+function padRowToColumns_(rowOrValue, columnCount) {
+  var row = Array.isArray(rowOrValue) ? rowOrValue.slice(0, columnCount) : [rowOrValue];
+  while (row.length < columnCount) {
+    row.push('');
+  }
+  return row;
 }
