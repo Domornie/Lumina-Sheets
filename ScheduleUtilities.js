@@ -1019,7 +1019,7 @@ const ATTENDANCE_STATUSES = [
   'Sick Leave',
   'Bereavement',
   'Vacation',
-  'Personal Leave',
+  'Maternity Leave',
   'Emergency Leave',
   'Training',
   'Holiday'
@@ -2184,7 +2184,7 @@ function getAttendanceStatusClass(status) {
     case 'sick leave': return 'bg-info text-white';
     case 'bereavement': return 'bg-dark text-white';
     case 'vacation': return 'bg-primary text-white';
-    case 'personal leave': return 'bg-secondary text-white';
+    case 'maternity leave': return 'bg-secondary text-white';
     case 'emergency leave': return 'bg-danger text-white';
     case 'training': return 'bg-success text-white';
     case 'holiday': return 'bg-info text-white';
@@ -2204,7 +2204,7 @@ function getAttendanceStatusCode(status) {
     case 'sick leave': return 'S';
     case 'bereavement': return 'B';
     case 'vacation': return 'V';
-    case 'personal leave': return 'PL';
+    case 'maternity leave': return 'M';
     case 'emergency leave': return 'EM';
     case 'training': return 'T';
     case 'holiday': return 'H';

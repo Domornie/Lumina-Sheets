@@ -214,7 +214,7 @@
     .attendance-calendar__status--vacation { background: #4b6cb7; }
     .attendance-calendar__status--bereavement { background: #4a5568; }
     .attendance-calendar__status--loa { background: #6b46c1; }
-    .attendance-calendar__status--personal { background: #0f172a; }
+    .attendance-calendar__status--maternity { background: #0f172a; }
     .attendance-calendar__status--training { background: #1f9d8f; }
     .attendance-calendar__status--ncns { background: #8b1a1a; }
     .attendance-calendar__status--other {
@@ -1913,7 +1913,7 @@
                             <div class="col-xl-8">
                                 <div class="attendance-panel h-100">
                                     <div class="attendance-panel-title">Monthly Analysis</div>
-                                    <div class="attendance-panel-subtitle mb-3">Stacked distribution of punctual, bereavement, absent, late, no call/no show, vacation, sick leave, leave of absence, personal leave, training, and other statuses.</div>
+                                    <div class="attendance-panel-subtitle mb-3">Stacked distribution of punctual, bereavement, absent, late, no call/no show, vacation, sick leave, leave of absence, maternity leave, training, and other statuses.</div>
                                     <div class="attendance-chart tall">
                                         <canvas id="attendanceMonthlyAnalysisChart"></canvas>
                                     </div>
@@ -3154,7 +3154,7 @@
                     { code: 'V', label: 'Vacation', className: 'attendance-calendar__status--vacation' },
                     { code: 'S', label: 'Sick Leave', className: 'attendance-calendar__status--sick' },
                     { code: 'LOA', label: 'Leave of Absence', className: 'attendance-calendar__status--loa' },
-                    { code: 'PL', label: 'Personal Leave', className: 'attendance-calendar__status--personal' },
+                    { code: 'M', label: 'Maternity Leave', className: 'attendance-calendar__status--maternity' },
                     { code: 'T', label: 'Training', className: 'attendance-calendar__status--training' }
                 ];
                 this.attendanceStatusOptions = [
@@ -3166,7 +3166,7 @@
                     { value: 'Vacation', code: 'V', label: 'Vacation', description: 'Approved vacation/PTO', className: 'attendance-calendar__status--vacation' },
                     { value: 'Sick Leave', code: 'S', label: 'Sick Leave', description: 'Out due to illness', className: 'attendance-calendar__status--sick' },
                     { value: 'Leave Of Absence', code: 'LOA', label: 'Leave Of Absence', description: 'Authorized leave of absence', className: 'attendance-calendar__status--loa' },
-                    { value: 'Personal Leave', code: 'PL', label: 'Personal Leave', description: 'Approved personal leave', className: 'attendance-calendar__status--personal' },
+                    { value: 'Maternity Leave', code: 'M', label: 'Maternity Leave', description: 'Approved maternity leave', className: 'attendance-calendar__status--maternity' },
                     { value: 'Training', code: 'T', label: 'Training', description: 'In training or workshop', className: 'attendance-calendar__status--training' }
                 ];
                 this.attendanceStatusBadges = {
@@ -3179,7 +3179,7 @@
                     vacation: { code: 'V', className: 'attendance-calendar__status--vacation', label: 'Vacation' },
                     sick: { code: 'S', className: 'attendance-calendar__status--sick', label: 'Sick Leave' },
                     loa: { code: 'LOA', className: 'attendance-calendar__status--loa', label: 'Leave of Absence' },
-                    personal: { code: 'PL', className: 'attendance-calendar__status--personal', label: 'Personal Leave' },
+                    maternity: { code: 'M', className: 'attendance-calendar__status--maternity', label: 'Maternity Leave' },
                     training: { code: 'T', className: 'attendance-calendar__status--training', label: 'Training' }
                 };
                 this.attendanceStatusBadgeIndex = new Map();
@@ -3192,7 +3192,7 @@
                     vacation: ['V', 'Vacation', 'Vacation Day', 'VacationDay', 'PTO', 'Paid Time Off', 'PaidTimeOff'],
                     sick: ['S', 'Sick', 'Sick Leave', 'SickLeave', 'Sick Day', 'SickDay', 'Illness', 'Medical Leave', 'MedicalLeave'],
                     loa: ['LOA', 'Leave Of Absence', 'Leave of Absence', 'LeaveOfAbsence', 'Leave Absence'],
-                    personal: ['PL', 'Personal Leave', 'PersonalLeave', 'Personal Day', 'PersonalDay', 'Personal Time', 'PersonalTime', 'Personal Time Off', 'PersonalTimeOff'],
+                    maternity: ['M', 'Maternity Leave', 'MaternityLeave', 'Maternity'],
                     training: ['T', 'Training', 'Training Day', 'TrainingDay', 'Training Session', 'TrainingSession', 'Workshop', 'Class']
                 };
                 Object.entries(attendanceStatusAliases).forEach(([key, values]) => {
@@ -7145,7 +7145,7 @@
                     sick: 0,
                     vacation: 0,
                     leaveOfAbsence: 0,
-                    personalLeave: 0,
+                    maternityLeave: 0,
                     training: 0,
                     other: 0,
                     total: 0
@@ -7159,7 +7159,7 @@
                     sick: 0,
                     vacation: 0,
                     leaveOfAbsence: 0,
-                    personalLeave: 0,
+                    maternityLeave: 0,
                     training: 0,
                     other: 0
                 };
@@ -8030,7 +8030,7 @@
                     stat.vacation +
                     stat.bereavement +
                     stat.leaveOfAbsence +
-                    stat.personalLeave +
+                    stat.maternityLeave +
                     stat.other
                 );
 
@@ -8067,7 +8067,7 @@
                         vacation: safePercent(stat.vacation, total),
                         sick: safePercent(stat.sick, total),
                         leaveOfAbsence: safePercent(stat.leaveOfAbsence, total),
-                        personalLeave: safePercent(stat.personalLeave, total),
+                        maternityLeave: safePercent(stat.maternityLeave, total),
                         training: safePercent(stat.training, total),
                         other: safePercent(stat.other, total)
                     };
@@ -8082,7 +8082,7 @@
                     vacation: yearlyTotals.vacation || 0,
                     sick: yearlyTotals.sick || 0,
                     leaveOfAbsence: yearlyTotals.leaveOfAbsence || 0,
-                    personalLeave: yearlyTotals.personalLeave || 0,
+                    maternityLeave: yearlyTotals.maternityLeave || 0,
                     training: yearlyTotals.training || 0,
                     other: yearlyTotals.other || 0
                 };
@@ -8336,7 +8336,7 @@
                                 entry.leaveOfAbsence,
                                 fallbackEntry.leaveOfAbsence || 0
                             ),
-                            personalLeave: ensureNumber(entry.personalLeave, fallbackEntry.personalLeave || 0),
+                            maternityLeave: ensureNumber(entry.maternityLeave, fallbackEntry.maternityLeave || 0),
                             training: ensureNumber(entry.training, fallbackEntry.training || 0),
                             other: ensureNumber(entry.other, fallbackEntry.other || 0)
                         };
@@ -8357,9 +8357,9 @@
                             source.yearlyTotals.leaveOfAbsence,
                             fallbackTotals.leaveOfAbsence || 0
                         ),
-                        personalLeave: ensureNumber(
-                            source.yearlyTotals.personalLeave,
-                            fallbackTotals.personalLeave || 0
+                        maternityLeave: ensureNumber(
+                            source.yearlyTotals.maternityLeave,
+                            fallbackTotals.maternityLeave || 0
                         ),
                         training: ensureNumber(source.yearlyTotals.training, fallbackTotals.training || 0),
                         other: ensureNumber(source.yearlyTotals.other, fallbackTotals.other || 0)
@@ -9011,7 +9011,7 @@
                     bereavement: 0,
                     noCallNoShow: 0,
                     leaveOfAbsence: 0,
-                    personalLeave: 0,
+                    maternityLeave: 0,
                     training: 0,
                     other: 0
                 };
@@ -10280,7 +10280,7 @@
                     bereavement: 0,
                     noCallNoShow: 0,
                     leaveOfAbsence: 0,
-                    personalLeave: 0,
+                    maternityLeave: 0,
                     training: 0,
                     other: 0
                 };
@@ -11162,7 +11162,7 @@
                     bereavement: 0,
                     noCallNoShow: 0,
                     leaveOfAbsence: 0,
-                    personalLeave: 0,
+                    maternityLeave: 0,
                     training: 0,
                     other: 0
                 };
@@ -11795,8 +11795,8 @@
                     return 'leaveOfAbsence';
                 }
 
-                if (normalized.includes('personal leave') || normalized.includes('personal time')) {
-                    return 'personalLeave';
+                if (normalized.includes('maternity')) {
+                    return 'maternityLeave';
                 }
 
                 if (normalized.includes('training') || normalized.includes('workshop') || normalized.includes('class')) {
@@ -11867,7 +11867,7 @@
                     sick: '#0747a6',
                     vacation: '#6366f1',
                     leaveOfAbsence: '#0ea5e9',
-                    personalLeave: '#8b5cf6',
+                    maternityLeave: '#8b5cf6',
                     training: '#14b8a6',
                     other: '#94a3b8'
                 };
@@ -12266,9 +12266,9 @@
                                     stack: 'analysis'
                                 },
                                 {
-                                    label: 'Personal Leave',
-                                    data: data.monthlyAnalysis.map(item => item.personalLeave),
-                                    backgroundColor: palette.personalLeave,
+                                    label: 'Maternity Leave',
+                                    data: data.monthlyAnalysis.map(item => item.maternityLeave),
+                                    backgroundColor: palette.maternityLeave,
                                     stack: 'analysis'
                                 },
                                 {
@@ -12317,7 +12317,7 @@
                                 'Vacation',
                                 'Sick Leave',
                                 'Leave of Absence',
-                                'Personal Leave',
+                                'Maternity Leave',
                                 'Training',
                                 'Other'
                             ],
@@ -12332,7 +12332,7 @@
                                         data.yearlyTotals.vacation,
                                         data.yearlyTotals.sick,
                                         data.yearlyTotals.leaveOfAbsence,
-                                        data.yearlyTotals.personalLeave,
+                                        data.yearlyTotals.maternityLeave,
                                         data.yearlyTotals.training,
                                         data.yearlyTotals.other
                                     ],
@@ -12345,7 +12345,7 @@
                                         palette.vacation,
                                         palette.sick,
                                         palette.leaveOfAbsence,
-                                        palette.personalLeave,
+                                        palette.maternityLeave,
                                         palette.training,
                                         palette.other
                                     ],
@@ -12435,7 +12435,7 @@
                     this.attendanceCharts.monthlyAnalysis.data.datasets[5].data = data.monthlyAnalysis.map(item => item.vacation);
                     this.attendanceCharts.monthlyAnalysis.data.datasets[6].data = data.monthlyAnalysis.map(item => item.sick);
                     this.attendanceCharts.monthlyAnalysis.data.datasets[7].data = data.monthlyAnalysis.map(item => item.leaveOfAbsence);
-                    this.attendanceCharts.monthlyAnalysis.data.datasets[8].data = data.monthlyAnalysis.map(item => item.personalLeave);
+                    this.attendanceCharts.monthlyAnalysis.data.datasets[8].data = data.monthlyAnalysis.map(item => item.maternityLeave);
                     this.attendanceCharts.monthlyAnalysis.data.datasets[9].data = data.monthlyAnalysis.map(item => item.training);
                     this.attendanceCharts.monthlyAnalysis.data.datasets[10].data = data.monthlyAnalysis.map(item => item.other);
 
@@ -12448,7 +12448,7 @@
                         'Vacation',
                         'Sick Leave',
                         'Leave of Absence',
-                        'Personal Leave',
+                        'Maternity Leave',
                         'Training',
                         'Other'
                     ];
@@ -12461,7 +12461,7 @@
                         data.yearlyTotals.vacation,
                         data.yearlyTotals.sick,
                         data.yearlyTotals.leaveOfAbsence,
-                        data.yearlyTotals.personalLeave,
+                        data.yearlyTotals.maternityLeave,
                         data.yearlyTotals.training,
                         data.yearlyTotals.other
                     ];
@@ -12474,7 +12474,7 @@
                         palette.vacation,
                         palette.sick,
                         palette.leaveOfAbsence,
-                        palette.personalLeave,
+                        palette.maternityLeave,
                         palette.training,
                         palette.other
                     ];
@@ -14241,7 +14241,7 @@
                     { match: ['vacation', 'pto', 'paid time off'], badge: this.attendanceStatusBadges.vacation },
                     { match: ['sick', 'illness', 'medical'], badge: this.attendanceStatusBadges.sick },
                     { match: ['leave of absence', 'loa'], badge: this.attendanceStatusBadges.loa },
-                    { match: ['personal'], badge: this.attendanceStatusBadges.personal },
+                    { match: ['maternity'], badge: this.attendanceStatusBadges.maternity },
                     { match: ['training', 'workshop', 'session', 'class'], badge: this.attendanceStatusBadges.training }
                 ];
 
