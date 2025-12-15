@@ -4048,17 +4048,44 @@ function normalizeDateRangeForExport(periodType, startDate, endDate) {
     throw new Error('A valid start and end date are required for export.');
   }
 
+  const getMondayStart = (date) => {
+    const base = new Date(date.getTime());
+    const day = (base.getDay() + 6) % 7; // Sunday -> 6, Monday -> 0
+    base.setDate(base.getDate() - day);
+    base.setHours(0, 0, 0, 0);
+    return base;
+  };
+
   const normalizedStart = new Date(safeStart.getTime());
   const normalizedEnd = new Date(safeEnd.getTime());
   normalizedStart.setHours(0, 0, 0, 0);
   normalizedEnd.setHours(23, 59, 59, 999);
 
   const type = typeof periodType === 'string' && periodType.trim() ? periodType.trim() : 'Custom';
+  const normalizedType = type.toLowerCase();
+
+  // Enforce Monday-Sunday alignment for weekly exports
+  if (normalizedType === 'week' || normalizedType === 'weekly') {
+    const weekStart = getMondayStart(normalizedStart);
+    normalizedStart.setTime(weekStart.getTime());
+    normalizedEnd.setTime(weekStart.getTime());
+    normalizedEnd.setDate(normalizedEnd.getDate() + 6);
+    normalizedEnd.setHours(23, 59, 59, 999);
+  }
+
+  if (normalizedType === 'biweekly' || normalizedType === 'bi-weekly') {
+    const weekStart = getMondayStart(normalizedStart);
+    normalizedStart.setTime(weekStart.getTime());
+    normalizedEnd.setTime(weekStart.getTime());
+    normalizedEnd.setDate(normalizedEnd.getDate() + 13);
+    normalizedEnd.setHours(23, 59, 59, 999);
+  }
+
   const pad = (num) => String(num).padStart(2, '0');
   const startIso = `${normalizedStart.getFullYear()}-${pad(normalizedStart.getMonth() + 1)}-${pad(normalizedStart.getDate())}`;
   const endIso = `${normalizedEnd.getFullYear()}-${pad(normalizedEnd.getMonth() + 1)}-${pad(normalizedEnd.getDate())}`;
   const label = (() => {
-    switch (type.toLowerCase()) {
+    switch (normalizedType) {
       case 'week':
       case 'weekly':
         return `Week of ${startIso}`;
