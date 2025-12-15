@@ -3835,7 +3835,9 @@ function calculateAttendanceMetrics(attendanceData) {
     percentages[status] = total > 0 ? Math.round((statusCounts[status] / total) * 100) : 0;
   });
 
-  const attendanceRate = total > 0 ? Math.round(((total - totalAbsences) / total) * 100) : 0;
+  const baseAttendanceRate = total > 0 ? Math.round(((total - totalAbsences) / total) * 100) : 0;
+  const latePenalty = Math.min(statusCounts.Late, 100);
+  const attendanceRate = Math.max(0, Math.min(100, baseAttendanceRate - latePenalty));
   const absenceRate = total > 0 ? Math.round((totalAbsences / total) * 100) : 0;
 
   return {
@@ -3911,7 +3913,9 @@ function calculateUserAttendanceStats(attendanceData, userMap) {
   // Calculate attendance rates
   Object.values(userStats).forEach(stats => {
     if (stats.totalRecords > 0) {
-      stats.attendanceRate = Math.round((stats.present / stats.totalRecords) * 100);
+      const baseRate = Math.round((stats.present / stats.totalRecords) * 100);
+      const latePenalty = Math.min(stats.late, 100);
+      stats.attendanceRate = Math.max(0, Math.min(100, baseRate - latePenalty));
     }
   });
 
@@ -3932,15 +3936,27 @@ function calculateAttendanceTrends(attendanceData) {
 
     const dayKey = date;
     const weekKey = weekStringFromDate(new Date(date)); // Use ScheduleUtilities function
+    const normalized = (record.Status || '').toString().trim().toLowerCase();
+    const presentStatuses = new Set(['present', 'punctual', 'training', 'late']);
+    const absenceStatuses = new Set([
+      'absent',
+      'sick',
+      'sick leave',
+      'leave of absence',
+      'leave of absent',
+      'no call no show',
+      'no call/no show',
+      'no call/no-show'
+    ]);
 
     // Daily stats
     if (!dailyStats[dayKey]) {
       dailyStats[dayKey] = { date: dayKey, present: 0, absent: 0, total: 0 };
     }
     dailyStats[dayKey].total++;
-    if (record.Status === 'Present') {
+    if (presentStatuses.has(normalized)) {
       dailyStats[dayKey].present++;
-    } else {
+    } else if (absenceStatuses.has(normalized)) {
       dailyStats[dayKey].absent++;
     }
 
@@ -3949,9 +3965,9 @@ function calculateAttendanceTrends(attendanceData) {
       weeklyStats[weekKey] = { week: weekKey, present: 0, absent: 0, total: 0 };
     }
     weeklyStats[weekKey].total++;
-    if (record.Status === 'Present') {
+    if (presentStatuses.has(normalized)) {
       weeklyStats[weekKey].present++;
-    } else {
+    } else if (absenceStatuses.has(normalized)) {
       weeklyStats[weekKey].absent++;
     }
   });
@@ -4444,19 +4460,15 @@ function exportAttendanceDashboard(periodType, startDate, endDate) {
     const workingDates = getWeekdayIsoDatesInRange(range.start, range.end);
     const totalWorkingDays = workingDates.length || 1;
     const positiveStatuses = new Set(['present', 'punctual', 'training']);
-    const negativeStatuses = new Set([
+    const absenceStatuses = new Set([
       'absent',
-      'bereavement',
-      'late',
       'no call no show',
       'no call/no show',
       'no call/no-show',
-      'vacation',
       'sick',
       'sick leave',
       'leave of absent',
-      'leave of absence',
-      'maternity leave'
+      'leave of absence'
     ]);
     const normalizeStatus = (status) => (status || '').toString().trim().toLowerCase();
 
@@ -4506,28 +4518,29 @@ function exportAttendanceDashboard(periodType, startDate, endDate) {
         const rawStatus = record.Status || record.status || '';
         const status = normalizeStatus(rawStatus);
 
-        if (positiveStatuses.has(status)) {
+        if (status === 'late') {
           totals.present += 1;
-        } else if (negativeStatuses.has(status)) {
-          if (status === 'late') {
-            totals.late += 1;
-          } else if (status === 'vacation') {
-            totals.vacation += 1;
-          } else if (status === 'sick' || status === 'sick leave') {
+          totals.late += 1;
+        } else if (positiveStatuses.has(status)) {
+          totals.present += 1;
+        } else if (absenceStatuses.has(status)) {
+          totals.absent += 1;
+          if (status === 'sick' || status === 'sick leave') {
             totals.sick += 1;
-          } else {
-            totals.absent += 1;
           }
+        } else if (status === 'vacation') {
+          totals.vacation += 1;
         } else if (status === 'holiday') {
           totals.holiday += 1;
         }
       });
 
       const totalDays = totalWorkingDays;
-      const negativeImpactDays = totals.late + totals.absent + totals.sick + totals.vacation;
-      const onTime = totals.present;
+      const onTime = Math.max(0, totals.present - totals.late);
       const pct = (count) => totalDays > 0 ? Math.round((count / totalDays) * 10000) / 100 : 0;
-      const attendanceScore = pct(Math.max(0, totalDays - negativeImpactDays));
+      const baseAttendanceScore = pct(Math.max(0, totalDays - totals.absent));
+      const latePenalty = Math.min(totals.late, 100);
+      const attendanceScore = Math.max(0, Math.min(100, baseAttendanceScore - latePenalty));
 
       return [
         displayNameMap.get(user) || user,
