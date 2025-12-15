@@ -204,7 +204,6 @@ function exportUnifiedWorkbook(normalized) {
     currentRow = writeUnifiedHeader_(sheet, currentRow, normalized, periodLabel);
     currentRow = appendAttendanceSection_(sheet, currentRow, normalized, periodLabel);
     currentRow = appendAdherenceSection_(sheet, currentRow, normalized);
-    currentRow = appendExportCatalogSection_(sheet, currentRow);
 
     sheet.autoResizeColumns(1, Math.max(1, sheet.getLastColumn()));
 
@@ -212,7 +211,7 @@ function exportUnifiedWorkbook(normalized) {
       success: true,
       url: ss.getUrl(),
       name: ss.getName(),
-      message: 'Unified workbook created with attendance, adherence, and export catalog insights.'
+      message: 'Unified workbook created with attendance dashboard and adherence exports.'
     };
   } catch (error) {
     console.error('exportUnifiedWorkbook failed:', error);
@@ -244,85 +243,244 @@ function writeUnifiedHeader_(sheet, startRow, normalized, periodLabel) {
 }
 
 function appendAttendanceSection_(sheet, startRow, normalized, periodLabel) {
-  var analytics = {};
-  try {
-    analytics = getAttendanceAnalyticsByPeriod(normalized.granularity, normalized.period, normalized.userId || '', normalized.policyOptions || {}) || {};
-  } catch (attendanceError) {
-    console.error('appendAttendanceSection_ attendanceError:', attendanceError);
-  }
-
-  var userCompliance = Array.isArray(analytics.userCompliance) ? analytics.userCompliance : [];
-  var rows = userCompliance.map(function (user) {
-    var compliance = typeof calculateComplianceScore === 'function' ? calculateComplianceScore(user) : '';
-    var baseBillableSecs = Number.isFinite(user.baseBillableSecs) ? user.baseBillableSecs : 0;
-    var breakCreditSecs = Number.isFinite(user.breakCreditSecs) ? user.breakCreditSecs : 0;
-    var lunchAdjustmentSecs = Number.isFinite(user.lunchAdjustmentSecs) ? user.lunchAdjustmentSecs : 0;
-    var adjustedBillableSecs = Number.isFinite(user.adjustedBillableSecs)
-      ? user.adjustedBillableSecs
-      : Math.max(0, baseBillableSecs + breakCreditSecs + lunchAdjustmentSecs);
-
-    var formatHours = function (secs) {
-      var hours = Number.isFinite(secs) ? secs / 3600 : 0;
-      return (Math.abs(hours) < 0.005 ? 0 : hours).toFixed(2);
-    };
-
-    var formatMinutes = function (secs) {
-      var minutes = Number.isFinite(secs) ? secs / 60 : 0;
-      return (Math.abs(minutes) < 0.005 ? 0 : minutes).toFixed(2);
-    };
-
-    return [
-      user.user,
-      formatHours(adjustedBillableSecs),
-      compliance,
-      formatMinutes(user.breakOverSecs),
-      formatMinutes(user.lunchOverSecs)
-    ];
-  });
-
-  var sectionTitle = 'Attendance summary (' + (periodLabel || normalized.granularity) + ')';
-  var headers = ['User', 'Adjusted Billable Hours', 'Compliance Score', 'Break Over (mins)', 'Lunch Over (mins)'];
-
-  return writeUnifiedSection_(sheet, startRow, sectionTitle, headers, rows, 'Attendance performance spotlight');
+  var table = buildAttendanceDashboardTable_(normalized.periodType || normalized.granularity, normalized.startDateIso, normalized.endDateIso);
+  var subtitle = table.subtitle || ('Period: ' + (periodLabel || normalized.granularity));
+  return writeUnifiedSection_(sheet, startRow, 'Attendance Dashboard Summary', table.headers, table.rows, subtitle);
 }
 
 function appendAdherenceSection_(sheet, startRow, normalized) {
-  var dataset = {};
-  try {
-    dataset = getAdherenceComplianceExportData({
-      startDateIso: normalized.startDateIso,
-      endDateIso: normalized.endDateIso,
-      periodType: normalized.periodType || normalized.granularity,
-      users: normalized.userId ? [normalized.userId] : [],
-      timezone: normalized.timezone
-    }) || {};
-  } catch (adherenceError) {
-    console.error('appendAdherenceSection_ adherenceError:', adherenceError);
+  var table = buildAdherenceComplianceTable_({
+    startDateIso: normalized.startDateIso,
+    endDateIso: normalized.endDateIso,
+    periodType: normalized.periodType || normalized.granularity,
+    users: normalized.userId ? [normalized.userId] : [],
+    timezone: normalized.timezone
+  });
+
+  return writeUnifiedSection_(sheet, startRow, 'Adherence & Compliance Export', table.headers, table.rows, table.subtitle);
+}
+
+function buildAttendanceDashboardTable_(periodType, startDate, endDate) {
+  var range = typeof normalizeDateRangeForExport === 'function'
+    ? normalizeDateRangeForExport(periodType, startDate, endDate)
+    : null;
+
+  if (!range) {
+    return { headers: [], rows: [], subtitle: 'Period unavailable' };
   }
 
-  var rows = Array.isArray(dataset.rows) ? dataset.rows : [];
-  var compactRows = rows.map(function (entry) {
+  var attendanceData = readScheduleSheet(ATTENDANCE_STATUS_SHEET) || [];
+  var displayNameMap = typeof buildUserDisplayNameMap === 'function' ? buildUserDisplayNameMap() : new Map();
+  var workingDates = typeof getWeekdayIsoDatesInRange === 'function' ? getWeekdayIsoDatesInRange(range.start, range.end) : [];
+  var totalWorkingDays = workingDates.length || 1;
+
+  var positiveStatuses = new Set(['present', 'punctual', 'training']);
+  var negativeStatuses = new Set([
+    'absent',
+    'bereavement',
+    'late',
+    'no call no show',
+    'no call/no show',
+    'no call/no-show',
+    'vacation',
+    'sick',
+    'sick leave',
+    'leave of absent',
+    'leave of absence',
+    'maternity leave',
+    'personal leave'
+  ]);
+  var normalizeStatus = function (status) { return (status || '').toString().trim().toLowerCase(); };
+
+  var filtered = attendanceData.filter(function (record) {
+    var iso = record && record.Date ? toIsoDateString(record.Date) : null;
+    return iso && isWeekdayIsoDate(iso) && iso >= range.startIso && iso <= range.endIso;
+  });
+
+  var userMap = new Map();
+  filtered.forEach(function (record) {
+    var user = record.UserName || record.User || record.userName;
+    if (user) {
+      var fullName = (record.FullName || record.fullName || '').toString().trim();
+      if (fullName && !displayNameMap.has(user)) {
+        displayNameMap.set(user, fullName);
+      }
+      userMap.set(user, user);
+    }
+  });
+
+  var headers = [
+    'Agent', 'Period', 'Total Days', 'Present/Worked', 'Absent', 'Sick', 'Vacation', 'Holiday', 'Late', 'On-Time',
+    'Absent %', 'Late %', 'On-Time %', 'Sick %', 'Vacation %', 'Attendance Score %'
+  ];
+
+  var rows = Array.from(userMap.keys()).sort().map(function (user) {
+    var stats = filtered.filter(function (r) { return (r.UserName || r.User || r.userName) === user; });
+    var dailyStatuses = new Map();
+
+    stats.forEach(function (record) {
+      var iso = record && record.Date ? toIsoDateString(record.Date) : null;
+      if (!iso || workingDates.indexOf(iso) === -1) return;
+      dailyStatuses.set(iso, record);
+    });
+
+    var missingDays = Math.max(0, totalWorkingDays - dailyStatuses.size);
+    var totals = {
+      present: 0,
+      late: 0,
+      absent: missingDays,
+      sick: 0,
+      vacation: 0,
+      holiday: 0
+    };
+
+    Array.from(dailyStatuses.values()).forEach(function (record) {
+      var rawStatus = record.Status || record.status || '';
+      var status = normalizeStatus(rawStatus);
+
+      if (positiveStatuses.has(status)) {
+        totals.present += 1;
+      } else if (negativeStatuses.has(status)) {
+        if (status === 'late') {
+          totals.late += 1;
+        } else if (status === 'vacation') {
+          totals.vacation += 1;
+        } else if (status === 'sick' || status === 'sick leave') {
+          totals.sick += 1;
+        } else {
+          totals.absent += 1;
+        }
+      } else if (status === 'holiday') {
+        totals.holiday += 1;
+      }
+    });
+
+    var totalDays = totalWorkingDays;
+    var negativeImpactDays = totals.late + totals.absent + totals.sick + totals.vacation;
+    var onTime = totals.present;
+    var pct = function (count) { return totalDays > 0 ? Math.round((count / totalDays) * 10000) / 100 : 0; };
+    var attendanceScore = pct(Math.max(0, totalDays - negativeImpactDays));
+
     return [
-      entry.user,
-      entry.average,
-      entry.compliantDays,
-      entry.flaggedDays,
-      entry.overtimeDays,
-      entry.daysWorked
+      displayNameMap.get(user) || user,
+      range.label,
+      totalDays,
+      totals.present,
+      totals.absent,
+      totals.sick,
+      totals.vacation,
+      totals.holiday,
+      totals.late,
+      onTime,
+      pct(totals.absent),
+      pct(totals.late),
+      pct(onTime),
+      pct(totals.sick),
+      pct(totals.vacation),
+      attendanceScore
     ];
   });
 
-  var headers = ['User', 'Average %', 'Compliant Days', 'Flagged Days', 'Overtime Days', 'Days Worked'];
-  return writeUnifiedSection_(sheet, startRow, 'Adherence scorecard', headers, compactRows, 'Daily adherence heatmap summary');
+  return {
+    headers: headers,
+    rows: rows,
+    subtitle: 'Period: ' + range.label
+  };
 }
 
-function appendExportCatalogSection_(sheet, startRow) {
-  var options = listDataExportOptions({}) || [];
-  var rows = options.map(function (opt) {
-    return [opt.title, opt.description, opt.key];
+function buildAdherenceComplianceTable_(payload) {
+  var data = {};
+  try {
+    data = getAdherenceComplianceExportData(payload || {});
+  } catch (err) {
+    console.error('buildAdherenceComplianceTable_ error:', err);
+    data = { success: false };
+  }
+
+  if (!data || data.success === false) {
+    return { headers: [], rows: [], subtitle: 'No adherence data available' };
+  }
+
+  var headers = ['Agent', 'Period'];
+  var dayLabels = (data.dateKeys || []).map(function (day) {
+    var dt = normalizeDateValue(day);
+    return dt instanceof Date && !isNaN(dt.getTime())
+      ? Utilities.formatDate(dt, ATTENDANCE_TIMEZONE, 'EEE MMM d')
+      : day;
   });
-  var headers = ['Export', 'Description', 'Key'];
-  return writeUnifiedSection_(sheet, startRow, 'Export catalog', headers, rows, 'Reference for every export available in the hub');
+  headers = headers.concat(dayLabels, ['Total %', 'Low Days', 'Overtime Days', 'Average %', 'Days Worked', 'Status']);
+
+  var rows = (data.rows || []).map(function (row) {
+    var status = row.average >= 100
+      ? 'Excellent'
+      : row.average >= data.goal
+        ? 'Pass'
+        : row.average >= 80
+          ? 'Needs Attention'
+          : 'Non-Compliant';
+
+    var dayValues = (row.dayPercents || []).map(function (val) { return typeof val === 'number' ? val : ''; });
+    return [row.user]
+      .concat((data.startDateIso || '') + ' to ' + (data.endDateIso || ''))
+      .concat(dayValues)
+      .concat([
+        row.totalPercent,
+        row.flaggedDays,
+        row.overtimeDays,
+        row.average,
+        row.daysWorked,
+        status
+      ]);
+  });
+
+  var totalPercentSum = (data.rows || []).reduce(function (sum, r) {
+    return sum + (Number.isFinite(r.totalPercent) ? r.totalPercent : 0);
+  }, 0);
+
+  var dailyAverages = dayLabels.map(function (_, index) {
+    var values = (data.rows || [])
+      .map(function (r) { return typeof (r.dayPercents || [])[index] === 'number' ? r.dayPercents[index] : null; })
+      .filter(function (v) { return typeof v === 'number'; });
+    if (!values.length) return '';
+    return Math.round((values.reduce(function (a, b) { return a + b; }, 0) / values.length) * 100) / 100;
+  });
+
+  var dailyAverageRow = ['Daily Averages']
+    .concat((data.startDateIso || '') + ' to ' + (data.endDateIso || ''))
+    .concat(dailyAverages)
+    .concat([
+      dailyAverages.filter(function (v) { return typeof v === 'number'; }).reduce(function (sum, v) { return sum + v; }, 0) || '',
+      '',
+      '',
+      dailyAverages.filter(function (v) { return typeof v === 'number'; }).length
+        ? Math.round((dailyAverages.filter(function (v) { return typeof v === 'number'; }).reduce(function (a, b) { return a + b; }, 0) / dailyAverages.filter(function (v) { return typeof v === 'number'; }).length) * 100) / 100
+        : '',
+      '',
+      ''
+    ]);
+
+  var summaryRow = ['Totals / Averages']
+    .concat((data.startDateIso || '') + ' to ' + (data.endDateIso || ''))
+    .concat(new Array(dayLabels.length).fill(''))
+    .concat([
+      totalPercentSum,
+      data.summary ? data.summary.totalFlaggedDays : '',
+      data.summary ? data.summary.totalOvertimeDays : '',
+      data.summary ? data.summary.averageScore : '',
+      data.summary ? data.summary.totalWorkedDays : '',
+      data.summary && data.summary.averageScore >= data.goal ? 'Pass' : 'Needs Attention'
+    ]);
+
+  if (rows.length) {
+    rows.push(dailyAverageRow);
+  }
+  rows.push(summaryRow);
+
+  return {
+    headers: headers,
+    rows: rows,
+    subtitle: 'Period: ' + ((data.startDateIso || '') + ' to ' + (data.endDateIso || ''))
+  };
 }
 
 function writeUnifiedSection_(sheet, startRow, title, headers, rows, subtitle) {
