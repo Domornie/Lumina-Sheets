@@ -63,6 +63,35 @@
   .export-results {
     margin-top: 1.25rem;
   }
+
+  .unified-toggle {
+    background: linear-gradient(135deg, rgba(37, 99, 235, 0.08), rgba(16, 185, 129, 0.12));
+    border: 1px solid rgba(37, 99, 235, 0.2);
+    border-radius: 12px;
+    padding: 1rem;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.75rem 1rem;
+    align-items: center;
+    margin-bottom: 1rem;
+  }
+
+  .unified-toggle .form-check-input {
+    width: 2.25rem;
+    height: 1.25rem;
+  }
+
+  .unified-toggle h6 {
+    margin: 0;
+    font-weight: 700;
+    color: #0f172a;
+  }
+
+  .unified-toggle p {
+    margin: 0;
+    color: #334155;
+    font-size: 0.95rem;
+  }
 </style>
 
 <div class="export-hub">
@@ -74,13 +103,24 @@
     <h3 class="export-section-title"><i class="fas fa-file-export"></i>Data Export Hub</h3>
     <p class="helper-text">Download attendance, QA, adherence, schedule, and call report data by campaign, user, and date filters.</p>
 
+    <div class="unified-toggle">
+      <div class="form-check form-switch">
+        <input class="form-check-input" type="checkbox" role="switch" id="combineExports" />
+      </div>
+      <div>
+        <h6>Combine every export on one sheet</h6>
+        <p>Creates a single, well-formatted workbook with attendance, adherence, and export catalog details for the selected period.</p>
+      </div>
+    </div>
+
     <div class="export-grid">
       <div>
-        <label class="form-label fw-semibold">Export type</label>
+        <label class="form-label fw-semibold" id="exportTypeLabel">Export type</label>
         <select id="exportType" class="form-select">
           <!-- Options injected via script -->
         </select>
         <small class="helper-text" id="exportDescription"></small>
+        <small class="helper-text" id="unifiedHint" style="display:none;">Used as the focus section inside the unified workbook.</small>
       </div>
 
       <div>
@@ -235,6 +275,10 @@
     document.getElementById('exportType').addEventListener('change', function (evt) {
       const selected = exportOptions.find(opt => opt.key === evt.target.value);
       document.getElementById('exportDescription').textContent = selected ? selected.description : '';
+      const hint = document.getElementById('unifiedHint');
+      if (document.getElementById('combineExports').checked) {
+        hint.style.display = selected ? 'block' : 'none';
+      }
     });
 
     Array.from(document.querySelectorAll('.chip-group button')).forEach(function (btn) {
@@ -247,6 +291,18 @@
     document.getElementById('exportButton').addEventListener('click', function () {
       runExport();
     });
+
+    document.getElementById('combineExports').addEventListener('change', function () {
+      syncUnifiedMode();
+    });
+  }
+
+  function syncUnifiedMode() {
+    const combine = document.getElementById('combineExports').checked;
+    const label = document.getElementById('exportTypeLabel');
+    const hint = document.getElementById('unifiedHint');
+    label.textContent = combine ? 'Focus export (optional)' : 'Export type';
+    hint.style.display = combine ? 'block' : 'none';
   }
 
   function setStatus(message, isError) {
@@ -273,8 +329,11 @@
   }
 
   function runExport() {
+    const combine = document.getElementById('combineExports').checked;
+    const selectedType = document.getElementById('exportType').value;
     const payload = {
-      type: document.getElementById('exportType').value,
+      type: combine ? 'unified-export-sheet' : selectedType,
+      focusType: selectedType,
       campaignId: document.getElementById('campaign').value,
       userId: document.getElementById('user').value,
       granularity: document.getElementById('granularity').value,
@@ -283,7 +342,7 @@
       endDate: document.getElementById('endDate').value
     };
 
-    setStatus('Preparing export...', false);
+    setStatus(combine ? 'Building unified workbook...' : 'Preparing export...', false);
     document.getElementById('exportButton').disabled = true;
 
     google.script.run
@@ -308,6 +367,7 @@
   (function init() {
     initSelectors();
     wireEvents();
+    syncUnifiedMode();
     setQuickRange('week');
   })();
 </script>
