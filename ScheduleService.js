@@ -4322,7 +4322,8 @@ function applyCalendarExportFormatting(sheet, headers, rowCount, dayColumnStart)
   sheet.setRowHeight(1, 30);
   sheet.setColumnWidths(1, 1, 170); // Agent
   sheet.setColumnWidths(2, 1, 170); // Period
-  sheet.setColumnWidths(3, 13, 110); // Summary + percentages
+  const summaryColumnCount = Math.max(1, dayColumnStart - 3);
+  sheet.setColumnWidths(3, summaryColumnCount, 110); // Summary + percentages
   if (headers.length >= dayColumnStart) {
     const dayCols = headers.length - dayColumnStart + 1;
     sheet.setColumnWidths(dayColumnStart, dayCols, 75);
@@ -4332,7 +4333,12 @@ function applyCalendarExportFormatting(sheet, headers, rowCount, dayColumnStart)
     const rules = sheet.getConditionalFormatRules() || [];
     const addRule = (builder) => rules.push(builder.build());
 
-    const percentageCols = [10, 11, 12, 13, 14, 15];
+    const percentageCols = headers
+      .map((header, index) => ({ header, index: index + 1 }))
+      .filter(entry => entry.header.includes('%'))
+      .map(entry => entry.index)
+      .filter(index => index < dayColumnStart);
+
     percentageCols.forEach(col => {
       const range = sheet.getRange(2, col, rowCount, 1);
       addRule(SpreadsheetApp.newConditionalFormatRule()
@@ -4623,6 +4629,7 @@ function exportAttendanceCalendar(periodType, startDate, endDate) {
       'Agent', 'Period', 'Total Days', 'Present', 'Absent', 'Sick', 'Vacation', 'Holiday', 'Late',
       'Bereavement', 'Maternity Leave', 'Training',
       'Present %', 'Absent %', 'Sick %', 'Vacation %', 'Holiday %', 'Late %', 'Bereavement %', 'Maternity Leave %', 'Training %',
+      'Attendance Rate %', 'Punctual Rate %', 'Attendance Score %',
       ...dates
     ];
 
@@ -4686,6 +4693,9 @@ function exportAttendanceCalendar(periodType, startDate, endDate) {
       const pct = (count) => totalDays > 0 ? Math.round((count / totalDays) * 10000) / 100 : 0;
       const calendarStatuses = dates.map(dateKey => dayStatus.get(dateKey) || 'Absent');
       const presentDays = Math.max(0, totalDays - absentDays);
+      const attendanceRate = pct(presentDays);
+      const punctualDays = Math.max(0, totals.present - totals.late);
+      const attendanceScore = pct(Math.max(0, totalDays - (totals.late + totals.absent + totals.sick + totals.vacation)));
 
       return [
         displayNameMap.get(user) || user,
@@ -4700,7 +4710,7 @@ function exportAttendanceCalendar(periodType, startDate, endDate) {
         totals.bereavement,
         totals.maternity,
         totals.training,
-        pct(presentDays),
+        attendanceRate,
         pct(totals.absent),
         pct(totals.sick),
         pct(totals.vacation),
@@ -4709,6 +4719,9 @@ function exportAttendanceCalendar(periodType, startDate, endDate) {
         pct(totals.bereavement),
         pct(totals.maternity),
         pct(totals.training),
+        attendanceRate,
+        pct(punctualDays),
+        attendanceScore,
         ...calendarStatuses
       ];
     });
