@@ -130,6 +130,16 @@ function normalizeExportPayload_(payload) {
   var startDateIso = normalizeDateString_(payload.startDate);
   var endDateIso = normalizeDateString_(payload.endDate);
 
+  try {
+    if (typeof normalizeDateRangeForExport === 'function' && (startDateIso || endDateIso)) {
+      var aligned = normalizeDateRangeForExport(granularity, startDateIso, endDateIso);
+      startDateIso = aligned.startIso;
+      endDateIso = aligned.endIso;
+    }
+  } catch (e) {
+    console.error('Failed to normalize export dates:', e);
+  }
+
   if (!startDateIso && granularity.toLowerCase() === 'custom') {
     startDateIso = normalizeDateString_(new Date());
   }
