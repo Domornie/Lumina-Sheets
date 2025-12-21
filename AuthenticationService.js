@@ -107,6 +107,10 @@ const TRUSTED_DEVICE_COLUMNS = [
 
 const LOGIN_CONTEXT_CACHE_PREFIX = 'AUTH_LOGIN_CONTEXT:';
 const LOGIN_CONTEXT_CACHE_TTL_SECONDS = 5 * 60; // 5 minutes
+const MAGIC_LINK_CACHE_PREFIX = 'AUTH_MAGIC_LINK:';
+const MAGIC_LINK_REQUEST_PREFIX = MAGIC_LINK_CACHE_PREFIX + 'REQUEST:';
+const MAGIC_LINK_TTL_SECONDS = 15 * 60; // 15 minutes
+const MAGIC_LINK_REQUEST_THROTTLE_SECONDS = 60; // 1 minute between sends
 
 // ───────────────────────────────────────────────────────────────────────────────
 // IMPROVED AUTHENTICATION SERVICE
@@ -293,6 +297,181 @@ var AuthenticationService = (function () {
     }
 
     return Object.keys(sanitized).length ? sanitized : null;
+  }
+
+  function getMagicLinkCache() {
+    try {
+      if (typeof CacheService !== 'undefined' && CacheService && typeof CacheService.getScriptCache === 'function') {
+        return CacheService.getScriptCache();
+      }
+    } catch (error) {
+      console.warn('getMagicLinkCache: CacheService unavailable', error);
+    }
+    return null;
+  }
+
+  function hashMagicLinkToken(token) {
+    const normalized = normalizeString(token);
+    if (!normalized) return '';
+    try {
+      const digest = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, normalized);
+      return Utilities.base64EncodeWebSafe(digest).replace(/=+$/, '');
+    } catch (error) {
+      console.warn('hashMagicLinkToken failed:', error);
+      return '';
+    }
+  }
+
+  function buildMagicLinkCacheKey(token) {
+    const hashed = hashMagicLinkToken(token);
+    if (!hashed) return '';
+    return MAGIC_LINK_CACHE_PREFIX + hashed;
+  }
+
+  function enforceMagicLinkThrottle(email) {
+    const cache = getMagicLinkCache();
+    if (!cache) {
+      return { blocked: false, retryAfterSeconds: 0 };
+    }
+
+    const normalizedEmail = normalizeEmail(email);
+    if (!normalizedEmail) {
+      return { blocked: false, retryAfterSeconds: 0 };
+    }
+
+    const key = MAGIC_LINK_REQUEST_PREFIX + normalizedEmail;
+    try {
+      const existing = cache.get(key);
+      if (existing) {
+        return { blocked: true, retryAfterSeconds: MAGIC_LINK_REQUEST_THROTTLE_SECONDS };
+      }
+      cache.put(key, String(Date.now()), MAGIC_LINK_REQUEST_THROTTLE_SECONDS);
+    } catch (error) {
+      console.warn('enforceMagicLinkThrottle: unable to enforce throttle', error);
+      return { blocked: false, retryAfterSeconds: 0 };
+    }
+
+    return { blocked: false, retryAfterSeconds: MAGIC_LINK_REQUEST_THROTTLE_SECONDS };
+  }
+
+  function storeMagicLinkChallenge(token, payload, ttlSeconds) {
+    const cache = getMagicLinkCache();
+    if (!cache) {
+      console.warn('storeMagicLinkChallenge: cache unavailable');
+      return false;
+    }
+
+    const key = buildMagicLinkCacheKey(token);
+    if (!key) {
+      console.warn('storeMagicLinkChallenge: invalid cache key');
+      return false;
+    }
+
+    try {
+      cache.put(key, JSON.stringify(payload || {}), Math.max(60, Math.min(ttlSeconds || MAGIC_LINK_TTL_SECONDS, 6 * 60 * 60)));
+      return true;
+    } catch (error) {
+      console.warn('storeMagicLinkChallenge: failed to store challenge', error);
+      return false;
+    }
+  }
+
+  function consumeMagicLinkChallenge(token) {
+    const cache = getMagicLinkCache();
+    if (!cache) {
+      return null;
+    }
+
+    const key = buildMagicLinkCacheKey(token);
+    if (!key) {
+      return null;
+    }
+
+    let raw = null;
+    try {
+      raw = cache.get(key);
+    } catch (error) {
+      console.warn('consumeMagicLinkChallenge: read failed', error);
+    }
+
+    try {
+      cache.remove(key);
+    } catch (removeError) {
+      console.warn('consumeMagicLinkChallenge: removal failed', removeError);
+    }
+
+    if (!raw) {
+      return null;
+    }
+
+    try {
+      return JSON.parse(raw);
+    } catch (parseError) {
+      console.warn('consumeMagicLinkChallenge: parse failed', parseError);
+      return null;
+    }
+  }
+
+  function generateMagicLinkToken() {
+    try {
+      const seed = Utilities.getUuid() + ':' + Utilities.getUuid() + ':' + Date.now() + ':' + Math.random();
+      const digest = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, seed, Utilities.Charset.UTF_8);
+      const encoded = Utilities.base64EncodeWebSafe(digest).replace(/=+$/, '');
+      return encoded.length > 64 ? encoded.slice(0, 64) : encoded;
+    } catch (error) {
+      console.warn('generateMagicLinkToken: failed to generate secure token', error);
+      return (Utilities.getUuid() || Math.random().toString(36)).replace(/[^A-Za-z0-9]/g, '');
+    }
+  }
+
+  function evaluateLoginEligibility(user, options) {
+    const notFoundError = options && options.notFoundError
+      ? options.notFoundError
+      : 'Invalid email or password';
+
+    if (!user) {
+      return {
+        ok: false,
+        error: notFoundError,
+        errorCode: 'INVALID_CREDENTIALS'
+      };
+    }
+
+    const canLogin = toBool(user.CanLogin);
+    const emailConfirmed = toBool(user.EmailConfirmed);
+    const resetRequired = toBool(user.ResetRequired);
+
+    if (!canLogin) {
+      return {
+        ok: false,
+        error: 'Your account has been disabled. Please contact support.',
+        errorCode: 'ACCOUNT_DISABLED'
+      };
+    }
+
+    if (!emailConfirmed) {
+      return {
+        ok: false,
+        error: 'Please confirm your email address before logging in.',
+        errorCode: 'EMAIL_NOT_CONFIRMED',
+        needsEmailConfirmation: true
+      };
+    }
+
+    if (resetRequired && !(options && options.allowResetBypass)) {
+      return {
+        ok: false,
+        error: 'You must change your password before continuing.',
+        errorCode: 'PASSWORD_RESET_REQUIRED',
+        needsPasswordReset: true,
+        resetRequired: true
+      };
+    }
+
+    return {
+      ok: true,
+      resetRequired: resetRequired
+    };
   }
 
   function persistActiveSessionState(sessionToken, metadata, explicitUser) {
@@ -1794,6 +1973,35 @@ var AuthenticationService = (function () {
       return { success: true };
     } catch (error) {
       console.error('sendDeviceVerificationEmailSafe: failed to send email', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  function sendMagicLinkEmailSafe(user, challenge, metadata) {
+    if (typeof sendMagicLinkEmail !== 'function') {
+      console.warn('sendMagicLinkEmailSafe: EmailService not available');
+      return { success: false, error: 'EMAIL_SERVICE_UNAVAILABLE' };
+    }
+
+    if (!challenge || !challenge.token || !challenge.payload) {
+      return { success: false, error: 'INVALID_CHALLENGE' };
+    }
+
+    try {
+      const result = sendMagicLinkEmail(user.Email, {
+        fullName: user.FullName || user.UserName || user.Email,
+        magicLinkToken: challenge.token,
+        expiresAt: challenge.payload.expiresAt,
+        ipAddress: resolveObservedIp(metadata) || '',
+        userAgent: metadata && metadata.userAgent ? metadata.userAgent : '',
+        originHost: metadata && metadata.originHost ? metadata.originHost : ''
+      });
+      if (result === false || (result && result.success === false)) {
+        return { success: false, error: (result && result.error) || 'EMAIL_SEND_FAILED' };
+      }
+      return { success: true };
+    } catch (error) {
+      console.error('sendMagicLinkEmailSafe: failed to send email', error);
       return { success: false, error: error.message };
     }
   }
@@ -5050,6 +5258,204 @@ var AuthenticationService = (function () {
     }
   }
 
+  function completeLoginForVerifiedUser(user, rememberMe, sanitizedMetadata, tenantAccessOverride) {
+    const tenantAccess = tenantAccessOverride || resolveTenantAccess(user, null);
+    if (!tenantAccess || !tenantAccess.success) {
+      const tenantError = formatTenantAccessError(tenantAccess);
+      return {
+        success: false,
+        error: tenantError.error,
+        errorCode: tenantError.errorCode
+      };
+    }
+
+    const resetRequired = toBool(user.ResetRequired);
+    const tenantSummary = Object.assign({}, tenantAccess.clientPayload, {
+      tenantContext: tenantAccess.sessionScope && tenantAccess.sessionScope.tenantContext
+        ? tenantAccess.sessionScope.tenantContext
+        : null
+    });
+    if (Array.isArray(tenantAccess.warnings)) {
+      tenantSummary.warnings = tenantAccess.warnings.slice();
+    }
+    tenantSummary.needsCampaignAssignment = tenantAccess.needsCampaignAssignment === true;
+
+    if (resetRequired) {
+      const resetSession = createSession(user.ID, false, tenantAccess.sessionScope);
+      return {
+        success: false,
+        error: 'You must change your password before continuing.',
+        errorCode: 'PASSWORD_RESET_REQUIRED',
+        resetToken: resetSession && resetSession.token ? resetSession.token : null,
+        needsPasswordReset: true,
+        tenant: tenantSummary,
+        campaignScope: tenantSummary,
+        warnings: Array.isArray(tenantAccess.warnings) ? tenantAccess.warnings.slice() : [],
+        needsCampaignAssignment: tenantAccess.needsCampaignAssignment === true
+      };
+    }
+
+    const mfaConfig = getUserMfaConfig(user);
+    if (mfaConfig && mfaConfig.enabled) {
+      const challengeResult = createMfaChallenge(user, tenantAccess, rememberMe, sanitizedMetadata, mfaConfig);
+
+      if (!challengeResult || !challengeResult.success) {
+        return {
+          success: false,
+          error: 'We were unable to start the verification process. Please try again in a moment.',
+          errorCode: 'MFA_CHALLENGE_FAILED'
+        };
+      }
+
+      const challenge = challengeResult.challenge;
+      return {
+        success: false,
+        needsMfa: true,
+        errorCode: 'MFA_REQUIRED',
+        message: 'Additional verification is required to finish signing in.',
+        rememberMe: !!rememberMe,
+        mfa: {
+          challengeId: challenge.id,
+          deliveryMethod: challenge.deliveryMethod,
+          maskedDestination: challenge.maskedDestination,
+          totp: challenge.totpEnabled,
+          expiresAt: new Date(challenge.expiresAt).toISOString(),
+          deliveriesRemaining: Math.max(0, (challenge.maxDeliveries || MFA_MAX_DELIVERIES) - (challenge.deliveries || 0)),
+          backupCodesRemaining: mfaConfig.backupCodes.length
+        }
+      };
+    }
+
+    const deviceEvaluation = evaluateTrustedDevice(user, sanitizedMetadata, rememberMe);
+    if (deviceEvaluation && deviceEvaluation.error) {
+      return {
+        success: false,
+        error: deviceEvaluation.error,
+        errorCode: deviceEvaluation.errorCode || 'DEVICE_VERIFICATION_ERROR'
+      };
+    }
+
+    if (deviceEvaluation && deviceEvaluation.trusted === false) {
+      return {
+        success: false,
+        needsVerification: true,
+        errorCode: 'DEVICE_VERIFICATION_REQUIRED',
+        message: (deviceEvaluation.verification && deviceEvaluation.verification.message)
+          || 'We need to confirm this device before completing your login.',
+        verification: deviceEvaluation.verification || null,
+        rememberMe: !!rememberMe
+      };
+    }
+
+    const sessionResult = createSession(user.ID, rememberMe, tenantAccess.sessionScope, sanitizedMetadata);
+
+    if (!sessionResult || !sessionResult.token) {
+      return {
+        success: false,
+        error: 'Failed to create session. Please try again.',
+        errorCode: 'SESSION_CREATION_FAILED'
+      };
+    }
+
+    try {
+      updateLastLogin(user.ID);
+    } catch (lastLoginError) {
+      console.warn('completeLoginForVerifiedUser: Failed to update last login:', lastLoginError);
+    }
+
+    const userPayload = buildUserPayload(user, tenantAccess.clientPayload);
+
+    if (userPayload && userPayload.CampaignScope) {
+      userPayload.CampaignScope.tenantContext = tenantAccess.sessionScope && tenantAccess.sessionScope.tenantContext
+        ? tenantAccess.sessionScope.tenantContext
+        : null;
+      if (tenantAccess.sessionScope && Array.isArray(tenantAccess.sessionScope.assignments) && !userPayload.CampaignScope.assignments.length) {
+        userPayload.CampaignScope.assignments = tenantAccess.sessionScope.assignments.slice();
+      }
+      if (tenantAccess.sessionScope && Array.isArray(tenantAccess.sessionScope.permissions) && !userPayload.CampaignScope.permissions.length) {
+        userPayload.CampaignScope.permissions = tenantAccess.sessionScope.permissions.slice();
+      }
+    }
+
+    const sessionToken = sessionResult.token;
+    const authenticatedAt = getRecordValue(sessionResult.record, 'AuthenticatedAt')
+      || getRecordValue(sessionResult.record, 'CreatedAt')
+      || new Date().toISOString();
+    const sessionLastActivity = getRecordValue(sessionResult.record, 'LastActivityAt')
+      || authenticatedAt;
+    const sessionLastSeen = getRecordValue(sessionResult.record, 'LastSeenAt')
+      || sessionLastActivity;
+    const sessionStatus = 'active';
+
+    const warnings = Array.isArray(tenantAccess.warnings) ? tenantAccess.warnings.slice() : [];
+    const needsCampaignAssignment = tenantAccess.needsCampaignAssignment === true;
+
+    const loginMessage = needsCampaignAssignment
+      ? 'Login successful, but your account is not yet assigned to any campaigns. You may have limited access until an administrator completes the assignment.'
+      : 'Login successful';
+
+    const landing = resolveLandingDestination(user, {
+      user: userPayload,
+      userPayload: userPayload,
+      rawUser: user,
+      tenantAccess: tenantAccess,
+      tenant: { clientPayload: tenantSummary, sessionScope: tenantAccess.sessionScope },
+      sessionScope: tenantAccess.sessionScope
+    });
+    const redirectSlug = landing && landing.slug ? landing.slug : 'dashboard';
+    const redirectUrl = landing && landing.redirectUrl
+      ? landing.redirectUrl
+      : buildLandingRedirectUrlFromSlug(redirectSlug);
+
+    const result = {
+      success: true,
+      sessionToken: sessionToken,
+      user: userPayload,
+      message: loginMessage,
+      rememberMe: !!rememberMe,
+      sessionExpiresAt: sessionResult.expiresAt,
+      sessionTtlSeconds: sessionResult.ttlSeconds,
+      sessionIdleTimeoutMinutes: sessionResult.idleTimeoutMinutes,
+      sessionStatus: sessionStatus,
+      isAuthenticated: true,
+      authenticatedAt: authenticatedAt,
+      session: {
+        token: sessionToken,
+        status: sessionStatus,
+        authenticatedAt: authenticatedAt,
+        lastActivityAt: sessionLastActivity,
+        lastSeenAt: sessionLastSeen,
+        expiresAt: sessionResult.expiresAt,
+        ttlSeconds: sessionResult.ttlSeconds,
+        idleTimeoutMinutes: sessionResult.idleTimeoutMinutes,
+        rememberMe: !!rememberMe
+      },
+      tenant: tenantSummary,
+      campaignScope: userPayload ? userPayload.CampaignScope : null,
+      warnings: warnings,
+      needsCampaignAssignment: needsCampaignAssignment,
+      redirectSlug: redirectSlug,
+      redirectUrl: redirectUrl
+    };
+
+    persistActiveSessionState(sessionToken, {
+      sessionExpiresAt: sessionResult.expiresAt,
+      sessionTtlSeconds: sessionResult.ttlSeconds,
+      sessionIdleTimeoutMinutes: sessionResult.idleTimeoutMinutes,
+      rememberMe: !!rememberMe,
+      status: sessionStatus,
+      authenticatedAt: authenticatedAt,
+      lastSeenAt: sessionLastSeen,
+      lastActivityAt: sessionLastActivity
+    }, userPayload);
+
+    if (sanitizedMetadata && sanitizedMetadata.requestedReturnUrl) {
+      result.requestedReturnUrl = sanitizedMetadata.requestedReturnUrl;
+    }
+
+    return result;
+  }
+
   // ─── Main login function ─────────────────────────────────────────────────────
 
   function login(email, password, rememberMe = false, clientMetadata) {
@@ -5087,42 +5493,19 @@ var AuthenticationService = (function () {
 
       // Find user
       const user = findUserByEmail(normalizedEmail);
-      if (!user) {
-        console.log('login: User not found');
+      const eligibility = evaluateLoginEligibility(user, { allowResetBypass: true });
+      if (!eligibility.ok) {
         return {
           success: false,
-          error: 'Invalid email or password',
-          errorCode: 'INVALID_CREDENTIALS'
+          error: eligibility.error,
+          errorCode: eligibility.errorCode,
+          needsEmailConfirmation: eligibility.needsEmailConfirmation === true,
+          needsPasswordReset: eligibility.needsPasswordReset === true
         };
       }
 
       console.log('login: Found user:', user.FullName || user.UserName);
-
-      // Check account status
-      const canLogin = toBool(user.CanLogin);
-      const emailConfirmed = toBool(user.EmailConfirmed);
-      const resetRequired = toBool(user.ResetRequired);
-
-      console.log('login: Account status - CanLogin:', canLogin, 'EmailConfirmed:', emailConfirmed, 'ResetRequired:', resetRequired);
-
-      if (!canLogin) {
-        console.log('login: Account disabled');
-        return {
-          success: false,
-          error: 'Your account has been disabled. Please contact support.',
-          errorCode: 'ACCOUNT_DISABLED'
-        };
-      }
-
-      if (!emailConfirmed) {
-        console.log('login: Email not confirmed');
-        return {
-          success: false,
-          error: 'Please confirm your email address before logging in.',
-          errorCode: 'EMAIL_NOT_CONFIRMED',
-          needsEmailConfirmation: true
-        };
-      }
+      console.log('login: Account status - CanLogin:', user.CanLogin, 'EmailConfirmed:', user.EmailConfirmed, 'ResetRequired:', user.ResetRequired);
 
       // Check password
       console.log('login: Verifying password...');
@@ -5149,218 +5532,15 @@ var AuthenticationService = (function () {
 
       console.log('login: Password verified successfully using method:', passwordCheck.method);
 
-      const tenantAccess = resolveTenantAccess(user, null);
-      if (!tenantAccess || !tenantAccess.success) {
-        console.log('login: Tenant access check failed:', tenantAccess ? tenantAccess.reason : 'unknown');
-        const tenantError = formatTenantAccessError(tenantAccess);
-        return {
-          success: false,
-          error: tenantError.error,
-          errorCode: tenantError.errorCode
-        };
-      }
+      const loginMetadata = sanitizedMetadata
+        ? Object.assign({ loginMethod: 'password' }, sanitizedMetadata)
+        : { loginMethod: 'password' };
 
-      const tenantSummary = Object.assign({}, tenantAccess.clientPayload, {
-        tenantContext: tenantAccess.sessionScope && tenantAccess.sessionScope.tenantContext
-          ? tenantAccess.sessionScope.tenantContext
-          : null
-      });
-      if (Array.isArray(tenantAccess.warnings)) {
-        tenantSummary.warnings = tenantAccess.warnings.slice();
-      }
-      tenantSummary.needsCampaignAssignment = tenantAccess.needsCampaignAssignment === true;
+      const result = completeLoginForVerifiedUser(user, rememberMe, loginMetadata);
 
-      // Handle reset required
-      if (resetRequired) {
-        console.log('login: Password reset required');
-        const resetSession = createSession(user.ID, false, tenantAccess.sessionScope);
-        return {
-          success: false,
-          error: 'You must change your password before continuing.',
-          errorCode: 'PASSWORD_RESET_REQUIRED',
-          resetToken: resetSession && resetSession.token ? resetSession.token : null,
-          needsPasswordReset: true,
-          tenant: tenantSummary,
-          campaignScope: tenantSummary,
-          warnings: Array.isArray(tenantAccess.warnings) ? tenantAccess.warnings.slice() : [],
-          needsCampaignAssignment: tenantAccess.needsCampaignAssignment === true
-        };
-      }
+      console.log('=== AuthenticationService.login ' + (result && result.success ? 'SUCCESS' : 'RESPONSE') + ' ===');
 
-      const mfaConfig = getUserMfaConfig(user);
-      if (mfaConfig && mfaConfig.enabled) {
-        console.log('login: MFA required for user:', user.Email || user.UserName || user.ID);
-        const challengeResult = createMfaChallenge(user, tenantAccess, rememberMe, sanitizedMetadata, mfaConfig);
-
-        if (!challengeResult || !challengeResult.success) {
-          console.warn('login: Failed to create MFA challenge. Reason:', challengeResult && challengeResult.reason);
-          return {
-            success: false,
-            error: 'We were unable to start the verification process. Please try again in a moment.',
-            errorCode: 'MFA_CHALLENGE_FAILED'
-          };
-        }
-
-        const challenge = challengeResult.challenge;
-        return {
-          success: false,
-          needsMfa: true,
-          errorCode: 'MFA_REQUIRED',
-          message: 'Additional verification is required to finish signing in.',
-          rememberMe: !!rememberMe,
-          mfa: {
-            challengeId: challenge.id,
-            deliveryMethod: challenge.deliveryMethod,
-            maskedDestination: challenge.maskedDestination,
-            totp: challenge.totpEnabled,
-            expiresAt: new Date(challenge.expiresAt).toISOString(),
-            deliveriesRemaining: Math.max(0, (challenge.maxDeliveries || MFA_MAX_DELIVERIES) - (challenge.deliveries || 0)),
-            backupCodesRemaining: mfaConfig.backupCodes.length
-          }
-        };
-      }
-
-      const deviceEvaluation = evaluateTrustedDevice(user, sanitizedMetadata, rememberMe);
-      if (deviceEvaluation && deviceEvaluation.error) {
-        console.warn('login: Device evaluation error:', deviceEvaluation.errorCode || deviceEvaluation.error);
-        return {
-          success: false,
-          error: deviceEvaluation.error,
-          errorCode: deviceEvaluation.errorCode || 'DEVICE_VERIFICATION_ERROR'
-        };
-      }
-
-      if (deviceEvaluation && deviceEvaluation.trusted === false) {
-        console.log('login: Device verification required for user');
-        return {
-          success: false,
-          needsVerification: true,
-          errorCode: 'DEVICE_VERIFICATION_REQUIRED',
-          message: (deviceEvaluation.verification && deviceEvaluation.verification.message)
-            || 'We need to confirm this device before completing your login.',
-          verification: deviceEvaluation.verification || null,
-          rememberMe: !!rememberMe
-        };
-      }
-
-      // Create session
-      console.log('login: Creating session...');
-      const sessionResult = createSession(user.ID, rememberMe, tenantAccess.sessionScope, sanitizedMetadata);
-
-      if (!sessionResult || !sessionResult.token) {
-        console.log('login: Failed to create session');
-        return {
-          success: false,
-          error: 'Failed to create session. Please try again.',
-          errorCode: 'SESSION_CREATION_FAILED'
-        };
-      }
-
-      console.log('login: Session created successfully');
-
-      // Update last login
-      try {
-        updateLastLogin(user.ID);
-      } catch (lastLoginError) {
-        console.warn('login: Failed to update last login:', lastLoginError);
-        // Don't fail login for this
-      }
-
-      // Build user payload
-      const userPayload = buildUserPayload(user, tenantAccess.clientPayload);
-
-      if (userPayload && userPayload.CampaignScope) {
-        userPayload.CampaignScope.tenantContext = tenantAccess.sessionScope && tenantAccess.sessionScope.tenantContext
-          ? tenantAccess.sessionScope.tenantContext
-          : null;
-        if (tenantAccess.sessionScope && Array.isArray(tenantAccess.sessionScope.assignments) && !userPayload.CampaignScope.assignments.length) {
-          userPayload.CampaignScope.assignments = tenantAccess.sessionScope.assignments.slice();
-        }
-        if (tenantAccess.sessionScope && Array.isArray(tenantAccess.sessionScope.permissions) && !userPayload.CampaignScope.permissions.length) {
-          userPayload.CampaignScope.permissions = tenantAccess.sessionScope.permissions.slice();
-        }
-      }
-
-      const sessionToken = sessionResult.token;
-      const authenticatedAt = getRecordValue(sessionResult.record, 'AuthenticatedAt')
-        || getRecordValue(sessionResult.record, 'CreatedAt')
-        || new Date().toISOString();
-      const sessionLastActivity = getRecordValue(sessionResult.record, 'LastActivityAt')
-        || authenticatedAt;
-      const sessionLastSeen = getRecordValue(sessionResult.record, 'LastSeenAt')
-        || sessionLastActivity;
-      const sessionStatus = 'active';
-
-      const warnings = Array.isArray(tenantAccess.warnings) ? tenantAccess.warnings.slice() : [];
-      const needsCampaignAssignment = tenantAccess.needsCampaignAssignment === true;
-
-      const loginMessage = needsCampaignAssignment
-        ? 'Login successful, but your account is not yet assigned to any campaigns. You may have limited access until an administrator completes the assignment.'
-        : 'Login successful';
-
-      const landing = resolveLandingDestination(user, {
-        user: userPayload,
-        userPayload: userPayload,
-        rawUser: user,
-        tenantAccess: tenantAccess,
-        tenant: { clientPayload: tenantSummary, sessionScope: tenantAccess.sessionScope },
-        sessionScope: tenantAccess.sessionScope
-      });
-      const redirectSlug = landing && landing.slug ? landing.slug : 'dashboard';
-      const redirectUrl = landing && landing.redirectUrl
-        ? landing.redirectUrl
-        : buildLandingRedirectUrlFromSlug(redirectSlug);
-
-      console.log('login: Login successful for user:', userPayload.FullName);
-      console.log('=== AuthenticationService.login SUCCESS ===');
-
-        const result = {
-          success: true,
-          sessionToken: sessionToken,
-          user: userPayload,
-          message: loginMessage,
-          rememberMe: !!rememberMe,
-          sessionExpiresAt: sessionResult.expiresAt,
-          sessionTtlSeconds: sessionResult.ttlSeconds,
-          sessionIdleTimeoutMinutes: sessionResult.idleTimeoutMinutes,
-          sessionStatus: sessionStatus,
-          isAuthenticated: true,
-          authenticatedAt: authenticatedAt,
-          session: {
-            token: sessionToken,
-            status: sessionStatus,
-            authenticatedAt: authenticatedAt,
-            lastActivityAt: sessionLastActivity,
-            lastSeenAt: sessionLastSeen,
-            expiresAt: sessionResult.expiresAt,
-            ttlSeconds: sessionResult.ttlSeconds,
-            idleTimeoutMinutes: sessionResult.idleTimeoutMinutes,
-            rememberMe: !!rememberMe
-          },
-          tenant: tenantSummary,
-          campaignScope: userPayload ? userPayload.CampaignScope : null,
-          warnings: warnings,
-          needsCampaignAssignment: needsCampaignAssignment,
-          redirectSlug: redirectSlug,
-          redirectUrl: redirectUrl
-        };
-
-        persistActiveSessionState(sessionToken, {
-          sessionExpiresAt: sessionResult.expiresAt,
-          sessionTtlSeconds: sessionResult.ttlSeconds,
-          sessionIdleTimeoutMinutes: sessionResult.idleTimeoutMinutes,
-          rememberMe: !!rememberMe,
-          status: sessionStatus,
-          authenticatedAt: authenticatedAt,
-          lastSeenAt: sessionLastSeen,
-          lastActivityAt: sessionLastActivity
-        }, userPayload);
-
-        if (sanitizedMetadata && sanitizedMetadata.requestedReturnUrl) {
-          result.requestedReturnUrl = sanitizedMetadata.requestedReturnUrl;
-        }
-
-        return result;
+      return result;
 
     } catch (error) {
       console.error('login: Unexpected error:', error);
@@ -5377,6 +5557,170 @@ var AuthenticationService = (function () {
         errorCode: 'SYSTEM_ERROR'
       };
     }
+  }
+
+  function createMagicLinkChallenge(user, rememberMe, metadata) {
+    if (!user || !user.Email) {
+      return null;
+    }
+
+    const token = generateMagicLinkToken();
+    const issuedAt = new Date();
+    const payload = {
+      id: (typeof Utilities !== 'undefined' && Utilities && typeof Utilities.getUuid === 'function')
+        ? Utilities.getUuid()
+        : token,
+      userId: user.ID,
+      email: user.Email,
+      rememberMe: !!rememberMe,
+      requestedAt: issuedAt.toISOString(),
+      expiresAt: new Date(issuedAt.getTime() + (MAGIC_LINK_TTL_SECONDS * 1000)).toISOString(),
+      metadata: metadata || null
+    };
+
+    const stored = storeMagicLinkChallenge(token, payload, MAGIC_LINK_TTL_SECONDS);
+    if (!stored) {
+      return null;
+    }
+
+    return {
+      token: token,
+      payload: payload
+    };
+  }
+
+  function requestMagicLinkLogin(email, rememberMe = false, clientMetadata) {
+    const normalizedEmail = normalizeEmail(email);
+    const sanitizedMetadata = sanitizeClientMetadata(clientMetadata);
+
+    if (!normalizedEmail) {
+      return {
+        success: false,
+        error: 'Email is required',
+        errorCode: 'MISSING_EMAIL'
+      };
+    }
+
+    const user = findUserByEmail(normalizedEmail);
+    if (!user) {
+      return {
+        success: true,
+        message: 'If your email is registered, we just sent a sign-in link.',
+        maskedEmail: maskEmail(normalizedEmail)
+      };
+    }
+
+    const eligibility = evaluateLoginEligibility(user);
+    if (!eligibility.ok) {
+      return {
+        success: false,
+        error: eligibility.error,
+        errorCode: eligibility.errorCode,
+        needsEmailConfirmation: eligibility.needsEmailConfirmation === true,
+        needsPasswordReset: eligibility.needsPasswordReset === true
+      };
+    }
+
+    const throttle = enforceMagicLinkThrottle(normalizedEmail);
+    if (throttle.blocked) {
+      return {
+        success: false,
+        error: 'We just sent you a sign-in link. Please check your email before requesting another.',
+        errorCode: 'MAGIC_LINK_RATE_LIMIT',
+        retryAfterSeconds: throttle.retryAfterSeconds
+      };
+    }
+
+    const requestMetadata = sanitizedMetadata
+      ? Object.assign({ loginMethod: 'magic-link' }, sanitizedMetadata)
+      : { loginMethod: 'magic-link' };
+
+    const challenge = createMagicLinkChallenge(user, rememberMe, requestMetadata);
+    if (!challenge) {
+      return {
+        success: false,
+        error: 'We could not generate a sign-in link. Please try again.',
+        errorCode: 'MAGIC_LINK_CREATION_FAILED'
+      };
+    }
+
+    const emailResult = sendMagicLinkEmailSafe(user, challenge, requestMetadata || {});
+    if (!emailResult || emailResult.success === false) {
+      return {
+        success: false,
+        error: (emailResult && emailResult.error) || 'We could not send the sign-in link. Please try again.',
+        errorCode: 'MAGIC_LINK_EMAIL_FAILED'
+      };
+    }
+
+    return {
+      success: true,
+      message: 'We sent a sign-in link to your email. It expires in 15 minutes.',
+      expiresAt: challenge.payload.expiresAt,
+      maskedEmail: maskEmail(user.Email || normalizedEmail),
+      retryAfterSeconds: throttle.retryAfterSeconds
+    };
+  }
+
+  function completeMagicLinkLogin(magicToken, clientMetadata) {
+    const normalizedToken = normalizeString(magicToken);
+    if (!normalizedToken) {
+      return {
+        success: false,
+        error: 'This sign-in link is invalid or has expired.',
+        errorCode: 'MAGIC_LINK_INVALID'
+      };
+    }
+
+    const challenge = consumeMagicLinkChallenge(normalizedToken);
+    if (!challenge) {
+      return {
+        success: false,
+        error: 'This sign-in link is invalid or has expired.',
+        errorCode: 'MAGIC_LINK_INVALID'
+      };
+    }
+
+    if (challenge.expiresAt) {
+      const expiresAtMs = Date.parse(challenge.expiresAt);
+      if (isFinite(expiresAtMs) && expiresAtMs < Date.now()) {
+        return {
+          success: false,
+          error: 'This sign-in link has expired. Request a new one to continue.',
+          errorCode: 'MAGIC_LINK_EXPIRED'
+        };
+      }
+    }
+
+    const user = findUserById(challenge.userId) || findUserByEmail(challenge.email);
+    const eligibility = evaluateLoginEligibility(user);
+    if (!eligibility.ok) {
+      return {
+        success: false,
+        error: eligibility.error,
+        errorCode: eligibility.errorCode,
+        needsEmailConfirmation: eligibility.needsEmailConfirmation === true,
+        needsPasswordReset: eligibility.needsPasswordReset === true
+      };
+    }
+
+    const sanitizedMetadata = sanitizeClientMetadata(clientMetadata);
+    const loginMetadata = sanitizedMetadata
+      ? Object.assign({ loginMethod: 'magic-link', magicLinkIssuedAt: challenge.requestedAt || '' }, sanitizedMetadata)
+      : { loginMethod: 'magic-link', magicLinkIssuedAt: challenge.requestedAt || '' };
+
+    if (challenge.metadata && challenge.metadata.requestedReturnUrl && !loginMetadata.requestedReturnUrl) {
+      loginMetadata.requestedReturnUrl = challenge.metadata.requestedReturnUrl;
+    }
+
+    const rememberMe = challenge.rememberMe === true;
+    const result = completeLoginForVerifiedUser(user, rememberMe, loginMetadata);
+
+    if (result && result.success) {
+      result.loginMethod = 'magic-link';
+    }
+
+    return result;
   }
 
   // ─── Session validation ─────────────────────────────────────────────────────
@@ -5846,6 +6190,8 @@ var AuthenticationService = (function () {
 
   return {
     login: login,
+    requestMagicLinkLogin: requestMagicLinkLogin,
+    completeMagicLinkLogin: completeMagicLinkLogin,
     logout: logout,
     createSessionFor: createSessionFor,
     getSessionUser: getSessionUser,
@@ -5954,6 +6300,122 @@ function loginUser(email, password, rememberMe = false, clientMetadata) {
       success: false,
       error: 'Login failed. Please try again.',
       errorCode: 'WRAPPER_ERROR'
+    };
+  }
+}
+
+function requestMagicLinkLogin(email, rememberMe = false, clientMetadata) {
+  try {
+    let mergedMetadata = null;
+    try {
+      if (clientMetadata && typeof clientMetadata === 'object') {
+        mergedMetadata = Object.assign({}, clientMetadata);
+      }
+
+      if (typeof AuthenticationService !== 'undefined'
+        && AuthenticationService
+        && typeof AuthenticationService.consumeLoginRequestContext === 'function') {
+        const serverContext = AuthenticationService.consumeLoginRequestContext();
+        if (serverContext && typeof serverContext === 'object') {
+          mergedMetadata = mergedMetadata || {};
+          if (serverContext.serverIp) {
+            mergedMetadata.serverIp = serverContext.serverIp;
+            mergedMetadata.serverObservedIp = serverContext.serverIp;
+          }
+          if (serverContext.forwardedFor) {
+            mergedMetadata.forwardedFor = serverContext.forwardedFor;
+          }
+          if (serverContext.serverUserAgent && !mergedMetadata.serverUserAgent) {
+            mergedMetadata.serverUserAgent = serverContext.serverUserAgent;
+          }
+          if (serverContext.host && !mergedMetadata.host) {
+            mergedMetadata.host = serverContext.host;
+          }
+          mergedMetadata.serverObservedAt = serverContext.serverObservedAt || new Date().toISOString();
+        }
+      }
+    } catch (metadataMergeError) {
+      console.warn('requestMagicLinkLogin: Failed to merge server metadata', metadataMergeError);
+    }
+
+    return AuthenticationService.requestMagicLinkLogin(email, rememberMe, mergedMetadata || clientMetadata);
+  } catch (error) {
+    console.error('requestMagicLinkLogin wrapper error:', error);
+    return {
+      success: false,
+      error: 'Unable to send a sign-in link right now. Please try again.',
+      errorCode: 'MAGIC_LINK_ERROR'
+    };
+  }
+}
+
+function completeMagicLinkLogin(magicToken, clientMetadata) {
+  try {
+    let mergedMetadata = null;
+    try {
+      if (clientMetadata && typeof clientMetadata === 'object') {
+        mergedMetadata = Object.assign({}, clientMetadata);
+      }
+
+      if (typeof AuthenticationService !== 'undefined'
+        && AuthenticationService
+        && typeof AuthenticationService.consumeLoginRequestContext === 'function') {
+        const serverContext = AuthenticationService.consumeLoginRequestContext();
+        if (serverContext && typeof serverContext === 'object') {
+          mergedMetadata = mergedMetadata || {};
+          if (serverContext.serverIp) {
+            mergedMetadata.serverIp = serverContext.serverIp;
+            mergedMetadata.serverObservedIp = serverContext.serverIp;
+          }
+          if (serverContext.forwardedFor) {
+            mergedMetadata.forwardedFor = serverContext.forwardedFor;
+          }
+          if (serverContext.serverUserAgent && !mergedMetadata.serverUserAgent) {
+            mergedMetadata.serverUserAgent = serverContext.serverUserAgent;
+          }
+          if (serverContext.host && !mergedMetadata.host) {
+            mergedMetadata.host = serverContext.host;
+          }
+          mergedMetadata.serverObservedAt = serverContext.serverObservedAt || new Date().toISOString();
+        }
+      }
+    } catch (metadataMergeError) {
+      console.warn('completeMagicLinkLogin: Failed to merge server metadata', metadataMergeError);
+    }
+
+    const result = AuthenticationService.completeMagicLinkLogin(magicToken, mergedMetadata || clientMetadata);
+
+    try {
+      if (result && result.success && result.sessionToken && typeof LuminaIdentity !== 'undefined' && LuminaIdentity) {
+        if (typeof LuminaIdentity.resolve === 'function') {
+          LuminaIdentity.resolve(null, {
+            sessionToken: result.sessionToken,
+            explicitUser: result.user || null,
+            useCache: true
+          });
+        }
+
+        if (typeof LuminaIdentity.persistActiveSessionToken === 'function') {
+          LuminaIdentity.persistActiveSessionToken(result.sessionToken, {
+            sessionExpiresAt: result.sessionExpiresAt,
+            sessionTtlSeconds: result.sessionTtlSeconds,
+            sessionIdleTimeoutMinutes: result.sessionIdleTimeoutMinutes,
+            rememberMe: result.rememberMe,
+            lastActivityAt: new Date().toISOString()
+          });
+        }
+      }
+    } catch (postLoginError) {
+      console.warn('completeMagicLinkLogin: post-login session persistence failed', postLoginError);
+    }
+
+    return result;
+  } catch (error) {
+    console.error('completeMagicLinkLogin wrapper error:', error);
+    return {
+      success: false,
+      error: 'Unable to sign you in with that link. Please request a new one.',
+      errorCode: 'MAGIC_LINK_ERROR'
     };
   }
 }

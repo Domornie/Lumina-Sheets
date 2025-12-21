@@ -1069,9 +1069,12 @@
               </div>
               <div id="mfaMessage" class="mfa-message mt-3 text-muted"></div>
             </div>
-            <div class="d-grid">
+            <div class="d-grid gap-2">
               <button type="submit" id="loginBtn" class="btn btn-primary btn-lg">
                 <i class="fas fa-sign-in-alt me-2"></i>Log in
+              </button>
+              <button type="button" id="magicLinkBtn" class="btn btn-outline-primary btn-lg">
+                <i class="fas fa-envelope-open-text me-2"></i>Email me a login link
               </button>
             </div>
             <div id="feedback" class="text-danger small"></div>
@@ -1234,6 +1237,7 @@
     const elements = {
       feedback: document.getElementById('feedback'),
       loginBtn: document.getElementById('loginBtn'),
+      magicLinkBtn: document.getElementById('magicLinkBtn'),
       emailInput: document.getElementById('email'),
       passwordInput: document.getElementById('password'),
       rememberMeCheckbox: document.getElementById('rememberMe'),
@@ -1286,7 +1290,9 @@
       sessionExpiresAt: null,
       lastRememberMe: false,
       lastLogoutReason: getStoredLogoutReason(),
-      preferredReturnUrl: ''
+      preferredReturnUrl: '',
+      magicLinkRequestInFlight: false,
+      pendingMagicLinkToken: ''
     };
 
     if (INITIAL_RETURN_URL && (!state.lastLogoutReason || state.lastLogoutReason === 'auto')) {
@@ -1379,6 +1385,25 @@
           elements.loginBtn.classList.remove('btn-loading');
           elements.loginBtn.innerHTML = '<i class="fas fa-sign-in-alt me-2"></i>Log in';
         }
+      }
+
+      if (elements.magicLinkBtn) {
+        elements.magicLinkBtn.disabled = isLoading || state.magicLinkRequestInFlight;
+      }
+    }
+
+    function setMagicLinkLoading(isLoading) {
+      state.magicLinkRequestInFlight = !!isLoading;
+
+      if (elements.magicLinkBtn) {
+        elements.magicLinkBtn.disabled = !!isLoading || state.loginRequestActive;
+        elements.magicLinkBtn.innerHTML = isLoading
+          ? '<i class="fas fa-spinner fa-spin me-2"></i>Sending sign-in link…'
+          : '<i class="fas fa-envelope-open-text me-2"></i>Email me a login link';
+      }
+
+      if (!isLoading && !state.loginRequestActive) {
+        setLoading(false);
       }
     }
 
@@ -3751,6 +3776,10 @@
     // ───────────────────────────────────────────────────────────────────────────────
     // FORM VALIDATION
     // ───────────────────────────────────────────────────────────────────────────────
+    function isValidEmail(value) {
+      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || '').trim());
+    }
+
     function validateForm() {
       const email = elements.emailInput ? elements.emailInput.value.trim() : '';
       const password = elements.passwordInput ? elements.passwordInput.value : '';
@@ -3766,7 +3795,7 @@
         return false;
       }
 
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      if (!isValidEmail(email)) {
         showAlert('error', 'Please enter a valid email address.');
         if (elements.emailInput) {
           elements.emailInput.focus();
@@ -3857,6 +3886,69 @@
     }
 
     // ───────────────────────────────────────────────────────────────────────────────
+    // SHARED LOGIN RESPONSE HANDLERS
+    // ───────────────────────────────────────────────────────────────────────────────
+    function handleLoginResult(response, email, rememberMe) {
+      persistEmailState(email, rememberMe);
+
+      if (response && response.needsMfa) {
+        showMfaStep(response, email, rememberMe);
+        return;
+      }
+
+      if (response && response.needsVerification) {
+        showDeviceVerificationPrompt(response, email, rememberMe);
+        return;
+      }
+
+      if (response && response.success) {
+        completeAuthenticatedLogin(response, rememberMe);
+      } else if (response && response.error) {
+        handleLoginFailure(response, email);
+      } else {
+        handleLoginFailure(null, email);
+      }
+    }
+
+    function handleMagicLinkResult(response, email, rememberMe) {
+      persistEmailState(email, rememberMe);
+
+      if (response && (response.success || response.needsMfa || response.needsVerification)) {
+        handleLoginResult(response, email, rememberMe);
+        return;
+      }
+
+      const errorMessage = response && response.error
+        ? response.error
+        : 'We could not use that sign-in link. Please request a new one.';
+
+      showAlert('error', errorMessage);
+      showNextSteps({
+        title: 'Request a new sign-in link',
+        subtitle: 'Your previous link may have expired or was already used.',
+        body: 'Enter your email and request another passwordless sign-in link to continue.',
+        tone: 'info',
+        icon: 'fa-envelope',
+        actions: [
+          {
+            type: 'button',
+            label: 'Send a new link',
+            icon: 'fa-paper-plane',
+            variant: 'primary',
+            onClick: () => sendMagicLinkRequest()
+          },
+          {
+            type: 'link',
+            label: 'Use password instead',
+            icon: 'fa-key',
+            variant: 'outline-secondary',
+            href: buildPageUrl('login')
+          }
+        ]
+      });
+    }
+
+    // ───────────────────────────────────────────────────────────────────────────────
     // SIMPLIFIED LOGIN HANDLER
     // ───────────────────────────────────────────────────────────────────────────────
     function handleLogin(email, password, rememberMe) {
@@ -3880,26 +3972,7 @@
           console.log('Login response:', response);
           setLoading(false);
 
-          persistEmailState(email, rememberMe);
-
-          if (response && response.needsMfa) {
-            showMfaStep(response, email, rememberMe);
-            return;
-          }
-
-          if (response && response.needsVerification) {
-            showDeviceVerificationPrompt(response, email, rememberMe);
-            return;
-          }
-
-          if (response && response.success) {
-            console.log('Login successful');
-            completeAuthenticatedLogin(response, rememberMe);
-          } else if (response && response.error) {
-            handleLoginFailure(response, email);
-          } else {
-            handleLoginFailure(null, email);
-          }
+          handleLoginResult(response, email, rememberMe);
         })
         .withFailureHandler(error => {
           finalizeLoginRequest();
@@ -3946,6 +4019,150 @@
         .loginUser(email, password, rememberMe, clientMetadata);
     }
 
+    function sendMagicLinkRequest() {
+      hideAllAlerts();
+      hideDeviceVerificationPrompt();
+
+      const email = elements.emailInput ? elements.emailInput.value.trim() : '';
+      if (!isValidEmail(email)) {
+        showAlert('error', 'Enter a valid email address to receive the sign-in link.');
+        if (elements.emailInput) {
+          elements.emailInput.focus();
+        }
+        return;
+      }
+
+      const rememberMe = elements.rememberMeCheckbox ? elements.rememberMeCheckbox.checked : false;
+      state.lastEmail = email;
+      setMagicLinkLoading(true);
+
+      const clientMetadata = collectClientMetadata() || {};
+      if (state.lastLogoutReason) {
+        clientMetadata.logoutReason = state.lastLogoutReason;
+      }
+      const preferredReturnUrl = sanitizePreferredRedirect(state.preferredReturnUrl);
+      if (preferredReturnUrl) {
+        clientMetadata.requestedReturnUrl = preferredReturnUrl;
+      }
+
+      google.script.run
+        .withSuccessHandler(response => {
+          setMagicLinkLoading(false);
+
+          if (response && response.success) {
+            const masked = response.maskedEmail ? `We sent it to ${response.maskedEmail}.` : '';
+            persistEmailState(email, rememberMe);
+            showAlert('success', response.message || 'Check your email for your sign-in link.');
+            showNextSteps({
+              title: 'Check your inbox',
+              subtitle: masked,
+              body: 'Click the link in your email to finish signing in. The link expires soon for your security.',
+              tone: 'success',
+              icon: 'fa-envelope-open-text',
+              actions: [
+                {
+                  type: 'button',
+                  label: 'Send again',
+                  icon: 'fa-rotate',
+                  variant: 'outline-primary',
+                  onClick: () => sendMagicLinkRequest()
+                },
+                {
+                  type: 'link',
+                  label: 'Use password instead',
+                  icon: 'fa-key',
+                  variant: 'outline-secondary',
+                  href: buildPageUrl('login')
+                }
+              ]
+            });
+          } else {
+            const errorMessage = response && response.error
+              ? response.error
+              : 'We could not send the sign-in link. Please try again.';
+            showAlert('error', errorMessage);
+
+            if (response && response.errorCode === 'MAGIC_LINK_RATE_LIMIT') {
+              showNextSteps({
+                title: 'Check your email first',
+                subtitle: 'We just sent you a link.',
+                body: 'To keep your account secure we only send one sign-in link per minute. Check your inbox or spam folder before requesting another.',
+                tone: 'warning',
+                icon: 'fa-hourglass-half',
+                actions: [
+                  {
+                    type: 'link',
+                    label: 'Open email app',
+                    icon: 'fa-envelope',
+                    variant: 'outline-primary',
+                    href: 'mailto:'
+                  }
+                ]
+              });
+            }
+          }
+        })
+        .withFailureHandler(error => {
+          setMagicLinkLoading(false);
+          console.error('Magic link request failed:', error);
+          showAlert('error', 'Unable to send the sign-in link. Please check your connection and try again.');
+        })
+        .requestMagicLinkLogin(email, rememberMe, clientMetadata);
+    }
+
+    function startMagicLinkSignIn(token) {
+      if (!token) {
+        return;
+      }
+
+      hideAllAlerts();
+      cancelSessionResumeLoader();
+      state.pendingMagicLinkToken = token;
+      setLoading(true, 'Validating your sign-in link…');
+
+      const clientMetadata = collectClientMetadata() || {};
+      const preferredReturnUrl = sanitizePreferredRedirect(state.preferredReturnUrl);
+      if (preferredReturnUrl) {
+        clientMetadata.requestedReturnUrl = preferredReturnUrl;
+      }
+
+      google.script.run
+        .withSuccessHandler(response => {
+          setLoading(false);
+          state.pendingMagicLinkToken = '';
+          const responseEmail = response && response.user && response.user.Email
+            ? response.user.Email
+            : (elements.emailInput ? elements.emailInput.value.trim() : '');
+          const responseRemember = (response && typeof response.rememberMe === 'boolean')
+            ? response.rememberMe
+            : false;
+
+          handleMagicLinkResult(response, responseEmail, responseRemember);
+        })
+        .withFailureHandler(error => {
+          console.error('Magic link verification failed:', error);
+          state.pendingMagicLinkToken = '';
+          setLoading(false);
+          showAlert('error', 'We could not verify that sign-in link. Please request a new one.');
+          showNextSteps({
+            title: 'Request a new sign-in link',
+            body: 'The link may have expired or been used already. Request a new one to continue.',
+            tone: 'info',
+            icon: 'fa-envelope',
+            actions: [
+              {
+                type: 'button',
+                label: 'Send a new link',
+                icon: 'fa-paper-plane',
+                variant: 'primary',
+                onClick: () => sendMagicLinkRequest()
+              }
+            ]
+          });
+        })
+        .completeMagicLinkLogin(token, clientMetadata);
+    }
+
     // ───────────────────────────────────────────────────────────────────────────────
     // FORM SUBMISSION HANDLER
     // ───────────────────────────────────────────────────────────────────────────────
@@ -3977,6 +4194,10 @@
 
         handleLogin(email, password, rememberMe);
       });
+    }
+
+    if (elements.magicLinkBtn) {
+      elements.magicLinkBtn.addEventListener('click', sendMagicLinkRequest);
     }
 
     if (elements.verifyMfaBtn) {
@@ -4042,6 +4263,13 @@
         shouldReplaceUrl = true;
       }
 
+      const magicToken = urlParams.get('magicToken');
+      if (magicToken) {
+        state.pendingMagicLinkToken = magicToken;
+        urlParams.delete('magicToken');
+        shouldReplaceUrl = true;
+      }
+
       if (urlParams.has('returnUrl')) {
         const rawReturnUrl = urlParams.get('returnUrl');
         const resolvedReturnUrl = sanitizePreferredRedirect(rawReturnUrl);
@@ -4064,7 +4292,7 @@
         window.history.replaceState({}, document.title, cleanUrl);
       }
 
-      const allowResume = logoutReason !== 'manual';
+      const allowResume = logoutReason !== 'manual' && !state.pendingMagicLinkToken;
       const resumed = allowResume ? attemptSessionResume() : false;
 
       if (!resumed && (shouldShowAutoTimeout || shouldShowManualLogout)) {
@@ -4072,7 +4300,7 @@
       }
 
       // Auto-focus email field when not redirecting
-      if (!resumed && elements.emailInput) {
+      if (!resumed && !state.pendingMagicLinkToken && elements.emailInput) {
         elements.emailInput.focus();
       }
 
@@ -4080,6 +4308,10 @@
         showAlert('error', decodeURIComponent(error));
       } else if (message) {
         showAlert('info', decodeURIComponent(message));
+      }
+
+      if (!resumed && state.pendingMagicLinkToken) {
+        startMagicLinkSignIn(state.pendingMagicLinkToken);
       }
       
       // Enhanced keyboard shortcuts
