@@ -730,12 +730,6 @@ function buildPasswordUrl_(token) {
   return `${EMAIL_CONFIG.baseUrl}${sep}page=setpassword&token=${t}&utm_source=email&utm_medium=auth&utm_campaign=${encodeURIComponent(EMAIL_CONFIG.brandName)}`;
 }
 
-function buildMagicLinkUrl_(token) {
-  const t = encodeURIComponent(String(token || ''));
-  const sep = EMAIL_CONFIG.baseUrl.indexOf('?') >= 0 ? '&' : '?';
-  return `${EMAIL_CONFIG.baseUrl}${sep}page=login&magicToken=${t}&utm_source=email&utm_medium=magic-link&utm_campaign=${encodeURIComponent(EMAIL_CONFIG.brandName)}`;
-}
-
 function buildSecureAccountUrl_() {
   const sep = EMAIL_CONFIG.baseUrl.indexOf('?') >= 0 ? '&' : '?';
   return `${EMAIL_CONFIG.baseUrl}${sep}page=forgotpassword&utm_source=email&utm_medium=security&utm_campaign=${encodeURIComponent(EMAIL_CONFIG.brandName)}&utm_content=secure-account`;
@@ -893,71 +887,6 @@ function sendPasswordResetEmail(email, resetToken) {
     return true;
   } catch (error) {
     writeError('sendPasswordResetEmail', error);
-    return false;
-  }
-}
-
-function sendMagicLinkEmail(email, data) {
-  try {
-    if (!data || !data.magicLinkToken) {
-      throw new Error('Magic link token missing');
-    }
-
-    const safeName = escapeHtml_(data.fullName || 'there');
-    const magicLinkUrl = buildMagicLinkUrl_(data.magicLinkToken);
-    const expiresAt = data && data.expiresAt ? new Date(data.expiresAt) : null;
-    const expiresText = expiresAt && !isNaN(expiresAt.getTime())
-      ? Utilities.formatDate(expiresAt, Session.getScriptTimeZone(), 'MMM d, yyyy h:mm a')
-      : '15 minutes';
-    const ipAddress = escapeHtml_((data && data.ipAddress) || 'Not available');
-    const userAgent = escapeHtml_((data && data.userAgent) || '');
-    const originHost = escapeHtml_((data && data.originHost) || '');
-
-    const content = `
-<div class="security-badge">🔐 Passwordless Sign-In</div>
-<p class="subtitle">Hi <span class="emphasis">${safeName}</span>,</p>
-<p>Use the secure button below to sign in without entering your password. This one-time link expires soon.</p>
-
-<div class="cta-wrap">
-    <a href="${escapeHtml_(magicLinkUrl)}" class="cta-button">Sign in to ${escapeHtml_(EMAIL_CONFIG.brandName)}</a>
-</div>
-
-<div class="info-card">
-    <h3 style="margin-top:0;color:#0ea5e9;">🔎 Link details</h3>
-    <ul class="feature-list">
-        <li style="border-left-color:#0ea5e9;">Expires: <strong>${escapeHtml_(expiresText)}</strong></li>
-        <li style="border-left-color:#0ea5e9;">Requested from: <strong>${ipAddress}</strong></li>
-        ${userAgent ? `<li style="border-left-color:#0ea5e9;">Device: <strong>${userAgent}</strong></li>` : ''}
-        ${originHost ? `<li style="border-left-color:#0ea5e9;">App: <strong>${originHost}</strong></li>` : ''}
-    </ul>
-</div>
-
-<p>If you didn't request this link, you can ignore this email or reset your password from the login page.</p>
-<div class="info-card">
-    <p><strong>Need a fresh link?</strong> Request another from the login screen to invalidate this one.</p>
-</div>
-`;
-
-    const htmlBody = renderEmail_({
-      headerTitle: 'Your secure sign-in link',
-      headerGradient: 'linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%)',
-      logoUrl: EMAIL_CONFIG.logoUrl,
-      preheader: 'Use this one-time link to sign in without your password.',
-      contentHtml: content
-    });
-
-    const subject = EMAIL_CONFIG.subjectPrefix + 'Your secure sign-in link';
-    sendEmail_({
-      to: email,
-      subject: subject,
-      htmlBody: htmlBody,
-      category: 'Security'
-    });
-
-    console.log(`Magic link email sent to ${email}`);
-    return true;
-  } catch (error) {
-    writeError('sendMagicLinkEmail', error);
     return false;
   }
 }
