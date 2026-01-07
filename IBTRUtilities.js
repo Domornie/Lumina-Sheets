@@ -79,6 +79,7 @@
       'OverallFeedback','TotalScore','Percentage','Notes','AgentFeedback','CoachingProvided'
     ];
   }
+
   if (typeof G.QA_COLLAB_HEADERS === 'undefined') G.QA_COLLAB_HEADERS = G.QA_HEADERS.slice();
   if (typeof G.ESCALATIONS_HEADERS === 'undefined') G.ESCALATIONS_HEADERS = [
     'ID',
@@ -308,6 +309,7 @@ if (typeof G.BOOKMARKS_HEADERS === 'undefined') {
       }
     };
   }
+
 
   function resolveScheduleSheetName(key, fallback) {
     try {
