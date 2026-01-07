@@ -167,10 +167,27 @@ class QAPdfService {
                     <p><strong>Report ID:</strong> ${qaRecord.ID}</p>
                   </div>
                 </div>
-              <!-- Title Banner -->
-              <div class="title-banner">
-                  <h2>Quality Audit Report</h2>
-                  <h3>${this.escapeHtml(qaRecord.AgentName)} • ${qaRecord.CallDate}</h3>
+              <!-- Hero -->
+              <div class="hero">
+                  <div class="hero-accent">
+                      <div>
+                          <p>Quality Report</p>
+                          <h2>Audit Summary</h2>
+                      </div>
+                      <div>
+                          <div style="font-size:12px; text-transform:uppercase; letter-spacing:1px; opacity:.9;">${this.escapeHtml(qaRecord.ClientName || 'Lumina')}</div>
+                          <div style="font-size:14px; font-weight:700; margin-top:4px;">${this.escapeHtml(qaRecord.AgentName)}</div>
+                      </div>
+                  </div>
+                  <div class="hero-content">
+                      <h3>Quality Audit Report</h3>
+                      <div class="hero-meta">
+                          <div><strong>Call Date:</strong> ${qaRecord.CallDate}</div>
+                          <div><strong>Audit Date:</strong> ${qaRecord.AuditDate}</div>
+                          <div><strong>Auditor:</strong> ${this.escapeHtml(qaRecord.AuditorName)}</div>
+                          <div><strong>Report ID:</strong> ${qaRecord.ID}</div>
+                      </div>
+                  </div>
               </div>
 
               <!-- Key Metrics Section -->
@@ -458,10 +475,10 @@ getThemeStyles(theme = 'professional') {
     font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     line-height:1.6;
     color:var(--brand-slate);
-    background:#fff;
+    background:#F8FAFC;
   }
 
-  .container{ max-width:100%; margin:0 auto; padding:20px; }
+  .container{ max-width:100%; margin:0 auto; padding:24px; }
 
   /* Header with brand */
   .header{
@@ -493,20 +510,55 @@ getThemeStyles(theme = 'professional') {
     color:var(--brand-muted); font-size:13px; margin-top:2px;
   }
 
-  /* Title Banner */
-  .title-banner{
-    background: linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-primary-dark) 100%);
-    color:#fff; padding:24px; border-radius:12px; margin-bottom:26px; text-align:center;
+  /* Hero */
+  .hero{
+    display:grid;
+    grid-template-columns: 1.1fr 2fr;
+    gap:18px;
+    margin-bottom:26px;
+  }
+  .hero-accent{
+    background: linear-gradient(135deg, #18D5E6 0%, var(--brand-primary) 60%, var(--brand-primary-dark) 100%);
+    color:#fff;
+    border-radius:16px;
+    padding:28px;
+    display:flex;
+    flex-direction:column;
+    justify-content:space-between;
+    min-height:180px;
+    position:relative;
+    overflow:hidden;
+    box-shadow: 0 12px 30px var(--brand-shadow);
+  }
+  .hero-accent:after{
+    content:"";
+    position:absolute;
+    right:-40px;
+    top:20px;
+    width:140px;
+    height:140px;
+    border-radius:18px;
+    border:2px solid rgba(255,255,255,0.35);
+    transform:rotate(45deg);
+  }
+  .hero-accent h2{ font-size:26px; letter-spacing:.5px; }
+  .hero-accent p{ font-size:12px; text-transform:uppercase; letter-spacing:2px; opacity:.95; }
+  .hero-content{
+    background:#fff;
+    border:1px solid #E2E8F0;
+    border-radius:16px;
+    padding:24px;
     box-shadow: 0 10px 24px var(--brand-shadow);
   }
-  .title-banner h2{ font-size:28px; margin-bottom:6px; }
-  .title-banner h3{ font-size:16px; opacity:0.95; font-weight:500; }
+  .hero-content h3{ color:var(--brand-primary-dark); font-size:18px; margin-bottom:8px; }
+  .hero-meta{ display:grid; grid-template-columns:repeat(2,1fr); gap:10px 18px; font-size:12px; color:#64748B; }
+  .hero-meta strong{ color:var(--brand-slate); }
 
   /* Metrics */
   .metrics-grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:18px; margin-bottom:26px; }
   .metric-card{
-    background: var(--brand-bg);
-    border:1px solid #E2E8F0; border-radius:10px; padding:18px; text-align:center;
+    background: #fff;
+    border:1px solid #E2E8F0; border-radius:14px; padding:18px; text-align:center;
     box-shadow: 0 6px 14px var(--brand-shadow);
   }
   .metric-card.score{
@@ -531,25 +583,32 @@ getThemeStyles(theme = 'professional') {
   .badge-unsatisfactory{ background: rgba(220,38,38,.12); color: var(--danger); }
 
   /* Info blocks */
-  .info-section{ background:var(--brand-bg); border-radius:10px; padding:22px; margin-bottom:26px; }
+  .info-section{ background:#fff; border-radius:14px; padding:22px; margin-bottom:26px; border:1px solid #E2E8F0; }
   .info-section h3{ color:var(--brand-primary-dark); margin-bottom:16px; font-size:18px; }
   .info-grid{ display:grid; grid-template-columns:repeat(2,1fr); gap:14px; }
   .info-item{ padding:8px 0; }
   .info-item.full-width{ grid-column:1 / -1; }
 
   /* Questions */
-  .questions-section{ margin-bottom:26px; }
+  .questions-section{ margin-bottom:26px; background:#fff; border-radius:14px; border:1px solid #E2E8F0; overflow:hidden; }
   .category-header{
     background: var(--brand-primary-dark); color:#fff; padding:14px 18px; margin:18px 0 0 0; border-radius:10px 10px 0 0;
   }
   .questions-table{
-    width:100%; border-collapse:collapse; border:1px solid #E2E8F0; border-radius:0 0 10px 10px; overflow:hidden;
+    width:100%; border-collapse:collapse; border-top:1px solid #E2E8F0; border-radius:0 0 14px 14px; overflow:hidden;
+    table-layout:fixed;
   }
   .questions-table th{
     background:#F1F5F9; padding:12px; text-align:left; font-weight:700; font-size:12px; text-transform:uppercase; letter-spacing:.5px; border-bottom:1px solid #E2E8F0;
   }
   .questions-table td{ padding:12px; border-bottom:1px solid #E2E8F0; vertical-align:top; }
   .questions-table tr:hover{ background:#F8FAFC; }
+  .questions-table th,
+  .questions-table td{
+    word-break:break-word;
+    overflow-wrap:anywhere;
+    white-space:normal;
+  }
 
   .answer-chip{
     display:inline-block; padding:4px 10px; border-radius:16px; font-size:11px; font-weight:800; text-transform:uppercase;
@@ -559,10 +618,20 @@ getThemeStyles(theme = 'professional') {
   .answer-na{ background: rgba(154,174,208,.18); color: var(--brand-slate); }
 
   /* Rich areas */
-  .feedback-section, .notes-section{ background:var(--brand-bg); border-radius:10px; padding:22px; margin-bottom:18px; }
-  .notes-grid{ display:grid; grid-template-columns:1fr 1fr; gap:18px; margin-bottom:26px; }
+  .feedback-section, .notes-section{ background:#fff; border-radius:14px; padding:22px; margin-bottom:18px; border:1px solid #E2E8F0; }
+  .notes-grid{ display:grid; grid-template-columns:1fr 1fr; gap:18px; margin-bottom:26px; align-items:stretch; }
+  .notes-section{ display:flex; flex-direction:column; }
   .feedback-content, .notes-content{
     background:#fff; padding:18px; border-radius:8px; border:1px solid #E2E8F0; min-height:100px;
+    flex:1;
+    word-break:break-word;
+    overflow-wrap:anywhere;
+    white-space:normal;
+  }
+  .rich-content{
+    word-break:break-word;
+    overflow-wrap:anywhere;
+    white-space:normal;
   }
 
   /* Footer */
@@ -581,6 +650,14 @@ getThemeStyles(theme = 'professional') {
   @media print{
     .container{ padding:0; }
     .metric-card, .questions-section{ break-inside:avoid; }
+    .title-banner,
+    .info-section,
+    .feedback-section,
+    .notes-section,
+    .questions-section{
+      break-inside:avoid;
+      page-break-inside:avoid;
+    }
   }
   `;
 
