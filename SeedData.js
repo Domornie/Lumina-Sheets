@@ -45,6 +45,7 @@ const SEED_LUMINA_ADMIN_PROFILE = {
   seedLabel: 'Lumina Administrator'
 };
 
+
 const PASSWORD_UTILS = (function resolvePasswordUtilities() {
   if (typeof ensurePasswordUtilities === 'function') {
     return ensurePasswordUtilities();
@@ -196,6 +197,7 @@ function ensureCoreCampaigns(summary) {
   // Refresh to pick up any IDs assigned during creation.
   return getCampaignsIndex(true);
 }
+
 
 /**
  * Build a lookup of campaign name -> id using CampaignService helpers.
