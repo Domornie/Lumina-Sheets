@@ -3,7 +3,7 @@
  * -----------------------------------------------------------------------------
  * Temporary QA seeding helpers for IBTR Quality sheet.
  * Use seedDecemberQualityDataIBTR({ force: true }) or runTempQualitySeeder()
- * to populate December QA rows for the provided agents.
+ * to populate 2025 QA rows (weekdays only, excluding holidays) for the provided agents.
  */
 
 (function () {
@@ -552,8 +552,7 @@
   if (typeof G.seedDecemberQualityDataIBTR !== 'function') {
     G.seedDecemberQualityDataIBTR = function seedDecemberQualityDataIBTR(options) {
       var config = options || {};
-      var year = (typeof config.year === 'number') ? config.year : new Date().getFullYear();
-      var targetMonth = 11;
+      var year = (typeof config.year === 'number') ? config.year : 2025;
       var sheetName = G.QA_RECORDS || 'Quality';
       var headers = (G.QA_HEADERS && G.QA_HEADERS.length) ? G.QA_HEADERS.slice() : [];
 
@@ -566,23 +565,23 @@
       }
 
       var sheet = ensureCampaignSheetWithHeaders(sheetName, headers);
-      var existingCount = countDecemberQaEntries_(sheet, headers, year, targetMonth);
+      var existingCount = countYearQaEntries_(sheet, headers, year);
       if (existingCount > 0 && !config.force) {
         return {
           inserted: 0,
           skipped: existingCount,
-          message: 'December QA data already exists. Pass force=true to seed again.'
+          message: 'QA data for ' + year + ' already exists. Pass force=true to seed again.'
         };
       }
 
-      var rows = buildDecemberQaRows_(headers, year, targetMonth);
+      var rows = buildYearQaRows_(headers, year);
       if (!rows.length) {
         return { inserted: 0, skipped: existingCount, message: 'No QA rows generated.' };
       }
 
       sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, headers.length).setValues(rows);
 
-      return { inserted: rows.length, skipped: existingCount, message: 'December QA seed data inserted.' };
+      return { inserted: rows.length, skipped: existingCount, message: 'QA seed data inserted for ' + year + '.' };
     };
   }
 
@@ -592,7 +591,7 @@
     };
   }
 
-  function countDecemberQaEntries_(sheet, headers, year, targetMonth) {
+  function countYearQaEntries_(sheet, headers, year) {
     var dateIndex = headers.indexOf('CallDate');
     if (dateIndex === -1 || sheet.getLastRow() < 2) {
       return 0;
@@ -603,7 +602,7 @@
     for (var i = 0; i < data.length; i += 1) {
       var value = data[i][0];
       if (Object.prototype.toString.call(value) === '[object Date]') {
-        if (value.getFullYear() === year && value.getMonth() === targetMonth) {
+        if (value.getFullYear() === year) {
           count += 1;
         }
       }
@@ -611,7 +610,7 @@
     return count;
   }
 
-  function buildDecemberQaRows_(headers, year, targetMonth) {
+  function buildYearQaRows_(headers, year) {
     var rows = [];
     var questionCount = 19;
     var auditors = ['Quality Auditor', 'QA Team Lead', 'Quality Coach'];
@@ -637,11 +636,16 @@
       'Baseline customer service checks logged for December QA seeding.'
     ];
 
-    for (var day = 1; day <= 31; day += 1) {
-      var callDate = new Date(year, targetMonth, day);
+    var startDate = new Date(year, 0, 1);
+    var endDate = new Date(year, 11, 31);
+    for (var date = new Date(startDate); date <= endDate; date.setDate(date.getDate() + 1)) {
+      if (isWeekend_(date) || isHoliday_(date, year)) {
+        continue;
+      }
+      var callDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
       for (var agentIndex = 0; agentIndex < DECEMBER_QA_AGENTS.length; agentIndex += 1) {
         var agentName = DECEMBER_QA_AGENTS[agentIndex];
-        var randomSeed = (day * 1000) + agentIndex;
+        var randomSeed = (callDate.getMonth() + 1) * 100000 + (callDate.getDate() * 1000) + agentIndex;
         var random = createSeededRandom_(randomSeed);
         var clientName = pickRandomFrom_(DECEMBER_QA_CLIENTS, random) || 'CCBCU Resource Center';
         var callerName = pickRandomFrom_(DECEMBER_QA_AGENTS, random);
@@ -650,8 +654,8 @@
         var questionResults = buildQuestionResults_(questionCount, random);
         var totalScore = questionResults.totalYes;
         var percentage = parseFloat((totalScore / questionCount).toFixed(10));
-        var callTimestamp = new Date(year, targetMonth, day, 9 + Math.floor(random() * 7), Math.floor(random() * 60));
-        var auditDate = new Date(year, targetMonth, day, 14 + Math.floor(random() * 4), Math.floor(random() * 60));
+        var callTimestamp = new Date(callDate.getFullYear(), callDate.getMonth(), callDate.getDate(), 9 + Math.floor(random() * 7), Math.floor(random() * 60));
+        var auditDate = new Date(callDate.getFullYear(), callDate.getMonth(), callDate.getDate(), 14 + Math.floor(random() * 4), Math.floor(random() * 60));
 
         var row = [];
         for (var h = 0; h < headers.length; h += 1) {
@@ -684,15 +688,69 @@
     return rows;
   }
 
+  function isWeekend_(date) {
+    var day = date.getDay();
+    return day === 0 || day === 6;
+  }
+
+  function isHoliday_(date, year) {
+    var month = date.getMonth();
+    var day = date.getDate();
+    var fixedHolidays = [
+      year + '-01-01',
+      year + '-06-19',
+      year + '-07-04',
+      year + '-11-11',
+      year + '-12-25'
+    ];
+    var dateKey = formatDateKey_(date);
+    if (fixedHolidays.indexOf(dateKey) > -1) return true;
+
+    var mlkDay = nthWeekdayOfMonth_(year, 0, 1, 3);
+    if (dateKey === formatDateKey_(mlkDay)) return true;
+    var presidentsDay = nthWeekdayOfMonth_(year, 1, 1, 3);
+    if (dateKey === formatDateKey_(presidentsDay)) return true;
+    var memorialDay = lastWeekdayOfMonth_(year, 4, 1);
+    if (dateKey === formatDateKey_(memorialDay)) return true;
+    var laborDay = nthWeekdayOfMonth_(year, 8, 1, 1);
+    if (dateKey === formatDateKey_(laborDay)) return true;
+    var indigenousDay = nthWeekdayOfMonth_(year, 9, 1, 2);
+    if (dateKey === formatDateKey_(indigenousDay)) return true;
+    var thanksgiving = nthWeekdayOfMonth_(year, 10, 4, 4);
+    if (dateKey === formatDateKey_(thanksgiving)) return true;
+
+    return false;
+  }
+
+  function formatDateKey_(date) {
+    var month = String(date.getMonth() + 1).padStart(2, '0');
+    var day = String(date.getDate()).padStart(2, '0');
+    return date.getFullYear() + '-' + month + '-' + day;
+  }
+
+  function nthWeekdayOfMonth_(year, month, weekday, nth) {
+    var first = new Date(year, month, 1);
+    var offset = (weekday - first.getDay() + 7) % 7;
+    var day = 1 + offset + (nth - 1) * 7;
+    return new Date(year, month, day);
+  }
+
+  function lastWeekdayOfMonth_(year, month, weekday) {
+    var last = new Date(year, month + 1, 0);
+    var offset = (last.getDay() - weekday + 7) % 7;
+    return new Date(year, month, last.getDate() - offset);
+  }
+
   function buildQuestionResults_(questionCount, random) {
     var results = [];
     var totalYes = 0;
+    var nonYesIndexes = [];
     for (var i = 1; i <= questionCount; i += 1) {
       var roll = random();
       var answer = 'Yes';
-      if (roll < 0.1) {
+      if (roll < 0.05) {
         answer = 'N/A';
-      } else if (roll < 0.25) {
+      } else if (roll < 0.1) {
         answer = 'No';
       }
       var note = '';
@@ -708,7 +766,17 @@
       });
       if (answer === 'Yes') {
         totalYes += 1;
+      } else {
+        nonYesIndexes.push(i - 1);
       }
+    }
+    var minYes = Math.ceil(questionCount * 0.8);
+    while (totalYes < minYes && nonYesIndexes.length) {
+      var pickIndex = Math.floor(random() * nonYesIndexes.length);
+      var targetIndex = nonYesIndexes.splice(pickIndex, 1)[0];
+      results[targetIndex].value = 'Yes';
+      results[targetIndex].note = '';
+      totalYes += 1;
     }
     return { results: results, totalYes: totalYes };
   }
