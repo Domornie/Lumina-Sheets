@@ -81,7 +81,8 @@ function seedDefaultData() {
     roles: { created: [], existing: [] },
     campaigns: { created: [], existing: [] },
     admin: null,
-    luminaAdmin: null
+    luminaAdmin: null,
+    decemberQa: null
   };
 
   try {
@@ -105,6 +106,9 @@ function seedDefaultData() {
 
     const luminaAdminInfo = ensureLuminaAdminUser(roleIdsByName, campaignIdsByName);
     summary.luminaAdmin = luminaAdminInfo;
+
+    const decemberQaInfo = seedDecemberQualityData();
+    summary.decemberQa = decemberQaInfo;
 
     return {
       success: true,
