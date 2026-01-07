@@ -2,8 +2,8 @@
  * TempQualitySeeder.js
  * -----------------------------------------------------------------------------
  * Temporary QA seeding helpers for IBTR Quality sheet.
- * Use seedDecemberQualityDataIBTR({ force: true }) to populate December QA rows
- * for the provided agents with realistic QA answers and scores.
+ * Use seedDecemberQualityDataIBTR({ force: true }) or runTempQualitySeeder()
+ * to populate December QA rows for the provided agents.
  */
 
 (function () {
@@ -583,6 +583,12 @@
       sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, headers.length).setValues(rows);
 
       return { inserted: rows.length, skipped: existingCount, message: 'December QA seed data inserted.' };
+    };
+  }
+
+  if (typeof G.runTempQualitySeeder !== 'function') {
+    G.runTempQualitySeeder = function runTempQualitySeeder() {
+      return G.seedDecemberQualityDataIBTR({ force: true });
     };
   }
 
