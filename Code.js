@@ -2651,6 +2651,10 @@ function routeToPage(page, e, baseUrl, user, campaignIdFromCaller) {
       return serveGlobalPage('GoalSetting', e, baseUrl, user);
     }
 
+    if (page === 'weekly-operating-template' || page === 'weeklyoperatingtemplate') {
+      return serveGlobalPage('WeeklyOperatingTemplate', e, baseUrl, user);
+    }
+
     // Task Management (Default Pages)
     if (page === "tasklist" || page === "task-list") {
       return serveGlobalPage('TaskList', e, baseUrl, user);
