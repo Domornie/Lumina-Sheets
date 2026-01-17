@@ -1,0 +1,573 @@
+<?!= include('layout', {
+  baseUrl: baseUrl,
+  scriptUrl: scriptUrl,
+  user: user,
+  currentPage: currentPage || 'weekly-operating-template'
+}) ?>
+
+<style>
+  .weekly-template {
+    max-width: 1100px;
+    margin: 2rem auto 3rem;
+    background: #ffffff;
+    border-radius: 16px;
+    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+    overflow: hidden;
+  }
+
+  .weekly-template__header {
+    padding: 2.5rem 2.5rem 2rem;
+    background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+    color: #fff;
+  }
+
+  .weekly-template__header h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    margin: 0 0 0.5rem;
+  }
+
+  .weekly-template__header p {
+    margin: 0;
+    opacity: 0.9;
+    font-size: 1rem;
+  }
+
+  .weekly-template__body {
+    padding: 2rem 2.5rem 3rem;
+    background: #f8fafc;
+  }
+
+  .section-card {
+    background: #ffffff;
+    border-radius: 14px;
+    padding: 1.75rem;
+    box-shadow: 0 6px 20px rgba(15, 23, 42, 0.06);
+    margin-bottom: 1.5rem;
+    border: 1px solid #e2e8f0;
+  }
+
+  .section-card h2 {
+    font-size: 1.35rem;
+    margin-bottom: 1rem;
+    color: #1f2937;
+  }
+
+  .section-card h3 {
+    font-size: 1.1rem;
+    margin: 1.5rem 0 0.75rem;
+    color: #374151;
+  }
+
+  .info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1rem;
+  }
+
+  .field-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .field-group label {
+    font-weight: 600;
+    color: #475569;
+  }
+
+  .field-group input,
+  .field-group textarea,
+  .field-group select {
+    border-radius: 10px;
+    border: 1px solid #cbd5f5;
+    padding: 0.65rem 0.75rem;
+    font-size: 0.95rem;
+    color: #1f2937;
+    background: #fff;
+  }
+
+  .field-group textarea {
+    min-height: 90px;
+    resize: vertical;
+  }
+
+  .time-blocks {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .time-blocks li {
+    background: #f8fafc;
+    border-radius: 10px;
+    border: 1px solid #e2e8f0;
+    padding: 0.75rem 1rem;
+    display: grid;
+    gap: 0.25rem;
+  }
+
+  .time-blocks strong {
+    color: #1f2937;
+    font-weight: 700;
+  }
+
+  .inline-list {
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .checklist {
+    display: grid;
+    gap: 0.5rem;
+  }
+
+  .checklist label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 500;
+    color: #374151;
+  }
+
+  .two-column {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1rem;
+  }
+
+  .table-grid {
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .table-grid__row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 0.75rem;
+  }
+
+  .note-field {
+    min-height: 70px;
+  }
+
+  .muted {
+    color: #6b7280;
+    font-size: 0.95rem;
+  }
+</style>
+
+<div class="weekly-template">
+  <header class="weekly-template__header">
+    <h1>Weekly Operating Template (Tue–Fri)</h1>
+    <p>Use this template to plan priorities, track QA/coaching, and document weekly reporting requirements.</p>
+  </header>
+
+  <div class="weekly-template__body">
+    <section class="section-card">
+      <h2>Week Information</h2>
+      <div class="info-grid">
+        <div class="field-group">
+          <label for="week-start">Week of (Tue)</label>
+          <input id="week-start" type="text" placeholder="MM/DD/YYYY">
+        </div>
+        <div class="field-group">
+          <label for="week-end">Week of (Fri)</label>
+          <input id="week-end" type="text" placeholder="MM/DD/YYYY">
+        </div>
+      </div>
+      <div class="info-grid" style="margin-top: 1rem;">
+        <div class="field-group">
+          <label for="primary-focus">Primary focus this week (1–2 items)</label>
+          <textarea id="primary-focus" placeholder="List top focus areas..."></textarea>
+        </div>
+        <div class="field-group">
+          <label for="risks">Risks / watch items (escalations, trends, staffing)</label>
+          <textarea id="risks" placeholder="Capture risks or watch items..."></textarea>
+        </div>
+      </div>
+    </section>
+
+    <section class="section-card">
+      <h2>1) Fixed Time-Blocks (Repeat Tue–Fri)</h2>
+      <ul class="time-blocks">
+        <li>
+          <strong>10:30 AM–10:45 AM — Day Setup / Priorities</strong>
+          <span class="muted">Review escalations, QA targets, coaching targets, and any agent blockers.</span>
+        </li>
+        <li>
+          <strong>10:45 AM–11:15 AM — Daily Logging Audit (Contacts + Robocode + Required Fields)</strong>
+          <span class="muted">Check for missing contact linkage, missing robocode, or incomplete logs. Log issues to tracker and assign correction.</span>
+        </li>
+        <li><strong>11:15 AM–12:15 PM — QA Block 1 (2 files)</strong></li>
+        <li><strong>12:15 PM–12:45 PM — Coaching Session #1 (30 min)</strong></li>
+        <li><strong>12:45 PM–1:15 PM — Coaching Documentation / Admin Buffer</strong></li>
+        <li><strong>1:15 PM–2:15 PM — QA Block 2 (3 files)</strong></li>
+        <li><strong>2:15 PM–2:45 PM — Coaching Session #2 (30 min)</strong></li>
+        <li><strong>2:45 PM–3:15 PM — Lunch (30 min)</strong></li>
+        <li><strong>3:15 PM–4:15 PM — QA Block 3 (2 files) (Total = 7 QA/day)</strong></li>
+        <li><strong>4:15 PM–4:45 PM — Re-coaching / Follow-ups (Daily)</strong></li>
+        <li><strong>4:45 PM–5:30 PM — Monitoring / Escalations / Supervisor Calls</strong></li>
+        <li><strong>5:30 PM–6:30 PM — Process Oversight (Trends + Problem-Logging Quality + Fixes)</strong></li>
+        <li><strong>6:30 PM–7:00 PM — Wrap-Up + Tracker Updates</strong></li>
+      </ul>
+      <h3>Thursday add-on to reach all 18 agents (bi-weekly)</h3>
+      <p class="muted">4:45 PM–5:15 PM — Extra Coaching Slot (replaces 30 minutes of Monitoring on Thursdays)</p>
+    </section>
+
+    <section class="section-card">
+      <h2>2) Bi-Weekly Coaching Roster (18 Agents) – Tue–Fri Only</h2>
+      <div class="two-column">
+        <div>
+          <h3>Week 1</h3>
+          <div class="inline-list">
+            <div class="field-group">
+              <label>Tue (12:15 / 2:15)</label>
+              <input type="text" placeholder="Agent ___ | Agent ___">
+            </div>
+            <div class="field-group">
+              <label>Wed (12:15 / 2:15)</label>
+              <input type="text" placeholder="Agent ___ | Agent ___">
+            </div>
+            <div class="field-group">
+              <label>Thu (12:15 / 2:15 / 4:45 extra)</label>
+              <input type="text" placeholder="Agent ___ | Agent ___ | Agent ___">
+            </div>
+            <div class="field-group">
+              <label>Fri (12:15 / 2:15)</label>
+              <input type="text" placeholder="Agent ___ | Agent ___">
+            </div>
+          </div>
+        </div>
+        <div>
+          <h3>Week 2</h3>
+          <div class="inline-list">
+            <div class="field-group">
+              <label>Tue (12:15 / 2:15)</label>
+              <input type="text" placeholder="Agent ___ | Agent ___">
+            </div>
+            <div class="field-group">
+              <label>Wed (12:15 / 2:15)</label>
+              <input type="text" placeholder="Agent ___ | Agent ___">
+            </div>
+            <div class="field-group">
+              <label>Thu (12:15 / 2:15 / 4:45 extra)</label>
+              <input type="text" placeholder="Agent ___ | Agent ___ | Agent ___">
+            </div>
+            <div class="field-group">
+              <label>Fri (12:15 / 2:15)</label>
+              <input type="text" placeholder="Agent ___ | Agent ___">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <h3>Coaching checklist (each session)</h3>
+      <div class="info-grid">
+        <div class="field-group">
+          <label>Issue summary (what happened)</label>
+          <textarea placeholder="__________________"></textarea>
+        </div>
+        <div class="field-group">
+          <label>Standard/SOP impacted</label>
+          <textarea placeholder="__________________"></textarea>
+        </div>
+        <div class="field-group">
+          <label>Expectations (what “good” looks like)</label>
+          <textarea placeholder="__________________"></textarea>
+        </div>
+        <div class="field-group">
+          <label>Action items (2–3 max)</label>
+          <textarea placeholder="__________________"></textarea>
+        </div>
+        <div class="field-group">
+          <label>Due date + follow-up date</label>
+          <input type="text" placeholder="__________________">
+        </div>
+      </div>
+
+      <h3>Daily Re-Coaching Block (4:15–4:45) focus list</h3>
+      <div class="table-grid">
+        <div class="table-grid__row">
+          <input type="text" placeholder="Agent ___">
+          <input type="text" placeholder="Status: Not started / In progress / Complete">
+        </div>
+        <div class="table-grid__row">
+          <input type="text" placeholder="Agent ___">
+          <input type="text" placeholder="Status: Not started / In progress / Complete">
+        </div>
+      </div>
+      <div class="field-group" style="margin-top: 0.75rem;">
+        <label>Notes</label>
+        <textarea class="note-field" placeholder="__________________"></textarea>
+      </div>
+    </section>
+
+    <section class="section-card">
+      <h2>3) QA Plan (7 Files per Day)</h2>
+      <h3>Daily QA Target Tracker</h3>
+      <div class="table-grid">
+        <div class="table-grid__row">
+          <label>Tue: 7/7 complete?</label>
+          <div class="checklist">
+            <label><input type="checkbox"> Yes</label>
+            <label><input type="checkbox"> No</label>
+          </div>
+          <input type="text" placeholder="Notes">
+        </div>
+        <div class="table-grid__row">
+          <label>Wed: 7/7 complete?</label>
+          <div class="checklist">
+            <label><input type="checkbox"> Yes</label>
+            <label><input type="checkbox"> No</label>
+          </div>
+          <input type="text" placeholder="Notes">
+        </div>
+        <div class="table-grid__row">
+          <label>Thu: 7/7 complete?</label>
+          <div class="checklist">
+            <label><input type="checkbox"> Yes</label>
+            <label><input type="checkbox"> No</label>
+          </div>
+          <input type="text" placeholder="Notes">
+        </div>
+        <div class="table-grid__row">
+          <label>Fri: 7/7 complete?</label>
+          <div class="checklist">
+            <label><input type="checkbox"> Yes</label>
+            <label><input type="checkbox"> No</label>
+          </div>
+          <input type="text" placeholder="Notes">
+        </div>
+      </div>
+      <h3>QA Findings Summary (weekly roll-up)</h3>
+      <div class="info-grid">
+        <div class="field-group">
+          <label>Top 3 failure themes</label>
+          <textarea placeholder="__________________"></textarea>
+        </div>
+        <div class="field-group">
+          <label>Top 3 improvement wins</label>
+          <textarea placeholder="__________________"></textarea>
+        </div>
+        <div class="field-group">
+          <label>Agents requiring immediate remediation</label>
+          <input type="text" placeholder="__________________">
+        </div>
+      </div>
+    </section>
+
+    <section class="section-card">
+      <h2>4) Daily Logging Integrity (Contacts + Robocode + Required Fields)</h2>
+      <h3>Daily Integrity Results</h3>
+      <div class="table-grid">
+        <div class="table-grid__row">
+          <label>Tue</label>
+          <input type="text" placeholder="Missing contact">
+          <input type="text" placeholder="Missing robocode">
+          <input type="text" placeholder="Other logging gaps">
+        </div>
+        <div class="table-grid__row">
+          <label>Wed</label>
+          <input type="text" placeholder="Missing contact">
+          <input type="text" placeholder="Missing robocode">
+          <input type="text" placeholder="Other logging gaps">
+        </div>
+        <div class="table-grid__row">
+          <label>Thu</label>
+          <input type="text" placeholder="Missing contact">
+          <input type="text" placeholder="Missing robocode">
+          <input type="text" placeholder="Other logging gaps">
+        </div>
+        <div class="table-grid__row">
+          <label>Fri</label>
+          <input type="text" placeholder="Missing contact">
+          <input type="text" placeholder="Missing robocode">
+          <input type="text" placeholder="Other logging gaps">
+        </div>
+      </div>
+      <h3>Corrective Actions</h3>
+      <div class="info-grid">
+        <div class="field-group">
+          <label>Re-trained agents (names)</label>
+          <textarea placeholder="__________________"></textarea>
+        </div>
+        <div class="field-group">
+          <label>Process gaps identified</label>
+          <textarea placeholder="__________________"></textarea>
+        </div>
+        <div class="field-group">
+          <label>Fix implemented (what changed)</label>
+          <textarea placeholder="__________________"></textarea>
+        </div>
+      </div>
+    </section>
+
+    <section class="section-card">
+      <h2>5) Escalations + Supervisor Calls + On-Call Assistance</h2>
+      <h3>Supervisor Calls (weekly tracker)</h3>
+      <div class="table-grid">
+        <div class="table-grid__row">
+          <input type="text" placeholder="Call #">
+          <input type="text" placeholder="Date">
+          <input type="text" placeholder="Agent">
+          <input type="text" placeholder="Reason">
+          <input type="text" placeholder="Outcome">
+          <input type="text" placeholder="Follow-up needed (Y/N)">
+        </div>
+        <div class="table-grid__row">
+          <input type="text" placeholder="Call #">
+          <input type="text" placeholder="Date">
+          <input type="text" placeholder="Agent">
+          <input type="text" placeholder="Reason">
+          <input type="text" placeholder="Outcome">
+          <input type="text" placeholder="Follow-up needed (Y/N)">
+        </div>
+      </div>
+
+      <h3>Escalated Case Management (in-scope)</h3>
+      <div class="table-grid">
+        <div class="table-grid__row">
+          <input type="text" placeholder="Case">
+          <input type="text" placeholder="Owner">
+          <input type="text" placeholder="Status">
+          <input type="text" placeholder="Next step">
+          <input type="text" placeholder="Due date">
+        </div>
+      </div>
+
+      <h3>On-Call Assistance (chat support) – pattern capture</h3>
+      <div class="info-grid">
+        <div class="field-group">
+          <label>Common questions</label>
+          <textarea placeholder="__________________"></textarea>
+        </div>
+        <div class="field-group">
+          <label>Knowledge gaps to address</label>
+          <textarea placeholder="__________________"></textarea>
+        </div>
+        <div class="field-group">
+          <label>Items to convert into a help doc</label>
+          <textarea placeholder="__________________"></textarea>
+        </div>
+      </div>
+    </section>
+
+    <section class="section-card">
+      <h2>6) Schedule Creation / Publishing (Omni)</h2>
+      <div class="checklist">
+        <label><input type="checkbox"> Schedule generated</label>
+        <label><input type="checkbox"> Published in Omni</label>
+        <label><input type="checkbox"> Changes communicated to team</label>
+      </div>
+      <div class="field-group" style="margin-top: 0.75rem;">
+        <label>Notes / exceptions</label>
+        <textarea class="note-field" placeholder="__________________"></textarea>
+      </div>
+    </section>
+
+    <section class="section-card">
+      <h2>7) Meetings & Documentation</h2>
+      <h3>Pre-Shift Meetings (1–2 per week)</h3>
+      <div class="table-grid">
+        <div class="table-grid__row">
+          <input type="text" placeholder="Meeting #1 (Date/Time)">
+          <div class="checklist">
+            <label><input type="checkbox"> Recorded</label>
+            <label><input type="checkbox"> Uploaded</label>
+          </div>
+        </div>
+        <div class="table-grid__row">
+          <input type="text" placeholder="Meeting #2 (Date/Time)">
+          <div class="checklist">
+            <label><input type="checkbox"> Recorded</label>
+            <label><input type="checkbox"> Uploaded</label>
+          </div>
+        </div>
+      </div>
+      <h3>Discussion points (copy/paste)</h3>
+      <ul class="time-blocks">
+        <li>KPI review &amp; targets</li>
+        <li>Updates / procedures / system changes</li>
+        <li>Recognition</li>
+        <li>Goal commitments</li>
+        <li>Open discussion + agent concerns</li>
+        <li>Service notes review</li>
+        <li>Schedule announcements</li>
+      </ul>
+      <h3>Monthly Team Progress Notes (if due this week)</h3>
+      <div class="info-grid">
+        <div class="field-group">
+          <label>Key themes</label>
+          <textarea placeholder="__________________"></textarea>
+        </div>
+        <div class="field-group">
+          <label>Agent concerns</label>
+          <textarea placeholder="__________________"></textarea>
+        </div>
+        <div class="field-group">
+          <label>Continuous improvement actions</label>
+          <textarea placeholder="__________________"></textarea>
+        </div>
+      </div>
+    </section>
+
+    <section class="section-card">
+      <h2>8) Reporting Deliverables</h2>
+      <h3>Daily EOD Report (Tue–Fri)</h3>
+      <div class="info-grid">
+        <div class="field-group">
+          <label>QA completed (count + major themes)</label>
+          <textarea placeholder="__________________"></textarea>
+        </div>
+        <div class="field-group">
+          <label>Coaching completed (who + outcomes)</label>
+          <textarea placeholder="__________________"></textarea>
+        </div>
+        <div class="field-group">
+          <label>Logging integrity results (counts + fixes)</label>
+          <textarea placeholder="__________________"></textarea>
+        </div>
+        <div class="field-group">
+          <label>Escalations/supervisor calls handled</label>
+          <textarea placeholder="__________________"></textarea>
+        </div>
+        <div class="field-group">
+          <label>Blocks/risks for tomorrow</label>
+          <textarea placeholder="__________________"></textarea>
+        </div>
+      </div>
+      <h3>Weekly Report (Friday)</h3>
+      <p class="muted">Friday 6:00 PM–7:00 PM — Weekly Report Build + Send</p>
+      <ul class="time-blocks">
+        <li>Call count</li>
+        <li>Attendance &amp; adherence</li>
+        <li>CSAT</li>
+        <li>Agent pay rate</li>
+        <li>Supervisor call volume + reasons (summary)</li>
+        <li>QA summary (averages + themes)</li>
+      </ul>
+    </section>
+
+    <section class="section-card">
+      <h2>9) Communications (Email / CC Norm)</h2>
+      <h3>Emails to send this week</h3>
+      <div class="table-grid">
+        <div class="table-grid__row">
+          <input type="text" placeholder="Topic">
+          <input type="text" placeholder="Audience">
+          <input type="text" placeholder="Due date">
+          <input type="text" placeholder="Status">
+        </div>
+      </div>
+      <h3>CC list (default)</h3>
+      <p class="muted">Earl, Chris, plus anyone else who should be kept informed for the specific issue.</p>
+      <div class="field-group" style="margin-top: 0.75rem;">
+        <label>Domornie Responsibilities Table</label>
+        <textarea class="note-field" placeholder="__________________"></textarea>
+      </div>
+    </section>
+  </div>
+</div>
