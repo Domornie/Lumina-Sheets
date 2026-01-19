@@ -613,10 +613,232 @@
   .icon-link:hover {
     color: #4a90e2;
   }
+
+  .dashboard-grid {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  }
+
+  .dashboard-stat {
+    background: #f8fafc;
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    padding: 1.25rem;
+    text-align: center;
+  }
+
+  .dashboard-stat h3 {
+    margin: 0 0 0.25rem;
+    font-size: 1.6rem;
+    color: var(--navy-primary);
+  }
+
+  .dashboard-stat span {
+    font-weight: 600;
+    color: var(--text-secondary);
+  }
+
+  .dashboard-panels {
+    display: grid;
+    gap: 1.5rem;
+    margin-top: 1.5rem;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  }
+
+  .dashboard-panel {
+    border-radius: 14px;
+    border: 1px solid var(--border-color);
+    padding: 1.25rem;
+    background: #ffffff;
+  }
+
+  .dashboard-panel h4 {
+    margin-bottom: 0.75rem;
+    font-size: 1.05rem;
+    color: var(--text-primary);
+  }
+
+  .dashboard-panel ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    gap: 0.5rem;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+  }
+
+  .dashboard-panel li strong {
+    color: var(--text-primary);
+  }
+
+  .coaching-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.35rem 0.6rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
+
+  .coaching-badge span {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+  }
+
+  .coaching-badge.coaching-required {
+    background: rgba(255, 184, 0, 0.15);
+    color: #d97706;
+  }
+
+  .coaching-badge.coaching-scheduled {
+    background: rgba(0, 191, 255, 0.15);
+    color: #0284c7;
+  }
+
+  .coaching-badge.coaching-complete {
+    background: rgba(16, 185, 129, 0.15);
+    color: #059669;
+  }
+
+  .coaching-summary {
+    background: #f8fafc;
+    border-radius: 12px;
+    padding: 1rem;
+    border: 1px dashed var(--border-color);
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+  }
 </style>
 
 <div class="container my-4">
   <div class="stagger-animation">
+    <!-- Escalation Coaching Dashboard -->
+    <div class="modern-card" id="escalationDashboard">
+      <div class="modern-card-header">
+        <i class="fas fa-chart-line"></i>
+        Escalation Coaching Dashboard
+      </div>
+      <div class="modern-card-body">
+        <div class="dashboard-grid">
+          <div class="dashboard-stat">
+            <h3 id="dashTotalEscalations">0</h3>
+            <span>Total Escalations</span>
+          </div>
+          <div class="dashboard-stat">
+            <h3 id="dashOpenEscalations">0</h3>
+            <span>Open / In Progress</span>
+          </div>
+          <div class="dashboard-stat">
+            <h3 id="dashCoachingRequired">0</h3>
+            <span>Coaching Needed</span>
+          </div>
+          <div class="dashboard-stat">
+            <h3 id="dashCoached">0</h3>
+            <span>Coached</span>
+          </div>
+        </div>
+
+        <div class="dashboard-panels">
+          <div class="dashboard-panel">
+            <h4>Upcoming Coaching Follow-Ups</h4>
+            <ul id="dashFollowUps">
+              <li>No follow-ups due yet.</li>
+            </ul>
+          </div>
+          <div class="dashboard-panel">
+            <h4>Recent Coaching Notes</h4>
+            <ul id="dashCoachingNotes">
+              <li>No coaching notes logged yet.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Escalation Coaching Module -->
+    <div class="modern-card" id="escalationCoachingModule">
+      <div class="modern-card-header">
+        <i class="fas fa-chalkboard-teacher"></i>
+        Escalation Coaching Module
+      </div>
+      <div class="modern-card-body">
+        <form id="coachingForm" class="modern-form">
+          <div class="form-floating">
+            <select id="coachEscalationSelect" class="form-select" required>
+              <option value="">Select escalation</option>
+            </select>
+            <label for="coachEscalationSelect">Escalation</label>
+          </div>
+
+          <div class="form-floating">
+            <input type="text" id="coachName" class="form-control" placeholder="Coach name">
+            <label for="coachName">Coach</label>
+          </div>
+
+          <div class="form-floating">
+            <select id="coachStatus" class="form-select" required>
+              <option value="Coaching Required">Coaching Required</option>
+              <option value="Coaching Scheduled">Coaching Scheduled</option>
+              <option value="Coached">Coached</option>
+            </select>
+            <label for="coachStatus">Coaching Status</label>
+          </div>
+
+          <div class="form-floating">
+            <input type="date" id="coachDate" class="form-control">
+            <label for="coachDate">Coaching Date</label>
+          </div>
+
+          <div class="form-floating">
+            <input type="date" id="coachFollowUp" class="form-control">
+            <label for="coachFollowUp">Follow-Up Date</label>
+          </div>
+
+          <div class="form-floating" style="grid-column: 1 / -1;">
+            <textarea id="coachIssueSummary" class="form-control" placeholder="Issue summary"></textarea>
+            <label for="coachIssueSummary">Issue Summary (what happened)</label>
+          </div>
+
+          <div class="form-floating" style="grid-column: 1 / -1;">
+            <textarea id="coachStandard" class="form-control" placeholder="Standard/SOP impacted"></textarea>
+            <label for="coachStandard">Standard / SOP Impacted</label>
+          </div>
+
+          <div class="form-floating" style="grid-column: 1 / -1;">
+            <textarea id="coachExpectations" class="form-control" placeholder="Expectations"></textarea>
+            <label for="coachExpectations">Expectations (what “good” looks like)</label>
+          </div>
+
+          <div class="form-floating" style="grid-column: 1 / -1;">
+            <textarea id="coachActions" class="form-control" placeholder="Action items"></textarea>
+            <label for="coachActions">Action Items (2–3 max)</label>
+          </div>
+
+          <div class="coaching-summary" id="coachEscalationSummary" style="grid-column: 1 / -1;">
+            Select an escalation to see its summary here.
+          </div>
+
+          <div class="action-buttons" style="grid-column: 1 / -1;">
+            <button type="submit" class="modern-btn modern-btn-primary">
+              <i class="fas fa-save"></i>
+              Save Coaching Notes
+            </button>
+            <button type="button" class="modern-btn modern-btn-secondary" id="coachReset">
+              <i class="fas fa-undo"></i>
+              Reset
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
     <!-- Escalation Form Card -->
     <div class="modern-card">
       <div class="modern-card-header">
@@ -682,6 +904,9 @@
               <option value="Open" selected>Open</option>
               <option value="In Progress">In Progress</option>
               <option value="Monitoring">Monitoring</option>
+              <option value="Coaching Required">Coaching Required</option>
+              <option value="Coaching Scheduled">Coaching Scheduled</option>
+              <option value="Coached">Coached</option>
               <option value="Resolved">Resolved</option>
               <option value="Closed">Closed</option>
             </select>
@@ -742,6 +967,10 @@
                   Status
                 </th>
                 <th>
+                  <i class="fas fa-user-check me-2"></i>
+                  Coaching
+                </th>
+                <th>
                   <i class="fas fa-clock me-2"></i>
                   Timestamp
                 </th>
@@ -757,7 +986,7 @@
             </thead>
             <tbody>
               <tr>
-                <td colspan="8" class="text-center py-4">Loading…</td>
+                <td colspan="9" class="text-center py-4">Loading…</td>
               </tr>
             </tbody>
           </table>
@@ -780,7 +1009,26 @@ document.addEventListener('DOMContentLoaded', () => {
   const impactField = document.getElementById('escImpact');
   const statusField = document.getElementById('escStatus');
   const timestampField = document.getElementById('escTimestamp');
+  const dashboardTotal = document.getElementById('dashTotalEscalations');
+  const dashboardOpen = document.getElementById('dashOpenEscalations');
+  const dashboardCoachingRequired = document.getElementById('dashCoachingRequired');
+  const dashboardCoached = document.getElementById('dashCoached');
+  const dashboardFollowUps = document.getElementById('dashFollowUps');
+  const dashboardCoachingNotes = document.getElementById('dashCoachingNotes');
+  const coachingForm = document.getElementById('coachingForm');
+  const coachingSelect = document.getElementById('coachEscalationSelect');
+  const coachingName = document.getElementById('coachName');
+  const coachingStatus = document.getElementById('coachStatus');
+  const coachingDate = document.getElementById('coachDate');
+  const coachingFollowUp = document.getElementById('coachFollowUp');
+  const coachingIssueSummary = document.getElementById('coachIssueSummary');
+  const coachingStandard = document.getElementById('coachStandard');
+  const coachingExpectations = document.getElementById('coachExpectations');
+  const coachingActions = document.getElementById('coachActions');
+  const coachingSummary = document.getElementById('coachEscalationSummary');
   let editingId = null;
+  let escalationCache = [];
+  const currentUserName = <?= JSON.stringify(user && (user.FullName || user.DisplayName || user.UserName || user.Email || '')) ?>;
 
   const issueTypeCatalog = {
     'Connectivity (Internet/VPN)': [
@@ -869,6 +1117,9 @@ document.addEventListener('DOMContentLoaded', () => {
     'Open': 'open',
     'In Progress': 'progress',
     'Monitoring': 'monitoring',
+    'Coaching Required': 'monitoring',
+    'Coaching Scheduled': 'progress',
+    'Coached': 'resolved',
     'Resolved': 'resolved',
     'Closed': 'closed'
   };
@@ -905,6 +1156,78 @@ document.addEventListener('DOMContentLoaded', () => {
     return `<span class="status-chip status-${key}"><span class="dot"></span>${label}</span>`;
   };
 
+  const buildCoachingBadge = coachingStatus => {
+    if (!coachingStatus) {
+      return '<span class="coaching-badge coaching-required"><span></span>Unassigned</span>';
+    }
+
+    const normalized = String(coachingStatus).toLowerCase();
+    let className = 'coaching-required';
+    if (normalized.includes('scheduled')) {
+      className = 'coaching-scheduled';
+    } else if (normalized.includes('coached') || normalized.includes('complete')) {
+      className = 'coaching-complete';
+    }
+
+    return `<span class="coaching-badge ${className}"><span></span>${escapeHtml(coachingStatus)}</span>`;
+  };
+
+  const extractCoachingMeta = notesHtml => {
+    if (!notesHtml) return null;
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(notesHtml, 'text/html');
+      const entries = Array.from(doc.querySelectorAll('.coaching-entry'))
+        .map(entry => entry.getAttribute('data-coaching'))
+        .filter(Boolean)
+        .map(raw => {
+          try {
+            return JSON.parse(decodeURIComponent(raw));
+          } catch (error) {
+            return null;
+          }
+        })
+        .filter(Boolean);
+      return entries.length ? entries[entries.length - 1] : null;
+    } catch (error) {
+      return null;
+    }
+  };
+
+  const buildCoachingEntry = coachingData => {
+    const payload = encodeURIComponent(JSON.stringify(coachingData));
+    return `
+      <div class="coaching-entry" data-coaching="${payload}">
+        <p><strong>Escalation Coaching</strong></p>
+        <p><strong>Coach:</strong> ${escapeHtml(coachingData.coach || '')}</p>
+        <p><strong>Status:</strong> ${escapeHtml(coachingData.status || '')}</p>
+        <p><strong>Coaching Date:</strong> ${escapeHtml(coachingData.coachingDate || '')}</p>
+        <p><strong>Follow-Up Date:</strong> ${escapeHtml(coachingData.followUpDate || '')}</p>
+        <p><strong>Issue Summary:</strong> ${escapeHtml(coachingData.issueSummary || '')}</p>
+        <p><strong>Standard/SOP:</strong> ${escapeHtml(coachingData.standard || '')}</p>
+        <p><strong>Expectations:</strong> ${escapeHtml(coachingData.expectations || '')}</p>
+        <p><strong>Action Items:</strong> ${escapeHtml(coachingData.actionItems || '')}</p>
+      </div>
+    `;
+  };
+
+  const appendCoachingEntry = (notesHtml, coachingHtml) => {
+    if (!notesHtml) return coachingHtml;
+    return `${notesHtml}<hr>${coachingHtml}`;
+  };
+
+  const summarizeEscalation = escalation => {
+    if (!escalation) return 'Select an escalation to see its summary here.';
+    const parts = [
+      `User: ${escalation.user || 'N/A'}`,
+      `Category: ${escalation.category || 'N/A'}`,
+      `Issue: ${escalation.issueType || 'N/A'}`,
+      `Impact: ${escalation.impact || 'N/A'}`,
+      `Status: ${escalation.status || 'N/A'}`
+    ];
+    return parts.join(' | ');
+  };
+
   const populateIssueTypeOptions = (category, selectedValue = '') => {
     const options = issueTypeCatalog[category] || issueTypeCatalog['Other / General'];
     const opts = ['<option value="">Select issue type</option>']
@@ -932,12 +1255,99 @@ document.addEventListener('DOMContentLoaded', () => {
     quill.root.innerHTML = '';
   };
 
+  const resetCoachingForm = () => {
+    coachingForm.reset();
+    coachingStatus.value = 'Coaching Required';
+    coachingSummary.textContent = 'Select an escalation to see its summary here.';
+    coachingName.value = currentUserName || '';
+  };
+
   const showOverlay = () => overlay.classList.add('show');
   const hideOverlay = () => overlay.classList.remove('show');
 
   categoryField.addEventListener('change', () => {
     populateIssueTypeOptions(categoryField.value);
   });
+
+  coachingSelect.addEventListener('change', () => {
+    const selectedId = coachingSelect.value;
+    const escalation = escalationCache.find(item => item.id === selectedId);
+    populateCoachingFields(escalation);
+  });
+
+  const renderCoachingSelect = items => {
+    const options = ['<option value="">Select escalation</option>']
+      .concat(items.map(item => {
+        const label = `${item.user || 'Unknown'} - ${item.category || 'Uncategorized'} (${item.status || 'Open'})`;
+        return `<option value="${escapeHtml(item.id)}">${escapeHtml(label)}</option>`;
+      }));
+    coachingSelect.innerHTML = options.join('');
+  };
+
+  const updateDashboard = items => {
+    const total = items.length;
+    const open = items.filter(item => !['Resolved', 'Closed'].includes(item.status)).length;
+    const coachingNeeded = items.filter(item => ['Coaching Required', 'Coaching Scheduled'].includes(item.status)).length;
+    const coached = items.filter(item => item.status === 'Coached').length;
+
+    dashboardTotal.textContent = total;
+    dashboardOpen.textContent = open;
+    dashboardCoachingRequired.textContent = coachingNeeded;
+    dashboardCoached.textContent = coached;
+
+    const followUps = [];
+    const recentNotes = [];
+    items.forEach(item => {
+      const coachingMeta = extractCoachingMeta(item.notes || '');
+      if (!coachingMeta) return;
+
+      if (coachingMeta.followUpDate) {
+        followUps.push({
+          user: item.user,
+          followUpDate: coachingMeta.followUpDate,
+          status: coachingMeta.status || item.status
+        });
+      }
+
+      if (coachingMeta.issueSummary || coachingMeta.actionItems) {
+        recentNotes.push({
+          user: item.user,
+          summary: coachingMeta.issueSummary || coachingMeta.actionItems,
+          status: coachingMeta.status || item.status
+        });
+      }
+    });
+
+    const dueFollowUps = followUps
+      .sort((a, b) => String(a.followUpDate).localeCompare(String(b.followUpDate)))
+      .slice(0, 5);
+
+    dashboardFollowUps.innerHTML = dueFollowUps.length
+      ? dueFollowUps.map(entry => `
+          <li><strong>${escapeHtml(entry.user || 'Unknown')}</strong> — ${escapeHtml(entry.followUpDate)} (${escapeHtml(entry.status || '')})</li>
+        `).join('')
+      : '<li>No follow-ups due yet.</li>';
+
+    const recentList = recentNotes.slice(0, 5);
+    dashboardCoachingNotes.innerHTML = recentList.length
+      ? recentList.map(entry => `
+          <li><strong>${escapeHtml(entry.user || 'Unknown')}</strong> — ${escapeHtml(entry.summary || '')}</li>
+        `).join('')
+      : '<li>No coaching notes logged yet.</li>';
+  };
+
+  const populateCoachingFields = escalation => {
+    const coachingMeta = extractCoachingMeta(escalation?.notes || '');
+    coachingSummary.textContent = summarizeEscalation(escalation);
+    coachingName.value = coachingMeta?.coach || currentUserName || '';
+    coachingStatus.value = coachingMeta?.status || escalation?.status || 'Coaching Required';
+    coachingDate.value = coachingMeta?.coachingDate || '';
+    coachingFollowUp.value = coachingMeta?.followUpDate || '';
+    coachingIssueSummary.value = coachingMeta?.issueSummary || '';
+    coachingStandard.value = coachingMeta?.standard || '';
+    coachingExpectations.value = coachingMeta?.expectations || '';
+    coachingActions.value = coachingMeta?.actionItems || '';
+  };
 
   function loadEscalations() {
     showOverlay();
@@ -948,11 +1358,14 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function renderEscalations(items) {
+    escalationCache = items.slice();
+    renderCoachingSelect(escalationCache);
+    updateDashboard(escalationCache);
     tableBody.innerHTML = '';
     if (!items.length) {
       tableBody.innerHTML = `
         <tr>
-          <td colspan="8" class="empty-state">
+          <td colspan="9" class="empty-state">
             <i class="fas fa-clipboard-list"></i>
             <h3>No Escalations Found</h3>
             <p>No escalation records available. Start by logging a new escalation.</p>
@@ -970,6 +1383,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const shortenedNotes = notesPlain.length > 100
         ? `${notesPlain.substring(0, 100)}…`
         : notesPlain;
+      const coachingMeta = extractCoachingMeta(it.notes || '');
+      const coachingStatusLabel = coachingMeta ? coachingMeta.status : '';
 
       tr.innerHTML = `
         <td><strong>${escapeHtml(it.user || '')}</strong></td>
@@ -977,6 +1392,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <td>${escapeHtml(it.issueType || '')}</td>
         <td>${buildImpactBadge(it.impact)}</td>
         <td>${buildStatusChip(it.status)}</td>
+        <td>${buildCoachingBadge(coachingStatusLabel)}</td>
         <td>${escapeHtml(it.timestamp || '')}</td>
         <td><span class="text-muted">${escapeHtml(shortenedNotes)}</span></td>
         <td>
@@ -1053,6 +1469,64 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  coachingForm.addEventListener('submit', e => {
+    e.preventDefault();
+    const selectedId = coachingSelect.value;
+    if (!selectedId) {
+      alert('Select an escalation to attach coaching notes.');
+      return;
+    }
+
+    const escalation = escalationCache.find(item => item.id === selectedId);
+    if (!escalation) {
+      alert('Selected escalation not found.');
+      return;
+    }
+
+    const coachingData = {
+      coach: coachingName.value,
+      status: coachingStatus.value,
+      coachingDate: coachingDate.value,
+      followUpDate: coachingFollowUp.value,
+      issueSummary: coachingIssueSummary.value,
+      standard: coachingStandard.value,
+      expectations: coachingExpectations.value,
+      actionItems: coachingActions.value
+    };
+
+    const coachingHtml = buildCoachingEntry(coachingData);
+    const updatedNotes = appendCoachingEntry(escalation.notes || '', coachingHtml);
+    const normalizedTimestamp = escalation.timestamp
+      ? escalation.timestamp.replace(' ', 'T').slice(0, 16)
+      : '';
+
+    const updatedRecord = {
+      user: escalation.user,
+      category: escalation.category,
+      issueType: escalation.issueType,
+      impact: escalation.impact,
+      status: coachingStatus.value || escalation.status || 'Coaching Required',
+      timestamp: normalizedTimestamp,
+      notes: updatedNotes
+    };
+
+    showOverlay();
+    google.script.run
+      .withSuccessHandler(() => {
+        resetCoachingForm();
+        loadEscalations();
+      })
+      .withFailureHandler(err => {
+        alert(err.message || err);
+        hideOverlay();
+      })
+      .updateEscalation(escalation.id, updatedRecord);
+  });
+
+  document.getElementById('coachReset').addEventListener('click', () => {
+    resetCoachingForm();
+  });
+
   document.getElementById('escCancel').addEventListener('click', () => {
     editingId = null;
     resetForm();
@@ -1066,6 +1540,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   populateIssueTypeOptions(categoryField.value || 'Other / General');
   setDefaultTimestamp();
+  resetCoachingForm();
   loadEscalations();
 });
 </script>
