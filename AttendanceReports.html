@@ -4090,8 +4090,30 @@
         const endIndex = Math.min(startIndex + this.pagination.itemsPerPage, filteredCompliance.length);
         const currentPageData = filteredCompliance.slice(startIndex, endIndex);
 
-        const BREAK_ALLOWANCE_SECS = 30 * 60;
-        const LUNCH_ALLOWANCE_SECS = 30 * 60;
+        const periodInfo = this.currentData.periodInfo || {};
+        const countWeeksInRange = (startIso, endIso) => {
+          if (!startIso || !endIso) return 1;
+          const start = new Date(startIso);
+          const end = new Date(endIso);
+          if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+            return 1;
+          }
+          const alignToMonday = (date) => {
+            const aligned = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+            const weekday = aligned.getUTCDay();
+            const diff = weekday === 0 ? -6 : 1 - weekday;
+            aligned.setUTCDate(aligned.getUTCDate() + diff);
+            return aligned;
+          };
+          const startWeek = alignToMonday(start);
+          const endWeek = alignToMonday(end);
+          const diffMs = endWeek.getTime() - startWeek.getTime();
+          const weekCount = Math.floor(diffMs / (7 * 24 * 60 * 60 * 1000)) + 1;
+          return Math.max(1, weekCount);
+        };
+        const weekCount = countWeeksInRange(periodInfo.startDateIso, periodInfo.endDateIso);
+        const BREAK_ALLOWANCE_SECS = 30 * 60 * 5 * weekCount;
+        const LUNCH_ALLOWANCE_SECS = 30 * 60 * 5 * weekCount;
         const hourPolicy = this.currentData.hourPolicy || {};
         const overtimeEnabled = Boolean(hourPolicy.overtimeEnabled);
         const dailyCapHours = typeof hourPolicy.effectiveCapHours === 'number' ? hourPolicy.effectiveCapHours : 8;
@@ -4323,8 +4345,6 @@
               });
             }
           });
-
-          const periodInfo = this.currentData.periodInfo || {};
 
           const parseIsoKeyToDate = (key) => {
             if (typeof key !== 'string') return null;
@@ -4685,7 +4705,7 @@
           <div class="mt-3">
             <small class="text-muted">
               <i class="fas fa-info-circle me-1"></i>
-              Up to 30 minutes of daily break time remains paid and billable while any break or lunch overages deduct minute-for-minute from productive availability. ${policyNote} All durations shown in decimal hours using ${timezoneLabel} (${timezoneValue}).
+              Up to 2.5 hours of weekly break time remains paid and billable while any break or lunch overages above the weekly allowance deduct minute-for-minute from productive availability. ${policyNote} All durations shown in decimal hours using ${timezoneLabel} (${timezoneValue}).
             </small>
           </div>`;
 
