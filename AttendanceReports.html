@@ -3545,9 +3545,11 @@
         }
 
         if (!Array.isArray(data.userCompliance) || data.userCompliance.length === 0) {
-          console.warn('Attendance data returned without compliance rows — rendering empty dashboard.');
+          console.warn('Attendance data returned without compliance rows — rendering dashboard without compliance rows.');
           this.showToast('No attendance compliance data available for the selected filters.', 'warning');
-          data = this.createEmptyAttendanceData();
+          if (!Array.isArray(data.userCompliance)) {
+            data.userCompliance = [];
+          }
         }
         
         this.currentData = data;
