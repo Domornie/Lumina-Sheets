@@ -61,6 +61,8 @@ var GLOBAL_SCOPE = (typeof GLOBAL_SCOPE !== 'undefined') ? GLOBAL_SCOPE
 const DAILY_SHIFT_SECS = 8 * 3600;       // 8 hours in seconds
 const DAILY_BREAKS_SECS = 30 * 60;       // 30 minutes in seconds
 const DAILY_LUNCH_SECS = 30 * 60;        // 30 minutes in seconds
+const WEEKLY_BREAK_SECS = DAILY_BREAKS_SECS * 5; // 2.5 hours per week
+const WEEKLY_LUNCH_SECS = DAILY_LUNCH_SECS * 5;  // 2.5 hours per week
 const WEEKLY_OVERTIME_SECS = 40 * 3600;  // 40 hours in seconds
 
 // Primary attendance timezone configuration (defaults to script timezone)
@@ -1387,24 +1389,40 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter, poli
 
     const userWeeklyTotals = new Map();
 
-    userDayMetrics.forEach(metrics => {
-      const { breakOver, lunchOver, combinedOver, deduction } = calculateBreakLunchDeductions(metrics.break, metrics.lunch);
+    const weeklyDayEntries = [];
+    userDayMetrics.forEach((metrics, key) => {
+      weeklyDayEntries.push({
+        user: metrics.user,
+        dateKey: metrics.dateKey,
+        break: metrics.break,
+        lunch: metrics.lunch,
+        prod: metrics.prod,
+        key
+      });
+    });
 
-      if (breakOver > 0 || lunchOver > 0 || combinedOver > 0) {
+    const { dailyDeductions: weeklyDailyDeductions } =
+      buildWeeklyBreakLunchDeductions_(weeklyDayEntries);
+
+    userDayMetrics.forEach(metrics => {
+      const dailyAllowanceCheck = calculateBreakLunchDeductions(metrics.break, metrics.lunch);
+      const dailyDeduction = weeklyDailyDeductions.get(`${metrics.user}|${metrics.dateKey}`) || 0;
+
+      if (dailyDeduction > 0) {
         violationDays++;
       }
 
       const complianceStats = userComplianceMap.get(metrics.user);
       if (complianceStats) {
-        if (breakOver > 0) {
+        if (dailyAllowanceCheck.breakOver > 0) {
           complianceStats.breakOverageDays += 1;
         }
-        if (lunchOver > 0) {
+        if (dailyAllowanceCheck.lunchOver > 0) {
           complianceStats.lunchOverageDays += 1;
         }
       }
 
-      const baseProd = Math.max(0, metrics.prod - deduction);
+      const baseProd = Math.max(0, metrics.prod - dailyDeduction);
       const baseCapped = Math.min(baseProd, hourPolicy.effectiveCapSeconds);
       const adjustedTotal = baseCapped;
       const overtime = Math.max(0, Math.min(baseProd, hourPolicy.effectiveCapSeconds) - (hourPolicy.baseCapHours * 3600));
@@ -1856,11 +1874,19 @@ function calculateProductivityMetrics(filtered) {
     const breakSecs = stateDuration['Break'] || 0;
     const lunchSecs = stateDuration['Lunch'] || 0;
     const billableSecs = BILLABLE_STATES.reduce((sum, state) => sum + (stateDuration[state] || 0), 0);
-    let totalDeductionSecs = 0;
-    dayMetrics.forEach(metrics => {
-        const { deduction } = calculateBreakLunchDeductions(metrics.break, metrics.lunch);
-        totalDeductionSecs += deduction;
+    const weeklyEntries = [];
+    dayMetrics.forEach((metrics, key) => {
+        const keyParts = key.split('|');
+        const user = keyParts[0] || '';
+        const dateKey = keyParts[1] || '';
+        weeklyEntries.push({
+            user,
+            dateKey,
+            break: metrics.break,
+            lunch: metrics.lunch
+        });
     });
+    const totalDeductionSecs = calculateWeeklyBreakLunchDeductionTotals_(weeklyEntries);
     const billableWithBreakSecs = Math.max(0, billableSecs - totalDeductionSecs);
 
     const totalBillableHours = Math.round((billableWithBreakSecs / 3600) * 100) / 100;
@@ -1914,12 +1940,14 @@ function calculateUserCompliance(filtered) {
             dailyBuckets.set(bucketKey, {
                 break: 0,
                 lunch: 0,
+                prod: 0,
                 dayOfWeek: attendanceDayOfWeek
             });
         }
         const bucket = dailyBuckets.get(bucketKey);
         if (r.state === 'Break') bucket.break += secs;
         if (r.state === 'Lunch') bucket.lunch += secs;
+        if (BILLABLE_STATES.includes(r.state)) bucket.prod += secs;
         if (typeof bucket.dayOfWeek !== 'number' || isNaN(bucket.dayOfWeek)) {
             bucket.dayOfWeek = attendanceDayOfWeek;
         }
@@ -1933,11 +1961,27 @@ function calculateUserCompliance(filtered) {
         }
     });
 
+    const weeklyEntries = [];
+    dailyBuckets.forEach((bucket, key) => {
+        const keyParts = key.split('|');
+        const user = keyParts[0] || '';
+        const dateKey = keyParts[1] || '';
+        weeklyEntries.push({
+            user,
+            dateKey,
+            break: bucket.break,
+            lunch: bucket.lunch,
+            prod: bucket.prod,
+            dayOfWeek: bucket.dayOfWeek
+        });
+    });
+    const { dailyDeductions } = buildWeeklyBreakLunchDeductions_(weeklyEntries);
+
     dailyBuckets.forEach((bucket, key) => {
         const [user] = key.split('|');
         const stats = userStats.get(user);
         if (!stats) return;
-        const { deduction } = calculateBreakLunchDeductions(bucket.break, bucket.lunch);
+        const deduction = dailyDeductions.get(key) || 0;
         const isWeekend = bucket.dayOfWeek >= 6;
 
         if (isWeekend) {
@@ -1981,6 +2025,101 @@ function formatSecsAsHhMm(secs) {
   const hours = Math.floor(secs / 3600);
   const minutes = Math.floor((secs % 3600) / 60);
   return `${hours}h ${minutes}m`;
+}
+
+function getWeekStartDate_(dateValue) {
+  if (!(dateValue instanceof Date) || Number.isNaN(dateValue.getTime())) {
+    return null;
+  }
+  const weekStart = new Date(dateValue.getTime());
+  const jsDay = weekStart.getDay();
+  const offset = jsDay === 0 ? -6 : 1 - jsDay;
+  weekStart.setDate(weekStart.getDate() + offset);
+  weekStart.setHours(0, 0, 0, 0);
+  return weekStart;
+}
+
+function buildWeeklyBreakLunchDeductions_(dayEntries) {
+  const weeklyMap = new Map();
+
+  (dayEntries || []).forEach(entry => {
+    if (!entry || !entry.user || !entry.dateKey) return;
+    const dayDate = normalizeDateValue(entry.dateKey);
+    const weekStart = getWeekStartDate_(dayDate);
+    if (!weekStart) return;
+    const weekKey = `${entry.user}|${weekStart.toISOString().slice(0, 10)}`;
+    if (!weeklyMap.has(weekKey)) {
+      weeklyMap.set(weekKey, {
+        user: entry.user,
+        breakSecs: 0,
+        lunchSecs: 0,
+        entries: []
+      });
+    }
+    const week = weeklyMap.get(weekKey);
+    week.breakSecs += Number(entry.break) || 0;
+    week.lunchSecs += Number(entry.lunch) || 0;
+    week.entries.push({
+      key: `${entry.user}|${entry.dateKey}`,
+      date: dayDate,
+      prod: Number(entry.prod) || 0,
+      dayOfWeek: entry.dayOfWeek
+    });
+  });
+
+  const dailyDeductions = new Map();
+  const weeklyOverages = new Map();
+
+  weeklyMap.forEach(week => {
+    const breakOver = Math.max(0, week.breakSecs - WEEKLY_BREAK_SECS);
+    const lunchOver = Math.max(0, week.lunchSecs - WEEKLY_LUNCH_SECS);
+
+    if (breakOver > 0 || lunchOver > 0) {
+      const current = weeklyOverages.get(week.user) || { breakOverWeeks: 0, lunchOverWeeks: 0 };
+      if (breakOver > 0) current.breakOverWeeks += 1;
+      if (lunchOver > 0) current.lunchOverWeeks += 1;
+      weeklyOverages.set(week.user, current);
+    }
+
+    let remaining = breakOver + lunchOver;
+    if (remaining <= 0) return;
+
+    const sorted = week.entries.slice().sort((a, b) => a.date.getTime() - b.date.getTime());
+    for (let i = sorted.length - 1; i >= 0 && remaining > 0; i -= 1) {
+      const entry = sorted[i];
+      const available = Number.isFinite(entry.prod) ? entry.prod : 0;
+      if (available <= 0) continue;
+      const applied = Math.min(remaining, available);
+      dailyDeductions.set(entry.key, (dailyDeductions.get(entry.key) || 0) + applied);
+      remaining -= applied;
+    }
+  });
+
+  return { dailyDeductions, weeklyOverages };
+}
+
+function calculateWeeklyBreakLunchDeductionTotals_(dayEntries) {
+  const weeklyTotals = new Map();
+  (dayEntries || []).forEach(entry => {
+    if (!entry || !entry.user || !entry.dateKey) return;
+    const dayDate = normalizeDateValue(entry.dateKey);
+    const weekStart = getWeekStartDate_(dayDate);
+    if (!weekStart) return;
+    const weekKey = `${entry.user}|${weekStart.toISOString().slice(0, 10)}`;
+    if (!weeklyTotals.has(weekKey)) {
+      weeklyTotals.set(weekKey, { breakSecs: 0, lunchSecs: 0 });
+    }
+    const totals = weeklyTotals.get(weekKey);
+    totals.breakSecs += Number(entry.break) || 0;
+    totals.lunchSecs += Number(entry.lunch) || 0;
+  });
+
+  let totalDeduction = 0;
+  weeklyTotals.forEach(totals => {
+    totalDeduction += Math.max(0, totals.breakSecs - WEEKLY_BREAK_SECS);
+    totalDeduction += Math.max(0, totals.lunchSecs - WEEKLY_LUNCH_SECS);
+  });
+  return totalDeduction;
 }
 
 function calculateBreakOverageSecs(breakSeconds) {
@@ -3305,8 +3444,8 @@ function generateEnhancedDailyPivotExport(pivotMatrix, params, context) {
     const notes = [
       'Data Quality Notes',
       `All productive durations are converted from seconds into decimal hours using ${ATTENDANCE_TIMEZONE_LABEL || ATTENDANCE_TIMEZONE}.`,
-      'Break allowances assume 30 minutes per day; lunch allowances assume 30 minutes.',
-      'Break and lunch overages are deducted minute-for-minute from productive totals.',
+      'Break allowances assume 2.5 hours per week; lunch allowances assume 2.5 hours per week.',
+      'Break and lunch overages above the weekly allowance are deducted minute-for-minute from productive totals.',
       `Billable hours include: ${BILLABLE_STATE_LABELS.join(', ')}.`
     ];
 
@@ -3552,8 +3691,8 @@ function generateEnhancedDailyPivotCsvFallback(pivotMatrix, params, context) {
   rows.push('');
   rows.push(csvEscape('Notes'));
   rows.push(csvEscape(`All productive durations are converted from seconds into decimal hours using ${ATTENDANCE_TIMEZONE_LABEL || ATTENDANCE_TIMEZONE}.`));
-  rows.push(csvEscape('Break allowances assume 30 minutes per day; lunch allowances assume 30 minutes.'));
-  rows.push(csvEscape('Break and lunch overages are deducted minute-for-minute from productive totals.'));
+  rows.push(csvEscape('Break allowances assume 2.5 hours per week; lunch allowances assume 2.5 hours per week.'));
+  rows.push(csvEscape('Break and lunch overages above the weekly allowance are deducted minute-for-minute from productive totals.'));
   rows.push(csvEscape(`Billable hours include: ${BILLABLE_STATE_LABELS.join(', ')}.`));
 
   return {
@@ -4696,8 +4835,24 @@ function createBasicAnalytics(filtered, granularity, periodId, agentFilter, peri
   let fallbackLunchAdjustmentSecs = 0;
   let fallbackBaseBillableSecs = 0;
   let fallbackAdjustedBillableSecs = 0;
-  fallbackDayMetrics.forEach(dayMetrics => {
-    const { deduction } = calculateBreakLunchDeductions(dayMetrics.break, dayMetrics.lunch);
+  const weeklyFallbackEntries = [];
+  fallbackDayMetrics.forEach((dayMetrics, key) => {
+    const keyParts = key.split('|');
+    const user = keyParts[0] || '';
+    const dateKey = keyParts[1] || '';
+    weeklyFallbackEntries.push({
+      user,
+      dateKey,
+      break: dayMetrics.break,
+      lunch: dayMetrics.lunch,
+      prod: dayMetrics.prod
+    });
+  });
+  const { dailyDeductions: fallbackDailyDeductions } =
+    buildWeeklyBreakLunchDeductions_(weeklyFallbackEntries);
+
+  fallbackDayMetrics.forEach((dayMetrics, key) => {
+    const deduction = fallbackDailyDeductions.get(key) || 0;
     const baseProd = Math.max(0, (dayMetrics.prod || 0) - deduction);
     const baseCapped = Math.min(baseProd, safeHourPolicy.effectiveCapSeconds);
     const adjustedTotal = baseCapped;
