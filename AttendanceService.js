@@ -1468,6 +1468,13 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter, poli
       dailyAdjustedTotals.set(metrics.dateKey, (dailyAdjustedTotals.get(metrics.dateKey) || 0) + adjustedTotal);
     });
 
+    weeklyOverages.forEach((overage, user) => {
+      const compliance = userComplianceMap.get(user);
+      if (!compliance) return;
+      compliance.breakOverageDays += overage.breakOverWeeks || 0;
+      compliance.lunchOverageDays += overage.lunchOverWeeks || 0;
+    });
+
     userWeeklyTotals.forEach((totalSecs, key) => {
       if (!Number.isFinite(totalSecs)) {
         return;
