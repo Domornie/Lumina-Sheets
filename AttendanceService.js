@@ -1401,25 +1401,14 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter, poli
       });
     });
 
-    const { dailyDeductions: weeklyDailyDeductions } =
+    const { dailyDeductions: weeklyDailyDeductions, weeklyOverages } =
       buildWeeklyBreakLunchDeductions_(weeklyDayEntries);
 
     userDayMetrics.forEach(metrics => {
-      const dailyAllowanceCheck = calculateBreakLunchDeductions(metrics.break, metrics.lunch);
       const dailyDeduction = weeklyDailyDeductions.get(`${metrics.user}|${metrics.dateKey}`) || 0;
 
       if (dailyDeduction > 0) {
         violationDays++;
-      }
-
-      const complianceStats = userComplianceMap.get(metrics.user);
-      if (complianceStats) {
-        if (dailyAllowanceCheck.breakOver > 0) {
-          complianceStats.breakOverageDays += 1;
-        }
-        if (dailyAllowanceCheck.lunchOver > 0) {
-          complianceStats.lunchOverageDays += 1;
-        }
       }
 
       const baseProd = Math.max(0, metrics.prod - dailyDeduction);
@@ -1510,10 +1499,6 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter, poli
     const billableBreakdown = buildHourBreakdown(BILLABLE_DISPLAY_STATES, stateDuration);
     const nonProductiveBreakdown = buildHourBreakdown(NON_PRODUCTIVE_DISPLAY_STATES, stateDuration);
 
-    const weeksInPeriod = countWeeksInRange_(periodStart, periodEnd);
-    const breakAllowanceSecs = WEEKLY_BREAK_SECS * weeksInPeriod;
-    const lunchAllowanceSecs = WEEKLY_LUNCH_SECS * weeksInPeriod;
-
     const userCompliance = Array.from(userComplianceMap.entries()).map(([user, stats]) => {
       const weekdayBase = stats.weekdayBaseCappedSecs || 0;
       const weekendBase = stats.weekendBaseCappedSecs || 0;
@@ -1527,9 +1512,6 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter, poli
       const breakCreditTotalSecs = breakCreditWeekday + breakCreditWeekend;
       const lunchAdjustmentTotalSecs = lunchAdjustmentWeekday + lunchAdjustmentWeekend;
       const adjustedBillableSecs = Math.max(0, adjustedWeekday + adjustedWeekend);
-      const breakCreditAllowanceSecs = Math.min(stats.breakSecs || 0, breakAllowanceSecs);
-      const breakOverMinutes = Math.max(0, ((stats.breakSecs || 0) - breakAllowanceSecs) / 60);
-      const lunchOverMinutes = Math.max(0, ((stats.lunchSecs || 0) - lunchAllowanceSecs) / 60);
 
       const adherencePercent = computeAdherencePercent_({
         exceededBreakDays: stats.breakOverageDays,
@@ -1544,15 +1526,13 @@ function getAttendanceAnalyticsByPeriod(granularity, periodId, agentFilter, poli
         weekendSecs: adjustedWeekend,
         weekendLabel: formatSecsAsHhMm(adjustedWeekend),
         baseBillableSecs,
-        breakCreditSecs: breakCreditAllowanceSecs,
+        breakCreditSecs: breakCreditTotalSecs,
         lunchAdjustmentSecs: lunchAdjustmentTotalSecs,
         adjustedBillableSecs,
         breakSecs: stats.breakSecs,
         breakLabel: formatSecsAsHhMm(stats.breakSecs),
         lunchSecs: stats.lunchSecs,
         lunchLabel: formatSecsAsHhMm(stats.lunchSecs),
-        breakOverMinutes,
-        lunchOverMinutes,
         exceededLunchDays: stats.lunchOverageDays || 0,
         exceededBreakDays: stats.breakOverageDays || 0,
         exceededWeeklyCount: stats.weeklyOverages || 0,
@@ -2053,17 +2033,6 @@ function getWeekStartDate_(dateValue) {
   weekStart.setDate(weekStart.getDate() + offset);
   weekStart.setHours(0, 0, 0, 0);
   return weekStart;
-}
-
-function countWeeksInRange_(startDate, endDate) {
-  const start = getWeekStartDate_(startDate);
-  const end = getWeekStartDate_(endDate);
-  if (!start || !end) {
-    return 1;
-  }
-  const diffMs = end.getTime() - start.getTime();
-  const weekCount = Math.floor(diffMs / (7 * 24 * 60 * 60 * 1000)) + 1;
-  return Math.max(1, weekCount);
 }
 
 function buildWeeklyBreakLunchDeductions_(dayEntries) {

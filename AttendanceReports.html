@@ -4673,12 +4673,8 @@
               <tbody>`;
 
         currentPageData.forEach((user) => {
-          const breakOverMinutes = Number.isFinite(user.breakOverMinutes)
-            ? user.breakOverMinutes
-            : Math.max(0, ((user.breakSecs || 0) - BREAK_ALLOWANCE_SECS) / 60);
-          const lunchOverMinutes = Number.isFinite(user.lunchOverMinutes)
-            ? user.lunchOverMinutes
-            : Math.max(0, ((user.lunchSecs || 0) - LUNCH_ALLOWANCE_SECS) / 60);
+          const breakOverMinutes = Math.max(0, ((user.breakSecs || 0) - BREAK_ALLOWANCE_SECS) / 60);
+          const lunchOverMinutes = Math.max(0, ((user.lunchSecs || 0) - LUNCH_ALLOWANCE_SECS) / 60);
           const breakOverClass = breakOverMinutes > 0 ? 'badge bg-danger' : 'badge bg-success';
           const lunchOverClass = lunchOverMinutes > 0 ? 'badge bg-danger' : 'badge bg-success';
 
