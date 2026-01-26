@@ -2471,22 +2471,12 @@ function clientGetAllShiftSlots() {
     }
 
     const normalizedSlots = slots.map(slot => {
-      const slotId = (
-        slot.SlotId ||
-        slot.SlotID ||
-        slot['Slot ID'] ||
-        slot['Slot Id'] ||
-        slot.ID ||
-        slot.Id ||
-        slot.slotId ||
-        slot.id ||
-        ''
-      ).toString().trim() || Utilities.getUuid();
+      const slotId = (slot.SlotId || slot.ID || slot.Id || slot.slotId || '').toString().trim() || Utilities.getUuid();
       const slotName = (slot.SlotName || slot.Name || '').toString().trim();
       const campaign = (slot.Campaign || slot.Department || '').toString().trim();
       const location = (slot.Location || '').toString().trim() || 'Office';
-      const startTime = normalizeTimeTo12Hour(slot.StartTime || slot.startTime || slot['Start Time'] || slot.Start || '');
-      const endTime = normalizeTimeTo12Hour(slot.EndTime || slot.endTime || slot['End Time'] || slot.End || '');
+      const startTime = normalizeTimeTo12Hour(slot.StartTime || slot.startTime || '');
+      const endTime = normalizeTimeTo12Hour(slot.EndTime || slot.endTime || '');
       const daysArray = parseDaysCsv(slot.DaysCSV || slot.DaysOfWeek || '');
       const statusValue = (slot.Status || '').toString().trim().toUpperCase();
       const status = statusValue || (scheduleFlagToBool(slot.IsActive, true) ? 'Active' : 'Archived');
