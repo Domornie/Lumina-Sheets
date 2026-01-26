@@ -21,7 +21,7 @@
 // CONFIGURATION & CONSTANTS
 // ────────────────────────────────────────────────────────────────────────────
 
-const BILLABLE_STATES = ['Available', 'Administrative Work', 'Training', 'Meeting', 'Outbound Call', 'Break'];
+const BILLABLE_STATES = ['Available', 'Administrative Work', 'Training', 'Meeting', 'Outbound Car', 'Break'];
 const BILLABLE_STATE_LABELS = [...new Set([...BILLABLE_STATES])];
 const NON_PRODUCTIVE_STATES = ['Break', 'Lunch'];
 const BILLABLE_DISPLAY_STATES = [...BILLABLE_STATE_LABELS];
