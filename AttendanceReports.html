@@ -2283,14 +2283,6 @@
   // Client hardening helpers
   const ChannelClosedRegex = /message channel closed/i;
 
-  window.addEventListener('unhandledrejection', (event) => {
-    const reason = event && 'reason' in event ? event.reason : null;
-    const message = reason && reason.message ? String(reason.message) : String(reason || '');
-    if (ChannelClosedRegex.test(message)) {
-      event.preventDefault();
-    }
-  });
-
   function debounce(fn, wait = 250) {
     let t; 
     return function debounced(...args) { 
@@ -5034,29 +5026,25 @@
 
           let lunchAllowed, breakAllowed, displayUnit;
 
-        if (isAllAgents && uniqueAgents > 0) {
-          // For all agents, calculate based on actual users who had lunch/break that day
-          const lunchUserCount = lunchUsers.length || uniqueAgents;
-          const breakUserCount = breakUsers.length || uniqueAgents;
-          
-          lunchAllowed = 30 * lunchUserCount;
-          breakAllowed = 30 * breakUserCount;
-          displayUnit = '';
-        } else if (isAllAgents && uniqueAgents === 0) {
-          lunchAllowed = 0;
-          breakAllowed = 0;
-          displayUnit = '';
-        } else {
-          lunchAllowed = 30;
-          breakAllowed = 30;
-          displayUnit = '';
-        }
+          if (isAllAgents && uniqueAgents > 1) {
+            // For all agents, calculate based on actual users who had lunch/break that day
+            const lunchUserCount = lunchUsers.length || uniqueAgents;
+            const breakUserCount = breakUsers.length || uniqueAgents;
+            
+            lunchAllowed = 30 * lunchUserCount;
+            breakAllowed = 30 * breakUserCount;
+            displayUnit = '';
+          } else {
+            lunchAllowed = 30;
+            breakAllowed = 30;
+            displayUnit = '';
+          }
 
-        const lunchPercent = lunchAllowed > 0 ? Math.min((lunchMinutes / lunchAllowed) * 100, 150) : 0;
-        const breakPercent = breakAllowed > 0 ? Math.min((breakMinutes / breakAllowed) * 100, 150) : 0;
+          const lunchPercent = Math.min((lunchMinutes / lunchAllowed) * 100, 150);
+          const breakPercent = Math.min((breakMinutes / breakAllowed) * 100, 150);
 
-        const lunchColor = lunchAllowed === 0 ? '#9ca3af' : (lunchMinutes <= lunchAllowed ? '#10b981' : '#dc2626');
-        const breakColor = breakAllowed === 0 ? '#9ca3af' : (breakMinutes <= breakAllowed ? '#10b981' : '#dc2626');
+          const lunchColor = lunchMinutes <= lunchAllowed ? '#10b981' : '#dc2626';
+          const breakColor = breakMinutes <= breakAllowed ? '#10b981' : '#dc2626';
 
           html += `
             <div class="col-lg col-md-6 col-sm-12">
@@ -5128,7 +5116,7 @@
       try {
         if (!this.currentData || !this.currentData.filteredRows) {
           console.warn('No current data available for agent count');
-          return 0;
+          return 1;
         }
         
         if (this.currentAgent && this.currentAgent !== '') {
@@ -5145,13 +5133,13 @@
             }
           });
           
-          const count = uniqueUsers.size;
+          const count = Math.max(1, uniqueUsers.size);
           console.log('Unique agents found:', Array.from(uniqueUsers), 'Total count:', count);
           return count;
         }
       } catch (error) {
         console.error('Error getting unique agent count:', error);
-        return 0;
+        return 1;
       }
     }
 
