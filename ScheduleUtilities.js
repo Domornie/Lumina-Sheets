@@ -366,11 +366,6 @@ function parseTimeToMinutes(timeValue) {
     return NaN;
   }
 
-  if (typeof timeValue === 'number' && Number.isFinite(timeValue)) {
-    const fraction = ((timeValue % 1) + 1) % 1;
-    return Math.round(fraction * 24 * 60);
-  }
-
   if (timeValue instanceof Date) {
     return timeValue.getHours() * 60 + timeValue.getMinutes();
   }
