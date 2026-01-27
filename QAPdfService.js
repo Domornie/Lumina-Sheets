@@ -639,6 +639,13 @@ getThemeStyles(theme = 'professional') {
   .answer-yes{ background: rgba(14,103,227,.12); color: var(--brand-primary); }
   .answer-no{ background: rgba(220,38,38,.12); color: var(--danger); }
   .answer-na{ background: rgba(154,174,208,.18); color: var(--brand-slate); }
+  .answer-line{
+    display:block;
+    margin-bottom:8px;
+    font-size:11px;
+    color:var(--brand-slate);
+  }
+  .answer-line strong{ margin-right:6px; }
 
   /* Rich areas */
   .feedback-section, .notes-section{ background:#fff; border-radius:14px; padding:22px; margin-bottom:18px; border:1px solid #E2E8F0; }
@@ -770,10 +777,9 @@ getThemeStyles(theme = 'professional') {
             <thead>
               <tr>
                 <th style="width: 8%">#</th>
-                <th style="width: 50%">Question</th>
+                <th style="width: 55%">Question</th>
                 <th style="width: 10%">Weight</th>
-                <th style="width: 12%">Answer</th>
-                <th style="width: 20%">Notes</th>
+                <th style="width: 27%">Notes</th>
               </tr>
             </thead>
             <tbody>
@@ -791,8 +797,10 @@ getThemeStyles(theme = 'professional') {
             <td><strong>Q${qNum}</strong></td>
             <td>${this.escapeHtml(questionDesc)}</td>
             <td>${weight}</td>
-            <td>${this.generateAnswerChip(answer)}</td>
-            <td class="rich-content">${this.renderRichContent(notes)}</td>
+            <td class="rich-content">
+              <span class="answer-line"><strong>Answer:</strong> ${this.generateAnswerChip(answer)}</span>
+              ${this.renderRichContent(notes)}
+            </td>
           </tr>
         `;
       });
