@@ -115,8 +115,37 @@ if (typeof G.BOOKMARKS_HEADERS === 'undefined') {
   // ────────────────────────────────────────────────────────────────────────────
   if (typeof G.getIBTRSpreadsheet !== 'function') {
     G.getIBTRSpreadsheet = function getIBTRSpreadsheet() {
-      if (!G.CAMPAIGN_SPREADSHEET_ID) throw new Error('CAMPAIGN_SPREADSHEET_ID not configured');
-      return SpreadsheetApp.openById(G.CAMPAIGN_SPREADSHEET_ID);
+      var ss = null;
+
+      if (G.CAMPAIGN_SPREADSHEET_ID) {
+        try {
+          ss = SpreadsheetApp.openById(G.CAMPAIGN_SPREADSHEET_ID);
+        } catch (openError) {
+          try { console.warn('Unable to open CAMPAIGN_SPREADSHEET_ID, creating a new IBTR spreadsheet.', openError); } catch (_) {}
+        }
+      }
+
+      if (!ss) {
+        var created = SpreadsheetApp.create('IBTR Campaign Data');
+        ss = created;
+        try {
+          G.CAMPAIGN_SPREADSHEET_ID = created.getId();
+          PropertiesService.getScriptProperties().setProperty('CAMPAIGN_SPREADSHEET_ID', created.getId());
+        } catch (persistError) {
+          try { console.warn('Unable to persist CAMPAIGN_SPREADSHEET_ID to Script Properties.', persistError); } catch (_) {}
+        }
+      }
+
+      try {
+        var existingSheets = (ss && typeof ss.getSheets === 'function') ? ss.getSheets() : [];
+        if (!existingSheets || !existingSheets.length) {
+          ss.insertSheet('IBTR_Main');
+        }
+      } catch (sheetError) {
+        try { console.warn('Unable to ensure at least one IBTR sheet exists.', sheetError); } catch (_) {}
+      }
+
+      return ss;
     };
   }
   if (typeof G.getIdentitySpreadsheet !== 'function') {
@@ -500,6 +529,34 @@ if (typeof G.BOOKMARKS_HEADERS === 'undefined') {
         ensureCampaignSheetWithHeaders(G.ATTENDANCE_PREFIX, G.ATTENDANCE_HEADERS);
         ensureCampaignSheetWithHeaders(G.COACHING_SHEET, G.COACHING_HEADERS);
         ensureCampaignSheetWithHeaders(G.BOOKMARKS_SHEET, G.BOOKMARKS_HEADERS);
+
+        var requiredNames = {};
+        requiredNames[String(G.CALL_REPORT)] = true;
+        requiredNames[String(G.DIRTY_ROWS)] = true;
+        requiredNames[String(G.ATTENDANCE)] = true;
+        requiredNames[String(G.QA_RECORDS)] = true;
+        requiredNames[String(G.QA_COLLAB_RECORDS)] = true;
+        requiredNames[String(G.ESCALATIONS_SHEET)] = true;
+        requiredNames[String(G.ATTENDANCE_PREFIX)] = true;
+        requiredNames[String(G.COACHING_SHEET)] = true;
+        requiredNames[String(G.BOOKMARKS_SHEET)] = true;
+        requiredNames.ErrorLog = true;
+        requiredNames.PerfLog = true;
+
+        var ss = getIBTRSpreadsheet();
+        var sheets = ss.getSheets();
+        var removable = [];
+        for (var i = 0; i < sheets.length; i++) {
+          var existingName = sheets[i] && typeof sheets[i].getName === 'function' ? sheets[i].getName() : '';
+          if (existingName && !requiredNames[existingName]) {
+            removable.push(sheets[i]);
+          }
+        }
+
+        for (var r = 0; r < removable.length; r++) {
+          if (ss.getSheets().length <= 1) break;
+          ss.deleteSheet(removable[r]);
+        }
         
         // Initialize coaching system with enhanced headers
         initializeCoachingSystem();

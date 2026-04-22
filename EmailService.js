@@ -23,7 +23,7 @@ const EMAIL_CONFIG = {
   fromName: 'Lumina HQ',
   fromEmail: 'lumina@vlbpo.com',
   supportEmail: 'it@vlbpo.com',
-  baseUrl: 'https://script.google.com/a/macros/vlbpo.com/s/AKfycbxeQ0AnupBHM71M6co3LVc5NPrxTblRXLd6AuTOpxMs2rMehF9dBSkGykIcLGHROywQ/exec',
+  baseUrl: 'https://script.google.com/a/macros/vlbpo.com/s/AKfycbzPZ42F5pHwgr2GLo2Qs8RYwsuV4NmABoASb2nthFDzM5TQhimWDwh9NjhPjlUH9DB1Lg/exec',
   logoUrl: 'https://res.cloudinary.com/dr8qd3xfc/image/upload/v1754763514/vlbpo/lumina/2_eb1h4a.png',
   datalogLogoUrl: 'https://res.cloudinary.com/dr8qd3xfc/image/upload/v1754763514/vlbpo/lumina/2_eb1h4a.png',
 
