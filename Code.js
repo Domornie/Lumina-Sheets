@@ -20,7 +20,7 @@ var GLOBAL_SCOPE = (typeof GLOBAL_SCOPE !== 'undefined') ? GLOBAL_SCOPE
       ? this
       : {};
 
-const SCRIPT_URL = 'https://script.google.com/a/macros/vlbpo.com/s/AKfycbxeQ0AnupBHM71M6co3LVc5NPrxTblRXLd6AuTOpxMs2rMehF9dBSkGykIcLGHROywQ/exec';
+const SCRIPT_URL = 'https://script.google.com/a/macros/vlbpo.com/s/AKfycbzPZ42F5pHwgr2GLo2Qs8RYwsuV4NmABoASb2nthFDzM5TQhimWDwh9NjhPjlUH9DB1Lg/exec';
 const FAVICON_URL = 'https://res.cloudinary.com/dr8qd3xfc/image/upload/v1754763514/vlbpo/lumina/3_dgitcx.png';
 
 /** Toggle for debug traces */
@@ -2450,159 +2450,21 @@ function doGet(e) {
     // Initialize system
     // initializeSystem();
 
-    // Handle special actions
-    if (e.parameter.page === 'proxy') {
-      console.log('doGet: Handling proxy request');
-      return serveEnhancedProxy(e);
-    }
+    // QA-only open script mode: ignore non-QA actions/routes.
 
-    if (e.parameter.action === 'logout') {
-      console.log('doGet: Handling logout action');
-      return handleLogoutRequest(e);
-    }
-
-    if (e.parameter.action === 'confirmEmail' && e.parameter.token) {
-      const confirmationToken = e.parameter.token;
-      const success = confirmEmail(confirmationToken);
-      if (success) {
-        const redirectUrl = `${baseUrl}?page=setpassword&token=${encodeURIComponent(confirmationToken)}`;
-        return HtmlService
-          .createHtmlOutput(`<script>window.location.href = "${redirectUrl}";</script>`)
-          .setTitle('Redirecting...');
-      } else {
-        const tpl = HtmlService.createTemplateFromFile('EmailConfirmed');
-        tpl.baseUrl = baseUrl;
-        tpl.success = false;
-        tpl.token = confirmationToken;
-        return tpl.evaluate()
-          .setTitle('Email Confirmation')
-          .addMetaTag('viewport', 'width=device-width,initial-scale=1');
-      }
-    }
-
-    // Handle public pages
+    // Open-script mode (no login/authentication): keep only IBTR QA pages.
     const rawPageParam = (typeof e.parameter.page === 'string') ? e.parameter.page : '';
-    const page = rawPageParam.toLowerCase();
+    const page = (rawPageParam || 'ibtrqualityreports').toLowerCase();
+    const campaignId = e.parameter.campaign || '';
+    const user = {
+      ID: 'open-access',
+      UserName: 'Open Access',
+      FullName: 'Open Access',
+      Email: '',
+      CampaignID: campaignId,
+      roleNames: ['admin']
+    };
 
-    if (!page) {
-      return handlePublicPage('landing', e, baseUrl);
-    }
-
-    if (page === 'login') {
-      try {
-        const existingSession = authenticateUser(e);
-        if (existingSession && existingSession.ID) {
-          return redirectToLanding(existingSession);
-        }
-      } catch (sessionError) {
-        console.warn('doGet: session probe failed for login/default route', sessionError);
-      }
-
-      return renderLoginPage(e);
-    }
-
-    // Handle other public pages
-    const publicPages = [
-      'landing',
-      'landing-about',
-      'about',
-      'landing-capabilities',
-      'capabilities',
-      'landing-story',
-      'landingstory',
-      'stories',
-      'customer-stories',
-      'landing-capabilities-detail',
-      'landingcapabilitiesdetail',
-      'capabilities-detail',
-      'setpassword',
-      'resetpassword',
-      'resend-verification',
-      'resendverification',
-      'forgotpassword',
-      'forgot-password',
-      'emailconfirmed',
-      'email-confirmed',
-      'terms-of-service',
-      'termsofservice',
-      'terms',
-      'privacy-policy',
-      'privacypolicy',
-      'privacy',
-      'lumina-user-guide',
-      'lumina-hq-user-guide',
-      'user-guide'
-    ];
-
-    if (publicPages.includes(page)) {
-      return handlePublicPage(page, e, baseUrl);
-    }
-
-    // Protected pages - require authentication
-    const auth = requireAuth(e);
-    if (auth.getContent) {
-      return auth; // Login or access denied page
-    }
-
-    const user = auth;
-
-    // Handle password reset requirement
-    if (_truthy(user.ResetRequired)) {
-      const tpl = HtmlService.createTemplateFromFile('ChangePassword');
-      tpl.baseUrl = baseUrl;
-      tpl.scriptUrl = SCRIPT_URL;
-      tpl.sessionToken = user.sessionToken || '';
-      tpl.forcePasswordChange = true;
-      return tpl.evaluate()
-        .setTitle('Change Password')
-        .addMetaTag('viewport', 'width=device-width,initial-scale=1')
-        .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
-    }
-
-    const campaignId = e.parameter.campaign || user.CampaignID || '';
-
-    // Handle CSV exports
-    if (page === "callreports" && e.parameter.action === "exportCallCsv") {
-      const gran = e.parameter.granularity || "Week";
-      const period = e.parameter.period || weekStringFromDate(new Date());
-      const agent = e.parameter.agent || "";
-      const csv = exportCallAnalyticsCsv(gran, period, agent);
-      return ContentService.createTextOutput(csv)
-        .setMimeType(ContentService.MimeType.CSV)
-        .downloadAsFile(`callAnalytics_${period}.csv`);
-    }
-
-    if (page === "callreports" && e.parameter.action === "exportCallCsat") {
-      const gran = e.parameter.granularity || "Week";
-      const period = e.parameter.period || weekStringFromDate(new Date());
-      const agent = e.parameter.agent || "";
-      const csv = exportCallCsatCsv(gran, period, agent);
-      return ContentService.createTextOutput(csv)
-        .setMimeType(ContentService.MimeType.CSV)
-        .downloadAsFile(`callCsat_${period}.csv`);
-    }
-
-    if (page === "callreports" && e.parameter.action === "exportCallMatrix") {
-      const gran = e.parameter.granularity || "Week";
-      const period = e.parameter.period || weekStringFromDate(new Date());
-      const agent = e.parameter.agent || "";
-      const csv = exportCallPerformanceMatrixCsv(gran, period, agent);
-      return ContentService.createTextOutput(csv)
-        .setMimeType(ContentService.MimeType.CSV)
-        .downloadAsFile(`callMatrix_${period}.csv`);
-    }
-
-    if (page === 'attendancereports' && e.parameter.action === 'exportCsv') {
-      const gran = e.parameter.granularity || 'Week';
-      const period = e.parameter.period || weekStringFromDate(new Date());
-      const agent = e.parameter.agent || '';
-      const csv = exportAttendanceCsv(gran, period, agent, {});
-      return ContentService.createTextOutput(csv)
-        .setMimeType(ContentService.MimeType.CSV)
-        .downloadAsFile(`attendance_${period}.csv`);
-    }
-
-    // Route to appropriate page
     return routeToPage(page, e, baseUrl, user, campaignId);
 
   } catch (error) {
@@ -2620,6 +2482,27 @@ function routeToPage(page, e, baseUrl, user, campaignIdFromCaller) {
   try {
     const raw = String(page || '').trim();
     const canonicalPage = canonicalizePageKey(raw);
+    const qaOnlyPages = {
+      qualityform: true,
+      qualityview: true,
+      qualitylist: true,
+      ibtrqualityreports: true,
+      qadashboard: true,
+      unifiedqadashboard: true,
+      independencequality: true,
+      independenceqadashboard: true,
+      qacollablist: true,
+      qacollabview: true,
+      qacollabform: true,
+      qualitycollabform: true,
+      creditsuiteqa: true,
+      groundingqaform: true
+    };
+    if (!qaOnlyPages[canonicalPage]) {
+      return HtmlService
+        .createHtmlOutput(`<script>window.location.href = "${baseUrl}?page=ibtrqualityreports";</script>`)
+        .setTitle('Redirecting to QA Dashboard...');
+    }
     const resolvedProfileId = resolveProfileIdentifierFromRequest(e, raw);
     const hasProfileParameter = resolvedProfileId !== '';
 
