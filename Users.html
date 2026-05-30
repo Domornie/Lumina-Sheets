@@ -3439,36 +3439,68 @@
       return '';
     }
 
-    try {
-      const current = new URL(window.location.href);
-      current.searchParams.set('page', 'userprofile');
-      current.searchParams.set('profileId', normalizedIdentifier);
-      current.hash = '';
-      return current.toString();
-    } catch (_) {
-      const baseCandidates = [];
-      if (typeof SCRIPT_URL !== 'undefined' && SCRIPT_URL) {
-        baseCandidates.push(SCRIPT_URL);
-      }
-      if (typeof BASE_URL !== 'undefined' && BASE_URL) {
-        baseCandidates.push(BASE_URL);
+    const panelPattern = /usercodeapppanel/i;
+
+    const fixPanelUrl = (value) => {
+      if (!value) {
+        return '';
       }
 
-      let base = '';
-      for (let i = 0; i < baseCandidates.length; i++) {
-        const candidate = normalizeProfileIdentifier(baseCandidates[i]);
-        if (!candidate) continue;
-        base = stripPageParam(candidate);
-        if (base) break;
+      const text = String(value).trim();
+      if (!text) {
+        return '';
       }
 
-      if (!base) {
-        return `?page=userprofile&profileId=${encodeURIComponent(normalizedIdentifier)}`;
+      if (!panelPattern.test(text)) {
+        return text;
       }
 
-      const separator = base.indexOf('?') === -1 ? '?' : (/[?&]$/.test(base) ? '' : '&');
-      return `${base}${separator}page=userprofile&profileId=${encodeURIComponent(normalizedIdentifier)}`;
+      return text.replace(/\/userCodeAppPanel.*$/i, '/exec');
+    };
+
+    const normalizeBaseUrl = (value) => {
+      const fixed = fixPanelUrl(value);
+      if (!fixed) {
+        return '';
+      }
+
+      return stripPageParam(fixed);
+    };
+
+    const baseCandidates = [];
+
+    if (typeof NAVIGATION_BASE_URL !== 'undefined' && NAVIGATION_BASE_URL) {
+      baseCandidates.push(NAVIGATION_BASE_URL);
     }
+    if (typeof BASE_URL !== 'undefined' && BASE_URL) {
+      baseCandidates.push(BASE_URL);
+    }
+    if (typeof SCRIPT_URL !== 'undefined' && SCRIPT_URL) {
+      baseCandidates.push(SCRIPT_URL);
+    }
+
+    try {
+      baseCandidates.push(new URL(window.location.href).toString());
+    } catch (_) {
+      // Ignore parsing issues and fall back to declared bases below.
+    }
+
+    let base = '';
+    for (let i = 0; i < baseCandidates.length; i++) {
+      const candidate = normalizeBaseUrl(baseCandidates[i]);
+      if (!candidate) {
+        continue;
+      }
+      base = candidate;
+      break;
+    }
+
+    if (!base) {
+      return `?page=userprofile&profileId=${encodeURIComponent(normalizedIdentifier)}`;
+    }
+
+    const separator = base.indexOf('?') === -1 ? '?' : (/[?&]$/.test(base) ? '' : '&');
+    return `${base}${separator}page=userprofile&profileId=${encodeURIComponent(normalizedIdentifier)}`;
   }
 
   function stripPageParam(url) {
